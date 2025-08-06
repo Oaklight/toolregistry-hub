@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toolregistry-hub"
+version = "0.1.0"
+authors = [{ name = "Oaklight", email = "oaklight@gmx.com" }]
+description = "ToolRegistry Hub: A collection of commonly used tools for LLM function calling"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "loguru>=0.7.3",
+    "httpx>=0.28.1",
+    "fake-useragent>=2.0.0",  # 2.0.0 is the max version compatible with Python 3.8
+    "beautifulsoup4>=4.13.4",
+    "pydantic>=2.7.2,<3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "python-dotenv>=1.0.1",
+    "pyright>=1.1.402",
+    "build>=1.2.2.post1",
+    "twine>=6.1.0",
+    "pytest>=7.0.0",
+]
+
+[project.urls]
+Documentation = "https://toolregistry.readthedocs.io"
+Repository = "https://github.com/Oaklight/toolregistry-hub"
+Issues = "https://github.com/Oaklight/toolregistry-hub/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"toolregistry.hub" = ["py.typed"]
