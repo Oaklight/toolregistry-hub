@@ -1,91 +1,93 @@
-.PHONY: test test-all test-unit test-integration test-fast test-coverage test-verbose clean install-deps lint format help
+# Makefile for toolregistry-hub package
+
+# Variables
+PACKAGE_NAME := toolregistry-hub
+DIST_DIR := dist
 
 # Default target
-help:
-	@echo "Available targets:"
-	@echo "  test           - Run all tests"
-	@echo "  test-unit      - Run unit tests only"
-	@echo "  test-integration - Run integration tests only"
-	@echo "  test-fast      - Run fast tests (exclude slow ones)"
-	@echo "  test-coverage  - Run tests with coverage report"
-	@echo "  test-verbose   - Run tests in verbose mode"
-	@echo "  test-calculator - Run calculator tests"
-	@echo "  test-fileops   - Run file operations tests"
-	@echo "  test-filesystem - Run filesystem tests"
-	@echo "  test-unitconverter - Run unit converter tests"
-	@echo "  test-utils     - Run utils tests"
-	@echo "  test-websearch - Run websearch tests"
-	@echo "  lint           - Run code linting"
-	@echo "  format         - Format code"
-	@echo "  install-deps   - Install test dependencies"
-	@echo "  clean          - Clean test artifacts"
+all: build
 
-# Test targets
-test:
-	python run_tests.py
+# Build the package
+build: clean
+	@echo "Building $(PACKAGE_NAME) package..."
+	python -m build
+	@echo "Build complete. Distribution files are in $(DIST_DIR)/"
 
-test-all: test
+# Push the package to PyPI
+push:
+	@echo "Pushing $(PACKAGE_NAME) to PyPI..."
+	twine upload $(DIST_DIR)/*
+	@echo "Package pushed to PyPI."
 
-test-unit:
-	python run_tests.py --unit
+# Push the package to Test PyPI
+push-test:
+	@echo "Pushing $(PACKAGE_NAME) to Test PyPI..."
+	twine upload --repository testpypi $(DIST_DIR)/*
+	@echo "Package pushed to Test PyPI."
 
-test-integration:
-	python run_tests.py --integration
+# Release workflow
+release: clean build push clean
+	@echo "Release completed successfully!"
 
-test-fast:
-	python run_tests.py --fast
+# Test release workflow
+release-test: clean build push-test clean
+	@echo "Test release completed successfully!"
 
-test-coverage:
-	python run_tests.py --coverage
+# Install development dependencies
+install-dev:
+	@echo "Installing development dependencies..."
+	pip install -e ".[dev]"
+	@echo "Development dependencies installed."
 
-test-verbose:
-	python run_tests.py --verbose
-
-# Module-specific tests
-test-calculator:
-	python run_tests.py --module calculator
-
-test-fileops:
-	python run_tests.py --module fileops
-
-test-filesystem:
-	python run_tests.py --module filesystem
-
-test-unitconverter:
-	python run_tests.py --module unitconverter
-
-test-utils:
-	python run_tests.py --module utils
-
-test-websearch:
-	python run_tests.py --module websearch
-
-test-websearch-google:
-	python run_tests.py --module websearch-google
-
-test-websearch-bing:
-	python run_tests.py --module websearch-bing
-
-test-websearch-searxng:
-	python run_tests.py --module websearch-searxng
-
-# Code quality targets
-lint:
-	python run_tests.py --lint
-
-format:
-	python run_tests.py --format
-
-# Setup targets
-install-deps:
-	python run_tests.py --install-deps
-
-# Cleanup targets
+# Clean up build and distribution files
 clean:
-	rm -rf htmlcov/
-	rm -rf .coverage
-	rm -rf .pytest_cache/
-	rm -rf __pycache__/
-	find . -type d -name "__pycache__" -exec rm -rf {} +
+	@echo "Cleaning up build and distribution files..."
+	rm -rf $(DIST_DIR) *.egg-info build/
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pyo" -delete
+	@echo "Cleanup complete."
+
+# Check package integrity
+check:
+	@echo "Checking package..."
+	python -m build --check
+	twine check $(DIST_DIR)/*
+	@echo "Package check completed."
+
+# Show package info
+info:
+	@echo "Package: $(PACKAGE_NAME)"
+	@echo "Version: $$(python -c 'import tomllib; print(tomllib.load(open(\"pyproject.toml\", \"rb\"))[\"project\"][\"version\"])')"
+	@echo "Distribution directory: $(DIST_DIR)"
+
+# Run tests (delegates to tests/Makefile)
+test:
+	@echo "Running tests..."
+	$(MAKE) -C tests test
+	@echo "Tests completed."
+
+# Help target
+help:
+	@echo "Available targets:"
+	@echo ""
+	@echo "Build and release:"
+	@echo "  build         - Build the package"
+	@echo "  push          - Push to PyPI"
+	@echo "  push-test     - Push to Test PyPI"
+	@echo "  release       - Full release workflow (build + push)"
+	@echo "  release-test  - Test release workflow (build + push-test)"
+	@echo ""
+	@echo "Development:"
+	@echo "  install-dev   - Install development dependencies"
+	@echo "  test          - Run tests (delegates to tests/Makefile)"
+	@echo ""
+	@echo "Utilities:"
+	@echo "  clean         - Clean up build and distribution files"
+	@echo "  check         - Check package integrity"
+	@echo "  info          - Show package information"
+	@echo "  help          - Show this help message"
+	@echo ""
+	@echo "For testing options, run: make -C tests help"
+
+.PHONY: all build push push-test release release-test install-dev clean check info test help
