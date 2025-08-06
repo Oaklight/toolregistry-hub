@@ -1,26 +1,44 @@
-"""ToolRegistry Hub - Alternative import name for toolregistry.hub.
+"""ToolRegistry Hub module providing commonly used tools.
 
-This module provides an alternative import path for toolregistry.hub,
-allowing users to import using either:
-- from toolregistry.hub import Calculator
-- from toolregistry_hub import Calculator
+This module serves as a central hub for various utility tools including:
+- Calculator: Basic arithmetic operations
+- FileSystem: File system operations
+- FileOps: File manipulation functions
+- UnitConverter: Unit conversion functions
 
-All functionality is re-exported from toolregistry.hub for compatibility.
+Example:
+    >>> from toolregistry.hub import Calculator, FileSystem, FileOps
+    >>> calc = Calculator()
+    >>> result = calc.add(1, 2)
+    >>> fs = FileSystem()
+    >>> exists = fs.exists('/path/to/file')
+    >>> ops = FileOps()
+    >>> ops.replace_lines('file.txt', 5, 'new content')
 """
 
-# Safe re-export: only import what's explicitly defined in __all__
-import toolregistry.hub as _hub
-import toolregistry as _root
+from .calculator import BaseCalculator, Calculator
+from .file_ops import FileOps
+from .filesystem import FileSystem
+from .unit_converter import UnitConverter
+from .websearch import (
+    Fetch,
+    WebSearchBing,
+    WebSearchGeneral,
+    WebSearchGoogle,
+    WebSearchSearXNG,
+)
 
-# Get the __all__ list from the original module
-__all__ = _hub.__all__
+__all__ = [
+    "BaseCalculator",
+    "Calculator",
+    "FileSystem",
+    "FileOps",
+    "UnitConverter",
+    # WebSearch related tools
+    "Fetch",
+    "WebSearchGeneral",
+    "WebSearchBing",
+    "WebSearchGoogle",
+    "WebSearchSearXNG",
+]
 
-# Dynamically re-export only the items in __all__
-for _name in __all__:
-    globals()[_name] = getattr(_hub, _name)
-
-# Import version from the root toolregistry module
-__version__ = _root.__version__
-
-# Clean up temporary variables
-del _hub, _root, _name
