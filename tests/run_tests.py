@@ -36,7 +36,7 @@ def run_all_tests(verbose=False, coverage=False):
 
     if coverage:
         cmd.extend(
-            ["--cov=src/toolregistry", "--cov-report=html", "--cov-report=term-missing"]
+            ["--cov=../src/toolregistry", "--cov-report=html", "--cov-report=term-missing"]
         )
 
     return run_command(cmd, "Running all tests")
@@ -65,15 +65,15 @@ def run_integration_tests(verbose=False):
 def run_specific_module_tests(module, verbose=False):
     """Run tests for a specific module."""
     module_map = {
-        "calculator": "tests/test_calculator.py",
-        "fileops": "tests/test_file_ops.py",
-        "filesystem": "tests/test_filesystem.py",
-        "unitconverter": "tests/test_unit_converter.py",
-        "utils": "tests/test_utils.py",
-        "websearch": "tests/websearch/",
-        "websearch-google": "tests/websearch/test_websearch_google.py",
-        "websearch-bing": "tests/websearch/test_websearch_bing.py",
-        "websearch-searxng": "tests/websearch/test_websearch_searxng.py",
+        "calculator": "test_calculator.py",
+        "fileops": "test_file_ops.py",
+        "filesystem": "test_filesystem.py",
+        "unitconverter": "test_unit_converter.py",
+        "utils": "test_utils.py",
+        "websearch": "websearch/",
+        "websearch-google": "websearch/test_websearch_google.py",
+        "websearch-bing": "websearch/test_websearch_bing.py",
+        "websearch-searxng": "websearch/test_websearch_searxng.py",
     }
 
     if module not in module_map:
@@ -108,13 +108,13 @@ def run_with_coverage():
 def lint_code():
     """Run code linting."""
     commands = [
-        (["python", "-m", "flake8", "src/", "tests/"], "Running flake8 linting"),
+        (["python", "-m", "flake8", "../src/", "."], "Running flake8 linting"),
         (
-            ["python", "-m", "black", "--check", "src/", "tests/"],
+            ["python", "-m", "black", "--check", "../src/", "."],
             "Checking code formatting with black",
         ),
         (
-            ["python", "-m", "isort", "--check-only", "src/", "tests/"],
+            ["python", "-m", "isort", "--check-only", "../src/", "."],
             "Checking import sorting with isort",
         ),
     ]
@@ -130,8 +130,8 @@ def lint_code():
 def format_code():
     """Format code using black and isort."""
     commands = [
-        (["python", "-m", "black", "src/", "tests/"], "Formatting code with black"),
-        (["python", "-m", "isort", "src/", "tests/"], "Sorting imports with isort"),
+        (["python", "-m", "black", "../src/", "."], "Formatting code with black"),
+        (["python", "-m", "isort", "../src/", "."], "Sorting imports with isort"),
     ]
 
     all_passed = True
@@ -224,10 +224,10 @@ Examples:
 
     args = parser.parse_args()
 
-    # Check if we're in the right directory
-    if not Path("src/toolregistry").exists():
-        print("❌ Error: This script should be run from the project root directory")
-        print("   Make sure you're in the directory containing 'src/toolregistry'")
+    # Check if we're in the right directory (now running from tests directory)
+    if not Path("../src/toolregistry").exists():
+        print("❌ Error: This script should be run from the tests directory")
+        print("   Make sure you're in the tests directory of the project")
         sys.exit(1)
 
     success = True
