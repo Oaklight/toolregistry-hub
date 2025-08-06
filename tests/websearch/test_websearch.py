@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from toolregistry.hub.websearch.websearch import (
+from toolregistry_hub.websearch.websearch import (
     WebSearchGeneral,
     _WebSearchEntryGeneral,
 )
@@ -69,7 +69,7 @@ class TestWebSearchGeneral:
         assert results[0]["url"] == "https://example1.com"
         assert results[1]["title"] == "Result 2"
 
-    @patch("toolregistry.hub.websearch.websearch.Fetch.fetch_content")
+    @patch("toolregistry_hub.websearch.websearch.Fetch.fetch_content")
     def test_fetch_webpage_content_success(self, mock_fetch):
         """Test successful webpage content fetching."""
         mock_fetch.return_value = "Fetched webpage content"
@@ -87,7 +87,7 @@ class TestWebSearchGeneral:
 
         mock_fetch.assert_called_once()
 
-    @patch("toolregistry.hub.websearch.websearch.Fetch.fetch_content")
+    @patch("toolregistry_hub.websearch.websearch.Fetch.fetch_content")
     def test_fetch_webpage_content_failure(self, mock_fetch):
         """Test webpage content fetching failure."""
         mock_fetch.side_effect = Exception("Network error")
@@ -111,7 +111,7 @@ class TestWebSearchGeneral:
         with pytest.raises(KeyError):
             WebSearchGeneral._fetch_webpage_content(entry)
 
-    @patch("toolregistry.hub.websearch.websearch.Fetch.fetch_content")
+    @patch("toolregistry_hub.websearch.websearch.Fetch.fetch_content")
     def test_fetch_webpage_content_with_timeout(self, mock_fetch):
         """Test webpage content fetching with custom timeout."""
         mock_fetch.return_value = "Content"
@@ -127,7 +127,7 @@ class TestWebSearchGeneral:
             "https://example.com", timeout=30, proxy=None
         )
 
-    @patch("toolregistry.hub.websearch.websearch.Fetch.fetch_content")
+    @patch("toolregistry_hub.websearch.websearch.Fetch.fetch_content")
     def test_fetch_webpage_content_with_proxy(self, mock_fetch):
         """Test webpage content fetching with proxy."""
         mock_fetch.return_value = "Content"
@@ -150,7 +150,7 @@ class TestWebSearchGeneral:
         entry = _WebSearchEntryGeneral(url="https://example.com", content="Content")
 
         with patch(
-            "toolregistry.hub.websearch.websearch.Fetch.fetch_content"
+            "toolregistry_hub.websearch.websearch.Fetch.fetch_content"
         ) as mock_fetch:
             mock_fetch.return_value = "Fetched content"
             result = WebSearchGeneral._fetch_webpage_content(entry)
@@ -164,7 +164,7 @@ class TestWebSearchGeneral:
         entry = _WebSearchEntryGeneral(url="https://example.com", title="Title")
 
         with patch(
-            "toolregistry.hub.websearch.websearch.Fetch.fetch_content"
+            "toolregistry_hub.websearch.websearch.Fetch.fetch_content"
         ) as mock_fetch:
             mock_fetch.return_value = "Fetched content"
             result = WebSearchGeneral._fetch_webpage_content(entry)

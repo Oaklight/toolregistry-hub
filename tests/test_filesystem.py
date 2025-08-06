@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from toolregistry.hub.filesystem import FileSystem
+from toolregistry_hub.filesystem import FileSystem
 
 
 class TestFileSystem:

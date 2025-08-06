@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock, patch, MagicMock
 import httpx
-from toolregistry.hub.websearch.websearch_searxng import WebSearchSearXNG, _WebSearchEntrySearXNG
+from toolregistry_hub.websearch.websearch_searxng import WebSearchSearXNG, _WebSearchEntrySearXNG
 
 
 class TestWebSearchEntrySearXNG:
@@ -57,9 +57,9 @@ class TestWebSearchSearXNG:
         
         assert searcher.searxng_base_url == "http://localhost:8080/search"
     
-    @patch('toolregistry.hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng')
-    @patch('toolregistry.hub.websearch.websearch_searxng.filter_search_results')
-    @patch('toolregistry.hub.websearch.websearch_searxng.ProcessPoolExecutor')
+    @patch('toolregistry_hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng')
+    @patch('toolregistry_hub.websearch.websearch_searxng.filter_search_results')
+    @patch('toolregistry_hub.websearch.websearch_searxng.ProcessPoolExecutor')
     def test_search_success(self, mock_executor, mock_filter, mock_meta_search):
         """Test successful search operation."""
         # Mock meta search results
@@ -101,7 +101,7 @@ class TestWebSearchSearXNG:
         assert results[0]["url"] == "https://example1.com"
         assert results[1]["title"] == "Title 2"
     
-    @patch('toolregistry.hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng')
+    @patch('toolregistry_hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng')
     def test_search_with_threshold_filtering(self, mock_meta_search):
         """Test search with score threshold filtering."""
         # Mock results with different scores
@@ -111,8 +111,8 @@ class TestWebSearchSearXNG:
             {"url": "https://medium-score.com", "title": "Medium Score", "content": "Content", "score": 0.5}
         ]
         
-        with patch('toolregistry.hub.websearch.websearch_searxng.filter_search_results') as mock_filter:
-            with patch('toolregistry.hub.websearch.websearch_searxng.ProcessPoolExecutor'):
+        with patch('toolregistry_hub.websearch.websearch_searxng.filter_search_results') as mock_filter:
+            with patch('toolregistry_hub.websearch.websearch_searxng.ProcessPoolExecutor'):
                 mock_filter.return_value = []  # Empty after filtering
                 
                 searcher = WebSearchSearXNG("http://localhost:8080")
@@ -124,7 +124,7 @@ class TestWebSearchSearXNG:
                 scores = [item.get("score", 0) for item in filtered_input]
                 assert all(score >= 0.3 for score in scores)
     
-    @patch('toolregistry.hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng')
+    @patch('toolregistry_hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng')
     def test_search_request_error(self, mock_meta_search):
         """Test search with request error."""
         mock_meta_search.side_effect = httpx.RequestError("Network error")
@@ -134,7 +134,7 @@ class TestWebSearchSearXNG:
         
         assert results == []
     
-    @patch('toolregistry.hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng')
+    @patch('toolregistry_hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng')
     def test_search_http_error(self, mock_meta_search):
         """Test search with HTTP error."""
         mock_response = Mock()
@@ -150,7 +150,7 @@ class TestWebSearchSearXNG:
         
         assert results == []
     
-    @patch('toolregistry.hub.websearch.websearch_searxng.httpx.get')
+    @patch('toolregistry_hub.websearch.websearch_searxng.httpx.get')
     def test_meta_search_searxng_success(self, mock_get):
         """Test _meta_search_searxng method with successful response."""
         # Mock response
@@ -191,7 +191,7 @@ class TestWebSearchSearXNG:
         assert call_args[1]["params"]["q"] == "test query"
         assert call_args[1]["params"]["format"] == "json"
     
-    @patch('toolregistry.hub.websearch.websearch_searxng.httpx.get')
+    @patch('toolregistry_hub.websearch.websearch_searxng.httpx.get')
     def test_meta_search_searxng_with_params(self, mock_get):
         """Test _meta_search_searxng method with custom parameters."""
         mock_response = Mock()
@@ -210,7 +210,7 @@ class TestWebSearchSearXNG:
         assert call_args[1]["proxy"] == "http://proxy.example.com:8080"
         assert call_args[1]["timeout"] == 30
     
-    @patch('toolregistry.hub.websearch.websearch_searxng.httpx.get')
+    @patch('toolregistry_hub.websearch.websearch_searxng.httpx.get')
     def test_meta_search_searxng_empty_results(self, mock_get):
         """Test _meta_search_searxng method with empty results."""
         mock_response = Mock()
@@ -221,7 +221,7 @@ class TestWebSearchSearXNG:
         
         assert results == []
     
-    @patch('toolregistry.hub.websearch.websearch_searxng.httpx.get')
+    @patch('toolregistry_hub.websearch.websearch_searxng.httpx.get')
     def test_meta_search_searxng_no_results_key(self, mock_get):
         """Test _meta_search_searxng method when response has no 'results' key."""
         mock_response = Mock()
@@ -232,7 +232,7 @@ class TestWebSearchSearXNG:
         
         assert results == []
     
-    @patch('toolregistry.hub.websearch.websearch_searxng.httpx.get')
+    @patch('toolregistry_hub.websearch.websearch_searxng.httpx.get')
     def test_meta_search_searxng_result_limiting(self, mock_get):
         """Test that results are limited to num_results."""
         # Create more results than requested
@@ -252,8 +252,8 @@ class TestWebSearchSearXNG:
         assert results[0]["score"] == 1.0
         assert results[4]["score"] == 0.6
     
-    @patch('toolregistry.hub.websearch.websearch_searxng.filter_search_results')
-    @patch('toolregistry.hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng')
+    @patch('toolregistry_hub.websearch.websearch_searxng.filter_search_results')
+    @patch('toolregistry_hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng')
     def test_search_with_custom_timeout(self, mock_meta_search, mock_filter):
         """Test search with custom timeout."""
         mock_meta_search.return_value = []
@@ -266,8 +266,8 @@ class TestWebSearchSearXNG:
         call_args = mock_meta_search.call_args
         assert call_args[1]['timeout'] == 30
     
-    @patch('toolregistry.hub.websearch.websearch_searxng.filter_search_results')
-    @patch('toolregistry.hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng')
+    @patch('toolregistry_hub.websearch.websearch_searxng.filter_search_results')
+    @patch('toolregistry_hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng')
     def test_search_result_limiting(self, mock_meta_search, mock_filter):
         """Test that search results are limited to requested number."""
         # Mock more results than requested
@@ -281,7 +281,7 @@ class TestWebSearchSearXNG:
             for i in range(10)
         ]
         
-        with patch('toolregistry.hub.websearch.websearch_searxng.ProcessPoolExecutor') as mock_executor:
+        with patch('toolregistry_hub.websearch.websearch_searxng.ProcessPoolExecutor') as mock_executor:
             mock_executor_instance = MagicMock()
             mock_executor.return_value.__enter__.return_value = mock_executor_instance
             mock_executor_instance.map.return_value = [
@@ -303,7 +303,7 @@ class TestWebSearchSearXNGIntegration:
         searcher = WebSearchSearXNG("http://localhost:8080")
         
         # This should not raise any errors
-        with patch('toolregistry.hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng') as mock_search:
+        with patch('toolregistry_hub.websearch.websearch_searxng.WebSearchSearXNG._meta_search_searxng') as mock_search:
             mock_search.return_value = []
             
             searcher.search(
@@ -317,12 +317,12 @@ class TestWebSearchSearXNGIntegration:
     
     def test_alias_compatibility(self):
         """Test that WebSearchSearxng alias works."""
-        from toolregistry.hub.websearch.websearch_searxng import WebSearchSearxng
+        from toolregistry_hub.websearch.websearch_searxng import WebSearchSearxng
         
         # Should be the same class
         assert WebSearchSearxng is WebSearchSearXNG
     
-    @patch('toolregistry.hub.websearch.websearch_searxng.httpx.get')
+    @patch('toolregistry_hub.websearch.websearch_searxng.httpx.get')
     def test_score_sorting(self, mock_get):
         """Test that results are properly sorted by score."""
         # Mock results with mixed scores

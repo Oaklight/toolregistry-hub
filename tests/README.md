@@ -168,7 +168,7 @@ pytest -m "not slow"
 示例：
 ```python
 import pytest
-from toolregistry.hub.new_tool import NewTool
+from toolregistry_hub.new_tool import NewTool
 
 class TestNewTool:
     """Test cases for NewTool class."""

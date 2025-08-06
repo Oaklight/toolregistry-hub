@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock, patch, MagicMock
 import httpx
-from toolregistry.hub.websearch.websearch_google import WebSearchGoogle, _WebSearchEntryGoogle
+from toolregistry_hub.websearch.websearch_google import WebSearchGoogle, _WebSearchEntryGoogle
 
 
 class TestWebSearchEntryGoogle:
@@ -51,9 +51,9 @@ class TestWebSearchGoogle:
         
         assert searcher.google_base_url == "https://www.google.com/search"
     
-    @patch('toolregistry.hub.websearch.websearch_google.WebSearchGoogle._meta_search_google')
-    @patch('toolregistry.hub.websearch.websearch_google.filter_search_results')
-    @patch('toolregistry.hub.websearch.websearch_google.ProcessPoolExecutor')
+    @patch('toolregistry_hub.websearch.websearch_google.WebSearchGoogle._meta_search_google')
+    @patch('toolregistry_hub.websearch.websearch_google.filter_search_results')
+    @patch('toolregistry_hub.websearch.websearch_google.ProcessPoolExecutor')
     def test_search_success(self, mock_executor, mock_filter, mock_meta_search):
         """Test successful search operation."""
         # Mock meta search results
@@ -86,7 +86,7 @@ class TestWebSearchGoogle:
         mock_meta_search.assert_called_once()
         mock_filter.assert_called_once()
     
-    @patch('toolregistry.hub.websearch.websearch_google.WebSearchGoogle._meta_search_google')
+    @patch('toolregistry_hub.websearch.websearch_google.WebSearchGoogle._meta_search_google')
     def test_search_request_error(self, mock_meta_search):
         """Test search with request error."""
         mock_meta_search.side_effect = httpx.RequestError("Network error")
@@ -96,7 +96,7 @@ class TestWebSearchGoogle:
         
         assert results == []
     
-    @patch('toolregistry.hub.websearch.websearch_google.WebSearchGoogle._meta_search_google')
+    @patch('toolregistry_hub.websearch.websearch_google.WebSearchGoogle._meta_search_google')
     def test_search_http_error(self, mock_meta_search):
         """Test search with HTTP error."""
         mock_response = Mock()
@@ -112,7 +112,7 @@ class TestWebSearchGoogle:
         
         assert results == []
     
-    @patch('toolregistry.hub.websearch.websearch_google.httpx.Client')
+    @patch('toolregistry_hub.websearch.websearch_google.httpx.Client')
     def test_meta_search_google(self, mock_client):
         """Test _meta_search_google method."""
         # Mock response
@@ -228,8 +228,8 @@ class TestWebSearchGoogle:
         # Should only return 1 result due to max_results limit
         assert len(results) == 1
     
-    @patch('toolregistry.hub.websearch.websearch_google.filter_search_results')
-    @patch('toolregistry.hub.websearch.websearch_google.WebSearchGoogle._meta_search_google')
+    @patch('toolregistry_hub.websearch.websearch_google.filter_search_results')
+    @patch('toolregistry_hub.websearch.websearch_google.WebSearchGoogle._meta_search_google')
     def test_search_with_custom_timeout(self, mock_meta_search, mock_filter):
         """Test search with custom timeout."""
         mock_meta_search.return_value = []
@@ -242,8 +242,8 @@ class TestWebSearchGoogle:
         call_args = mock_meta_search.call_args
         assert call_args[1]['timeout'] == 30
     
-    @patch('toolregistry.hub.websearch.websearch_google.filter_search_results')
-    @patch('toolregistry.hub.websearch.websearch_google.WebSearchGoogle._meta_search_google')
+    @patch('toolregistry_hub.websearch.websearch_google.filter_search_results')
+    @patch('toolregistry_hub.websearch.websearch_google.WebSearchGoogle._meta_search_google')
     def test_search_result_limiting(self, mock_meta_search, mock_filter):
         """Test that search results are limited to requested number."""
         # Mock more results than requested
@@ -257,7 +257,7 @@ class TestWebSearchGoogle:
             for i in range(10)
         ]
         
-        with patch('toolregistry.hub.websearch.websearch_google.ProcessPoolExecutor') as mock_executor:
+        with patch('toolregistry_hub.websearch.websearch_google.ProcessPoolExecutor') as mock_executor:
             mock_executor_instance = MagicMock()
             mock_executor.return_value.__enter__.return_value = mock_executor_instance
             mock_executor_instance.map.return_value = [
@@ -279,7 +279,7 @@ class TestWebSearchGoogleIntegration:
         searcher = WebSearchGoogle()
         
         # This should not raise any errors
-        with patch('toolregistry.hub.websearch.websearch_google.WebSearchGoogle._meta_search_google') as mock_search:
+        with patch('toolregistry_hub.websearch.websearch_google.WebSearchGoogle._meta_search_google') as mock_search:
             mock_search.return_value = []
             
             searcher.search(

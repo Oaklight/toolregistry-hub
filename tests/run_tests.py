@@ -36,7 +36,7 @@ def run_all_tests(verbose=False, coverage=False):
 
     if coverage:
         cmd.extend(
-            ["--cov=../src/toolregistry", "--cov-report=html", "--cov-report=term-missing"]
+            ["--cov=../src/toolregistry_hub", "--cov-report=html", "--cov-report=term-missing"]
         )
 
     return run_command(cmd, "Running all tests")
@@ -225,7 +225,7 @@ Examples:
     args = parser.parse_args()
 
     # Check if we're in the right directory (now running from tests directory)
-    if not Path("../src/toolregistry").exists():
+    if not Path("../src/toolregistry_hub").exists():
         print("❌ Error: This script should be run from the tests directory")
         print("   Make sure you're in the tests directory of the project")
         sys.exit(1)

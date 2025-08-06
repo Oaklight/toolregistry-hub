@@ -5,7 +5,7 @@ import tempfile
 
 import pytest
 
-from toolregistry.hub.file_ops import FileOps
+from toolregistry_hub.file_ops import FileOps
 
 
 class TestFileOps:

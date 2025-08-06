@@ -1,7 +1,7 @@
 """Unit tests for UnitConverter module."""
 
 import pytest
-from toolregistry.hub.unit_converter import UnitConverter
+from toolregistry_hub.unit_converter import UnitConverter
 
 
 class TestUnitConverter:

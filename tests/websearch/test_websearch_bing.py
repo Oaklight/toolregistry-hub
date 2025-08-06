@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock, patch, MagicMock
 import httpx
-from toolregistry.hub.websearch.websearch_bing import WebSearchBing, _WebSearchEntryBing
+from toolregistry_hub.websearch.websearch_bing import WebSearchBing, _WebSearchEntryBing
 
 
 class TestWebSearchEntryBing:
@@ -94,9 +94,9 @@ class TestWebSearchBing:
         
         assert result == bing_url
     
-    @patch('toolregistry.hub.websearch.websearch_bing.WebSearchBing._meta_search_bing')
-    @patch('toolregistry.hub.websearch.websearch_bing.filter_search_results')
-    @patch('toolregistry.hub.websearch.websearch_bing.ProcessPoolExecutor')
+    @patch('toolregistry_hub.websearch.websearch_bing.WebSearchBing._meta_search_bing')
+    @patch('toolregistry_hub.websearch.websearch_bing.filter_search_results')
+    @patch('toolregistry_hub.websearch.websearch_bing.ProcessPoolExecutor')
     def test_search_success(self, mock_executor, mock_filter, mock_meta_search):
         """Test successful search operation."""
         # Mock meta search results
@@ -126,7 +126,7 @@ class TestWebSearchBing:
         assert results[0]["url"] == "https://example1.com"
         assert results[1]["title"] == "Title 2"
     
-    @patch('toolregistry.hub.websearch.websearch_bing.WebSearchBing._meta_search_bing')
+    @patch('toolregistry_hub.websearch.websearch_bing.WebSearchBing._meta_search_bing')
     def test_search_request_error(self, mock_meta_search):
         """Test search with request error."""
         mock_meta_search.side_effect = httpx.RequestError("Network error")
@@ -136,7 +136,7 @@ class TestWebSearchBing:
         
         assert results == []
     
-    @patch('toolregistry.hub.websearch.websearch_bing.WebSearchBing._meta_search_bing')
+    @patch('toolregistry_hub.websearch.websearch_bing.WebSearchBing._meta_search_bing')
     def test_search_http_error(self, mock_meta_search):
         """Test search with HTTP error."""
         mock_response = Mock()
@@ -152,7 +152,7 @@ class TestWebSearchBing:
         
         assert results == []
     
-    @patch('toolregistry.hub.websearch.websearch_bing.httpx.Client')
+    @patch('toolregistry_hub.websearch.websearch_bing.httpx.Client')
     def test_meta_search_bing(self, mock_client):
         """Test _meta_search_bing method."""
         # Mock response
@@ -291,8 +291,8 @@ class TestWebSearchBing:
         # Should only return 1 result due to max_results limit
         assert len(results) == 1
     
-    @patch('toolregistry.hub.websearch.websearch_bing.filter_search_results')
-    @patch('toolregistry.hub.websearch.websearch_bing.WebSearchBing._meta_search_bing')
+    @patch('toolregistry_hub.websearch.websearch_bing.filter_search_results')
+    @patch('toolregistry_hub.websearch.websearch_bing.WebSearchBing._meta_search_bing')
     def test_search_with_custom_timeout(self, mock_meta_search, mock_filter):
         """Test search with custom timeout."""
         mock_meta_search.return_value = []
@@ -314,7 +314,7 @@ class TestWebSearchBingIntegration:
         searcher = WebSearchBing()
         
         # This should not raise any errors
-        with patch('toolregistry.hub.websearch.websearch_bing.WebSearchBing._meta_search_bing') as mock_search:
+        with patch('toolregistry_hub.websearch.websearch_bing.WebSearchBing._meta_search_bing') as mock_search:
             mock_search.return_value = []
             
             searcher.search(

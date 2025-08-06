@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from toolregistry.hub.calculator import BaseCalculator, Calculator
+from toolregistry_hub.calculator import BaseCalculator, Calculator
 
 
 class TestBaseCalculator:
