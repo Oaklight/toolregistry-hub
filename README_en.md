@@ -2,11 +2,9 @@
 
 [中文](README_zh.md) | [English](README_en.md)
 
+> **⚠️ Important Notice**: This is a **standalone package** that can be used independently. This package was separated from `toolregistry` at version `0.4.14` and shares version format for historical continuity only. `toolregistry-hub` has **no dependencies** on `toolregistry` and is completely independent and self-sufficient. It can be used on its own or as a submodule for the main `toolregistry` package.
+
 A comprehensive collection of tools designed for LLM function calling, extracted from the main ToolRegistry package to provide focused utility modules.
-
-## Version Information
-
-This package was separated from `toolregistry`, with an initial version of `0.4.14` to maintain version continuity with the original `toolregistry` package.
 
 ## Overview
 

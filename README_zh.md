@@ -2,11 +2,9 @@
 
 [English](README_en.md) | [中文](README_zh.md)
 
+> **⚠️ 重要说明**：这是一个**独立的包**，可以完全独立使用。此包从 `toolregistry` 0.4.14 版本分离出来，版本格式共享仅出于历史连续性。`toolregistry-hub` **不依赖** `toolregistry`，完全独立且自给自足。可以独立使用或作为主 `toolregistry` 包的子模块。
+
 一个为 LLM 函数调用设计的全面工具集合，从主 ToolRegistry 包中提取出来，提供专注的实用模块。
-
-## 版本说明
-
-此包是从 `toolregistry` 分离出来的，初始版本号为 `0.4.14`，以保持与原包 `toolregistry` 的版本号连续性。
 
 ## 概述
 
