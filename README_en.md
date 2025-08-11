@@ -1,5 +1,7 @@
 # ToolRegistry Hub
 
+[中文](README_zh.md) | [English](README_en.md)
+
 A comprehensive collection of tools designed for LLM function calling, extracted from the main ToolRegistry package to provide focused utility modules.
 
 ## Version Information
@@ -11,8 +13,10 @@ This package was separated from `toolregistry`, with an initial version of `0.4.
 ToolRegistry Hub provides a robust set of utility tools specifically designed for LLM agents and function calling scenarios:
 
 - **Calculator**: Advanced mathematical operations and expression evaluation with support for complex functions
+- **DateTime**: Simple current date and time utilities in ISO format
 - **FileSystem**: Comprehensive file and directory operations with enhanced error handling
 - **FileOps**: Atomic file operations with diff/patch support for safe file manipulations
+- **ThinkTool**: Simple reasoning and brainstorming tool for structured thought processes
 - **UnitConverter**: Extensive unit conversion utilities covering various measurement systems
 - **WebSearch**: Multi-engine web search capabilities with content fetching and filtering options
 
@@ -21,32 +25,57 @@ ToolRegistry Hub provides a robust set of utility tools specifically designed fo
 ### Calculator
 
 - Evaluate mathematical expressions with standard and custom functions
-- Support for trigonometric, logarithmic, and statistical operations
-- Error handling for invalid expressions
+- Support for basic arithmetic, power/roots, logarithmic/exponential functions
+- Statistical operations (min, max, sum, average, median, mode, standard deviation)
+- Combinatorics functions (factorial, gcd, lcm)
+- Distance calculations and financial computations
+- Expression evaluation with safe function execution
+
+### DateTime
+
+- Get current UTC time in ISO 8601 format
+- Simple and focused datetime functionality for LLM tools
+- Static methods for easy integration
 
 ### FileSystem
 
 - Create, read, update, and delete files and directories
 - Path manipulation and validation
-- Recursive directory operations
+- Directory listing with depth control and hidden file filtering
+- File metadata operations (size, modification time)
+- Cross-platform compatibility
 
 ### FileOps
 
 - Atomic file operations to prevent data corruption
-- Diff and patch functionality for file comparisons and updates
-- Safe file writing with backup options
+- Unified diff and git-style conflict resolution
+- File search with regex patterns and context
+- Safe file writing with temporary file handling
+- Path validation utilities
+
+### ThinkTool
+
+- Simple thought logging for reasoning and brainstorming
+- Designed for Claude's thinking processes
+- Stateless operation without external changes
 
 ### UnitConverter
 
-- Convert between various units of measurement (length, weight, volume, temperature, etc.)
-- Support for custom unit definitions
-- Batch conversion capabilities
+- Convert between various units of measurement:
+  - Temperature (Celsius, Fahrenheit, Kelvin)
+  - Length (meters, feet, centimeters, inches)
+  - Weight (kilograms, pounds)
+  - Time (seconds, minutes)
+  - Area, speed, data storage, pressure, power, energy
+  - Electrical, magnetic, radiation, and light intensity units
+- Comprehensive coverage of measurement systems
 
 ### WebSearch
 
 - Multiple search engine support (Google, Bing, SearXNG)
 - Content fetching and extraction from web pages
 - Result filtering and ranking options
+- Unified interface across different search providers
 
 ## Installation
 
@@ -57,17 +86,30 @@ pip install toolregistry-hub
 ## Quick Start
 
 ```python
-from toolregistry_hub import Calculator, FileSystem, WebSearchGoogle
+from toolregistry_hub import Calculator, DateTime, FileSystem, ThinkTool, UnitConverter, WebSearchGoogle
 
 # Mathematical calculations
 calc = Calculator()
 result = calc.evaluate("sqrt(16) + pow(2, 3)")
 print(f"Calculation result: {result}")
 
+# Get current time
+current_time = DateTime.now()
+print(f"Current time: {current_time}")
+
 # File operations
 fs = FileSystem()
 fs.create_dir("my_project")
-fs.create_file("my_project/config.txt", content="Configuration data")
+fs.create_file("my_project/config.txt")
+
+# Unit conversions
+converter = UnitConverter()
+fahrenheit = converter.celsius_to_fahrenheit(25)
+print(f"25°C = {fahrenheit}°F")
+
+# Structured thinking
+thought = ThinkTool.think("Analyzing the best approach for this problem...")
+print(f"Thought process: {thought}")
 
 # Web search
 search = WebSearchGoogle()
