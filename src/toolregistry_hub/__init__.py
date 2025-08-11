@@ -17,6 +17,7 @@ Example:
 """
 
 from .calculator import BaseCalculator, Calculator
+from .datetime_utils import DateTime
 from .file_ops import FileOps
 from .filesystem import FileSystem
 from .unit_converter import UnitConverter
@@ -31,6 +32,7 @@ from .websearch import (
 __all__ = [
     "BaseCalculator",
     "Calculator",
+    "DateTime",
     "FileSystem",
     "FileOps",
     "UnitConverter",
