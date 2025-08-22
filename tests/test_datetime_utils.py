@@ -48,3 +48,50 @@ class TestDateTime:
         
         # Second time should be same or later than first
         assert parsed2 >= parsed1
+
+    def test_now_with_timezone(self):
+        """Test now() method with timezone parameter."""
+        # Test with valid timezone
+        result = DateTime.now("America/New_York")
+        
+        # Should be a string
+        assert isinstance(result, str)
+        
+        # Should match ISO 8601 format with timezone offset
+        iso_pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$'
+        assert re.match(iso_pattern, result), f"Result '{result}' doesn't match ISO format with timezone"
+        
+        # Should be parseable as datetime
+        parsed = datetime.fromisoformat(result)
+        assert parsed.tzinfo is not None
+
+    def test_now_with_utc_timezone(self):
+        """Test now() method with UTC timezone explicitly."""
+        result = DateTime.now("UTC")
+        
+        # Should be a string
+        assert isinstance(result, str)
+        
+        # Should match ISO 8601 format with UTC timezone
+        iso_pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$'
+        assert re.match(iso_pattern, result), f"Result '{result}' doesn't match UTC ISO format"
+
+    def test_now_with_invalid_timezone(self):
+        """Test now() method raises ValueError for invalid timezone."""
+        with pytest.raises(ValueError, match="Invalid timezone"):
+            DateTime.now("Invalid/Timezone")
+
+    def test_now_backwards_compatibility(self):
+        """Test that now() without arguments still works as before."""
+        result = DateTime.now()
+        
+        # Should be a string
+        assert isinstance(result, str)
+        
+        # Should match ISO 8601 format with UTC timezone
+        iso_pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$'
+        assert re.match(iso_pattern, result), f"Result '{result}' doesn't match ISO format"
+        
+        # Should be parseable as datetime
+        parsed = datetime.fromisoformat(result)
+        assert parsed.tzinfo is not None
