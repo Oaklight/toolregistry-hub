@@ -185,7 +185,7 @@ class TestDateTime:
     def test_convert_time_fractional_hours(self):
         """Test convert_time with timezones that have fractional hour offsets."""
         # Test with a timezone that has fractional hour offset (e.g., Nepal UTC+5:45)
-        result = DateTime.convert_timezone("UTC", "12:00", "Asia/Kathmandu")
+        result = DateTime.convert_timezone("12:00", "UTC", "Asia/Kathmandu")
         
         # Should handle fractional hours properly
         assert isinstance(result["time_difference"], str)
