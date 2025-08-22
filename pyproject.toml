@@ -19,9 +19,10 @@ classifiers = [
 dependencies = [
     "loguru>=0.7.3",
     "httpx>=0.28.1",
-    "fake-useragent>=2.0.0",  # 2.0.0 is the max version compatible with Python 3.8
+    "fake-useragent>=2.0.0",                             # 2.0.0 is the max version compatible with Python 3.8
     "beautifulsoup4>=4.13.4",
     "pydantic>=2.7.2,<3.0.0",
+    "backports.zoneinfo>=0.2.1; python_version < '3.9'", # for Python 3.8 support
 ]
 
 [project.optional-dependencies]
