@@ -1,12 +1,6 @@
-"""DateTime utilities module providing current date and time information.
+"""DateTime utilities for current time and timezone conversion.
 
-This module provides simple datetime functionality for LLM function calling,
-focusing on current time retrieval in ISO format with timezone support.
-
-Example:
-    >>> from toolregistry_hub import DateTime
-    >>> current_time = DateTime.now()  # UTC time
-    >>> current_time = DateTime.now("America/New_York")  # New York time
+Provides simple datetime functionality for LLM tools with timezone support.
 """
 
 import sys
@@ -21,25 +15,21 @@ else:
 
 
 class DateTime:
-    """Provides current date and time information for LLM function calling.
-
-    This class offers simple datetime functionality focused on providing
-    current time information in ISO format, which is ideal for LLM tools
-    that need to know the current date and time.
-
+    """DateTime utilities for LLM tools with timezone support.
+    
     All methods are static and can be used without instantiation.
     """
 
     @staticmethod
     def now(timezone_name: Optional[str] = None) -> str:
         """Get current time in ISO 8601 format.
-
+        
         Args:
-            timezone_name: Optional timezone name (e.g., "Asia/Shanghai", "America/Chicago").
-                          If None, returns UTC time.
-
+            timezone_name: Optional IANA timezone name (e.g., "Asia/Shanghai").
+                          Defaults to UTC if None.
+                          
         Raises:
-            ValueError: If the timezone name is invalid.
+            ValueError: If timezone is invalid.
         """
         if timezone_name:
             try:
@@ -56,23 +46,18 @@ class DateTime:
     def convert_timezone(
         time_str: str, source_timezone: str, target_timezone: str
     ) -> Dict[str, Any]:
-        """Convert time between timezones.
-
+        """Convert time between IANA timezones.
+        
         Args:
-            time_str: Time to convert in 24-hour format (HH:MM)
-            source_timezone: IANA timezone name of the source time (e.g., "America/New_York")
-            target_timezone: IANA timezone name of the target time (e.g., "Asia/Tokyo")
-
+            time_str: Time in 24-hour format (HH:MM)
+            source_timezone: Source timezone (e.g., "America/Chicago")
+            target_timezone: Target timezone (e.g., "Asia/Shanghai")
+            
         Returns:
-            Dictionary containing:
-                - source_time: ISO formatted time in source timezone
-                - target_time: ISO formatted time in target timezone
-                - time_difference: String representation of time difference (e.g., "+9.0h")
-                - source_timezone: Original source timezone
-                - target_timezone: Original target timezone
-
+            Dict with source_time, target_time, time_difference, and timezone info.
+            
         Raises:
-            ValueError: If timezone names are invalid or time format is incorrect.
+            ValueError: If timezone or time format is invalid.
         """
         # Validate and get timezone objects
         try:
