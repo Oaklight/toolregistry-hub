@@ -26,6 +26,6 @@ class DateTime:
         """Get current UTC time in ISO 8601 format.
         
         Returns:
-            str: Current UTC time in ISO 8601 format (e.g., "2025-08-11T07:07:34.700Z").
+            str: Current UTC time in ISO 8601 format without microseconds (e.g., "2025-08-11T07:07:34Z").
         """
-        return datetime.now(timezone.utc).isoformat()
+        return datetime.now(timezone.utc).replace(microsecond=0).isoformat()

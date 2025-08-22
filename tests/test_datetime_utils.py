@@ -18,8 +18,8 @@ class TestDateTime:
         # Should be a string
         assert isinstance(result, str)
         
-        # Should match ISO 8601 format with timezone info
-        iso_pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+\+00:00$'
+        # Should match ISO 8601 format with timezone info (without microseconds)
+        iso_pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$'
         assert re.match(iso_pattern, result), f"Result '{result}' doesn't match ISO format"
         
         # Should be parseable as datetime
@@ -36,9 +36,9 @@ class TestDateTime:
         time1 = DateTime.now()
         time2 = DateTime.now()
         
-        # Should be different strings (unless called at exact same microsecond)
+        # Should be different strings (unless called at exact same second)
         # But both should be valid ISO format
-        iso_pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+\+00:00$'
+        iso_pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$'
         assert re.match(iso_pattern, time1)
         assert re.match(iso_pattern, time2)
         
