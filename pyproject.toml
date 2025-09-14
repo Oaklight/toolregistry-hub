@@ -26,6 +26,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+browser = [
+    "playwright>=1.40.0",
+]
 dev = [
     "python-dotenv>=1.0.1",
     "pyright>=1.1.402",
