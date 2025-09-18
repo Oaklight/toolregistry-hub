@@ -1,24 +1,27 @@
-"""Simple browser-based web content fetching using Playwright and Firefox."""
+"""Enhanced browser-based web content fetching using Playwright and Chromium with stealth mode."""
 
 import asyncio
 from typing import Any, Dict, Optional
 
 from loguru import logger
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
+from playwright_stealth import stealth_async
 
 
 class BrowserFetch:
-    """Simple browser-based web content fetcher using headless Firefox."""
+    """Enhanced browser-based web content fetcher using Chromium with anti-bot detection."""
 
-    def __init__(self, headless: bool = True, timeout: float = 30.0):
+    def __init__(self, headless: bool = True, timeout: float = 30.0, proxy: Optional[str] = None):
         """Initialize the browser fetcher.
 
         Args:
             headless: Whether to run browser in headless mode
             timeout: Default timeout for operations in seconds
+            proxy: Optional proxy server URL
         """
         self.headless = headless
         self.timeout = timeout
+        self.proxy = proxy
         self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
 
@@ -32,49 +35,51 @@ class BrowserFetch:
         await self.close()
 
     async def start(self):
-        """Start the browser instance."""
+        """Start the browser instance with enhanced anti-detection."""
         try:
             self.playwright = await async_playwright().start()
 
-            # Launch Firefox with anti-detection settings
-            self.browser = await self.playwright.firefox.launch(
+            # Launch Chromium with enhanced anti-detection settings (based on blog post)
+            launch_args = [
+                "--disable-blink-features=AutomationControlled",
+                "--disable-dev-shm-usage",
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-web-security",
+                "--disable-features=VizDisplayCompositor",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+                "--disable-field-trial-config",
+                "--disable-back-forward-cache",
+                "--disable-ipc-flooding-protection",
+            ]
+
+            if self.proxy:
+                launch_args.append(f"--proxy-server={self.proxy}")
+
+            self.browser = await self.playwright.chromium.launch(
                 headless=self.headless,
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-dev-shm-usage",
-                    "--no-sandbox",
-                    "--disable-setuid-sandbox",
-                ],
-                firefox_user_prefs={
-                    "dom.webdriver.enabled": False,
-                    "useAutomationExtension": False,
-                    "general.platform.override": "Linux x86_64",
-                    "general.useragent.override": "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
+                args=launch_args,
+            )
+
+            # Create context with realistic settings
+            self.context = await self.browser.new_context(
+                viewport={"width": 1366, "height": 768},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                locale="en-US",
+                timezone_id="America/New_York",
+                extra_http_headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "DNT": "1",
+                    "Connection": "keep-alive",
+                    "Upgrade-Insecure-Requests": "1",
                 },
             )
 
-            # Create a new context with additional stealth settings
-            self.context = await self.browser.new_context(
-                viewport={"width": 1366, "height": 768},
-                user_agent="Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
-            )
-
-            # Add stealth script to all pages
-            await self.context.add_init_script("""
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined,
-                });
-                
-                Object.defineProperty(navigator, 'languages', {
-                    get: () => ['en-US', 'en'],
-                });
-                
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [1, 2, 3, 4, 5],
-                });
-            """)
-
-            logger.info("Browser started successfully")
+            logger.info("Browser started successfully with Chromium and stealth mode")
 
         except Exception as e:
             logger.error(f"Failed to start browser: {e}")
@@ -114,8 +119,16 @@ class BrowserFetch:
         try:
             page = await self.context.new_page()
 
-            # Navigate to the URL
+            # Apply stealth mode to the page
+            await stealth_async(page)
+
+            # Navigate to the URL with human-like behavior
             logger.info(f"Navigating to: {url}")
+            
+            # Add random delay before navigation (simulate human behavior)
+            import random
+            await page.wait_for_timeout(random.randint(1000, 3000))
+            
             response = await page.goto(
                 url, timeout=self.timeout * 1000, wait_until="networkidle"
             )
@@ -132,8 +145,8 @@ class BrowserFetch:
                     wait_for_selector, timeout=self.timeout * 1000
                 )
 
-            # Wait a bit for dynamic content to load
-            await page.wait_for_timeout(2000)
+            # Wait with random delay for dynamic content to load (human-like)
+            await page.wait_for_timeout(random.randint(2000, 4000))
 
             # Extract content using JavaScript
             content_data = await page.evaluate("""
@@ -236,6 +249,7 @@ async def fetch_url_content(
     headless: bool = True,
     timeout: float = 30.0,
     wait_for_selector: Optional[str] = None,
+    proxy: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Convenience function to fetch content from a single URL.
 
@@ -244,9 +258,10 @@ async def fetch_url_content(
         headless: Whether to run browser in headless mode
         timeout: Timeout for operations in seconds
         wait_for_selector: Optional CSS selector to wait for
+        proxy: Optional proxy server URL
 
     Returns:
         Dictionary containing the extracted content and metadata
     """
-    async with BrowserFetch(headless=headless, timeout=timeout) as fetcher:
+    async with BrowserFetch(headless=headless, timeout=timeout, proxy=proxy) as fetcher:
         return await fetcher.fetch_content(url, wait_for_selector)

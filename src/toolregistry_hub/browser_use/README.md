@@ -1,13 +1,14 @@
 # Browser-Based Web Content Fetching
 
-This module provides a simple browser-based web content fetching system using headless Firefox and Playwright.
+This module provides an enhanced browser-based web content fetching system using Chromium and Playwright with advanced anti-bot detection.
 
 ## Features
 
-- **Headless Firefox**: Uses real Firefox browser for JavaScript execution
-- **Anti-Detection**: Built-in stealth measures to avoid bot detection
+- **Chromium with Stealth**: Uses Chromium browser with playwright-stealth for enhanced bot detection avoidance
+- **Advanced Anti-Detection**: Multiple layers of bot detection prevention based on industry best practices
+- **Human Behavior Simulation**: Random delays and realistic browsing patterns
 - **Content Extraction**: Intelligent content extraction with metadata
-- **Quality Assessment**: Automatic content quality scoring
+- **Proxy Support**: Optional proxy server support
 - **Async Support**: Full async/await support for concurrent operations
 
 ## Quick Start
@@ -111,12 +112,15 @@ Utility class for content processing and extraction.
 
 ### Browser Settings
 
-The browser is configured with anti-detection measures:
+The browser is configured with advanced anti-detection measures:
 
-- Custom user agent
-- Disabled webdriver flags
-- Stealth JavaScript injection
-- Standard viewport size (1366x768)
+- **Chromium Engine**: More reliable than Firefox for avoiding detection
+- **Playwright-Stealth**: Automatic stealth mode injection
+- **Custom User Agent**: Realistic Windows Chrome user agent
+- **Enhanced Headers**: Complete HTTP header simulation
+- **Disabled Automation Flags**: Multiple automation detection bypasses
+- **Human Behavior**: Random delays and realistic browsing patterns
+- **Standard Viewport**: 1366x768 resolution for consistency
 
 ### Timeout Settings
 
@@ -147,13 +151,20 @@ Add to your `pyproject.toml`:
 ```toml
 [tool.poetry.dependencies]
 playwright = "^1.40.0"
+playwright-stealth = "^1.0.6"
 loguru = "^0.7.0"
 ```
 
 Install Playwright browsers:
 
 ```bash
-playwright install firefox
+playwright install chromium
+```
+
+Or install all browsers:
+
+```bash
+playwright install
 ```
 
 ## Performance Considerations
