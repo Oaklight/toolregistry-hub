@@ -38,28 +38,44 @@ from .search_result import SearchResult
 class BraveSearch:
     """Simple Brave Search API client for web search functionality."""
 
-    def __init__(self, api_key: Optional[str] = None, rate_limit_delay: float = 1.0):
+    def __init__(self, api_keys: Optional[str] = None, rate_limit_delay: float = 1.0):
         """Initialize Brave search client.
 
         Args:
-            api_key: Brave API key. If not provided, will try to get from BRAVE_API_KEY env var.
+            api_keys: Comma-separated Brave API keys. If not provided, will try to get from BRAVE_API_KEY env var.
             rate_limit_delay: Delay between requests in seconds to avoid rate limits.
         """
-        self.api_key = api_key or os.getenv("BRAVE_API_KEY")
-        if not self.api_key:
+        api_keys_str = api_keys or os.getenv("BRAVE_API_KEY")
+        if not api_keys_str:
             raise ValueError(
-                "Brave API key is required. Set BRAVE_API_KEY environment variable "
-                "or pass api_key parameter."
+                "Brave API keys are required. Set BRAVE_API_KEY environment variable "
+                "or pass api_keys parameter (comma-separated)."
             )
 
+        # Parse and validate API keys
+        self.api_keys = [key.strip() for key in api_keys_str.split(",") if key.strip()]
+        if not self.api_keys:
+            raise ValueError("No valid API keys provided")
+
         self.base_url = "https://api.search.brave.com/res/v1"
-        self.headers = {
-            "Accept": "application/json",
-            "Accept-Encoding": "gzip",
-            "X-Subscription-Token": self.api_key,
-        }
         self.rate_limit_delay = rate_limit_delay
         self.last_request_time = 0
+        self._current_key_index = 0
+
+    def _get_next_api_key(self) -> str:
+        """Round-robin API key selection."""
+        key = self.api_keys[self._current_key_index]
+        self._current_key_index = (self._current_key_index + 1) % len(self.api_keys)
+        return key
+
+    @property
+    def headers(self) -> dict:
+        """Generate headers with the current API key."""
+        return {
+            "Accept": "application/json",
+            "Accept-Encoding": "gzip",
+            "X-Subscription-Token": self._get_next_api_key(),
+        }
 
     def _search(
         self,
