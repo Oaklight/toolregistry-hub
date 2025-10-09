@@ -1,27 +1,14 @@
 import random
 import re
-import sys
 import unicodedata
 from typing import Literal, Optional
 
 import httpx
+import ua_generator
 from bs4 import BeautifulSoup
 from loguru import logger
 
 TIMEOUT_DEFAULT = 10.0
-
-if sys.version_info < (3, 9):
-    HEADERS_DEFAULT = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
-        "Accept": "*/*",
-    }
-else:
-    from fake_useragent import UserAgent
-
-    HEADERS_DEFAULT = {
-        "User-Agent": (UserAgent(platforms="mobile").random),
-        "Accept": "*/*",
-    }
 
 
 def _get_lynx_useragent():
@@ -176,9 +163,11 @@ def _get_content_with_bs4(
         str: Parsed text content of the webpage.
     """
     try:
+        ua = ua_generator.generate(browser=["chrome", "edge"])  # type: ignore
+        ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
         response = httpx.get(
             url,
-            headers=HEADERS_DEFAULT,
+            headers=ua.headers.get(),
             timeout=timeout,
             follow_redirects=True,
             proxy=proxy,

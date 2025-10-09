@@ -6,12 +6,14 @@ from typing import Dict, Generator, List, Optional, Set
 from urllib.parse import unquote  # to decode the url
 
 import httpx
+import ua_generator
 from bs4 import BeautifulSoup, Tag
 from loguru import logger
 
 from .filter import filter_search_results
-from .headers import HEADERS_LYNX, TIMEOUT_DEFAULT
 from .websearch import WebSearchGeneral
+
+TIMEOUT_DEFAULT = 10.0
 
 
 class _WebSearchEntryGoogle(dict):
@@ -132,9 +134,11 @@ class WebSearchGoogle(WebSearchGeneral):
         fetched_links: Set[str] = set()
 
         # Create a persistent client with connection pooling
+        ua = ua_generator.generate(device="mobile")  # type: ignore
+        ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
         with httpx.Client(
             proxy=proxy,
-            headers=HEADERS_LYNX,
+            headers=ua.headers.get(),
             timeout=timeout,
             follow_redirects=True,
         ) as client:
@@ -230,4 +234,3 @@ if __name__ == "__main__":
     results = searcher.search("巴塞罗那今日天气", 5)
     for result in results:
         print(json.dumps(result, indent=2, ensure_ascii=False))
-

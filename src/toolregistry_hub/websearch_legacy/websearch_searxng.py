@@ -4,11 +4,13 @@ from functools import partial
 from typing import Dict, List, Optional
 
 import httpx
+import ua_generator
 from loguru import logger
 
 from .filter import filter_search_results
-from .headers import HEADERS_DEFAULT, TIMEOUT_DEFAULT
 from .websearch import WebSearchGeneral
+
+TIMEOUT_DEFAULT = 10.0
 
 
 class _WebSearchEntrySearXNG(dict):
@@ -139,13 +141,15 @@ class WebSearchSearXNG(WebSearchGeneral):
         """
         Perform a search using SearXNG and return the results.
         """
+        ua = ua_generator.generate(browser=["chrome", "edge"])  # type: ignore
+        ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
         response = httpx.get(
             searxng_base_url,
             params={
                 "q": query,
                 "format": "json",
             },
-            headers=HEADERS_DEFAULT,
+            headers=ua.headers.get(),
             proxy=proxy,
             timeout=timeout or TIMEOUT_DEFAULT,
         )
