@@ -90,7 +90,7 @@ class BraveSearch:
         result_filter: Optional[str] = None,
         timeout: float = 10.0,
         **kwargs,
-    ):
+    ) -> List[SearchResult]:
         """Perform a web search using Brave Search API.
         For detailed Query Parameters: https://api-dashboard.search.brave.com/app/documentation/web-search/query
 
@@ -177,7 +177,7 @@ class BraveSearch:
             **kwargs: additional query parameters defined by Brave Search API. Refer to https://api-dashboard.search.brave.com/app/documentation/web-search/query for details
 
         Returns:
-            List of search results with title, url, content, excerpt and score
+            List of search results with title, url, content and score
         """
         results = []
 
@@ -218,7 +218,6 @@ class BraveSearch:
                 title=item.get("title", "No title"),
                 url=item.get("url", ""),
                 content=item.get("description", "No content available"),
-                excerpt=item.get("description", "...")[:150],
             )
             results.append(result)
 
@@ -251,7 +250,6 @@ def main():
             print(f"\n{i}. {result.title}")
             print(f"   URL: {result.url}")
             print(f"   Content: {result.content}...")
-            print(f"   Excerpt: {result.excerpt if result.excerpt else ''}...")
             print(f"   Score: {result.score:.3f}")
 
     except ValueError as e:

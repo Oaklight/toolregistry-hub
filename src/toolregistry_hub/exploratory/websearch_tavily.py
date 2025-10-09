@@ -86,7 +86,7 @@ class TavilySearch:
         include_answer: bool = False,
         timeout: float = 10.0,
         **kwargs,
-    ):
+    ) -> List[SearchResult]:
         """Perform a web search using Tavily API.
         For detailed API documentation, see: https://docs.tavily.com/documentation/api-reference/endpoint/search
 
@@ -167,7 +167,7 @@ class TavilySearch:
             **kwargs: Additional parameters to pass to the API. See https://docs.tavily.com/documentation/api-reference/endpoint/search for details.
 
         Returns:
-            List of search results with title, url, content, excerpt and score.
+            List of search results with title, url, content and score.
         """
         results = []
 
@@ -213,7 +213,6 @@ class TavilySearch:
                 title=item.get("title", "No title"),
                 url=item.get("url", ""),
                 content=item.get("content", "No content available"),
-                excerpt=item.get("content", "...")[:150],
                 score=float(item.get("score", 0.0)),
             )
             results.append(result)
@@ -246,7 +245,6 @@ def main():
             print(f"\n{i}. {result.title}")
             print(f"   URL: {result.url}")
             print(f"   Content: {result.content}")
-            print(f"   Excerpt: {result.excerpt if result.excerpt else ''}")
             print(f"   Score: {result.score:.3f}")
 
     except ValueError as e:
