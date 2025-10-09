@@ -179,47 +179,6 @@ class TavilySearch:
 
         self.last_request_time = time.time()
 
-    def search_with_answer(self, query: str, max_results: int = 5) -> Dict:
-        """Perform search and return both results and AI-generated answer.
-
-        Args:
-            query: The search query string
-            max_results: Maximum number of results to return
-
-        Returns:
-            Dictionary with 'answer' and 'results' keys
-        """
-        if not query.strip():
-            return {"answer": "", "results": []}
-
-        payload = {
-            "query": query,
-            "max_results": max_results,
-            "search_depth": "basic",
-            "include_answer": True,
-            "include_raw_content": False,
-        }
-
-        try:
-            self._wait_for_rate_limit()
-
-            with httpx.Client(timeout=10.0) as client:
-                response = client.post(
-                    f"{self.base_url}/search", headers=self.headers, json=payload
-                )
-                response.raise_for_status()
-
-                data = response.json()
-
-                return {
-                    "answer": data.get("answer", ""),
-                    "results": self._parse_results(data),
-                }
-
-        except Exception as e:
-            logger.error(f"Tavily search with answer failed: {e}")
-            return {"answer": "", "results": []}
-
 
 def main():
     """Demo usage of TavilySearch."""
@@ -228,25 +187,14 @@ def main():
 
         # Test basic search
         print("=== Basic Search Test ===")
-        results = search.search("python web scraping libraries", max_results=3)
+        results = search.search("python web scraping libraries", max_results=45)
 
         for i, result in enumerate(results, 1):
             print(f"\n{i}. {result.title}")
             print(f"   URL: {result.url}")
-            print(f"   Score: {result.score:.3f}")
             print(f"   Content: {result.content[:150]}...")
-
-        # Test search with answer
-        print("\n\n=== Search with AI Answer Test ===")
-        response = search.search_with_answer("What is machine learning?", max_results=2)
-
-        if response["answer"]:
-            print(f"AI Answer: {response['answer']}")
-
-        print(f"\nFound {len(response['results'])} supporting results:")
-        for result in response["results"]:
-            if result.url:  # Skip the AI answer entry
-                print(f"- {result.title}: {result.url}")
+            print(f"   Excerpt: {result.excerpt[:50] if result.excerpt else ''}...")
+            print(f"   Score: {result.score:.3f}")
 
     except ValueError as e:
         print(f"Setup error: {e}")
