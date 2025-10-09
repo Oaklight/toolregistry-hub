@@ -168,10 +168,10 @@ class BraveSearch:
             query: The search query string
             max_results: Maximum number of results to return (1~20 recommended, 180 at max)
             timeout: Request timeout in seconds
-            kwargs: additional query parameters defined by Brave Search API. Refer to https://api-dashboard.search.brave.com/app/documentation/web-search/query for details
+            **kwargs: additional query parameters defined by Brave Search API. Refer to https://api-dashboard.search.brave.com/app/documentation/web-search/query for details
 
         Returns:
-            List of search results with title, url, content, and score
+            List of search results with title, url, content, excerpt and score
         """
         results = []
 
