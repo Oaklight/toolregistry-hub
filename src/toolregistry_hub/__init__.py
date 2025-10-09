@@ -20,12 +20,18 @@ Example:
 
 from .calculator import BaseCalculator, Calculator
 from .datetime_utils import DateTime
+from .fetch import Fetch
 from .file_ops import FileOps
 from .filesystem import FileSystem
 from .think_tool import ThinkTool
 from .unit_converter import UnitConverter
 from .websearch import (
-    Fetch,
+    BraveSearch,
+    SearchResult,
+    SearXNGSearch,
+    TavilySearch,
+)
+from .websearch_legacy import (
     WebSearchBing,
     WebSearchGeneral,
     WebSearchGoogle,
@@ -42,6 +48,12 @@ __all__ = [
     "UnitConverter",
     # WebSearch related tools
     "Fetch",
+    # ------- WebSearch tools -------
+    "SearchResult",
+    "BraveSearch",
+    "SearXNGSearch",
+    "TavilySearch",
+    # ------- Legacy WebSearch tools -------
     "WebSearchGeneral",
     "WebSearchBing",
     "WebSearchGoogle",

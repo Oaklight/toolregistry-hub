@@ -3,7 +3,7 @@ from typing import Optional
 
 from loguru import logger
 
-from .fetch import Fetch
+from ..fetch import Fetch
 from .headers import TIMEOUT_DEFAULT
 
 _UNABLE_TO_FETCH_CONTENT = "Unable to fetch content"
