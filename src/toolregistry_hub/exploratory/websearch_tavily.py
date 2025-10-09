@@ -32,6 +32,8 @@ from typing import Dict, List, Optional
 import httpx
 from loguru import logger
 
+from .search_result import SearchResult
+
 
 class TavilySearch:
     """Simple Tavily Search API client for web search functionality."""
@@ -66,7 +68,7 @@ class TavilySearch:
         include_answer: bool = False,
         include_images: bool = False,
         timeout: float = 10.0,
-    ) -> List[Dict[str, str]]:
+    ) -> List[SearchResult]:
         """Perform a web search using Tavily API.
 
         Args:
@@ -131,7 +133,7 @@ class TavilySearch:
             logger.error(f"Tavily API request failed: {e}")
             return []
 
-    def _parse_results(self, data: Dict) -> List[Dict[str, str]]:
+    def _parse_results(self, data: Dict) -> List[SearchResult]:
         """Parse Tavily API response into standardized format.
 
         Args:
@@ -155,12 +157,12 @@ class TavilySearch:
 
         # Parse search results
         for item in data.get("results", []):
-            result = {
-                "title": item.get("title", "No title"),
-                "url": item.get("url", ""),
-                "content": item.get("content", "No content available"),
-                "score": float(item.get("score", 0.0)),
-            }
+            result = SearchResult(
+                title=item.get("title", "No title"),
+                url=item.get("url", ""),
+                content=item.get("content", "No content available"),
+                score=float(item.get("score", 0.0)),
+            )
             results.append(result)
 
         return results
@@ -229,10 +231,10 @@ def main():
         results = search.search("python web scraping libraries", max_results=3)
 
         for i, result in enumerate(results, 1):
-            print(f"\n{i}. {result['title']}")
-            print(f"   URL: {result['url']}")
-            print(f"   Score: {result['score']:.3f}")
-            print(f"   Content: {result['content'][:150]}...")
+            print(f"\n{i}. {result.title}")
+            print(f"   URL: {result.url}")
+            print(f"   Score: {result.score:.3f}")
+            print(f"   Content: {result.content[:150]}...")
 
         # Test search with answer
         print("\n\n=== Search with AI Answer Test ===")
@@ -243,8 +245,8 @@ def main():
 
         print(f"\nFound {len(response['results'])} supporting results:")
         for result in response["results"]:
-            if result["url"]:  # Skip the AI answer entry
-                print(f"- {result['title']}: {result['url']}")
+            if result.url:  # Skip the AI answer entry
+                print(f"- {result.title}: {result.url}")
 
     except ValueError as e:
         print(f"Setup error: {e}")
