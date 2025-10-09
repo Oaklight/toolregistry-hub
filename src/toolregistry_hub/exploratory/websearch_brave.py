@@ -89,6 +89,7 @@ class BraveSearch:
         freshness: Optional[str] = None,
         result_filter: Optional[str] = None,
         timeout: float = 10.0,
+        **kwargs,
     ):
         """Perform a web search using Brave Search API.
         For detailed Query Parameters: https://api-dashboard.search.brave.com/app/documentation/web-search/query
@@ -103,6 +104,7 @@ class BraveSearch:
             freshness: Freshness of results ("pd" for past day, "pw" for past week, etc.)
             result_filter: Filter for specific result types ("discussions", "faq", "infobox", "news", "query", "summarizer", "videos", "web", "locations")
             timeout: Request timeout in seconds
+            **kwargs: Additional parameters to pass to the API
 
         Returns:
             List of search results with title, url, content, and score
@@ -124,6 +126,10 @@ class BraveSearch:
             params["freshness"] = freshness
         if result_filter:
             params["result_filter"] = result_filter
+
+        # Add any additional kwargs
+        if kwargs:
+            params.update(kwargs)
 
         try:
             # Rate limiting: ensure minimum delay between requests
@@ -211,7 +217,8 @@ class BraveSearch:
             result = SearchResult(
                 title=item.get("title", "No title"),
                 url=item.get("url", ""),
-                content=item.get("description", "No description available"),
+                content=item.get("description", "No content available"),
+                excerpt=item.get("description", "...")[:150],
             )
             results.append(result)
 
@@ -243,8 +250,8 @@ def main():
         for i, result in enumerate(results, 1):
             print(f"\n{i}. {result.title}")
             print(f"   URL: {result.url}")
-            print(f"   Content: {result.content[:150]}...")
-            print(f"   Excerpt: {result.excerpt[:50] if result.excerpt else ''}...")
+            print(f"   Content: {result.content}...")
+            print(f"   Excerpt: {result.excerpt if result.excerpt else ''}...")
             print(f"   Score: {result.score:.3f}")
 
     except ValueError as e:
