@@ -38,46 +38,65 @@ from .search_result import SearchResult
 class TavilySearch:
     """Simple Tavily Search API client for web search functionality."""
 
-    def __init__(self, api_key: Optional[str] = None, rate_limit_delay: float = 0.5):
+    def __init__(self, api_keys: Optional[str] = None, rate_limit_delay: float = 0.5):
         """Initialize Tavily search client.
 
         Args:
-            api_key: Tavily API key. If not provided, will try to get from TAVILY_API_KEY env var.
+            api_keys: Comma-separated Tavily API keys. If not provided, will try to get from TAVILY_API_KEY env var.
             rate_limit_delay: Delay between requests in seconds to avoid rate limits.
         """
-        self.api_key = api_key or os.getenv("TAVILY_API_KEY")
-        if not self.api_key:
+        api_keys_str = api_keys or os.getenv("TAVILY_API_KEY")
+        if not api_keys_str:
             raise ValueError(
-                "Tavily API key is required. Set TAVILY_API_KEY environment variable "
-                "or pass api_key parameter."
+                "Tavily API keys are required. Set TAVILY_API_KEY environment variable "
+                "or pass api_keys parameter (comma-separated)."
             )
 
+        # Parse and validate API keys
+        self.api_keys = [key.strip() for key in api_keys_str.split(",") if key.strip()]
+        if not self.api_keys:
+            raise ValueError("No valid API keys provided")
+
         self.base_url = "https://api.tavily.com"
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
         self.rate_limit_delay = rate_limit_delay
         self.last_request_time = 0
+        self._current_key_index = 0
 
-    def search(
+    def _get_next_api_key(self) -> str:
+        """Round-robin API key selection."""
+        key = self.api_keys[self._current_key_index]
+        self._current_key_index = (self._current_key_index + 1) % len(self.api_keys)
+        return key
+
+    @property
+    def headers(self) -> dict:
+        """Generate headers with the current API key."""
+        return {
+            "Authorization": f"Bearer {self._get_next_api_key()}",
+            "Content-Type": "application/json",
+        }
+
+    def _search(
         self,
+        *,
         query: str,
         max_results: int = 5,
-        search_depth: str = "basic",
+        topic: str = "general",  # general, news, finance
+        search_depth: str = "basic",  # basic, advanced
         include_answer: bool = False,
-        include_images: bool = False,
         timeout: float = 10.0,
-    ) -> List[SearchResult]:
+        **kwargs,
+    ):
         """Perform a web search using Tavily API.
+        For detailed API documentation, see: https://docs.tavily.com/documentation/api-reference/endpoint/search
 
         Args:
             query: The search query string
             max_results: Maximum number of results to return (0-20)
             search_depth: "basic" (1 credit) or "advanced" (2 credits)
             include_answer: Whether to include LLM-generated answer
-            include_images: Whether to include image search results
             timeout: Request timeout in seconds
+            **kwargs: Additional parameters to pass to the API
 
         Returns:
             List of search results with title, url, content, and score
@@ -93,11 +112,14 @@ class TavilySearch:
         payload = {
             "query": query,
             "max_results": max_results,
+            "topic": topic,
             "search_depth": search_depth,
             "include_answer": include_answer,
-            "include_images": include_images,
-            "include_raw_content": False,  # Keep response size manageable
         }
+
+        # Add any additional kwargs
+        if kwargs:
+            payload.update(kwargs)
 
         try:
             # Rate limiting: ensure minimum delay between requests
@@ -133,6 +155,36 @@ class TavilySearch:
             logger.error(f"Tavily API request failed: {e}")
             return []
 
+    def search(
+        self, query: str, *, max_results: int = 5, timeout: float = 10.0, **kwargs
+    ) -> List[SearchResult]:
+        """Perform a web search using Tavily API.
+
+        Args:
+            query: The search query string
+            max_results: Maximum number of results to return (0-20)
+            timeout: Request timeout in seconds
+            **kwargs: Additional parameters to pass to the API. See https://docs.tavily.com/documentation/api-reference/endpoint/search for details.
+
+        Returns:
+            List of search results with title, url, content, excerpt and score.
+        """
+        results = []
+
+        if not query.strip():
+            logger.warning("Empty query provided")
+            return results
+
+        kwargs["timeout"] = timeout
+
+        if max_results > 20:
+            logger.warning("max_results exceeds the maximum allowed value of 20")
+            max_results = 20
+
+        results.extend(self._search(query=query, max_results=max_results, **kwargs))
+
+        return results[:max_results] if results else []
+
     def _parse_results(self, data: Dict) -> List[SearchResult]:
         """Parse Tavily API response into standardized format.
 
@@ -161,6 +213,7 @@ class TavilySearch:
                 title=item.get("title", "No title"),
                 url=item.get("url", ""),
                 content=item.get("content", "No content available"),
+                excerpt=item.get("content", "...")[:150],
                 score=float(item.get("score", 0.0)),
             )
             results.append(result)
@@ -192,8 +245,8 @@ def main():
         for i, result in enumerate(results, 1):
             print(f"\n{i}. {result.title}")
             print(f"   URL: {result.url}")
-            print(f"   Content: {result.content[:150]}...")
-            print(f"   Excerpt: {result.excerpt[:50] if result.excerpt else ''}...")
+            print(f"   Content: {result.content}")
+            print(f"   Excerpt: {result.excerpt if result.excerpt else ''}")
             print(f"   Score: {result.score:.3f}")
 
     except ValueError as e:
