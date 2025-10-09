@@ -6,4 +6,5 @@ class SearchResult:
     title: str
     url: str
     content: str
-    score: float
+    excerpt: str = None
+    score: int = 1.0
