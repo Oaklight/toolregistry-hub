@@ -32,6 +32,8 @@ from typing import Dict, List, Optional
 import httpx
 from loguru import logger
 
+from .search_result import SearchResult
+
 
 class BraveSearch:
     """Simple Brave Search API client for web search functionality."""
@@ -69,7 +71,7 @@ class BraveSearch:
         safesearch: str = "moderate",
         freshness: Optional[str] = None,
         timeout: float = 10.0,
-    ) -> List[Dict[str, str]]:
+    ) -> List[SearchResult]:
         """Perform a web search using Brave Search API.
 
         Args:
@@ -141,7 +143,7 @@ class BraveSearch:
             logger.error(f"Brave API request failed: {e}")
             return []
 
-    def _parse_results(self, data: Dict) -> List[Dict[str, str]]:
+    def _parse_results(self, data: Dict) -> List[SearchResult]:
         """Parse Brave API response into standardized format.
 
         Args:
@@ -159,12 +161,12 @@ class BraveSearch:
             # Calculate a simple score based on position (higher position = lower score)
             score = max(0.1, 1.0 - (i * 0.1))
 
-            result = {
-                "title": item.get("title", "No title"),
-                "url": item.get("url", ""),
-                "content": item.get("description", "No description available"),
-                "score": score,
-            }
+            result = SearchResult(
+                title=item.get("title", "No title"),
+                url=item.get("url", ""),
+                content=item.get("description", "No description available"),
+                score=score,
+            )
             results.append(result)
 
         return results
@@ -293,10 +295,10 @@ def main():
         results = search.search("python machine learning frameworks", max_results=3)
 
         for i, result in enumerate(results, 1):
-            print(f"\n{i}. {result['title']}")
-            print(f"   URL: {result['url']}")
-            print(f"   Score: {result['score']:.3f}")
-            print(f"   Content: {result['content'][:150]}...")
+            print(f"\n{i}. {result.title}")
+            print(f"   URL: {result.url}")
+            print(f"   Score: {result.score:.3f}")
+            print(f"   Content: {result.content[:150]}...")
 
         # Test search with metadata (with delay)
         print("\n\n=== Search with Metadata Test ===")
