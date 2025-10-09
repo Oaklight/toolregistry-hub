@@ -61,27 +61,29 @@ class BraveSearch:
         self.rate_limit_delay = rate_limit_delay
         self.last_request_time = 0
 
-    def search(
+    def _search(
         self,
+        *,
         query: str,
-        max_results: int = 5,
+        count: int = 20,
+        offset: int = 0,
         country: Optional[str] = None,
         search_lang: Optional[str] = None,
-        ui_lang: Optional[str] = None,
         safesearch: str = "moderate",
         freshness: Optional[str] = None,
         result_filter: Optional[str] = None,
         timeout: float = 10.0,
-    ) -> List[SearchResult]:
+    ):
         """Perform a web search using Brave Search API.
+        For detailed Query Parameters: https://api-dashboard.search.brave.com/app/documentation/web-search/query
 
         Args:
             query: The search query string
-            max_results: Maximum number of results to return (1-20)
-            country: Country code for localized results (e.g., "US", "GB")
-            search_lang: Language for search results (e.g., "en", "es")
-            ui_lang: Language for UI elements (e.g., "en-US")
-            safesearch: Safe search setting ("off", "moderate", "strict")
+            count: Number of results to return (1-20). Each page has 20 entries.
+            offset: Offset for pagination (0-9)
+            country: Country code for localized results, "US" by default (e.g., "US", "GB")
+            search_lang: Language for search results, "en" by default (e.g., "en", "es")
+            safesearch: Safe search setting, "moderate" by default ("off", "moderate", "strict")
             freshness: Freshness of results ("pd" for past day, "pw" for past week, etc.)
             result_filter: Filter for specific result types ("discussions", "faq", "infobox", "news", "query", "summarizer", "videos", "web", "locations")
             timeout: Request timeout in seconds
@@ -93,19 +95,13 @@ class BraveSearch:
             logger.warning("Empty query provided")
             return []
 
-        if max_results < 1 or max_results > 20:
-            logger.warning(f"max_results {max_results} out of range, clamping to 1-20")
-            max_results = max(1, min(20, max_results))
-
-        params = {"q": query, "count": max_results}
+        params = {"q": query, "count": count, "offset": offset}
 
         # Add optional parameters
         if country:
             params["country"] = country
         if search_lang:
             params["search_lang"] = search_lang
-        if ui_lang:
-            params["ui_lang"] = ui_lang
         if safesearch != "moderate":
             params["safesearch"] = safesearch
         if freshness:
@@ -146,6 +142,40 @@ class BraveSearch:
         except Exception as e:
             logger.error(f"Brave API request failed: {e}")
             return []
+
+    def search(
+        self, query: str, *, max_results: int = 5, timeout: float = 10.0, **kwargs
+    ) -> List[SearchResult]:
+        """Perform a web search using Brave Search API.
+
+        Args:
+            query: The search query string
+            max_results: Maximum number of results to return (1~20 recommended, 180 at max)
+            timeout: Request timeout in seconds
+            kwargs: additional query parameters defined by Brave Search API. Refer to https://api-dashboard.search.brave.com/app/documentation/web-search/query for details
+
+        Returns:
+            List of search results with title, url, content, and score
+        """
+        results = []
+
+        if not query.strip():
+            logger.warning("Empty query provided")
+            return results
+
+        kwargs["timeout"] = timeout
+
+        if max_results <= 20:
+            results.extend(self._search(query=query, **kwargs))
+        else:
+            if max_results > 180:
+                logger.warning("max_results exceeds the maximum limit of 180")
+                max_results = 180
+
+            for i in range(round(max_results / 20 + 0.49)):
+                results.extend(self._search(query=query, offset=i, **kwargs))
+
+        return results[:max_results] if results else []
 
     def _parse_results(self, data: Dict) -> List[SearchResult]:
         """Parse Brave API response into standardized format.
@@ -196,7 +226,7 @@ def main():
 
         # Test basic search
         print("=== Basic Search Test ===")
-        results = search.search("artificial intelligence", max_results=20)
+        results = search.search("artificial intelligence", max_results=45)
 
         for i, result in enumerate(results, 1):
             print(f"\n{i}. {result.title}")
