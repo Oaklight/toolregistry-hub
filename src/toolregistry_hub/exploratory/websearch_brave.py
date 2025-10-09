@@ -70,6 +70,7 @@ class BraveSearch:
         ui_lang: Optional[str] = None,
         safesearch: str = "moderate",
         freshness: Optional[str] = None,
+        result_filter: Optional[str] = None,
         timeout: float = 10.0,
     ) -> List[SearchResult]:
         """Perform a web search using Brave Search API.
@@ -82,6 +83,7 @@ class BraveSearch:
             ui_lang: Language for UI elements (e.g., "en-US")
             safesearch: Safe search setting ("off", "moderate", "strict")
             freshness: Freshness of results ("pd" for past day, "pw" for past week, etc.)
+            result_filter: Filter for specific result types ("discussions", "faq", "infobox", "news", "query", "summarizer", "videos", "web", "locations")
             timeout: Request timeout in seconds
 
         Returns:
@@ -108,6 +110,8 @@ class BraveSearch:
             params["safesearch"] = safesearch
         if freshness:
             params["freshness"] = freshness
+        if result_filter:
+            params["result_filter"] = result_filter
 
         try:
             # Rate limiting: ensure minimum delay between requests
@@ -183,106 +187,6 @@ class BraveSearch:
 
         self.last_request_time = time.time()
 
-    def search_with_metadata(self, query: str, max_results: int = 5) -> Dict:
-        """Perform search and return results with additional metadata.
-
-        Args:
-            query: The search query string
-            max_results: Maximum number of results to return
-
-        Returns:
-            Dictionary with 'results', 'query_info', and 'search_metadata' keys
-        """
-        if not query.strip():
-            return {"results": [], "query_info": {}, "search_metadata": {}}
-
-        params = {"q": query, "count": max_results}
-
-        try:
-            self._wait_for_rate_limit()
-
-            with httpx.Client(timeout=10.0) as client:
-                response = client.get(
-                    f"{self.base_url}/web/search", headers=self.headers, params=params
-                )
-                response.raise_for_status()
-
-                data = response.json()
-
-                return {
-                    "results": self._parse_results(data),
-                    "query_info": data.get("query", {}),
-                    "search_metadata": {
-                        "type": data.get("type", ""),
-                        "discussions": len(
-                            data.get("discussions", {}).get("results", [])
-                        ),
-                        "videos": len(data.get("videos", {}).get("results", [])),
-                        "news": len(data.get("news", {}).get("results", [])),
-                        "locations": len(data.get("locations", {}).get("results", [])),
-                    },
-                }
-
-        except Exception as e:
-            logger.error(f"Brave search with metadata failed: {e}")
-            return {"results": [], "query_info": {}, "search_metadata": {}}
-
-    def search_news(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
-        """Search for news articles using Brave Search.
-
-        Args:
-            query: The search query string
-            max_results: Maximum number of results to return
-
-        Returns:
-            List of news results with title, url, content, and score
-        """
-        if not query.strip():
-            return []
-
-        params = {
-            "q": query,
-            "count": max_results,
-            "freshness": "pd",  # Past day for news
-        }
-
-        try:
-            self._wait_for_rate_limit()
-
-            with httpx.Client(timeout=10.0) as client:
-                response = client.get(
-                    f"{self.base_url}/web/search", headers=self.headers, params=params
-                )
-                response.raise_for_status()
-
-                data = response.json()
-                results = []
-
-                # Parse news results if available
-                news_results = data.get("news", {}).get("results", [])
-                for i, item in enumerate(news_results):
-                    score = max(0.1, 1.0 - (i * 0.1))
-                    result = {
-                        "title": item.get("title", "No title"),
-                        "url": item.get("url", ""),
-                        "content": item.get("description", "No description available"),
-                        "score": score,
-                    }
-                    results.append(result)
-
-                # If no news results, fall back to web results
-                if not results:
-                    results = self._parse_results(data)
-
-                logger.info(
-                    f"Brave news search for '{query}' returned {len(results)} results"
-                )
-                return results
-
-        except Exception as e:
-            logger.error(f"Brave news search failed: {e}")
-            return []
-
 
 def main():
     """Demo usage of BraveSearch."""
@@ -292,35 +196,13 @@ def main():
 
         # Test basic search
         print("=== Basic Search Test ===")
-        results = search.search("python machine learning frameworks", max_results=3)
+        results = search.search("artificial intelligence", max_results=20)
 
         for i, result in enumerate(results, 1):
             print(f"\n{i}. {result.title}")
             print(f"   URL: {result.url}")
             print(f"   Score: {result.score:.3f}")
             print(f"   Content: {result.content[:150]}...")
-
-        # Test search with metadata (with delay)
-        print("\n\n=== Search with Metadata Test ===")
-        print("(Waiting for rate limit...)")
-        response = search.search_with_metadata("artificial intelligence", max_results=2)
-
-        print(f"Query processed: {response['query_info'].get('original', 'N/A')}")
-        print(f"Search metadata: {response['search_metadata']}")
-
-        print(f"\nFound {len(response['results'])} results:")
-        for result in response["results"]:
-            print(f"- {result['title']}: {result['url']}")
-
-        # Test news search (with delay)
-        print("\n\n=== News Search Test ===")
-        print("(Waiting for rate limit...)")
-        news_results = search.search_news("technology news", max_results=2)
-
-        print(f"Found {len(news_results)} news results:")
-        for result in news_results:
-            print(f"- {result['title']}")
-            print(f"  {result['url']}")
 
     except ValueError as e:
         print(f"Setup error: {e}")
