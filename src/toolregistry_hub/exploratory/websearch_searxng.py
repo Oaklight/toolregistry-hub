@@ -62,26 +62,30 @@ class SearXNGSearch:
             "Accept-Language": "en-US,en;q=0.9",
         }
 
-    def search(
+    def _search(
         self,
+        *,
         query: str,
-        max_results: int = 5,
+        pageno: int = 1,
         categories: Optional[str] = None,
         engines: Optional[str] = None,
         language: str = "en",
         safesearch: int = 1,
         timeout: float = 10.0,
+        **kwargs,
     ) -> List[SearchResult]:
         """Perform a web search using SearXNG API.
+        See https://docs.searxng.org/dev/search_api.html for more details.
 
         Args:
             query: The search query string
-            max_results: Maximum number of results to return
+            pageno: Page number for pagination, 1 by default
             categories: Comma-separated list of categories (e.g., "general,images")
             engines: Comma-separated list of engines (e.g., "google,bing")
             language: Language code for results (e.g., "en", "es")
             safesearch: Safe search level (0=off, 1=moderate, 2=strict)
             timeout: Request timeout in seconds
+            **kwargs: Additional parameters to pass to the API
 
         Returns:
             List of search results with title, url, content, and score
@@ -93,6 +97,7 @@ class SearXNGSearch:
         params = {
             "q": query,
             "format": "json",
+            "pageno": pageno,
             "language": language,
             "safesearch": safesearch,
         }
@@ -111,7 +116,7 @@ class SearXNGSearch:
                 response.raise_for_status()
 
                 data = response.json()
-                results = self._parse_results(data, max_results)
+                results = self._parse_results(data)
 
                 logger.info(
                     f"SearXNG search for '{query}' returned {len(results)} results"
@@ -130,12 +135,47 @@ class SearXNGSearch:
             logger.error(f"SearXNG API request failed: {e}")
             return []
 
-    def _parse_results(self, data: Dict, max_results: int) -> List[SearchResult]:
+    def search(
+        self, query: str, *, max_results: int = 5, timeout: float = 10.0, **kwargs
+    ) -> List[SearchResult]:
+        """Perform a web search using SearXNG API.
+
+        Args:
+            query: The search query string
+            max_results: Maximum number of results to return (1~20 recommended, 180 at max)
+            timeout: Request timeout in seconds
+            **kwargs: additional query parameters defined by Brave Search API. Refer to https://api-dashboard.search.brave.com/app/documentation/web-search/query for details
+
+        Returns:
+            List of search results with title, url, content, excerpt and score
+        """
+        results = []
+
+        if not query.strip():
+            logger.warning("Empty query provided")
+            return results
+
+        kwargs["timeout"] = timeout
+
+        if max_results > 50:
+            logger.warning("max_results exceeds the maximum limit of 50")
+            max_results = 50
+
+        pageno = 1
+        while len(results) < max_results:
+            results.extend(self._search(query=query, pageno=pageno, **kwargs))
+            pageno += 1
+
+        # Sort by score if available, otherwise by position
+        results = sorted(results, key=lambda x: x.score, reverse=True)
+
+        return results[:max_results] if results else []
+
+    def _parse_results(self, data: Dict) -> List[SearchResult]:
         """Parse SearXNG API response into standardized format.
 
         Args:
             data: Raw API response data
-            max_results: Maximum number of results to return
 
         Returns:
             List of parsed search results
@@ -143,12 +183,7 @@ class SearXNGSearch:
         results = []
         raw_results = data.get("results", [])
 
-        # Sort by score if available, otherwise by position
-        sorted_results = sorted(
-            raw_results, key=lambda x: x.get("score", 0), reverse=True
-        )
-
-        for item in sorted_results[:max_results]:
+        for item in raw_results:
             result = SearchResult(
                 title=item.get("title", "No title"),
                 url=item.get("url", ""),
@@ -159,181 +194,23 @@ class SearXNGSearch:
 
         return results
 
-    def search_with_metadata(self, query: str, max_results: int = 5) -> Dict:
-        """Perform search and return results with additional metadata.
-
-        Args:
-            query: The search query string
-            max_results: Maximum number of results to return
-
-        Returns:
-            Dictionary with 'results', 'query_info', and 'search_metadata' keys
-        """
-        if not query.strip():
-            return {"results": [], "query_info": {}, "search_metadata": {}}
-
-        params = {"q": query, "format": "json"}
-
-        try:
-            with httpx.Client(timeout=10.0) as client:
-                response = client.get(
-                    self.search_url, headers=self.headers, params=params
-                )
-                response.raise_for_status()
-
-                data = response.json()
-
-                return {
-                    "results": self._parse_results(data, max_results),
-                    "query_info": {
-                        "query": data.get("query", query),
-                        "number_of_results": data.get("number_of_results", 0),
-                    },
-                    "search_metadata": {
-                        "engines": list(
-                            set(r.get("engine", "") for r in data.get("results", []))
-                        ),
-                        "categories": list(
-                            set(r.get("category", "") for r in data.get("results", []))
-                        ),
-                        "total_results": len(data.get("results", [])),
-                    },
-                }
-
-        except Exception as e:
-            logger.error(f"SearXNG search with metadata failed: {e}")
-            return {"results": [], "query_info": {}, "search_metadata": {}}
-
-    def search_images(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
-        """Search for images using SearXNG.
-
-        Args:
-            query: The search query string
-            max_results: Maximum number of results to return
-
-        Returns:
-            List of image results with title, url, content, and score
-        """
-        if not query.strip():
-            return []
-
-        params = {"q": query, "format": "json", "categories": "images"}
-
-        try:
-            with httpx.Client(timeout=10.0) as client:
-                response = client.get(
-                    self.search_url, headers=self.headers, params=params
-                )
-                response.raise_for_status()
-
-                data = response.json()
-                results = []
-
-                raw_results = data.get("results", [])[:max_results]
-
-                for i, item in enumerate(raw_results):
-                    result = {
-                        "title": item.get("title", "No title"),
-                        "url": item.get("img_src", item.get("url", "")),
-                        "content": item.get(
-                            "content",
-                            f"Image result from {item.get('engine', 'unknown')}",
-                        ),
-                        "score": float(item.get("score", 1.0 - i * 0.1)),
-                    }
-                    results.append(result)
-
-                logger.info(
-                    f"SearXNG image search for '{query}' returned {len(results)} results"
-                )
-                return results
-
-        except Exception as e:
-            logger.error(f"SearXNG image search failed: {e}")
-            return []
-
-    def test_connection(self) -> bool:
-        """Test if the SearXNG instance is accessible.
-
-        Returns:
-            True if connection successful, False otherwise
-        """
-        try:
-            with httpx.Client(timeout=5.0) as client:
-                response = client.get(
-                    self.search_url,
-                    headers=self.headers,
-                    params={"q": "test", "format": "json"},
-                )
-                response.raise_for_status()
-                data = response.json()
-
-                # Check if response has expected structure
-                if "results" in data:
-                    logger.info(f"SearXNG connection test successful: {self.base_url}")
-                    return True
-                else:
-                    logger.warning(
-                        f"SearXNG response missing 'results' field: {self.base_url}"
-                    )
-                    return False
-
-        except Exception as e:
-            logger.error(f"SearXNG connection test failed for {self.base_url}: {e}")
-            return False
-
 
 def main():
     """Demo usage of SearXNGSearch."""
     try:
         search = SearXNGSearch()
 
-        # Test connection first
-        print("=== Connection Test ===")
-        if not search.test_connection():
-            print(f"Failed to connect to SearXNG instance at {search.base_url}")
-            print("Please check that:")
-            print("1. SearXNG is running")
-            print("2. The URL is correct")
-            print("3. JSON format is enabled in the instance")
-            return
-
         print(f"✓ Connected to SearXNG at {search.base_url}")
 
         # Test basic search
         print("\n=== Basic Search Test ===")
-        results = search.search("python programming tutorial", max_results=3)
+        results = search.search("python programming tutorial", max_results=181)
 
         for i, result in enumerate(results, 1):
             print(f"\n{i}. {result.title}")
             print(f"   URL: {result.url}")
             print(f"   Score: {result.score:.3f}")
             print(f"   Content: {result.content[:150]}...")
-
-        # Test search with metadata
-        print("\n\n=== Search with Metadata Test ===")
-        response = search.search_with_metadata("machine learning", max_results=2)
-
-        print(f"Query: {response['query_info'].get('query', 'N/A')}")
-        print(
-            f"Total results found: {response['query_info'].get('number_of_results', 0)}"
-        )
-        print(
-            f"Engines used: {', '.join(response['search_metadata'].get('engines', []))}"
-        )
-
-        print(f"\nTop {len(response['results'])} results:")
-        for result in response["results"]:
-            print(f"- {result.title}: {result.url}")
-
-        # Test image search
-        print("\n\n=== Image Search Test ===")
-        image_results = search.search_images("python logo", max_results=2)
-
-        print(f"Found {len(image_results)} image results:")
-        for result in image_results:
-            print(f"- {result.title}")
-            print(f"  {result.url}")
 
     except Exception as e:
         print(f"Demo failed: {e}")
