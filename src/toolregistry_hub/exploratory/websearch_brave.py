@@ -192,14 +192,10 @@ class BraveSearch:
         web_results = data.get("web", {}).get("results", [])
 
         for i, item in enumerate(web_results):
-            # Calculate a simple score based on position (higher position = lower score)
-            score = max(0.1, 1.0 - (i * 0.1))
-
             result = SearchResult(
                 title=item.get("title", "No title"),
                 url=item.get("url", ""),
                 content=item.get("description", "No description available"),
-                score=score,
             )
             results.append(result)
 
@@ -231,8 +227,9 @@ def main():
         for i, result in enumerate(results, 1):
             print(f"\n{i}. {result.title}")
             print(f"   URL: {result.url}")
-            print(f"   Score: {result.score:.3f}")
             print(f"   Content: {result.content[:150]}...")
+            print(f"   Excerpt: {result.excerpt[:50] if result.excerpt else ''}...")
+            print(f"   Score: {result.score:.3f}")
 
     except ValueError as e:
         print(f"Setup error: {e}")
