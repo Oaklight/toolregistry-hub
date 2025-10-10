@@ -32,10 +32,11 @@ from typing import Dict, List, Optional
 import httpx
 from loguru import logger
 
+from .base import TIMEOUT_DEFAULT, BaseSearch
 from .search_result import SearchResult
 
 
-class BraveSearch:
+class BraveSearch(BaseSearch):
     """Simple Brave Search API client for web search functionality."""
 
     def __init__(self, api_keys: Optional[str] = None, rate_limit_delay: float = 1.0):
@@ -69,7 +70,7 @@ class BraveSearch:
         return key
 
     @property
-    def headers(self) -> dict:
+    def _headers(self) -> dict:
         """Generate headers with the current API key."""
         return {
             "Accept": "application/json",
@@ -77,67 +78,95 @@ class BraveSearch:
             "X-Subscription-Token": self._get_next_api_key(),
         }
 
-    def _search(
+    def search(
         self,
-        *,
         query: str,
-        count: int = 20,
-        offset: int = 0,
-        country: Optional[str] = None,
-        search_lang: Optional[str] = None,
-        safesearch: str = "moderate",
-        freshness: Optional[str] = None,
-        result_filter: Optional[str] = None,
-        timeout: float = 10.0,
+        *,
+        max_results: int = 5,
+        timeout: float = TIMEOUT_DEFAULT,
         **kwargs,
     ) -> List[SearchResult]:
         """Perform a web search using Brave Search API.
-        For detailed Query Parameters: https://api-dashboard.search.brave.com/app/documentation/web-search/query
 
         Args:
             query: The search query string
-            count: Number of results to return (1-20). Each page has 20 entries.
-            offset: Offset for pagination (0-9)
-            country: Country code for localized results, "US" by default (e.g., "US", "GB")
-            search_lang: Language for search results, "en" by default (e.g., "en", "es")
-            safesearch: Safe search setting, "moderate" by default ("off", "moderate", "strict")
-            freshness: Freshness of results ("pd" for past day, "pw" for past week, etc.)
-            result_filter: Filter for specific result types ("discussions", "faq", "infobox", "news", "query", "summarizer", "videos", "web", "locations")
+            max_results: Maximum number of results to return (1~20 recommended, 180 at max)
             timeout: Request timeout in seconds
-            **kwargs: Additional parameters to pass to the API
+            **kwargs: additional query parameters defined by Brave Search API. Refer to https://api-dashboard.search.brave.com/app/documentation/web-search/query for details
 
         Returns:
-            List of search results with title, url, content, and score
+            List of search results with title, url, content and score
         """
         if not query.strip():
             logger.warning("Empty query provided")
             return []
 
-        params = {"q": query, "count": count, "offset": offset}
+        results = []
+
+        if max_results <= 20:
+            results.extend(self._search_impl(query=query, timeout=timeout, **kwargs))
+        else:
+            if max_results > 180:
+                logger.warning("max_results exceeds the maximum limit of 180")
+                max_results = 180
+
+            for i in range(round(max_results / 20 + 0.49)):
+                kwargs["offset"] = i
+                results.extend(
+                    self._search_impl(query=query, timeout=timeout, **kwargs)
+                )
+
+        return results[:max_results] if results else []
+
+    def _search_impl(self, query: str, **kwargs) -> List[SearchResult]:
+        """Perform the actual search using Brave Search API for a single query.
+
+        Args:
+            query: The search query string
+            **kwargs: Additional parameters specific to the Brave Search API
+
+        Returns:
+            List of SearchResult
+        """
+        if not query.strip():
+            logger.warning("Empty query provided")
+            return []
+
+        params = {
+            "q": query,
+            "count": kwargs.get("count", 20),
+            "offset": kwargs.get("offset", 0),
+        }
 
         # Add optional parameters
-        if country:
-            params["country"] = country
-        if search_lang:
-            params["search_lang"] = search_lang
-        if safesearch != "moderate":
-            params["safesearch"] = safesearch
-        if freshness:
-            params["freshness"] = freshness
-        if result_filter:
-            params["result_filter"] = result_filter
+        optional_params = [
+            "country",
+            "search_lang",
+            "safesearch",
+            "freshness",
+            "result_filter",
+        ]
+        for param in optional_params:
+            if param in kwargs and kwargs[param] is not None:
+                params[param] = kwargs[param]
+
+        # Set default safesearch if not provided
+        if "safesearch" not in params:
+            params["safesearch"] = "moderate"
 
         # Add any additional kwargs
-        if kwargs:
-            params.update(kwargs)
+        for key, value in kwargs.items():
+            if key not in ["count", "offset", "timeout"] + optional_params:
+                params[key] = value
 
         try:
             # Rate limiting: ensure minimum delay between requests
             self._wait_for_rate_limit()
 
+            timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
             with httpx.Client(timeout=timeout) as client:
                 response = client.get(
-                    f"{self.base_url}/web/search", headers=self.headers, params=params
+                    f"{self.base_url}/web/search", headers=self._headers, params=params
                 )
                 response.raise_for_status()
 
@@ -165,45 +194,11 @@ class BraveSearch:
             logger.error(f"Brave API request failed: {e}")
             return []
 
-    def search(
-        self, query: str, *, max_results: int = 5, timeout: float = 10.0, **kwargs
-    ) -> List[SearchResult]:
-        """Perform a web search using Brave Search API.
-
-        Args:
-            query: The search query string
-            max_results: Maximum number of results to return (1~20 recommended, 180 at max)
-            timeout: Request timeout in seconds
-            **kwargs: additional query parameters defined by Brave Search API. Refer to https://api-dashboard.search.brave.com/app/documentation/web-search/query for details
-
-        Returns:
-            List of search results with title, url, content and score
-        """
-        results = []
-
-        if not query.strip():
-            logger.warning("Empty query provided")
-            return results
-
-        kwargs["timeout"] = timeout
-
-        if max_results <= 20:
-            results.extend(self._search(query=query, **kwargs))
-        else:
-            if max_results > 180:
-                logger.warning("max_results exceeds the maximum limit of 180")
-                max_results = 180
-
-            for i in range(round(max_results / 20 + 0.49)):
-                results.extend(self._search(query=query, offset=i, **kwargs))
-
-        return results[:max_results] if results else []
-
-    def _parse_results(self, data: Dict) -> List[SearchResult]:
+    def _parse_results(self, raw_results: Dict) -> List[SearchResult]:
         """Parse Brave API response into standardized format.
 
         Args:
-            data: Raw API response data
+            raw_results: Raw API response data
 
         Returns:
             List of parsed search results
@@ -211,7 +206,7 @@ class BraveSearch:
         results = []
 
         # Parse web results
-        web_results = data.get("web", {}).get("results", [])
+        web_results = raw_results.get("web", {}).get("results", [])
 
         for i, item in enumerate(web_results):
             result = SearchResult(

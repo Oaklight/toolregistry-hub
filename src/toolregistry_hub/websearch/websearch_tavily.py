@@ -32,10 +32,11 @@ from typing import Dict, List, Optional
 import httpx
 from loguru import logger
 
+from .base import TIMEOUT_DEFAULT, BaseSearch
 from .search_result import SearchResult
 
 
-class TavilySearch:
+class TavilySearch(BaseSearch):
     """Simple Tavily Search API client for web search functionality."""
 
     def __init__(self, api_keys: Optional[str] = None, rate_limit_delay: float = 0.5):
@@ -69,42 +70,62 @@ class TavilySearch:
         return key
 
     @property
-    def headers(self) -> dict:
+    def _headers(self) -> dict:
         """Generate headers with the current API key."""
         return {
             "Authorization": f"Bearer {self._get_next_api_key()}",
             "Content-Type": "application/json",
         }
 
-    def _search(
+    def search(
         self,
-        *,
         query: str,
+        *,
         max_results: int = 5,
-        topic: str = "general",  # general, news, finance
-        search_depth: str = "basic",  # basic, advanced
-        include_answer: bool = False,
-        timeout: float = 10.0,
+        timeout: float = TIMEOUT_DEFAULT,
         **kwargs,
     ) -> List[SearchResult]:
         """Perform a web search using Tavily API.
-        For detailed API documentation, see: https://docs.tavily.com/documentation/api-reference/endpoint/search
 
         Args:
             query: The search query string
             max_results: Maximum number of results to return (0-20)
-            search_depth: "basic" (1 credit) or "advanced" (2 credits)
-            include_answer: Whether to include LLM-generated answer
             timeout: Request timeout in seconds
-            **kwargs: Additional parameters to pass to the API
+            **kwargs: Additional parameters to pass to the API. See https://docs.tavily.com/documentation/api-reference/endpoint/search for details.
 
         Returns:
-            List of search results with title, url, content, and score
+            List of search results with title, url, content and score.
         """
         if not query.strip():
             logger.warning("Empty query provided")
             return []
 
+        if max_results > 20:
+            logger.warning("max_results exceeds the maximum allowed value of 20")
+            max_results = 20
+
+        kwargs["max_results"] = max_results
+        kwargs["timeout"] = timeout
+
+        results = self._search_impl(query=query, **kwargs)
+
+        return results[:max_results] if results else []
+
+    def _search_impl(self, query: str, **kwargs) -> List[SearchResult]:
+        """Perform the actual search using Tavily API for a single query.
+
+        Args:
+            query: The search query string
+            **kwargs: Additional parameters specific to the Tavily API
+
+        Returns:
+            List of SearchResult
+        """
+        if not query.strip():
+            logger.warning("Empty query provided")
+            return []
+
+        max_results = kwargs.get("max_results", 5)
         if max_results < 0 or max_results > 20:
             logger.warning(f"max_results {max_results} out of range, clamping to 0-20")
             max_results = max(0, min(20, max_results))
@@ -112,22 +133,25 @@ class TavilySearch:
         payload = {
             "query": query,
             "max_results": max_results,
-            "topic": topic,
-            "search_depth": search_depth,
-            "include_answer": include_answer,
+            "topic": kwargs.get("topic", "general"),
+            "search_depth": kwargs.get("search_depth", "basic"),
+            "include_answer": kwargs.get("include_answer", False),
         }
 
         # Add any additional kwargs
-        if kwargs:
-            payload.update(kwargs)
+        optional_params = ["include_domains", "exclude_domains", "include_raw_content"]
+        for param in optional_params:
+            if param in kwargs:
+                payload[param] = kwargs[param]
 
         try:
             # Rate limiting: ensure minimum delay between requests
             self._wait_for_rate_limit()
 
+            timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
             with httpx.Client(timeout=timeout) as client:
                 response = client.post(
-                    f"{self.base_url}/search", headers=self.headers, json=payload
+                    f"{self.base_url}/search", headers=self._headers, json=payload
                 )
                 response.raise_for_status()
 
@@ -155,41 +179,11 @@ class TavilySearch:
             logger.error(f"Tavily API request failed: {e}")
             return []
 
-    def search(
-        self, query: str, *, max_results: int = 5, timeout: float = 10.0, **kwargs
-    ) -> List[SearchResult]:
-        """Perform a web search using Tavily API.
-
-        Args:
-            query: The search query string
-            max_results: Maximum number of results to return (0-20)
-            timeout: Request timeout in seconds
-            **kwargs: Additional parameters to pass to the API. See https://docs.tavily.com/documentation/api-reference/endpoint/search for details.
-
-        Returns:
-            List of search results with title, url, content and score.
-        """
-        results = []
-
-        if not query.strip():
-            logger.warning("Empty query provided")
-            return results
-
-        kwargs["timeout"] = timeout
-
-        if max_results > 20:
-            logger.warning("max_results exceeds the maximum allowed value of 20")
-            max_results = 20
-
-        results.extend(self._search(query=query, max_results=max_results, **kwargs))
-
-        return results[:max_results] if results else []
-
-    def _parse_results(self, data: Dict) -> List[SearchResult]:
+    def _parse_results(self, raw_results: Dict) -> List[SearchResult]:
         """Parse Tavily API response into standardized format.
 
         Args:
-            data: Raw API response data
+            raw_results: Raw API response data
 
         Returns:
             List of parsed search results
@@ -197,18 +191,17 @@ class TavilySearch:
         results = []
 
         # Add LLM answer as first result if available
-        if data.get("answer"):
-            results.append(
-                {
-                    "title": "AI Generated Answer",
-                    "url": "",
-                    "content": data["answer"],
-                    "score": 1.0,
-                }
+        if raw_results.get("answer"):
+            answer_result = SearchResult(
+                title="AI Generated Answer",
+                url="",
+                content=raw_results["answer"],
+                score=1.0,
             )
+            results.append(answer_result)
 
         # Parse search results
-        for item in data.get("results", []):
+        for item in raw_results.get("results", []):
             result = SearchResult(
                 title=item.get("title", "No title"),
                 url=item.get("url", ""),
@@ -239,7 +232,7 @@ def main():
 
         # Test basic search
         print("=== Basic Search Test ===")
-        results = search.search("python web scraping libraries", max_results=45)
+        results = search.search("python web scraping libraries", max_results=5)
 
         for i, result in enumerate(results, 1):
             print(f"\n{i}. {result.title}")
