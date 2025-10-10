@@ -26,13 +26,13 @@ from .filesystem import FileSystem
 from .think_tool import ThinkTool
 from .unit_converter import UnitConverter
 from .websearch import (
+    BingSearch,
     BraveSearch,
     SearchResult,
     SearXNGSearch,
     TavilySearch,
 )
 from .websearch_legacy import (
-    WebSearchBing,
     WebSearchGeneral,
     WebSearchGoogle,
     WebSearchSearXNG,
@@ -49,13 +49,13 @@ __all__ = [
     # WebSearch related tools
     "Fetch",
     # ------- WebSearch tools -------
+    "BingSearch",
     "SearchResult",
     "BraveSearch",
     "SearXNGSearch",
     "TavilySearch",
     # ------- Legacy WebSearch tools -------
     "WebSearchGeneral",
-    "WebSearchBing",
     "WebSearchGoogle",
     "WebSearchSearXNG",
 ]
