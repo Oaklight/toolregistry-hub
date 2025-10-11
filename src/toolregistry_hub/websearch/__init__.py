@@ -1,14 +1,13 @@
-from .fetch import Fetch
-from .websearch import WebSearchGeneral
-from .websearch_bing import WebSearchBing
-from .websearch_google import WebSearchGoogle
-from .websearch_searxng import WebSearchSearXNG
+from .search_result import SearchResult
+from .websearch_bing import BingSearch
+from .websearch_brave import BraveSearch
+from .websearch_searxng import SearXNGSearch
+from .websearch_tavily import TavilySearch
 
 __all__ = [
-    "Fetch",
-    "WebSearchGeneral",
-    "WebSearchBing",
-    "WebSearchGoogle",
-    "WebSearchSearXNG",
+    "BingSearch",
+    "SearchResult",
+    "BraveSearch",
+    "SearXNGSearch",
+    "TavilySearch",
 ]
-

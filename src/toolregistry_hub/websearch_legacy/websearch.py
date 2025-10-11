@@ -3,8 +3,9 @@ from typing import Optional
 
 from loguru import logger
 
-from .fetch import Fetch
-from .headers import TIMEOUT_DEFAULT
+from ..fetch import Fetch
+
+TIMEOUT_DEFAULT = 10.0
 
 _UNABLE_TO_FETCH_CONTENT = "Unable to fetch content"
 _UNABLE_TO_FETCH_TITLE = "Unable to fetch title"
@@ -75,4 +76,3 @@ class WebSearchGeneral(ABC):
             "content": content,
             "excerpt": entry.get("content", _UNABLE_TO_FETCH_CONTENT),
         }
-
