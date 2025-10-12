@@ -33,6 +33,7 @@ from .websearch import (
     TavilySearch,
 )
 from .websearch_legacy import (
+    WebSearchBing,
     WebSearchGeneral,
     WebSearchGoogle,
     WebSearchSearXNG,
