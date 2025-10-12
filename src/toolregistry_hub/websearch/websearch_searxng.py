@@ -140,8 +140,8 @@ class SearXNGSearch(BaseSearch):
             if param in kwargs and kwargs[param] is not None:
                 params[param] = kwargs[param]
 
+        timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
         try:
-            timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
             with httpx.Client(timeout=timeout) as client:
                 response = client.get(
                     self.search_url, headers=self._headers, params=params

@@ -130,7 +130,7 @@ class BingSearch(BaseSearch):
                                 timeout=timeout,
                                 proxy=self.proxy,
                             ),
-                            [dict(result) for result in results],
+                            results,
                         )
                     )
                     # Convert back to SearchResult objects

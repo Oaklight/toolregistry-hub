@@ -159,11 +159,11 @@ class BraveSearch(BaseSearch):
             if key not in ["count", "offset", "timeout"] + optional_params:
                 params[key] = value
 
+        timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
         try:
             # Rate limiting: ensure minimum delay between requests
             self._wait_for_rate_limit()
 
-            timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
             with httpx.Client(timeout=timeout) as client:
                 response = client.get(
                     f"{self.base_url}/web/search", headers=self._headers, params=params
