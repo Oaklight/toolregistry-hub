@@ -28,7 +28,7 @@ if tavily_search and router:
     @router.post(
         "/search_tavily",
         summary="Search Tavily for a query",
-        description=tavily_search.search.__doc__
+        description=(tavily_search.search.__doc__ or "")
         + "\n Note: when used, properly cited results' URLs at the end of the generated content, unless instructed otherwise."
         + "\nIncrease the `max_results` in case of deep research.",
         dependencies=security_deps,
@@ -47,10 +47,14 @@ if tavily_search and router:
         Raises:
             HTTPException: If Tavily Search is not configured
         """
+        timeout = data.timeout if data.timeout is not None else 10.0
+        assert (
+            tavily_search is not None
+        )  # This should never be None due to the if check above
         results = tavily_search.search(
             data.query,
             max_results=data.max_results,
-            timeout=data.timeout,
+            timeout=timeout,
         )
         search_items = [WebSearchResultItem(**asdict(result)) for result in results]
         return WebSearchResponse(results=search_items)

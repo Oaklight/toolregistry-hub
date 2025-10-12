@@ -11,7 +11,7 @@ class WebSearchRequest(BaseModel):
     """Request model for web search."""
 
     query: str = Field(
-        ..., description="Search query string", example="weather in Beijing"
+        description="Search query string", examples=["weather in Beijing"]
     )
     max_results: int = Field(5, description="Number of results to return", ge=1, le=20)
     timeout: Optional[float] = Field(TIMEOUT_DEFAULT, description="Timeout in seconds")

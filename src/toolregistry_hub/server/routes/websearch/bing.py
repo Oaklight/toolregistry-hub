@@ -28,7 +28,7 @@ if bing_search and router:
     @router.post(
         "/search_bing",
         summary="Search Bing for a query",
-        description=bing_search.search.__doc__
+        description=(bing_search.search.__doc__ or "")
         + "\n Note: when used, properly cited results' URLs at the end of the generated content, unless instructed otherwise."
         + "\nIncrease the `max_results` in case of deep research.",
         dependencies=security_deps,
@@ -44,10 +44,14 @@ if bing_search and router:
         Returns:
             Response containing list of search results from Bing
         """
+        timeout = data.timeout if data.timeout is not None else 10.0
+        assert (
+            bing_search is not None
+        )  # This should never be None due to the if check above
         results = bing_search.search(
             data.query,
             max_results=data.max_results,
-            timeout=data.timeout,
+            timeout=timeout,
         )
         search_items = [WebSearchResultItem(**asdict(result)) for result in results]
         return WebSearchResponse(results=search_items)
