@@ -57,6 +57,7 @@ __all__ = [
     # ------- Legacy WebSearch tools -------
     "WebSearchGeneral",
     "WebSearchGoogle",
+    "WebSearchBing",
     "WebSearchSearXNG",
 ]
 
