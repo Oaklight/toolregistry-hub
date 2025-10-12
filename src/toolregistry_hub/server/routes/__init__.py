@@ -22,7 +22,9 @@ def discover_routers() -> List[APIRouter]:
 
     def _discover_in_package(package_name: str, package_path: List[str]):
         """Recursively discover routers in a package."""
-        for importer, modname, ispkg in pkgutil.iter_modules(package_path, package_name + "."):
+        for importer, modname, ispkg in pkgutil.iter_modules(
+            package_path, package_name + "."
+        ):
             # Skip __init__.py, models, and auth modules
             if (
                 modname.endswith(".__init__")
@@ -40,13 +42,17 @@ def discover_routers() -> List[APIRouter]:
                     routers.append(module.router)
                     logger.info(f"Discovered router from {modname}")
                 elif hasattr(module, "router") and module.router is None:
-                    logger.debug(f"Module {modname} has router=None (likely missing configuration)")
+                    logger.debug(
+                        f"Module {modname} has router=None (likely missing configuration)"
+                    )
                 else:
-                    logger.debug(f"Module {modname} does not have a valid router attribute")
+                    logger.debug(
+                        f"Module {modname} does not have a valid router attribute"
+                    )
 
                 # If it's a package, recursively discover in it
                 if ispkg and hasattr(module, "__path__"):
-                    _discover_in_package(modname, module.__path__)
+                    _discover_in_package(modname, list(module.__path__))
 
             except ImportError as e:
                 logger.warning(f"Failed to import route module {modname}: {e}")
@@ -60,7 +66,7 @@ def discover_routers() -> List[APIRouter]:
         return routers
 
     # Start discovery from the routes package
-    _discover_in_package(package, __path__)
+    _discover_in_package(package, list(__path__))
 
     logger.info(f"Discovered {len(routers)} routers total")
     return routers
