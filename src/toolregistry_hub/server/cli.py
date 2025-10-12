@@ -25,7 +25,7 @@ def main():
         help="Server mode: openapi or mcp. Default is openapi.",
     )
     parser.add_argument(
-        "--mcp-mode",
+        "--mcp-transport",
         choices=["streamable-http", "sse", "stdio"],
         default="streamable-http",
         help="MCP transport mode for mcp mode. Default is streamable-http.",
@@ -64,9 +64,10 @@ def main():
             sys.exit(1)
 
         if args.mcp_mode == "stdio":
+        if args.mcp_transport == "stdio":
             mcp_app.run()  # Run MCP in stdio mode; assumes FastMCP supports this method
         else:
-            mcp_app.run(transport=args.mcp_mode, host=args.host, port=args.port)
+            mcp_app.run(transport=args.mcp_transport, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

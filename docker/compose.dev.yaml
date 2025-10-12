@@ -17,4 +17,4 @@ services:
     ## if you want to run in mcp streamable http mode
     # command: ["toolregistry-server", "--host=0.0.0.0", "--port=8000", "--mode=mcp"]
     ## # if you want to run in mcp sse mode
-    # command: ["toolregistry-server", "--host=0.0.0.0", "--port=8000", "--mode=mcp", "--mcp-mode=sse"]
+    # command: ["toolregistry-server", "--host=0.0.0.0", "--port=8000", "--mode=mcp", "--mcp-transport=sse"]
