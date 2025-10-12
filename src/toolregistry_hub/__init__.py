@@ -62,4 +62,4 @@ __all__ = [
     "WebSearchSearXNG",
 ]
 
-version = "0.4.15"  # standalone version
+version = "0.4.16"  # standalone version
