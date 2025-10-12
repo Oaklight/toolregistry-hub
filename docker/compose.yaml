@@ -1,0 +1,18 @@
+services:
+  toolregistry-hub-server:
+    container_name: toolregistry-hub-server
+    image: oaklight/toolregistry-hub-server:latest
+    ports:
+      - 8000:8000
+    env_file:
+      - .env
+    environment:
+      - API_BEARER_TOKEN=${API_BEARER_TOKEN}
+      - SEARXNG_URL=${SEARXNG_URL}
+      - BRAVE_API_KEY=${BRAVE_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+    ## default running in openapi mode
+    ## if you want to run in mcp streamable http mode
+    # command: ["toolregistry-server", "--host=0.0.0.0", "--port=8000", "--mode=mcp"]
+    ## # if you want to run in mcp sse mode
+    # command: ["toolregistry-server", "--host=0.0.0.0", "--port=8000", "--mode=mcp", "--mcp-mode=sse"]
