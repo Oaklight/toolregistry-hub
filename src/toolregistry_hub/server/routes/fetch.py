@@ -17,7 +17,7 @@ class WebFetchWebpageRequest(BaseModel):
     """Request model for webpage fetching."""
 
     url: str = Field(
-        ..., description="URL of webpage to extract", example="https://example.com"
+        description="URL of webpage to extract", examples=["https://example.com"]
     )
     timeout: Optional[float] = Field(TIMEOUT_DEFAULT, description="Timeout in seconds")
 
@@ -61,5 +61,6 @@ def fetch_webpage(data: WebFetchWebpageRequest) -> WebFetchWebpageResponse:
     Returns:
         Response containing extracted content from the webpage
     """
-    content = Fetch.fetch_content(data.url, timeout=data.timeout)
+    timeout = data.timeout if data.timeout is not None else TIMEOUT_DEFAULT
+    content = Fetch.fetch_content(data.url, timeout=timeout)
     return WebFetchWebpageResponse(content=content)

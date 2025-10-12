@@ -15,7 +15,7 @@ class ThinkRequest(BaseModel):
     """Request model for think tool."""
 
     thought: str = Field(
-        ..., description="Thought to process", example="How to solve this problem?"
+        description="Thought to process", examples=["How to solve this problem?"]
     )
 
 

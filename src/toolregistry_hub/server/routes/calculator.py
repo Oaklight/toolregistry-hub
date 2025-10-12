@@ -19,9 +19,8 @@ class CalcEvaluateRequest(BaseModel):
     """Request model for calculator evaluation."""
 
     expression: str = Field(
-        ...,
         description="Mathematical expression to evaluate",
-        example="26 * 9 / 5 + 32",
+        examples=["26 * 9 / 5 + 32"],
     )
 
 
@@ -36,9 +35,7 @@ class CalcListAllowedFnsRequest(BaseModel):
 class CalcHelpRequest(BaseModel):
     """Request model for calculator help."""
 
-    fn_name: str = Field(
-        ..., description="Function name to get help for", example="sin"
-    )
+    fn_name: str = Field(description="Function name to get help for", examples=["sin"])
 
 
 # ============================================================
