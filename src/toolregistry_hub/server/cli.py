@@ -36,7 +36,7 @@ def main():
         try:
             import uvicorn
 
-            from .server_openapi import app
+            from .server_openapi import app, set_info
         except ImportError as e:
             logger.error(f"OpenAPI server dependencies not installed: {e}")
             logger.info("Installation options:")
@@ -48,10 +48,13 @@ def main():
             )
             sys.exit(1)
 
+        # Set server info
+        set_info(mode="openapi")
         uvicorn.run(app, host=args.host, port=args.port)
     elif args.mode == "mcp":
         try:
             from .server_mcp import mcp_app
+            from .server_openapi import set_info
         except ImportError as e:
             logger.error(f"MCP server dependencies not installed: {e}")
             logger.info("Installation options:")
@@ -63,7 +66,9 @@ def main():
             )
             sys.exit(1)
 
-        if args.mcp_mode == "stdio":
+        # Set server info
+        set_info(mode="mcp", mcp_transport=args.mcp_transport)
+
         if args.mcp_transport == "stdio":
             mcp_app.run()  # Run MCP in stdio mode; assumes FastMCP supports this method
         else:
