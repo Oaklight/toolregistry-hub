@@ -33,6 +33,7 @@ from .websearch import (
     TavilySearch,
 )
 from .websearch_legacy import (
+    WebSearchBing,
     WebSearchGeneral,
     WebSearchGoogle,
     WebSearchSearXNG,
@@ -57,7 +58,8 @@ __all__ = [
     # ------- Legacy WebSearch tools -------
     "WebSearchGeneral",
     "WebSearchGoogle",
+    "WebSearchBing",
     "WebSearchSearXNG",
 ]
 
-version = "0.4.15"  # standalone version
+version = "0.4.16"  # standalone version

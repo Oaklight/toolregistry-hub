@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "toolregistry-hub"
-version = "0.4.15"
+version = "0.4.16"
 authors = [{ name = "Oaklight", email = "oaklight@gmx.com" }]
 description = "ToolRegistry Hub: A collection of commonly used tools for LLM function calling"
 readme = "README.md"
@@ -34,6 +34,13 @@ dev = [
     "twine>=6.1.0",
     "pytest>=7.0.0",
 ]
+server_openapi = ["fastapi>=0.119.0", "uvicorn[standard]>=0.24.0"]
+server_mcp = ["fastapi>=0.119.0", "fastmcp>=2.12.4; python_version >= '3.10'"]
+server = [
+    "fastapi>=0.119.0",
+    "uvicorn[standard]>=0.24.0",
+    "fastmcp>=2.12.4; python_version >= '3.10'",
+]
 
 [project.urls]
 Documentation = "https://toolregistry.readthedocs.io"
@@ -46,3 +53,6 @@ where = ["src"]
 [tool.setuptools.package-data]
 "toolregistry.hub" = ["py.typed"]
 "toolregistry_hub" = ["py.typed"]
+
+[project.scripts]
+toolregistry-server = "toolregistry_hub.server.cli:main"

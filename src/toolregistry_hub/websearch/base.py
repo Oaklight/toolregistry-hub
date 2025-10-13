@@ -87,7 +87,7 @@ class BaseSearch(ABC):
         Returns:
             Dict[str, str]: A dictionary containing the title, URL, content, and excerpt of the webpage.
         """
-        url = entry["url"]
+        url = entry.get("url")
         if not url:
             raise ValueError("Result missing URL")
 

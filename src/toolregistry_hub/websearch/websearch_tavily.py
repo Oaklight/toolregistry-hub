@@ -144,11 +144,11 @@ class TavilySearch(BaseSearch):
             if param in kwargs:
                 payload[param] = kwargs[param]
 
+        timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
         try:
             # Rate limiting: ensure minimum delay between requests
             self._wait_for_rate_limit()
 
-            timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
             with httpx.Client(timeout=timeout) as client:
                 response = client.post(
                     f"{self.base_url}/search", headers=self._headers, json=payload

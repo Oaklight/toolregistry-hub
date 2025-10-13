@@ -48,7 +48,13 @@ class SearXNGSearch(BaseSearch):
         Args:
             base_url: SearXNG instance URL. If not provided, will try to get from SEARXNG_URL env var.
         """
-        self.base_url = base_url or os.getenv("SEARXNG_URL", "http://localhost:8080")
+        self.base_url = base_url or os.getenv("SEARXNG_URL")
+        if not self.base_url:
+            raise ValueError(
+                "SearXNG URL is required. Set SEARXNG_URL environment variable "
+                "Such as https://searxng.url, `json` response format should be set in SearXNG configuration"
+            )
+
         self.base_url = self.base_url.rstrip("/")
 
         # Ensure we have the search endpoint
@@ -140,8 +146,8 @@ class SearXNGSearch(BaseSearch):
             if param in kwargs and kwargs[param] is not None:
                 params[param] = kwargs[param]
 
+        timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
         try:
-            timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
             with httpx.Client(timeout=timeout) as client:
                 response = client.get(
                     self.search_url, headers=self._headers, params=params
