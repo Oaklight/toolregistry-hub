@@ -9,6 +9,7 @@
 - [File System Tools](filesystem.md) - File system operations
 - [Unit Converter Tools](unit_converter.md) - Unit conversion functions
 - [Other Tools](other_tools.md) - Other utility tools
+- [Server Mode](server.md) - REST API and MCP server
 
 ## Web Search Tools
 

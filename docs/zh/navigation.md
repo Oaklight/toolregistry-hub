@@ -9,6 +9,7 @@
 - [文件系统工具](filesystem.md) - 文件系统操作
 - [单位转换工具](unit_converter.md) - 单位转换功能
 - [其他工具](other_tools.md) - 其他实用工具
+- [服务器模式](server.md) - REST API 和 MCP 服务器
 
 ## 网络搜索工具
 
