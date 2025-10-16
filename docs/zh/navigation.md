@@ -15,6 +15,6 @@
 - [网络搜索主页](websearch/index.md) - 网络搜索工具概览
 - [搜索结果类型](websearch/search_result.md) - 搜索结果数据结构
 - [基础搜索类](websearch/base_search.md) - 搜索引擎基类
-- [Bing搜索](websearch/bing.md) - Bing搜索引擎
-- [SearXNG搜索](websearch/searxng.md) - SearXNG搜索引擎
+- [Bing 搜索](websearch/bing.md) - Bing 搜索引擎
+- [SearXNG 搜索](websearch/searxng.md) - SearXNG 搜索引擎
 - [旧版网络搜索](websearch/legacy.md) - 旧版网络搜索模块

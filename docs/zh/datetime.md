@@ -41,7 +41,7 @@ print(converted_time)  # 输出: 2025-10-13T15:12:32.841+08:00
 #### 方法
 
 - `_parse_timezone_offset(timezone_str: str) -> timezone`: 解析时区偏移字符串
-- `_get_timezone_obj(tz_str: str)`: 从IANA名称或UTC/GMT偏移获取时区对象
+- `_get_timezone_obj(tz_str: str)`: 从 IANA 名称或 UTC/GMT 偏移获取时区对象
 - `now(timezone_name: Optional[str] = None) -> str`: 获取当前时间，可选指定时区
 - `convert_timezone(time_str: str, from_timezone: str, to_timezone: str, format_str: Optional[str] = None) -> str`: 在时区之间转换时间
 
@@ -98,10 +98,10 @@ print(f"格式化的纽约时间: {formatted_time}")
 
 ### 支持的时区格式
 
-DateTime工具支持以下时区格式：
+DateTime 工具支持以下时区格式：
 
-1. IANA时区名称，如 "Asia/Shanghai", "America/New_York"
-2. UTC/GMT偏移，如 "UTC+8", "GMT-5"
+1. IANA 时区名称，如 "Asia/Shanghai", "America/New_York"
+2. UTC/GMT 偏移，如 "UTC+8", "GMT-5"
 
 ```python
 from toolregistry_hub import DateTime

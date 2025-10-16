@@ -1,6 +1,6 @@
 # 其他工具
 
-除了主要工具外，ToolRegistry Hub还提供了一些其他实用工具，包括思考工具和网页内容获取工具等。
+除了主要工具外，ToolRegistry Hub 还提供了一些其他实用工具，包括思考工具和网页内容获取工具等。
 
 ## 思考工具
 
@@ -31,7 +31,7 @@ ThinkTool.think("我需要考虑如何优化这个算法。首先，我可以尝
 
 ## 网页内容获取工具
 
-网页内容获取工具提供了从URL获取网页内容的功能。
+网页内容获取工具提供了从 URL 获取网页内容的功能。
 
 ### 类概览
 
@@ -45,7 +45,7 @@ ThinkTool.think("我需要考虑如何优化这个算法。首先，我可以尝
 
 ##### 方法
 
-- `fetch_content(url: str, timeout: float = 10.0, proxy: Optional[str] = None) -> str`: 从URL获取网页内容
+- `fetch_content(url: str, timeout: float = 10.0, proxy: Optional[str] = None) -> str`: 从 URL 获取网页内容
 
 ### 使用示例
 
@@ -60,7 +60,7 @@ print(f"网页内容预览: {content[:200]}...")
 
 ## 工具辅助函数
 
-ToolRegistry Hub还提供了一些辅助函数，用于支持工具的开发和使用。
+ToolRegistry Hub 还提供了一些辅助函数，用于支持工具的开发和使用。
 
 ### 函数概览
 

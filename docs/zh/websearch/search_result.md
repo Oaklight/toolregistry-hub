@@ -17,9 +17,9 @@
 #### 属性
 
 - `title: str` - 搜索结果的标题
-- `url: str` - 搜索结果的URL
+- `url: str` - 搜索结果的 URL
 - `content: str` - 搜索结果的内容或描述
-- `excerpt: str` - 搜索结果的摘要，通常与content相同
+- `excerpt: str` - 搜索结果的摘要，通常与 content 相同
 
 ## 使用示例
 
@@ -55,6 +55,6 @@ print(f"自定义结果: {custom_result.title} - {custom_result.url}")
 - [返回首页](../index.md)
 - [查看导航页面](../navigation.md)
 - [基础搜索类](base_search.md)
-- [Bing搜索](bing.md)
-- [SearXNG搜索](searxng.md)
+- [Bing 搜索](bing.md)
+- [SearXNG 搜索](searxng.md)
 - [旧版网络搜索](legacy.md)

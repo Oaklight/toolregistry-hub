@@ -7,9 +7,9 @@
 旧版网络搜索模块主要包含以下类：
 
 - `WebSearchGeneral` - 所有搜索引擎的抽象基类
-- `WebSearchBing` - 提供Bing搜索功能的类
-- `WebSearchGoogle` - 提供Google搜索功能的类
-- `WebSearchSearXNG` - 提供SearXNG搜索功能的类
+- `WebSearchBing` - 提供 Bing 搜索功能的类
+- `WebSearchGoogle` - 提供 Google 搜索功能的类
+- `WebSearchSearXNG` - 提供 SearXNG 搜索功能的类
 
 ## 详细 API
 
@@ -24,53 +24,53 @@
 
 ### WebSearchBing 类
 
-`WebSearchBing` 是一个提供Bing搜索功能的类，继承自 `WebSearchGeneral`。
+`WebSearchBing` 是一个提供 Bing 搜索功能的类，继承自 `WebSearchGeneral`。
 
 #### 初始化参数
 
 - `timeout: float = 3.0` - 请求超时时间（秒）
-- `proxy: Optional[str] = None` - 代理服务器URL
+- `proxy: Optional[str] = None` - 代理服务器 URL
 
 #### 方法
 
 - `search(query: str, num_results: int = 5, **kwargs) -> List[dict]`: 执行搜索并返回结果
-- `_meta_search_bing(query: str, num_results: int, timeout: float, proxy: Optional[str]) -> List[dict]`: 执行Bing搜索
-- `_parse_bing_entries(entries: List[dict], num_results: int) -> List[dict]`: 解析Bing搜索结果
-- `_extract_real_url(bing_url: str) -> str`: 从Bing重定向URL中提取真实URL
+- `_meta_search_bing(query: str, num_results: int, timeout: float, proxy: Optional[str]) -> List[dict]`: 执行 Bing 搜索
+- `_parse_bing_entries(entries: List[dict], num_results: int) -> List[dict]`: 解析 Bing 搜索结果
+- `_extract_real_url(bing_url: str) -> str`: 从 Bing 重定向 URL 中提取真实 URL
 
 ### WebSearchGoogle 类
 
-`WebSearchGoogle` 是一个提供Google搜索功能的类，继承自 `WebSearchGeneral`。
+`WebSearchGoogle` 是一个提供 Google 搜索功能的类，继承自 `WebSearchGeneral`。
 
 #### 初始化参数
 
 - `timeout: float = 3.0` - 请求超时时间（秒）
-- `proxy: Optional[str] = None` - 代理服务器URL
+- `proxy: Optional[str] = None` - 代理服务器 URL
 
 #### 方法
 
 - `search(query: str, num_results: int = 5, **kwargs) -> List[dict]`: 执行搜索并返回结果
-- `_meta_search_google(query: str, num_results: int, timeout: float, proxy: Optional[str]) -> List[dict]`: 执行Google搜索
-- `_parse_google_entries(entries: List[dict], num_results: int) -> List[dict]`: 解析Google搜索结果
+- `_meta_search_google(query: str, num_results: int, timeout: float, proxy: Optional[str]) -> List[dict]`: 执行 Google 搜索
+- `_parse_google_entries(entries: List[dict], num_results: int) -> List[dict]`: 解析 Google 搜索结果
 
 ### WebSearchSearXNG 类
 
-`WebSearchSearXNG` 是一个提供SearXNG搜索功能的类，继承自 `WebSearchGeneral`。
+`WebSearchSearXNG` 是一个提供 SearXNG 搜索功能的类，继承自 `WebSearchGeneral`。
 
 #### 初始化参数
 
-- `base_url: Optional[str] = None` - SearXNG实例的基础URL，默认使用内置实例
+- `base_url: Optional[str] = None` - SearXNG 实例的基础 URL，默认使用内置实例
 - `timeout: float = 3.0` - 请求超时时间（秒）
-- `proxy: Optional[str] = None` - 代理服务器URL
+- `proxy: Optional[str] = None` - 代理服务器 URL
 
 #### 方法
 
 - `search(query: str, num_results: int = 5, **kwargs) -> List[dict]`: 执行搜索并返回结果
-- `_meta_search_searxng(query: str, num_results: int, timeout: float, proxy: Optional[str]) -> List[dict]`: 执行SearXNG搜索
+- `_meta_search_searxng(query: str, num_results: int, timeout: float, proxy: Optional[str]) -> List[dict]`: 执行 SearXNG 搜索
 
 ## 使用示例
 
-### 使用Bing搜索
+### 使用 Bing 搜索
 
 ```python
 from toolregistry_hub.websearch_legacy import WebSearchBing
@@ -89,7 +89,7 @@ for result in results:
     print("-" * 50)
 ```
 
-### 使用Google搜索
+### 使用 Google 搜索
 
 ```python
 from toolregistry_hub.websearch_legacy import WebSearchGoogle
@@ -108,7 +108,7 @@ for result in results:
     print("-" * 50)
 ```
 
-### 使用SearXNG搜索
+### 使用 SearXNG 搜索
 
 ```python
 from toolregistry_hub.websearch_legacy import WebSearchSearXNG
@@ -173,5 +173,5 @@ print(f"过滤后结果数: {len(filtered_results)}")
 - [查看导航页面](../navigation.md)
 - [搜索结果类型](search_result.md)
 - [基础搜索类](base_search.md)
-- [Bing搜索](bing.md)
-- [SearXNG搜索](searxng.md)
+- [Bing 搜索](bing.md)
+- [SearXNG 搜索](searxng.md)

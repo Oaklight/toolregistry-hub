@@ -1,6 +1,6 @@
 # 网络搜索工具
 
-网络搜索工具提供了通过各种搜索引擎进行网络搜索的功能。该模块支持多种搜索引擎，包括Bing、Google、SearXNG和Tavily等。
+网络搜索工具提供了通过各种搜索引擎进行网络搜索的功能。该模块支持多种搜索引擎，包括 Bing、Google、SearXNG 和 Tavily 等。
 
 ## 模块概览
 
@@ -13,10 +13,10 @@
 
 当前支持的搜索引擎包括：
 
-- [Bing搜索](bing.md) - 使用Bing搜索引擎
-- [SearXNG搜索](searxng.md) - 使用SearXNG元搜索引擎
-- [Brave搜索](brave.md) - 使用Brave搜索引擎
-- [Tavily搜索](tavily.md) - 使用Tavily搜索API
+- [Bing 搜索](bing.md) - 使用 Bing 搜索引擎
+- [SearXNG 搜索](searxng.md) - 使用 SearXNG 元搜索引擎
+- [Brave 搜索](brave.md) - 使用 Brave 搜索引擎
+- [Tavily 搜索](tavily.md) - 使用 Tavily 搜索 API
 
 ## 基本使用
 
@@ -46,10 +46,10 @@ for result in results:
 
 - [搜索结果类型](search_result.md) - 搜索结果的数据结构
 - [基础搜索类](base_search.md) - 所有搜索引擎的基类
-- [Bing搜索](bing.md) - Bing搜索引擎的实现
-- [SearXNG搜索](searxng.md) - SearXNG搜索引擎的实现
-- [Brave搜索](brave.md) - Brave搜索引擎的实现
-- [Tavily搜索](tavily.md) - Tavily搜索API的实现
+- [Bing 搜索](bing.md) - Bing 搜索引擎的实现
+- [SearXNG 搜索](searxng.md) - SearXNG 搜索引擎的实现
+- [Brave 搜索](brave.md) - Brave 搜索引擎的实现
+- [Tavily 搜索](tavily.md) - Tavily 搜索 API 的实现
 - [旧版网络搜索](legacy.md) - 旧版网络搜索模块的文档
 
 ## 架构升级计划

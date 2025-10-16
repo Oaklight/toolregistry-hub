@@ -1,5 +1,7 @@
 # ToolRegistry Hub 文档
 
+[English version](docs/readme_en.md) | [中文版](docs/readme_zh.md)
+
 欢迎使用 ToolRegistry Hub 文档！本文档提供了对项目中所有工具的详细说明。
 
 ## 工具概览

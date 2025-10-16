@@ -14,12 +14,12 @@
 
 #### 属性
 
-- `_headers` - 搜索请求使用的HTTP头信息
+- `_headers` - 搜索请求使用的 HTTP 头信息
 
 #### 方法
 
 - `search(query: str, number_results: int = 5, timeout: Optional[float] = None, **kwargs) -> List[SearchResult]`: 执行搜索并返回结果
-- `_parse_results(raw_results: Any) -> List[SearchResult]`: 解析原始搜索结果为SearchResult对象列表
+- `_parse_results(raw_results: Any) -> List[SearchResult]`: 解析原始搜索结果为 SearchResult 对象列表
 - `_search_impl(query: str, **kwargs) -> List[SearchResult]`: 实现具体的搜索逻辑
 - `_fetch_webpage_content(url: str, timeout: Optional[float] = None) -> str`: 获取网页内容
 
@@ -35,7 +35,7 @@ from toolregistry_hub.websearch.search_result import SearchResult
 class MyCustomSearch(BaseSearch):
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key
-    
+
     @property
     def _headers(self) -> dict:
         """返回搜索请求使用的HTTP头信息"""
@@ -45,13 +45,13 @@ class MyCustomSearch(BaseSearch):
             "Accept-Language": "en-US,en;q=0.5",
             "Authorization": f"Bearer {self.api_key}" if self.api_key else ""
         }
-    
+
     def _search_impl(self, query: str, **kwargs) -> List[SearchResult]:
         """实现具体的搜索逻辑"""
         # 这里实现具体的搜索逻辑
         # 例如，发送HTTP请求到搜索API
         # ...
-        
+
         # 返回模拟结果
         return [
             SearchResult(
@@ -67,12 +67,12 @@ class MyCustomSearch(BaseSearch):
                 excerpt="这是示例结果2的摘要"
             )
         ]
-    
+
     def _parse_results(self, raw_results: Any) -> List[SearchResult]:
         """解析原始搜索结果为SearchResult对象列表"""
         # 这里实现解析逻辑
         # ...
-        
+
         # 返回模拟结果
         return [
             SearchResult(
@@ -108,6 +108,6 @@ for result in results:
 - [返回首页](../index.md)
 - [查看导航页面](../navigation.md)
 - [搜索结果类型](search_result.md)
-- [Bing搜索](bing.md)
-- [SearXNG搜索](searxng.md)
+- [Bing 搜索](bing.md)
+- [SearXNG 搜索](searxng.md)
 - [旧版网络搜索](legacy.md)

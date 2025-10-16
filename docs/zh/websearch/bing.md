@@ -1,30 +1,30 @@
-# Bing搜索
+# Bing 搜索
 
-Bing搜索提供了使用Microsoft Bing搜索引擎进行网络搜索的功能。
+Bing 搜索提供了使用 Microsoft Bing 搜索引擎进行网络搜索的功能。
 
 ## 类概览
 
-- `BingSearch` - 提供Bing搜索功能的类
+- `BingSearch` - 提供 Bing 搜索功能的类
 
 ## 详细 API
 
 ### BingSearch 类
 
-`BingSearch` 是一个提供Bing搜索功能的类，继承自 `BaseSearch`。
+`BingSearch` 是一个提供 Bing 搜索功能的类，继承自 `BaseSearch`。
 
 #### 初始化参数
 
 - `rate_limit_delay: float = 1.0` - 请求之间的延迟时间（秒）
 - `timeout: Optional[float] = None` - 请求超时时间（秒）
 - `max_retries: int = 3` - 最大重试次数
-- `proxy: Optional[str] = None` - 代理服务器URL
+- `proxy: Optional[str] = None` - 代理服务器 URL
 
 #### 方法
 
 - `search(query: str, number_results: int = 5, timeout: Optional[float] = None, **kwargs) -> List[SearchResult]`: 执行搜索并返回结果
 - `_search_impl(query: str, **kwargs) -> List[SearchResult]`: 实现具体的搜索逻辑
 - `_parse_results(raw_results: Dict) -> List[SearchResult]`: 解析原始搜索结果
-- `_extract_real_url(bing_url: str) -> str`: 从Bing重定向URL中提取真实URL
+- `_extract_real_url(bing_url: str) -> str`: 从 Bing 重定向 URL 中提取真实 URL
 - `_wait_for_rate_limit()`: 等待速率限制
 
 ## 使用示例
@@ -106,9 +106,9 @@ if results:
     print(f"网页内容预览: {content[:200]}...")
 ```
 
-## 旧版Bing搜索
+## 旧版 Bing 搜索
 
-旧版Bing搜索功能在 `websearch_legacy` 模块中提供，使用 `WebSearchBing` 类。详细信息请参阅[旧版网络搜索](legacy.md)文档。
+旧版 Bing 搜索功能在 `websearch_legacy` 模块中提供，使用 `WebSearchBing` 类。详细信息请参阅[旧版网络搜索](legacy.md)文档。
 
 ## 导航
 
@@ -117,5 +117,5 @@ if results:
 - [查看导航页面](../navigation.md)
 - [搜索结果类型](search_result.md)
 - [基础搜索类](base_search.md)
-- [SearXNG搜索](searxng.md)
+- [SearXNG 搜索](searxng.md)
 - [旧版网络搜索](legacy.md)
