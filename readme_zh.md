@@ -8,18 +8,18 @@
 
 ToolRegistry Hub 是一个提供各种实用工具的 Python 库，旨在支持各种常见任务。以下是主要工具类别：
 
-- [计算器工具](calculator.md) - 提供各种数学计算功能
-- [日期时间工具](datetime.md) - 处理日期、时间和时区转换
-- [文件操作工具](file_ops.md) - 提供文件内容操作功能
-- [文件系统工具](filesystem.md) - 提供文件系统操作功能
-- [网络搜索工具](websearch/index.md) - 提供网络搜索功能
-- [单位转换工具](unit_converter.md) - 提供各种单位之间的转换
-- [其他工具](other_tools.md) - 其他实用工具
-- [服务器模式](server.md) - REST API 和 MCP 服务器
+- [计算器工具](docs/zh/calculator.md) - 提供各种数学计算功能
+- [日期时间工具](docs/zh/datetime.md) - 处理日期、时间和时区转换
+- [文件操作工具](docs/zh/file_ops.md) - 提供文件内容操作功能
+- [文件系统工具](docs/zh/filesystem.md) - 提供文件系统操作功能
+- [网络搜索工具](docs/zh/websearch/index.md) - 提供网络搜索功能
+- [单位转换工具](docs/zh/unit_converter.md) - 提供各种单位之间的转换
+- [其他工具](docs/zh/other_tools.md) - 其他实用工具
+- [服务器模式](docs/zh/server.md) - REST API 和 MCP 服务器
 
 ## 导航
 
-查看[导航页面](navigation.md)以获取完整的文档结构和导航链接。
+查看[导航页面](docs/zh/navigation.md)以获取完整的文档结构和导航链接。
 
 ## 快速入门
 
@@ -49,4 +49,4 @@ print(current_time)
 
 ## 贡献
 
-如果您想为 ToolRegistry Hub 做出贡献，请参阅 [GitHub 仓库](https://github.com/yourusername/toolregistry-hub)。
+如果您想为 ToolRegistry Hub 做出贡献，请参阅 [GitHub 仓库](https://github.com/Oaklight/toolregistry-hub)。
