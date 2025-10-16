@@ -292,36 +292,4 @@ def test_calc_evaluate():
 
 ## Deployment
 
-### Docker Deployment
-
-You can use Docker to deploy the server:
-
-```dockerfile
-FROM python:3.10-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-
-EXPOSE 8000
-
-CMD ["toolregistry-server", "--mode", "openapi", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-### Production Environment
-
-In production environments, it is recommended to use:
-
-1. **WSGI Server** - Such as Gunicorn or uWSGI
-2. **Reverse Proxy** - Such as Nginx or Apache
-3. **Load Balancing** - If high availability is needed
-4. **Monitoring and Logging** - Such as Prometheus and ELK Stack
-
-Example Gunicorn startup command:
-
-```bash
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker toolregistry_hub.server.server_openapi:app
-```
+For Docker deployment and production environment setup, please refer to the [Docker Deployment](docker.md) documentation.

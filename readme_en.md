@@ -16,6 +16,7 @@ ToolRegistry Hub is a Python library that provides various utility tools designe
 - [Unit Converter Tools](docs/en/unit_converter.md) - Provides conversions between various units
 - [Other Tools](docs/en/other_tools.md) - Other utility tools
 - [Server Mode](docs/en/server.md) - REST API and MCP server
+- [Docker Deployment](docs/en/docker.md) - Docker containerization deployment
 
 ## Navigation
 

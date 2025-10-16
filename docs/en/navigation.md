@@ -10,6 +10,7 @@
 - [Unit Converter Tools](unit_converter.md) - Unit conversion functions
 - [Other Tools](other_tools.md) - Other utility tools
 - [Server Mode](server.md) - REST API and MCP server
+- [Docker Deployment](docker.md) - Docker containerization deployment
 
 ## Web Search Tools
 

@@ -10,6 +10,7 @@
 - [单位转换工具](unit_converter.md) - 单位转换功能
 - [其他工具](other_tools.md) - 其他实用工具
 - [服务器模式](server.md) - REST API 和 MCP 服务器
+- [Docker 部署](docker.md) - Docker 容器化部署
 
 ## 网络搜索工具
 

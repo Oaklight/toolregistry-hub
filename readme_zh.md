@@ -16,6 +16,7 @@ ToolRegistry Hub 是一个提供各种实用工具的 Python 库，旨在支持�
 - [单位转换工具](docs/zh/unit_converter.md) - 提供各种单位之间的转换
 - [其他工具](docs/zh/other_tools.md) - 其他实用工具
 - [服务器模式](docs/zh/server.md) - REST API 和 MCP 服务器
+- [Docker 部署](docs/zh/docker.md) - Docker 容器化部署
 
 ## 导航
 

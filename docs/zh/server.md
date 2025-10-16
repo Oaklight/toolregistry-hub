@@ -292,36 +292,4 @@ def test_calc_evaluate():
 
 ## 部署
 
-### Docker 部署
-
-您可以使用 Docker 来部署服务器：
-
-```dockerfile
-FROM python:3.10-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-
-EXPOSE 8000
-
-CMD ["toolregistry-server", "--mode", "openapi", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-### 生产环境
-
-在生产环境中，建议使用：
-
-1. **WSGI 服务器** - 如 Gunicorn 或 uWSGI
-2. **反向代理** - 如 Nginx 或 Apache
-3. **负载均衡** - 如果需要高可用性
-4. **监控和日志** - 如 Prometheus 和 ELK Stack
-
-示例 Gunicorn 启动命令：
-
-```bash
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker toolregistry_hub.server.server_openapi:app
-```
+关于 Docker 部署和生产环境设置，请参阅 [Docker 部署](docker.md) 文档。
