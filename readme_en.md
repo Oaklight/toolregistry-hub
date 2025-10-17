@@ -1,6 +1,6 @@
 # ToolRegistry Hub Documentation
 
-[中文版](docs/readme_zh.md) | [English version](docs/readme_en.md)
+[中文版](readme_zh.md) | [English version](readme_en.md)
 
 Welcome to the ToolRegistry Hub documentation! This document provides detailed descriptions of all tools in the project.
 
