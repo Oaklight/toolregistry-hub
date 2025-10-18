@@ -21,7 +21,7 @@
 ## 基本使用
 
 ```python
-from toolregistry_hub.websearch import BingSearch, SearXNGSearch
+from toolregistry_hub.websearch import BingSearch, SearXNGSearch, BraveSearch, TavilySearch
 
 # 使用Bing搜索
 bing_search = BingSearch()
@@ -39,6 +39,26 @@ for result in results:
     print(f"标题: {result.title}")
     print(f"URL: {result.url}")
     print(f"摘要: {result.excerpt}")
+    print("-" * 50)
+
+# 使用Brave搜索
+brave_search = BraveSearch()
+results = brave_search.search("人工智能", number_results=5)
+for result in results:
+    print(f"标题: {result.title}")
+    print(f"URL: {result.url}")
+    print(f"内容: {result.content}")
+    print(f"评分: {result.score}")
+    print("-" * 50)
+
+# 使用Tavily搜索
+tavily_search = TavilySearch()
+results = tavily_search.search("量子计算", number_results=5)
+for result in results:
+    print(f"标题: {result.title}")
+    print(f"URL: {result.url}")
+    print(f"内容: {result.content}")
+    print(f"评分: {result.score}")
     print("-" * 50)
 ```
 

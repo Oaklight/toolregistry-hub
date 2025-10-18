@@ -21,7 +21,7 @@ Currently supported search engines include:
 ## Basic Usage
 
 ```python
-from toolregistry_hub.websearch import BingSearch, SearXNGSearch
+from toolregistry_hub.websearch import BingSearch, SearXNGSearch, BraveSearch, TavilySearch
 
 # Using Bing search
 bing_search = BingSearch()
@@ -39,6 +39,26 @@ for result in results:
     print(f"Title: {result.title}")
     print(f"URL: {result.url}")
     print(f"Excerpt: {result.excerpt}")
+    print("-" * 50)
+
+# Using Brave search
+brave_search = BraveSearch()
+results = brave_search.search("artificial intelligence", number_results=5)
+for result in results:
+    print(f"Title: {result.title}")
+    print(f"URL: {result.url}")
+    print(f"Content: {result.content}")
+    print(f"Score: {result.score}")
+    print("-" * 50)
+
+# Using Tavily search
+tavily_search = TavilySearch()
+results = tavily_search.search("quantum computing", number_results=5)
+for result in results:
+    print(f"Title: {result.title}")
+    print(f"URL: {result.url}")
+    print(f"Content: {result.content}")
+    print(f"Score: {result.score}")
     print("-" * 50)
 ```
 
