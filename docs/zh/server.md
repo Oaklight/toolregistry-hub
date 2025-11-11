@@ -111,19 +111,56 @@ mcp_app.run()
 
 ## 认证
 
-服务器支持基于 Bearer Token 的认证。您可以通过设置 `API_BEARER_TOKEN` 环境变量来启用认证：
+服务器支持基于 Bearer Token 的认证。支持多种令牌配置方式：
+
+### 配置方式
+
+#### 方式 1：单个令牌（向后兼容）
 
 ```bash
 export API_BEARER_TOKEN="your-secret-token"
 ```
 
+#### 方式 2：多个令牌（逗号分隔）
+
+```bash
+export API_BEARER_TOKEN="token1,token2,token3,token4"
+```
+
+#### 方式 3：令牌文件（一行一个令牌）
+
+```bash
+# 创建令牌文件
+cat > /path/to/tokens.txt << EOF
+6Yd9Y7xB4FDUgFVZ3oJh7NEKkqV97o8z9Tup75fZWinJw
+8Af2X9cD6GEVhGWA5pKi9OFLlrW89p0a1Vuq87gAXjoKy
+4Hg5Z8eF9HIWiHXB6qLj0PGMmsX90q1b2Wvr98hBYkpLz
+EOF
+
+# 设置环境变量指向文件
+export API_BEARER_TOKENS_FILE="/path/to/tokens.txt"
+```
+
+### 使用方式
+
 设置后，所有 API 请求都需要在 Header 中包含有效的 Bearer Token：
 
 ```http
-Authorization: Bearer your-secret-token
+Authorization: Bearer your-valid-token
 ```
 
-如果未设置 `API_BEARER_TOKEN` 环境变量，则不需要认证。
+如果未设置任何令牌环境变量，则不需要认证。
+
+### 多用户场景
+
+多令牌配置特别适合多用户场景，您可以为不同用户分发不同的令牌：
+
+```bash
+# 为不同用户配置不同令牌
+curl -H "Authorization: Bearer token1" http://localhost:8000/calc/evaluate
+curl -H "Authorization: Bearer token2" http://localhost:8000/calc/evaluate
+curl -H "Authorization: Bearer token3" http://localhost:8000/calc/evaluate
+```
 
 ## 示例
 
@@ -199,9 +236,15 @@ print(f"搜索结果: {json.dumps(search_results, indent=2)}")
 
 ## 环境变量
 
-除了 `API_BEARER_TOKEN` 外，您还可以设置其他环境变量来配置服务器：
+您可以设置以下环境变量来配置服务器：
 
-- `API_BEARER_TOKEN` - Bearer Token，用于 API 认证
+### 认证相关
+
+- `API_BEARER_TOKEN` - Bearer Token，用于 API 认证（支持单个令牌或逗号分隔的多个令牌）
+- `API_BEARER_TOKENS_FILE` - 令牌文件路径，文件中每行一个令牌
+
+### 其他配置
+
 - 其他工具特定的环境变量（如搜索 API 密钥等）
 
 ## 故障排除

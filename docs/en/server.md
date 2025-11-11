@@ -111,19 +111,56 @@ In OpenAPI mode, all tools are provided as REST API endpoints. After starting th
 
 ## Authentication
 
-The server supports Bearer Token-based authentication. You can enable authentication by setting the `API_BEARER_TOKEN` environment variable:
+The server supports Bearer Token-based authentication with multiple configuration options:
+
+### Configuration Methods
+
+#### Method 1: Single Token (Backward Compatible)
 
 ```bash
 export API_BEARER_TOKEN="your-secret-token"
 ```
 
-After setting this, all API requests need to include a valid Bearer Token in the Header:
+#### Method 2: Multiple Tokens (Comma-Separated)
 
-```http
-Authorization: Bearer your-secret-token
+```bash
+export API_BEARER_TOKEN="token1,token2,token3,token4"
 ```
 
-If the `API_BEARER_TOKEN` environment variable is not set, no authentication is required.
+#### Method 3: Token File (One Token Per Line)
+
+```bash
+# Create token file
+cat > /path/to/tokens.txt << EOF
+6Yd9Y7xB4FDUgFVZ3oJh7NEKkqV97o8z9Tup75fZWinJw
+8Af2X9cD6GEVhGWA5pKi9OFLlrW89p0a1Vuq87gAXjoKy
+4Hg5Z8eF9HIWiHXB6qLj0PGMmsX90q1b2Wvr98hBYkpLz
+EOF
+
+# Set environment variable to point to file
+export API_BEARER_TOKENS_FILE="/path/to/tokens.txt"
+```
+
+### Usage
+
+After configuration, all API requests need to include a valid Bearer Token in the Header:
+
+```http
+Authorization: Bearer your-valid-token
+```
+
+If no token environment variables are set, no authentication is required.
+
+### Multi-User Scenarios
+
+Multiple token configuration is particularly suitable for multi-user scenarios, allowing you to distribute different tokens to different users:
+
+```bash
+# Different users using different tokens
+curl -H "Authorization: Bearer token1" http://localhost:8000/calc/evaluate
+curl -H "Authorization: Bearer token2" http://localhost:8000/calc/evaluate
+curl -H "Authorization: Bearer token3" http://localhost:8000/calc/evaluate
+```
 
 ## Examples
 
@@ -199,9 +236,15 @@ Error response format is as follows:
 
 ## Environment Variables
 
-In addition to `API_BEARER_TOKEN`, you can set other environment variables to configure the server:
+You can set the following environment variables to configure the server:
 
-- `API_BEARER_TOKEN` - Bearer Token for API authentication
+### Authentication Related
+
+- `API_BEARER_TOKEN` - Bearer Token for API authentication (supports single token or comma-separated multiple tokens)
+- `API_BEARER_TOKENS_FILE` - Path to token file, with one token per line
+
+### Other Configuration
+
 - Other tool-specific environment variables (such as search API keys, etc.)
 
 ## Troubleshooting
