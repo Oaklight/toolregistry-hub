@@ -31,7 +31,8 @@ RUN adduser \
     appuser
 
 # Configure pip mirror based on geographic location
-RUN pip config set global.index-url https://mirrors.cernet.edu.cn/pypi/web/simple;
+COPY docker/requirements.txt .
+# RUN pip config set global.index-url https://mirrors.cernet.edu.cn/pypi/web/simple;
     
 # Install the package with server dependencies
 RUN --mount=type=cache,target=/root/.cache/pip \

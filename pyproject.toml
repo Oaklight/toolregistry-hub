@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "toolregistry-hub"
-version = "0.4.16"
+version = "0.4.16a0"
 authors = [{ name = "Oaklight", email = "oaklight@gmx.com" }]
 description = "ToolRegistry Hub: A collection of commonly used tools for LLM function calling"
 readme = "README.md"

@@ -8,6 +8,7 @@ docs/
 
 # Docker files (avoid recursive copying)
 docker/
+!docker/requirements.txt
 Dockerfile
 .dockerignore
 compose*.yaml
