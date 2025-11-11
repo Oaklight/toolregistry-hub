@@ -1,1 +1,1 @@
-toolregistry-hub[server]>=0.4.16a0
+toolregistry-hub[server]>=0.5.0
