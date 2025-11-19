@@ -4,6 +4,10 @@ site_url: https://toolregistry-hub.readthedocs.io/
 repo_url: https://github.com/Oaklight/toolregistry-hub
 repo_name: Oaklight/toolregistry-hub
 
+# Documentation directory
+docs_dir: .
+site_dir: ../site
+
 # Theme configuration
 theme:
   name: shadcn
