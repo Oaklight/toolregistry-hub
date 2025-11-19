@@ -1,0 +1,103 @@
+site_name: ToolRegistry Hub - 中文文档
+site_description: 一个提供各种实用工具的综合Python库
+site_url: https://toolregistry-hub.readthedocs.io/
+repo_url: https://github.com/Oaklight/toolregistry-hub
+repo_name: Oaklight/toolregistry-hub
+
+# Documentation directory
+docs_dir: .
+
+# Theme configuration
+theme:
+  name: shadcn
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.share
+  palette:
+    - scheme: default
+      primary: blue
+      accent: blue
+  language: zh
+  show_datetime: false
+
+# Navigation structure
+nav:
+  - 首页: index.md
+  - 工具:
+    - 计算器工具: tools/calculator.md
+    - 日期时间工具: tools/datetime.md
+    - 文件操作: tools/file_ops.md
+    - 文件系统: tools/filesystem.md
+    - 思考工具: tools/think_tool.md
+    - 网页获取工具: tools/web_fetch_tool.md
+    - 网络搜索:
+      - 概览: tools/websearch/index.md
+      - 搜索结果: tools/websearch/search_result.md
+      - 基础搜索: tools/websearch/base_search.md
+      - Bing搜索: tools/websearch/bing.md
+      - Brave搜索: tools/websearch/brave.md
+      - SearXNG搜索: tools/websearch/searxng.md
+      - Tavily搜索: tools/websearch/tavily.md
+      - 旧版搜索: tools/websearch/legacy.md
+    - 单位转换: tools/unit_converter.md
+    - 其他工具: tools/other_tools.md
+  - 部署:
+    - 服务器模式: server.md
+    - Docker部署: docker.md
+  - 开发:
+    - 工具辅助函数: dev/helper_functions.md
+  - 导航: navigation.md
+
+# Extensions
+markdown_extensions:
+  - admonition
+  - codehilite:
+      guess_lang: false
+  - fenced_code
+  - footnotes
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.blocks.details
+  - pymdownx.blocks.tab
+  - pymdownx.progressbar
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+# Plugins
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+
+# Extra configuration
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Oaklight/toolregistry-hub
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/toolregistry-hub/
+
+# Custom CSS and JS
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+# Copyright
+copyright: Copyright &copy; 2024 ToolRegistry Hub

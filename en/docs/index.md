@@ -44,7 +44,7 @@ Choose your preferred language:
 
     Complete documentation in English with detailed API references and examples.
 
-    [:octicons-arrow-right-24: English Docs](en/)
+    [:octicons-arrow-right-24: English Docs](overview/)
 
 -   :material-translate: **中文文档**
 
@@ -61,19 +61,19 @@ Choose your preferred language:
 ToolRegistry Hub provides the following tool categories:
 
 ### Core Tools
-- **[Calculator Tools](en/calculator.md)** - Mathematical calculations and expressions
-- **[Date Time Tools](en/datetime.md)** - Date, time, and timezone handling
-- **[File Operations](en/file_ops.md)** - File content manipulation
-- **[File System](en/filesystem.md)** - File system operations
+- **[Calculator Tools](tools/calculator/)** - Mathematical calculations and expressions
+- **[Date Time Tools](tools/datetime/)** - Date, time, and timezone handling
+- **[File Operations](tools/file_ops/)** - File content manipulation
+- **[File System](tools/filesystem/)** - File system operations
 
 ### Advanced Tools
-- **[Web Search Tools](en/websearch/)** - Multi-engine web search capabilities
-- **[Unit Converter](en/unit_converter.md)** - Convert between various units
-- **[Other Tools](en/other_tools.md)** - Additional utility functions
+- **[Web Search Tools](tools/websearch/)** - Multi-engine web search capabilities
+- **[Unit Converter](tools/unit_converter/)** - Convert between various units
+- **[Other Tools](tools/other_tools/)** - Additional utility functions
 
 ### Deployment
-- **[Server Mode](en/server.md)** - REST API and MCP server
-- **[Docker Deployment](en/docker.md)** - Containerized deployment
+- **[Server Mode](server/)** - REST API and MCP server
+- **[Docker Deployment](docker/)** - Containerized deployment
 
 ## 🌟 Features
 
@@ -98,4 +98,4 @@ This project is licensed under the MIT License. See the [LICENSE](https://github
 
 ---
 
-*Get started by exploring our [English documentation](en/) or [中文文档](zh/)!*
+*Get started by exploring our [English documentation](overview/) or [中文文档](zh/)!*

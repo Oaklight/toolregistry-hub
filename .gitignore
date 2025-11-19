@@ -1,5 +1,8 @@
 # MkDocs build output
 site/
+site-zh/
+docs/javascripts/
+docs/stylesheets/
 
 # Python
 __pycache__/
