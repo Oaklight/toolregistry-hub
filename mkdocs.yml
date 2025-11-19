@@ -30,6 +30,8 @@ nav:
     - Date Time Tools: en/datetime.md
     - File Operations: en/file_ops.md
     - File System: en/filesystem.md
+    - Think Tool: en/think_tool.md
+    - Web Fetch Tool: en/web_fetch_tool.md
     - Web Search:
       - Overview: en/websearch/index.md
       - Search Results: en/websearch/search_result.md
@@ -43,6 +45,8 @@ nav:
     - Other Tools: en/other_tools.md
     - Server Mode: en/server.md
     - Docker Deployment: en/docker.md
+    - Development:
+      - Helper Functions: en/dev/helper_functions.md
     - Navigation: en/navigation.md
   - 中文:
     - 概览: zh/index.md
@@ -50,6 +54,8 @@ nav:
     - 日期时间工具: zh/datetime.md
     - 文件操作: zh/file_ops.md
     - 文件系统: zh/filesystem.md
+    - 思考工具: zh/think_tool.md
+    - 网页获取工具: zh/web_fetch_tool.md
     - 网络搜索:
       - 概览: zh/websearch/index.md
       - 搜索结果: zh/websearch/search_result.md
@@ -63,6 +69,8 @@ nav:
     - 其他工具: zh/other_tools.md
     - 服务器模式: zh/server.md
     - Docker部署: zh/docker.md
+    - 开发:
+      - 工具辅助函数: zh/dev/helper_functions.md
     - 导航: zh/navigation.md
 
 # Extensions
