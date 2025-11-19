@@ -1,6 +1,6 @@
 site_name: ToolRegistry Hub
 site_description: A comprehensive Python library providing various utility tools for common tasks
-site_url: https://toolregistry-hub.github.io/
+site_url: https://toolregistry-hub.readthedocs.io/
 repo_url: https://github.com/Oaklight/toolregistry-hub
 repo_name: Oaklight/toolregistry-hub
 
@@ -114,8 +114,6 @@ extra:
       link: https://github.com/Oaklight/toolregistry-hub
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/toolregistry-hub/
-  version:
-    provider: mike
 
 # Custom CSS and JS
 extra_css:
