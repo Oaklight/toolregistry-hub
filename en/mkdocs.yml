@@ -5,7 +5,7 @@ repo_url: https://github.com/Oaklight/toolregistry-hub
 repo_name: Oaklight/toolregistry-hub
 
 # Documentation directory
-docs_dir: en/docs
+docs_dir: docs
 
 # Theme configuration
 theme:
