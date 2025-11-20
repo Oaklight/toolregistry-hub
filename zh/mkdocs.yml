@@ -1,6 +1,6 @@
 site_name: ToolRegistry Hub - 中文文档
 site_description: 一个提供各种实用工具的综合Python库
-site_url: https://toolregistry-hub.readthedocs.io/zh/latest/
+# site_url: https://toolregistry-hub.readthedocs.io/
 repo_url: https://github.com/Oaklight/toolregistry-hub
 repo_name: Oaklight/toolregistry-hub
 
@@ -23,6 +23,7 @@ theme:
       primary: blue
       accent: blue
   language: zh
+  use_directory_urls: false
   show_datetime: false
   topbar_sections: true
 

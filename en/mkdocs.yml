@@ -1,6 +1,6 @@
 site_name: ToolRegistry Hub
 site_description: A comprehensive Python library providing various utility tools for common tasks
-site_url: https://toolregistry-hub.readthedocs.io/en/latest/
+# site_url: https://toolregistry-hub.readthedocs.io/
 repo_url: https://github.com/Oaklight/toolregistry-hub
 repo_name: Oaklight/toolregistry-hub
 
@@ -23,6 +23,7 @@ theme:
       primary: blue
       accent: blue
   language: en
+  use_directory_urls: false
   show_datetime: false
   topbar_sections: true
 
