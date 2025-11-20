@@ -52,7 +52,7 @@ from toolregistry_hub.websearch import SearXNGSearch
 searxng_search = SearXNGSearch(base_url="https://your-searxng-instance.com")
 
 # 执行搜索
-results = searxng_search.search("机器学习教程", number_results=3)
+results = searxng_search.search("machine learning tutorial", number_results=3)
 
 # 处理搜索结果
 for result in results:
@@ -71,7 +71,7 @@ from toolregistry_hub.websearch import SearXNGSearch
 searxng_search = SearXNGSearch()
 
 # 执行搜索，设置超时
-results = searxng_search.search("深度学习框架", number_results=5, timeout=10.0)
+results = searxng_search.search("deep learning frameworks", number_results=5, timeout=10.0)
 
 # 处理搜索结果
 for result in results:
@@ -91,14 +91,14 @@ from toolregistry_hub.websearch.base import BaseSearch
 searxng_search = SearXNGSearch()
 
 # 执行搜索
-results = searxng_search.search("Python教程", number_results=1)
+results = searxng_search.search("Python tutorial", number_results=1)
 
 if results:
     # 获取第一个结果的完整网页内容
     url = results[0].url
     content = BaseSearch._fetch_webpage_content(url)
-    print(f"网页内容长度: {len(content)} 字符")
-    print(f"网页内容预览: {content[:200]}...")
+    print(f"Web page content length: {len(content)} 字符")
+    print(f"Web page content preview: {content[:200]}...")
 ```
 
 ## SearXNG 简介

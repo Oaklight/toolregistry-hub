@@ -1,180 +1,584 @@
+---
+title: 单位转换工具
+summary: 支持各种测量系统的综合单位转换功能
+description: 完整的单位转换工具，支持温度、长度、重量、时间、容量、面积、速度、数据存储、压力、功率、能量等多种测量类型。
+keywords: 单位转换器, 测量转换, 温度, 长度, 重量, 时间, 数据转换
+author: Oaklight
+---
+
 # 单位转换工具
 
-单位转换工具提供了各种单位之间的转换功能，包括长度、质量、温度、时间等。
+单位转换工具提供各种测量系统的综合单位转换功能。这些工具支持多个类别之间的转换，包括温度、长度、重量、时间、容量、面积、速度、数据存储、压力、功率、能量等。
 
-## 类概览
+## 🎯 概述
 
-单位转换工具主要包含以下类：
+UnitConverter 类提供不同测量单位之间的精确转换：
 
-- `UnitConverter` - 提供各种单位转换功能的类
+- **温度**：摄氏度、华氏度、开尔文
+- **长度**：米、英尺、英寸、厘米
+- **重量**：千克、磅
+- **时间**：秒、分钟、小时
+- **容量**：升、加仑
+- **面积**：平方米、平方英尺
+- **速度**：km/h、mph
+- **数据存储**：比特、字节、千字节、兆字节
+- **压力**：帕斯卡、巴、大气压
+- **功率**：瓦特、千瓦、马力
+- **能量**：焦耳、卡路里、千瓦时
+- **频率**：赫兹、千赫兹、兆赫兹
+- **燃油经济性**：km/L、mpg
+- **电学**：安培、伏特、欧姆
+- **磁学**：韦伯、特斯拉、高斯
+- **辐射**：戈瑞、希沃特
+- **光强度**：勒克斯、流明
 
-## 使用方法
-
-### 基本使用
+## 🚀 快速开始
 
 ```python
 from toolregistry_hub import UnitConverter
-
-# 长度转换
-meters = UnitConverter.feet_to_meters(10)
-print(f"10英尺 = {meters}米")
 
 # 温度转换
 celsius = UnitConverter.fahrenheit_to_celsius(98.6)
-print(f"98.6华氏度 = {celsius}摄氏度")
+print(f"98.6°F = {celsius:.1f}°C")
 
-# 质量转换
-kilograms = UnitConverter.pounds_to_kilograms(150)
-print(f"150磅 = {kilograms}千克")
-```
+# 长度转换
+feet = UnitConverter.meters_to_feet(2.5)
+print(f"2.5米 = {feet:.2f}英尺")
 
-## 详细 API
-
-### UnitConverter 类
-
-`UnitConverter` 是一个提供各种单位转换功能的类。
-
-#### 长度转换方法
-
-- `meters_to_feet(meters: float) -> float`: 将米转换为英尺
-- `feet_to_meters(feet: float) -> float`: 将英尺转换为米
-- `kilometers_to_miles(kilometers: float) -> float`: 将千米转换为英里
-- `miles_to_kilometers(miles: float) -> float`: 将英里转换为千米
-- `inches_to_centimeters(inches: float) -> float`: 将英寸转换为厘米
-- `centimeters_to_inches(centimeters: float) -> float`: 将厘米转换为英寸
-- `meters_to_yards(meters: float) -> float`: 将米转换为码
-- `yards_to_meters(yards: float) -> float`: 将码转换为米
-
-#### 质量转换方法
-
-- `kilograms_to_pounds(kilograms: float) -> float`: 将千克转换为磅
-- `pounds_to_kilograms(pounds: float) -> float`: 将磅转换为千克
-- `grams_to_ounces(grams: float) -> float`: 将克转换为盎司
-- `ounces_to_grams(ounces: float) -> float`: 将盎司转换为克
-- `kilograms_to_stones(kilograms: float) -> float`: 将千克转换为英石
-- `stones_to_kilograms(stones: float) -> float`: 将英石转换为千克
-
-#### 温度转换方法
-
-- `celsius_to_fahrenheit(celsius: float) -> float`: 将摄氏度转换为华氏度
-- `fahrenheit_to_celsius(fahrenheit: float) -> float`: 将华氏度转换为摄氏度
-- `celsius_to_kelvin(celsius: float) -> float`: 将摄氏度转换为开尔文
-- `kelvin_to_celsius(kelvin: float) -> float`: 将开尔文转换为摄氏度
-- `fahrenheit_to_kelvin(fahrenheit: float) -> float`: 将华氏度转换为开尔文
-- `kelvin_to_fahrenheit(kelvin: float) -> float`: 将开尔文转换为华氏度
-
-#### 体积转换方法
-
-- `liters_to_gallons(liters: float) -> float`: 将升转换为加仑
-- `gallons_to_liters(gallons: float) -> float`: 将加仑转换为升
-- `cubic_meters_to_cubic_feet(cubic_meters: float) -> float`: 将立方米转换为立方英尺
-- `cubic_feet_to_cubic_meters(cubic_feet: float) -> float`: 将立方英尺转换为立方米
-- `milliliters_to_fluid_ounces(milliliters: float) -> float`: 将毫升转换为液量盎司
-- `fluid_ounces_to_milliliters(fluid_ounces: float) -> float`: 将液量盎司转换为毫升
-
-#### 面积转换方法
-
-- `square_meters_to_square_feet(square_meters: float) -> float`: 将平方米转换为平方英尺
-- `square_feet_to_square_meters(square_feet: float) -> float`: 将平方英尺转换为平方米
-- `hectares_to_acres(hectares: float) -> float`: 将公顷转换为英亩
-- `acres_to_hectares(acres: float) -> float`: 将英亩转换为公顷
-
-#### 速度转换方法
-
-- `kilometers_per_hour_to_miles_per_hour(kph: float) -> float`: 将千米/小时转换为英里/小时
-- `miles_per_hour_to_kilometers_per_hour(mph: float) -> float`: 将英里/小时转换为千米/小时
-- `meters_per_second_to_feet_per_second(mps: float) -> float`: 将米/秒转换为英尺/秒
-- `feet_per_second_to_meters_per_second(fps: float) -> float`: 将英尺/秒转换为米/秒
-
-#### 能量转换方法
-
-- `joules_to_calories(joules: float) -> float`: 将焦耳转换为卡路里
-- `calories_to_joules(calories: float) -> float`: 将卡路里转换为焦耳
-- `kilowatt_hours_to_megajoules(kwh: float) -> float`: 将千瓦时转换为兆焦
-- `megajoules_to_kilowatt_hours(mj: float) -> float`: 将兆焦转换为千瓦时
-
-#### 压力转换方法
-
-- `pascals_to_psi(pascals: float) -> float`: 将帕斯卡转换为磅/平方英寸
-- `psi_to_pascals(psi: float) -> float`: 将磅/平方英寸转换为帕斯卡
-- `bars_to_atmospheres(bars: float) -> float`: 将巴转换为标准大气压
-- `atmospheres_to_bars(atmospheres: float) -> float`: 将标准大气压转换为巴
-
-#### 电磁单位转换方法
-
-- `weber_to_tesla(weber: float, area: float = 1.0) -> float`: 将韦伯转换为特斯拉
-- `tesla_to_weber(tesla: float, area: float = 1.0) -> float`: 将特斯拉转换为韦伯
-
-## 示例
-
-### 长度转换
-
-```python
-from toolregistry_hub import UnitConverter
-
-# 英尺到米
-meters = UnitConverter.feet_to_meters(10)
-print(f"10英尺 = {meters}米")
-
-# 英里到千米
-kilometers = UnitConverter.miles_to_kilometers(5)
-print(f"5英里 = {kilometers}千米")
-
-# 厘米到英寸
-inches = UnitConverter.centimeters_to_inches(30)
-print(f"30厘米 = {inches}英寸")
-```
-
-### 质量转换
-
-```python
-from toolregistry_hub import UnitConverter
-
-# 千克到磅
+# 重量转换
 pounds = UnitConverter.kilograms_to_pounds(70)
-print(f"70千克 = {pounds}磅")
-
-# 盎司到克
-grams = UnitConverter.ounces_to_grams(16)
-print(f"16盎司 = {grams}克")
-
-# 英石到千克
-kilograms = UnitConverter.stones_to_kilograms(10)
-print(f"10英石 = {kilograms}千克")
+print(f"70千克 = {pounds:.1f}磅")
 ```
+
+## 📋 转换类别
 
 ### 温度转换
 
+| 从 → 到         | 方法                      | 示例                                             |
+| --------------- | ------------------------- | ------------------------------------------------ |
+| 摄氏度 → 华氏度 | `celsius_to_fahrenheit()` | `UnitConverter.celsius_to_fahrenheit(25)` = 77.0 |
+| 华氏度 → 摄氏度 | `fahrenheit_to_celsius()` | `UnitConverter.fahrenheit_to_celsius(77)` = 25.0 |
+| 开尔文 → 摄氏度 | `kelvin_to_celsius()`     | `UnitConverter.kelvin_to_celsius(298.15)` = 25.0 |
+| 摄氏度 → 开尔文 | `celsius_to_kelvin()`     | `UnitConverter.celsius_to_kelvin(25)` = 298.15   |
+
+### 长度转换
+
+| 从 → 到     | 方法                      | 示例                                               |
+| ----------- | ------------------------- | -------------------------------------------------- |
+| 米 → 英尺   | `meters_to_feet()`        | `UnitConverter.meters_to_feet(1)` = 3.28084        |
+| 英尺 → 米   | `feet_to_meters()`        | `UnitConverter.feet_to_meters(10)` = 3.048         |
+| 厘米 → 英寸 | `centimeters_to_inches()` | `UnitConverter.centimeters_to_inches(25.4)` = 10.0 |
+| 英寸 → 厘米 | `inches_to_centimeters()` | `UnitConverter.inches_to_centimeters(12)` = 30.48  |
+
+### 重量转换
+
+| 从 → 到   | 方法                    | 示例                                              |
+| --------- | ----------------------- | ------------------------------------------------- |
+| 千克 → 磅 | `kilograms_to_pounds()` | `UnitConverter.kilograms_to_pounds(1)` = 2.20462  |
+| 磅 → 千克 | `pounds_to_kilograms()` | `UnitConverter.pounds_to_kilograms(10)` = 4.53592 |
+
+### 时间转换
+
+| 从 → 到   | 方法                   | 示例                                            |
+| --------- | ---------------------- | ----------------------------------------------- |
+| 秒 → 分钟 | `seconds_to_minutes()` | `UnitConverter.seconds_to_minutes(180)` = 3.0   |
+| 分钟 → 秒 | `minutes_to_seconds()` | `UnitConverter.minutes_to_seconds(2.5)` = 150.0 |
+
+### 容量转换
+
+| 从 → 到   | 方法                  | 示例                                            |
+| --------- | --------------------- | ----------------------------------------------- |
+| 升 → 加仑 | `liters_to_gallons()` | `UnitConverter.liters_to_gallons(10)` = 2.64172 |
+| 加仑 → 升 | `gallons_to_liters()` | `UnitConverter.gallons_to_liters(1)` = 3.78541  |
+
+### 面积转换
+
+| 从 → 到           | 方法                             | 示例                                                       |
+| ----------------- | -------------------------------- | ---------------------------------------------------------- |
+| 平方米 → 平方英尺 | `square_meters_to_square_feet()` | `UnitConverter.square_meters_to_square_feet(1)` = 10.7639  |
+| 平方英尺 → 平方米 | `square_feet_to_square_meters()` | `UnitConverter.square_feet_to_square_meters(10)` = 0.92903 |
+
+### 速度转换
+
+| 从 → 到    | 方法           | 示例                                      |
+| ---------- | -------------- | ----------------------------------------- |
+| km/h → mph | `kmh_to_mph()` | `UnitConverter.kmh_to_mph(100)` = 62.1371 |
+| mph → km/h | `mph_to_kmh()` | `UnitConverter.mph_to_kmh(60)` = 96.5606  |
+
+### 数据存储转换
+
+| 从 → 到         | 方法                       | 示例                                               |
+| --------------- | -------------------------- | -------------------------------------------------- |
+| 比特 → 字节     | `bits_to_bytes()`          | `UnitConverter.bits_to_bytes(8)` = 1.0             |
+| 字节 → 千字节   | `bytes_to_kilobytes()`     | `UnitConverter.bytes_to_kilobytes(1024)` = 1.0     |
+| 千字节 → 兆字节 | `kilobytes_to_megabytes()` | `UnitConverter.kilobytes_to_megabytes(1024)` = 1.0 |
+
+### 压力转换
+
+| 从 → 到     | 方法              | 示例                                        |
+| ----------- | ----------------- | ------------------------------------------- |
+| 帕斯卡 → 巴 | `pascal_to_bar()` | `UnitConverter.pascal_to_bar(100000)` = 1.0 |
+| 巴 → 大气压 | `bar_to_atm()`    | `UnitConverter.bar_to_atm(1.01325)` = 1.0   |
+
+### 功率转换
+
+| 从 → 到     | 方法                        | 示例                                                 |
+| ----------- | --------------------------- | ---------------------------------------------------- |
+| 瓦特 → 千瓦 | `watts_to_kilowatts()`      | `UnitConverter.watts_to_kilowatts(1500)` = 1.5       |
+| 千瓦 → 马力 | `kilowatts_to_horsepower()` | `UnitConverter.kilowatts_to_horsepower(1)` = 1.34102 |
+
+### 能量转换
+
+| 从 → 到         | 方法                           | 示例                                                     |
+| --------------- | ------------------------------ | -------------------------------------------------------- |
+| 焦耳 → 卡路里   | `joules_to_calories()`         | `UnitConverter.joules_to_calories(4184)` = 1000.0        |
+| 卡路里 → 千瓦时 | `calories_to_kilowatt_hours()` | `UnitConverter.calories_to_kilowatt_hours(860421)` = 1.0 |
+
+### 频率转换
+
+| 从 → 到         | 方法                       | 示例                                               |
+| --------------- | -------------------------- | -------------------------------------------------- |
+| 赫兹 → 千赫兹   | `hertz_to_kilohertz()`     | `UnitConverter.hertz_to_kilohertz(1000)` = 1.0     |
+| 千赫兹 → 兆赫兹 | `kilohertz_to_megahertz()` | `UnitConverter.kilohertz_to_megahertz(1000)` = 1.0 |
+
+### 燃油经济性转换
+
+| 从 → 到    | 方法                    | 示例                                            |
+| ---------- | ----------------------- | ----------------------------------------------- |
+| km/L → mpg | `km_per_liter_to_mpg()` | `UnitConverter.km_per_liter_to_mpg(12)` = 28.24 |
+| mpg → km/L | `mpg_to_km_per_liter()` | `UnitConverter.mpg_to_km_per_liter(30)` = 12.75 |
+
+### 电学转换
+
+| 从 → 到     | 方法                      | 示例                                              |
+| ----------- | ------------------------- | ------------------------------------------------- |
+| 安培 → 毫安 | `ampere_to_milliampere()` | `UnitConverter.ampere_to_milliampere(1)` = 1000.0 |
+| 伏特 → 千伏 | `volt_to_kilovolt()`      | `UnitConverter.volt_to_kilovolt(1000)` = 1.0      |
+| 欧姆 → 千欧 | `ohm_to_kiloohm()`        | `UnitConverter.ohm_to_kiloohm(1000)` = 1.0        |
+
+### 磁学转换
+
+| 从 → 到       | 方法               | 示例                                        |
+| ------------- | ------------------ | ------------------------------------------- |
+| 韦伯 → 特斯拉 | `weber_to_tesla()` | `UnitConverter.weber_to_tesla(1, 1)` = 1.0  |
+| 高斯 → 特斯拉 | `gauss_to_tesla()` | `UnitConverter.gauss_to_tesla(10000)` = 1.0 |
+| 特斯拉 → 韦伯 | `tesla_to_weber()` | `UnitConverter.tesla_to_weber(1, 1)` = 1.0  |
+| 特斯拉 → 高斯 | `tesla_to_gauss()` | `UnitConverter.tesla_to_gauss(1)` = 10000.0 |
+
+### 辐射转换
+
+| 从 → 到       | 方法                | 示例                                     |
+| ------------- | ------------------- | ---------------------------------------- |
+| 戈瑞 → 希沃特 | `gray_to_sievert()` | `UnitConverter.gray_to_sievert(1)` = 1.0 |
+
+### 光强度转换
+
+| 从 → 到       | 方法             | 示例                                         |
+| ------------- | ---------------- | -------------------------------------------- |
+| 勒克斯 → 流明 | `lux_to_lumen()` | `UnitConverter.lux_to_lumen(100, 2)` = 200.0 |
+| 流明 → 勒克斯 | `lumen_to_lux()` | `UnitConverter.lumen_to_lux(200, 2)` = 100.0 |
+
+## 🔧 完整 API 参考
+
+### 温度方法
+
+#### `celsius_to_fahrenheit(celsius: float) -> float`
+
+将摄氏度转换为华氏度。
+
+**公式：** `°F = (°C × 9/5) + 32`
+
+#### `fahrenheit_to_celsius(fahrenheit: float) -> float`
+
+将华氏度转换为摄氏度。
+
+**公式：** `°C = (°F - 32) × 5/9`
+
+#### `kelvin_to_celsius(kelvin: float) -> float`
+
+将开尔文转换为摄氏度。
+
+**公式：** `°C = K - 273.15`
+
+#### `celsius_to_kelvin(celsius: float) -> float`
+
+将摄氏度转换为开尔文。
+
+**公式：** `K = °C + 273.15`
+
+### 长度方法
+
+#### `meters_to_feet(meters: float) -> float`
+
+将米转换为英尺。
+
+**转换因子：** 1 米 = 3.28084 英尺
+
+#### `feet_to_meters(feet: float) -> float`
+
+将英尺转换为米。
+
+**转换因子：** 1 英尺 = 0.3048 米
+
+#### `centimeters_to_inches(cm: float) -> float`
+
+将厘米转换为英寸。
+
+**转换因子：** 1 厘米 = 0.393701 英寸
+
+#### `inches_to_centimeters(inches: float) -> float`
+
+将英寸转换为厘米。
+
+**转换因子：** 1 英寸 = 2.54 厘米
+
+### 重量方法
+
+#### `kilograms_to_pounds(kg: float) -> float`
+
+将千克转换为磅。
+
+**转换因子：** 1 千克 = 2.20462 磅
+
+#### `pounds_to_kilograms(lbs: float) -> float`
+
+将磅转换为千克。
+
+**转换因子：** 1 磅 = 0.453592 千克
+
+### 时间方法
+
+#### `seconds_to_minutes(seconds: float) -> float`
+
+将秒转换为分钟。
+
+**转换因子：** 1 分钟 = 60 秒
+
+#### `minutes_to_seconds(minutes: float) -> float`
+
+将分钟转换为秒。
+
+**转换因子：** 1 分钟 = 60 秒
+
+### 容量方法
+
+#### `liters_to_gallons(liters: float) -> float`
+
+将升转换为加仑。
+
+**转换因子：** 1 加仑 = 3.78541 升
+
+#### `gallons_to_liters(gallons: float) -> float`
+
+将加仑转换为升。
+
+**转换因子：** 1 加仑 = 3.78541 升
+
+### 面积方法
+
+#### `square_meters_to_square_feet(sqm: float) -> float`
+
+将平方米转换为平方英尺。
+
+**转换因子：** 1 平方米 = 10.7639 平方英尺
+
+#### `square_feet_to_square_meters(sqft: float) -> float`
+
+将平方英尺转换为平方米。
+
+**转换因子：** 1 平方英尺 = 0.092903 平方米
+
+### 速度方法
+
+#### `kmh_to_mph(kmh: float) -> float`
+
+将千米每小时转换为英里每小时。
+
+**转换因子：** 1 英里/小时 = 1.60934 千米/小时
+
+#### `mph_to_kmh(mph: float) -> float`
+
+将英里每小时转换为千米每小时。
+
+**转换因子：** 1 英里/小时 = 1.60934 千米/小时
+
+### 数据存储方法
+
+#### `bits_to_bytes(bits: float) -> float`
+
+将比特转换为字节。
+
+**转换因子：** 1 字节 = 8 比特
+
+#### `bytes_to_kilobytes(bytes: float) -> float`
+
+将字节转换为千字节。
+
+**转换因子：** 1 千字节 = 1024 字节
+
+#### `kilobytes_to_megabytes(kb: float) -> float`
+
+将千字节转换为兆字节。
+
+**转换因子：** 1 兆字节 = 1024 千字节
+
+### 压力方法
+
+#### `pascal_to_bar(pascal: float) -> float`
+
+将帕斯卡转换为巴。
+
+**转换因子：** 1 巴 = 100,000 帕斯卡
+
+#### `bar_to_atm(bar: float) -> float`
+
+将巴转换为大气压。
+
+**转换因子：** 1 大气压 = 1.01325 巴
+
+### 功率方法
+
+#### `watts_to_kilowatts(watts: float) -> float`
+
+将瓦特转换为千瓦。
+
+**转换因子：** 1 千瓦 = 1000 瓦特
+
+#### `kilowatts_to_horsepower(kw: float) -> float`
+
+将千瓦转换为马力。
+
+**转换因子：** 1 马力 = 0.7457 千瓦
+
+### 能量方法
+
+#### `joules_to_calories(joules: float) -> float`
+
+将焦耳转换为卡路里。
+
+**转换因子：** 1 卡路里 = 4.184 焦耳
+
+#### `calories_to_kilowatt_hours(calories: float) -> float`
+
+将卡路里转换为千瓦时。
+
+**转换因子：** 1 千瓦时 = 860,421 卡路里
+
+### 频率方法
+
+#### `hertz_to_kilohertz(hz: float) -> float`
+
+将赫兹转换为千赫兹。
+
+**转换因子：** 1 千赫兹 = 1000 赫兹
+
+#### `kilohertz_to_megahertz(khz: float) -> float`
+
+将千赫兹转换为兆赫兹。
+
+**转换因子：** 1 兆赫兹 = 1000 千赫兹
+
+### 燃油经济性方法
+
+#### `km_per_liter_to_mpg(kmpl: float) -> float`
+
+将千米每升转换为英里每加仑。
+
+**转换因子：** 1 英里/加仑 = 0.425144 千米/升
+
+#### `mpg_to_km_per_liter(mpg: float) -> float`
+
+将英里每加仑转换为千米每升。
+
+**转换因子：** 1 英里/加仑 = 0.425144 千米/升
+
+### 电学方法
+
+#### `ampere_to_milliampere(ampere: float) -> float`
+
+将安培转换为毫安。
+
+**转换因子：** 1 安培 = 1000 毫安
+
+#### `volt_to_kilovolt(volt: float) -> float`
+
+将伏特转换为千伏。
+
+**转换因子：** 1 千伏 = 1000 伏特
+
+#### `ohm_to_kiloohm(ohm: float) -> float`
+
+将欧姆转换为千欧。
+
+**转换因子：** 1 千欧 = 1000 欧姆
+
+### 磁学方法
+
+#### `weber_to_tesla(weber: float, area: float = 1.0) -> float`
+
+将磁通量（韦伯）转换为磁通密度（特斯拉）。
+
+**公式：** `B = Φ/A`，其中 A 为平方米面积
+
+#### `gauss_to_tesla(gauss: float) -> float`
+
+将高斯转换为特斯拉。
+
+**转换因子：** 1 特斯拉 = 10,000 高斯
+
+#### `tesla_to_weber(tesla: float, area: float = 1.0) -> float`
+
+将磁通密度（特斯拉）转换为磁通量（韦伯）。
+
+**公式：** `Φ = B × A`，其中 A 为平方米面积
+
+#### `tesla_to_gauss(tesla: float) -> float`
+
+将特斯拉转换为高斯。
+
+**转换因子：** 1 特斯拉 = 10,000 高斯
+
+### 辐射方法
+
+#### `gray_to_sievert(gray: float) -> float`
+
+将戈瑞转换为希沃特。
+
+**注意：** 对于大多数类型的辐射，1 戈瑞 = 1 希沃特
+
+### 光强度方法
+
+#### `lux_to_lumen(lux: float, area: float) -> float`
+
+根据面积（平方米）将勒克斯转换为流明。
+
+**公式：** `流明 = 勒克斯 × 面积`
+
+#### `lumen_to_lux(lumen: float, area: float) -> float`
+
+根据面积（平方米）将流明转换为勒克斯。
+
+**公式：** `勒克斯 = 流明 / 面积`
+
+## 🛠️ 实际示例
+
+### 烹饪转换
+
 ```python
 from toolregistry_hub import UnitConverter
 
-# 摄氏度到华氏度
-fahrenheit = UnitConverter.celsius_to_fahrenheit(25)
-print(f"25摄氏度 = {fahrenheit}华氏度")
+# 食谱转换
+oven_temp_f = 350  # 350°F用于烘焙
+oven_temp_c = UnitConverter.fahrenheit_to_celsius(oven_temp_f)
+print(f"预热烤箱至 {oven_temp_c:.0f}°C")
 
-# 华氏度到摄氏度
-celsius = UnitConverter.fahrenheit_to_celsius(98.6)
-print(f"98.6华氏度 = {celsius}摄氏度")
+# 液体测量
+ml_in_cup = 240
+cups = 2.5
+ml = cups * ml_in_cup
+print(f"{cups}杯 = {ml}毫升")
 
-# 摄氏度到开尔文
-kelvin = UnitConverter.celsius_to_kelvin(0)
-print(f"0摄氏度 = {kelvin}开尔文")
+# 重量转换
+pounds = 1.5  # 1.5磅肉
+kg = UnitConverter.pounds_to_kilograms(pounds)
+print(f"{pounds}磅 = {kg:.3f}千克")
 ```
 
-### 体积转换
+### 旅行转换
 
 ```python
 from toolregistry_hub import UnitConverter
 
-# 升到加仑
-gallons = UnitConverter.liters_to_gallons(10)
-print(f"10升 = {gallons}加仑")
+# 距离转换
+kmh = 100  # 限速为km/h
+mph = UnitConverter.kmh_to_mph(kmh)
+print(f"限速：{kmh} km/h = {mph:.1f} mph")
 
-# 立方米到立方英尺
-cubic_feet = UnitConverter.cubic_meters_to_cubic_feet(2)
-print(f"2立方米 = {cubic_feet}立方英尺")
+# 燃油效率
+km_per_l = 12  # 12 km/L燃油效率
+mpg = UnitConverter.km_per_liter_to_mpg(km_per_l)
+print(f"燃油效率：{km_per_l} km/L = {mpg:.1f} mpg")
 
-# 液量盎司到毫升
-milliliters = UnitConverter.fluid_ounces_to_milliliters(8)
-print(f"8液量盎司 = {milliliters}毫升")
+# 温度转换
+weather_c = 22  # 摄氏度天气
+weather_f = UnitConverter.celsius_to_fahrenheit(weather_c)
+print(f"天气：{weather_c}°C = {weather_f}°F")
 ```
+
+### 科学计算
+
+```python
+from toolregistry_hub import UnitConverter
+
+# 电气计算
+voltage_kv = 132  # 高压线路
+voltage_v = UnitConverter.kilovolt_to_volt(voltage_kv)
+print(f"电压：{voltage_kv} kV = {voltage_v} V")
+
+# 数据存储
+bytes_data = 1024 * 1024 * 500  # 500 MB的字节数
+mb_data = UnitConverter.bytes_to_megabytes(bytes_data)
+print(f"数据大小：{bytes_data}字节 = {mb_data} MB")
+
+# 压力转换
+pressure_bar = 2.5  # 巴压力
+pressure_atm = UnitConverter.bar_to_atm(pressure_bar)
+print(f"压力：{pressure_bar} bar = {pressure_atm:.2f} atm")
+```
+
+### 工程转换
+
+```python
+from toolregistry_hub import UnitConverter
+
+# 材料尺寸
+length_ft = 10.5  # 英尺长度
+length_m = UnitConverter.feet_to_meters(length_ft)
+print(f"长度：{length_ft}英尺 = {length_m:.3f}米")
+
+# 面积计算
+area_sqm = 150  # 平方米面积
+area_sqft = UnitConverter.square_meters_to_square_feet(area_sqm)
+print(f"面积：{area_sqm}平方米 = {area_sqft:.1f}平方英尺")
+
+# 功率计算
+horsepower = 250  # 发动机功率，单位为马力
+kilowatts = UnitConverter.horsepower_to_kilowatts(horsepower)
+print(f"功率：{horsepower}马力 = {kilowatts:.1f}千瓦")
+```
+
+## 🚨 重要说明
+
+### 精度和准确性
+
+- **四舍五入**：由于浮点运算，结果可能存在微小的舍入误差
+- **转换因子**：基于国际标准
+- **温度**：开尔文使用 273.15 作为与摄氏度的偏移量
+
+### 面积和体积
+
+- **面积转换**：假设为平方单位（m² 到 ft²）
+- **体积转换**：使用升和加仑进行液体测量
+
+### 磁学转换
+
+- **面积参数**：韦伯 ↔ 特斯拉转换需要面积参数
+- **默认面积**：未指定时为 1.0 平方米
+
+### 数据存储
+
+- **二进制系统**：使用 1024 为基础的转换（KiB、MiB、GiB）
+- **非十进制**：与 SI 前缀不同（KB、MB、GB）
+
+## 🔍 转换表
+
+### 快速参考
+
+| 类别     | 常见转换                                  |
+| -------- | ----------------------------------------- |
+| **温度** | 0°C = 32°F = 273.15K                      |
+| **长度** | 1 英寸 = 2.54 厘米，1 英里 = 1.609 千米   |
+| **重量** | 1 千克 = 2.205 磅，1 盎司 = 28.35 克      |
+| **体积** | 1 加仑 = 3.785 升，1 夸脱 = 0.946 升      |
+| **速度** | 100 km/h = 62.1 mph                       |
+| **面积** | 1 英亩 = 4047 平方米，1 公顷 = 2.471 英亩 |

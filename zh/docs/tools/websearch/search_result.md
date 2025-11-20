@@ -41,10 +41,10 @@ for result in results:
 
 # 手动创建搜索结果
 custom_result = SearchResult(
-    title="Python官方网站",
+    title="Python Official Website",
     url="https://www.python.org",
-    content="Python是一种广泛使用的解释型、高级和通用的编程语言。",
-    excerpt="Python是一种广泛使用的解释型、高级和通用的编程语言。"
+    content="Python is a widely used interpreted, high-level, and general-purpose programming language.",
+    excerpt="Python is a widely used interpreted, high-level, and general-purpose programming language."
 )
-print(f"自定义结果: {custom_result.title} - {custom_result.url}")
+print(f"Custom result: {custom_result.title} - {custom_result.url}")
 ```

@@ -98,7 +98,7 @@ from toolregistry_hub.websearch_legacy import WebSearchGoogle
 google_search = WebSearchGoogle()
 
 # 执行搜索
-results = google_search.search("机器学习教程", num_results=3)
+results = google_search.search("machine learning tutorial", num_results=3)
 
 # 处理搜索结果
 for result in results:
@@ -117,7 +117,7 @@ from toolregistry_hub.websearch_legacy import WebSearchSearXNG
 searxng_search = WebSearchSearXNG()
 
 # 执行搜索
-results = searxng_search.search("深度学习框架", num_results=5)
+results = searxng_search.search("deep learning frameworks", num_results=5)
 
 # 处理搜索结果
 for result in results:
@@ -136,7 +136,7 @@ from toolregistry_hub.websearch_legacy import WebSearchBing, WebSearchGeneral
 bing_search = WebSearchBing()
 
 # 执行搜索
-results = bing_search.search("Python教程", num_results=1)
+results = bing_search.search("Python tutorial", num_results=1)
 
 if results:
     # 获取第一个结果的完整网页内容
@@ -162,6 +162,6 @@ results = bing_search.search("Python programming", num_results=10)
 
 # 过滤搜索结果
 filtered_results = filter_search_results(results)
-print(f"过滤前结果数: {len(results)}")
-print(f"过滤后结果数: {len(filtered_results)}")
+print(f"Results before filtering: {len(results)}")
+print(f"Results after filtering: {len(filtered_results)}")
 ```

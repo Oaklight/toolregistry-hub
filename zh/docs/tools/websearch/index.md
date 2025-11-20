@@ -1,6 +1,6 @@
 # 网络搜索工具
 
-网络搜索工具提供了通过各种搜索引擎进行网络搜索的功能。该模块支持多种搜索引擎，包括 Bing、Google、SearXNG 和 Tavily 等。
+网络搜索工具提供了通过各种搜索引擎进行网络搜索的功能。该模块支持多种搜索引擎，包括 Bing、SearXNG、Brave 和 Tavily。
 
 ## 模块概览
 
@@ -34,7 +34,7 @@ for result in results:
 
 # 使用SearXNG搜索
 searxng_search = SearXNGSearch()
-results = searxng_search.search("机器学习教程", number_results=3)
+results = searxng_search.search("machine learning tutorial", number_results=3)
 for result in results:
     print(f"标题: {result.title}")
     print(f"URL: {result.url}")
@@ -43,7 +43,7 @@ for result in results:
 
 # 使用Brave搜索
 brave_search = BraveSearch()
-results = brave_search.search("人工智能", number_results=5)
+results = brave_search.search("artificial intelligence", number_results=5)
 for result in results:
     print(f"标题: {result.title}")
     print(f"URL: {result.url}")
@@ -53,7 +53,7 @@ for result in results:
 
 # 使用Tavily搜索
 tavily_search = TavilySearch()
-results = tavily_search.search("量子计算", number_results=5)
+results = tavily_search.search("quantum computing", number_results=5)
 for result in results:
     print(f"标题: {result.title}")
     print(f"URL: {result.url}")

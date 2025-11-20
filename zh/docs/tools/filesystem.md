@@ -410,3 +410,4 @@ content = FileOps.read_file("project/src/main.py")
 if FileSystem.exists("project/src/main.py"):
     size = FileSystem.get_size("project/src/main.py")
     print(f"文件大小: {size} 字节")
+```

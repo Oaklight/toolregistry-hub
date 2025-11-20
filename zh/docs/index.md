@@ -70,5 +70,9 @@ toolregistry-server --mode mcp --port 8000
 ## 🤝 参与进来
 
 - **[GitHub 仓库](https://github.com/Oaklight/toolregistry-hub)** - 源代码和问题
-- **[English Documentation](../en/index.md)** - 切换到英文文档
+- **[English Documentation](../en/)** - 英文文档
 - **[工具文档](tools/)** - 完整的工具参考
+
+---
+
+_ToolRegistry Hub: 让实用工具变得可访问且可靠。_

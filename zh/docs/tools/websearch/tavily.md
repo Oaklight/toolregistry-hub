@@ -65,7 +65,7 @@ api_keys = "tvly-key1,tvly-key2,tvly-key3"
 tavily_search = TavilySearch(api_keys=api_keys)
 
 # 执行搜索
-results = tavily_search.search("机器学习教程", max_results=10)
+results = tavily_search.search("machine learning tutorial", max_results=10)
 
 # 处理搜索结果
 for result in results:
@@ -84,7 +84,7 @@ from toolregistry_hub.websearch import TavilySearch
 tavily_search = TavilySearch(rate_limit_delay=1.0)
 
 # 执行搜索
-results = tavily_search.search("深度学习框架", max_results=5)
+results = tavily_search.search("deep learning frameworks", max_results=5)
 
 # 处理搜索结果
 for result in results:
@@ -104,7 +104,7 @@ tavily_search = TavilySearch()
 
 # 执行带 AI 生成答案的搜索
 results = tavily_search.search(
-    "什么是人工智能？",
+    "What is artificial intelligence?",
     max_results=5,
     include_answer=True,
     search_depth="advanced",
@@ -130,7 +130,7 @@ tavily_search = TavilySearch()
 
 # 执行带域名过滤的搜索
 results = tavily_search.search(
-    "Python教程",
+    "Python tutorials",
     max_results=5,
     include_domains=["python.org", "realpython.com", "docs.python.org"],
     exclude_domains=["spam-site.com"]
@@ -154,7 +154,7 @@ tavily_search = TavilySearch()
 
 # 执行新闻搜索
 news_results = tavily_search.search(
-    "最新AI发展",
+    "latest AI developments",
     max_results=5,
     topic="news",
     search_depth="advanced"
@@ -162,21 +162,21 @@ news_results = tavily_search.search(
 
 # 执行研究搜索
 research_results = tavily_search.search(
-    "量子计算研究论文",
+    "quantum computing research papers",
     max_results=5,
     topic="research",
     search_depth="advanced",
     include_raw_content=True
 )
 
-print("=== 新闻结果 ===")
+print("=== News Results ===")
 for result in news_results:
     print(f"标题: {result.title}")
     print(f"URL: {result.url}")
     print(f"内容: {result.content}")
     print("-" * 50)
 
-print("\n=== 研究结果 ===")
+print("\n=== Research Results ===")
 for result in research_results:
     print(f"标题: {result.title}")
     print(f"URL: {result.url}")
@@ -194,15 +194,15 @@ from toolregistry_hub.websearch.base import BaseSearch
 tavily_search = TavilySearch()
 
 # 执行搜索
-results = tavily_search.search("Python教程", max_results=1)
+results = tavily_search.search("Python tutorials", max_results=1)
 
 if results:
     # 获取第一个结果的完整网页内容
     url = results[0].url
     if url:  # 检查 URL 是否存在（AI 答案可能没有 URL）
         content = BaseSearch._fetch_webpage_content(url)
-        print(f"网页内容长度: {len(content)} 字符")
-        print(f"网页内容预览: {content[:200]}...")
+        print(f"Web page content length: {len(content)} 字符")
+        print(f"Web page content preview: {content[:200]}...")
 ```
 
 ## API 参数
