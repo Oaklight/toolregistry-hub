@@ -113,13 +113,3 @@ SearXNG is a self-hosted meta search engine that can aggregate results from mult
 ## Legacy SearXNG Search
 
 Legacy SearXNG search functionality is provided in the `websearch_legacy` module using the `WebSearchSearXNG` class. For more information, please refer to the [Legacy Web Search](legacy.md) documentation.
-
-## Navigation
-
-- [Back to Web Search Homepage](index.md)
-- [Back to Home](../readme_en.md)
-- [View Navigation Page](../navigation.md)
-- [Search Result Types](search_result.md)
-- [Base Search Class](base_search.md)
-- [Bing Search](bing.md)
-- [Legacy Web Search](legacy.md)

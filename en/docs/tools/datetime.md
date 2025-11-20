@@ -114,14 +114,3 @@ print(f"Beijing time (IANA): {beijing_time}")
 beijing_time_offset = DateTime.now("UTC+8")
 print(f"Beijing time (UTC offset): {beijing_time_offset}")
 ```
-
-## Navigation
-
-- [Back to Home](../readme_en.md)
-- [View Navigation Page](navigation.md)
-- [Calculator Tools](calculator.md)
-- [File Operations Tools](file_ops.md)
-- [File System Tools](filesystem.md)
-- [Web Search Tools](websearch/index.md)
-- [Unit Converter Tools](unit_converter.md)
-- [Other Tools](other_tools.md)

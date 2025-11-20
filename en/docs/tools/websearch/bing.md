@@ -109,13 +109,3 @@ if results:
 ## Legacy Bing Search
 
 Legacy Bing search functionality is provided in the `websearch_legacy` module using the `WebSearchBing` class. For more information, please refer to the [Legacy Web Search](legacy.md) documentation.
-
-## Navigation
-
-- [Back to Web Search Homepage](index.md)
-- [Back to Home](../readme_en.md)
-- [View Navigation Page](../navigation.md)
-- [Search Result Types](search_result.md)
-- [Base Search Class](base_search.md)
-- [SearXNG Search](searxng.md)
-- [Legacy Web Search](legacy.md)

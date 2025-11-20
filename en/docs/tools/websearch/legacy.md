@@ -165,13 +165,3 @@ filtered_results = filter_search_results(results)
 print(f"Results before filtering: {len(results)}")
 print(f"Results after filtering: {len(filtered_results)}")
 ```
-
-## Navigation
-
-- [Back to Web Search Homepage](index.md)
-- [Back to Home](../readme_en.md)
-- [View Navigation Page](../navigation.md)
-- [Search Result Types](search_result.md)
-- [Base Search Class](base_search.md)
-- [Bing Search](bing.md)
-- [SearXNG Search](searxng.md)

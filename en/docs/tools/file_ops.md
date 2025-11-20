@@ -140,14 +140,3 @@ if result["valid"]:
 else:
     print(f"Path is invalid: {result['error']}")
 ```
-
-## Navigation
-
-- [Back to Home](../readme_en.md)
-- [View Navigation Page](navigation.md)
-- [Calculator Tools](calculator.md)
-- [Date Time Tools](datetime.md)
-- [File System Tools](filesystem.md)
-- [Web Search Tools](websearch/index.md)
-- [Unit Converter Tools](unit_converter.md)
-- [Other Tools](other_tools.md)

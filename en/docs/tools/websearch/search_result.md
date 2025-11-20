@@ -48,13 +48,3 @@ custom_result = SearchResult(
 )
 print(f"Custom result: {custom_result.title} - {custom_result.url}")
 ```
-
-## Navigation
-
-- [Back to Web Search Homepage](index.md)
-- [Back to Home](../readme_en.md)
-- [View Navigation Page](../navigation.md)
-- [Base Search Class](base_search.md)
-- [Bing Search](bing.md)
-- [SearXNG Search](searxng.md)
-- [Legacy Web Search](legacy.md)

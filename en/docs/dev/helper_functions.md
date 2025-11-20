@@ -3,7 +3,7 @@ title: Tool Helper Functions
 summary: Utility functions for tool development and usage
 description: Helper functions that support the development and use of tools in ToolRegistry Hub, including class inspection and method discovery utilities.
 keywords: helper, functions, utilities, static methods, class inspection, development
-author: ToolRegistry Hub Team
+author: Oaklight
 ---
 
 # Tool Helper Functions
@@ -26,12 +26,15 @@ These utility functions are designed to help developers:
 Check if a class contains only static methods.
 
 **Parameters:**
+
 - `cls` (Type): The class to inspect
 
 **Returns:**
+
 - `bool`: True if the class contains only static methods, False otherwise
 
 **Example:**
+
 ```python
 from toolregistry_hub.utils import _is_all_static_methods
 from toolregistry_hub import Calculator
@@ -46,13 +49,16 @@ print(f"Calculator has only static methods: {is_static_only}")
 Determine the namespace of a class based on module and class names.
 
 **Parameters:**
+
 - `module_name` (str): The name of the module
 - `class_name` (str): The name of the class
 
 **Returns:**
+
 - `str`: The determined namespace string
 
 **Example:**
+
 ```python
 from toolregistry_hub.utils import _determine_namespace
 
@@ -66,12 +72,15 @@ print(f"Namespace: {namespace}")
 Get all static methods of a class.
 
 **Parameters:**
+
 - `cls` (Type): The class to inspect
 
 **Returns:**
+
 - `List[str]`: A list of static method names
 
 **Example:**
+
 ```python
 from toolregistry_hub.utils import get_all_static_methods
 from toolregistry_hub import Calculator
@@ -92,7 +101,7 @@ class MyCustomTool:
     @staticmethod
     def process_data(data):
         return data.upper()
-    
+
     @staticmethod
     def validate_input(input_data):
         return isinstance(input_data, str)
@@ -118,12 +127,12 @@ def discover_tool_capabilities():
         'DateTime': DateTime,
         'FileOps': FileOps
     }
-    
+
     capabilities = {}
     for tool_name, tool_class in tools.items():
         methods = get_all_static_methods(tool_class)
         capabilities[tool_name] = methods
-    
+
     return capabilities
 
 # Discover all tool capabilities
@@ -149,13 +158,13 @@ def validate_tool_class(cls):
         'method_count': len(get_all_static_methods(cls)),
         'methods': get_all_static_methods(cls)
     }
-    
+
     # Check if it's a valid tool
     validation_results['is_valid_tool'] = (
-        validation_results['is_static_only'] and 
+        validation_results['is_static_only'] and
         validation_results['method_count'] > 0
     )
-    
+
     return validation_results
 
 # Example usage
@@ -187,28 +196,28 @@ from toolregistry_hub.utils import _is_all_static_methods, get_all_static_method
 
 class MyNewTool:
     """A new tool for ToolRegistry Hub."""
-    
+
     @staticmethod
     def my_method(param: str) -> str:
         """
         Description of what this method does.
-        
+
         Args:
             param: Description of the parameter
-            
+
         Returns:
             Description of the return value
         """
         return f"Processed: {param}"
-    
+
     @staticmethod
     def another_method(data: List[Any]) -> int:
         """
         Another method example.
-        
+
         Args:
             data: List of data to process
-            
+
         Returns:
             Count of processed items
         """
@@ -219,7 +228,7 @@ if __name__ == "__main__":
     # Check if tool follows conventions
     is_valid = _is_all_static_methods(MyNewTool)
     methods = get_all_static_methods(MyNewTool)
-    
+
     print(f"Tool is valid: {is_valid}")
     print(f"Available methods: {methods}")
 ```
@@ -233,25 +242,25 @@ from toolregistry_hub.utils import _is_all_static_methods, get_all_static_method
 class TestMyNewTool(unittest.TestCase):
     def test_tool_structure(self):
         from my_module import MyNewTool
-        
+
         # Test that tool follows conventions
         self.assertTrue(_is_all_static_methods(MyNewTool))
-        
+
         # Test that it has methods
         methods = get_all_static_methods(MyNewTool)
         self.assertGreater(len(methods), 0)
-        
+
         # Test specific methods exist
         self.assertIn('my_method', methods)
         self.assertIn('another_method', methods)
-    
+
     def test_method_functionality(self):
         from my_module import MyNewTool
-        
+
         # Test method functionality
         result = MyNewTool.my_method("test")
         self.assertEqual(result, "Processed: test")
-        
+
         count = MyNewTool.another_method([1, 2, 3])
         self.assertEqual(count, 3)
 
@@ -266,10 +275,3 @@ if __name__ == '__main__':
 3. **Write Tests**: Include comprehensive tests for your tools
 4. **Document Everything**: Provide clear docstrings and examples
 5. **Validate Before PR**: Run validation checks before submitting pull requests
-
-## Navigation
-
-- [Back to Home](../index.md)
-- [Contributing Guide](contributing.md)
-- [Development Setup](dev_setup.md)
-- [API Reference](../api_reference.md)

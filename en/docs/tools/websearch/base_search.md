@@ -101,13 +101,3 @@ for result in results:
     print(f"Excerpt: {result.excerpt}")
     print("-" * 50)
 ```
-
-## Navigation
-
-- [Back to Web Search Homepage](index.md)
-- [Back to Home](../readme_en.md)
-- [View Navigation Page](../navigation.md)
-- [Search Result Types](search_result.md)
-- [Bing Search](bing.md)
-- [SearXNG Search](searxng.md)
-- [Legacy Web Search](legacy.md)

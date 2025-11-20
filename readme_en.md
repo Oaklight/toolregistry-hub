@@ -18,10 +18,6 @@ ToolRegistry Hub is a Python library that provides various utility tools designe
 - [Server Mode](docs/en/server.md) - REST API and MCP server
 - [Docker Deployment](docs/en/docker.md) - Docker containerization deployment
 
-## Navigation
-
-View the [navigation page](docs/en/navigation.md) for complete documentation structure and navigation links.
-
 ## Quick Start
 
 To use ToolRegistry Hub, first install the library:

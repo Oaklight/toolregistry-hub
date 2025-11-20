@@ -147,14 +147,3 @@ print(help_info)
 functions = Calculator.list_allowed_fns(with_help=True)
 print(functions)
 ```
-
-## Navigation
-
-- [Back to Home](../readme_en.md)
-- [View Navigation Page](navigation.md)
-- [Date Time Tools](datetime.md)
-- [File Operations Tools](file_ops.md)
-- [File System Tools](filesystem.md)
-- [Web Search Tools](websearch/index.md)
-- [Unit Converter Tools](unit_converter.md)
-- [Other Tools](other_tools.md)

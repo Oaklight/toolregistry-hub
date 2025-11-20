@@ -75,14 +75,3 @@ for result in results:
 ## Architecture Upgrade Plan
 
 The web search module is undergoing an architecture upgrade. Detailed information can be found in the [Architecture Upgrade Plan](plan.md).
-
-## Navigation
-
-- [Back to Home](../readme_en.md)
-- [View Navigation Page](../navigation.md)
-- [Calculator Tools](../calculator.md)
-- [Date Time Tools](../datetime.md)
-- [File Operations Tools](../file_ops.md)
-- [File System Tools](../filesystem.md)
-- [Unit Converter Tools](../unit_converter.md)
-- [Other Tools](../other_tools.md)

@@ -9,7 +9,7 @@ docs_dir: docs
 
 # Theme configuration
 theme:
-  name: shadcn
+  name: material
   features:
     - navigation.tabs
     - navigation.sections
@@ -18,34 +18,34 @@ theme:
     - navigation.indexes
     - search.highlight
     - search.share
-  palette:
-    - scheme: default
-      primary: blue
-      accent: blue
   language: en
-  use_directory_urls: false
-  show_datetime: false
-  topbar_sections: true
+  # use_directory_urls: true
 
 # Navigation structure
 nav:
   - Home: index.md
-  - Overview: overview.md
   - Tools:
       - Calculator Tools: tools/calculator.md
       - Date Time Tools: tools/datetime.md
       - File Operations: tools/file_ops.md
       - File System: tools/filesystem.md
       - Think Tool: tools/think_tool.md
-      - Web Fetch Tool: tools/web_fetch_tool.md
-      - Web Search Tools: tools/websearch/index.md
       - Unit Converter: tools/unit_converter.md
-      - Other Tools: tools/other_tools.md
+      - Web Fetch Tool: tools/web_fetch_tool.md
+      - Web Search Tools:
+          - Overview: tools/websearch/index.md
+          - Bing Search: tools/websearch/bing.md
+          - Brave Search: tools/websearch/brave.md
+          - Tavily Search: tools/websearch/tavily.md
+          - SearXNG Search: tools/websearch/searxng.md
   - Deployment:
       - Server Mode: server.md
       - Docker Deployment: docker.md
   - Development:
       - Helper Functions: dev/helper_functions.md
+      - Web Search Base Class: tools/websearch/base_search.md
+      - Search Result Types: tools/websearch/search_result.md
+      - Legacy Web Search: tools/websearch/legacy.md
 
 # Extensions
 markdown_extensions:

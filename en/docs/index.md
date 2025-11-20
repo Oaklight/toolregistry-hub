@@ -1,24 +1,22 @@
 ---
-title: ToolRegistry Hub
+title: Home
 summary: A comprehensive Python library providing various utility tools
 description: ToolRegistry Hub is a Python library that provides various utility tools designed to support common tasks including calculations, file operations, web search, and more.
 keywords: python, tools, utilities, calculator, file operations, web search
-author: ToolRegistry Hub Team
+author: Oaklight
+hide:
+  - navigation
 ---
 
 # ToolRegistry Hub
 
-Welcome to **ToolRegistry Hub** - a comprehensive Python library providing various utility tools designed to support common tasks!
+**A curated collection of utility tools extracted from toolregistry** - designed for efficiency, reliability, and ease of use.
 
 ## 🚀 Quick Start
-
-Install ToolRegistry Hub with pip:
 
 ```bash
 pip install toolregistry-hub
 ```
-
-Then start using the tools:
 
 ```python
 from toolregistry_hub import Calculator, DateTime, FileOps
@@ -30,72 +28,51 @@ print(result)  # Output: 14
 # Get current time
 current_time = DateTime.now()
 print(current_time)
+
+# File operations
+content = FileOps.read_file("example.txt")
 ```
 
-## 📚 Documentation
+## 🛠️ Available Tools
 
-Choose your preferred language:
+ToolRegistry Hub provides essential utility tools. **Explore the [Tools](tools/) section for detailed documentation of each tool.**
 
-<div class="grid cards" markdown>
+- **Calculator Tools** - Mathematical calculations and expression evaluation
+- **Date Time Tools** - Date, time, and timezone handling
+- **File Operations** - File content manipulation
+- **File System** - File system operations
+- **Web Search Tools** - Multi-engine web search capabilities
+- **Unit Converter** - Convert between various units
+- **Think Tool** - Simple reasoning and brainstorming
+- **Web Fetch Tool** - Extract content from webpages
 
--   :material-translate: **English Documentation**
+## 🚀 Server Mode
 
-    ---
+Run as a standalone server with REST API or MCP (Model Context Protocol) support:
 
-    Complete documentation in English with detailed API references and examples.
+```bash
+# Start REST API server
+toolregistry-server --mode openapi --port 8000
 
-    [:octicons-arrow-right-24: English Docs](overview/)
+# Start MCP server
+toolregistry-server --mode mcp --port 8000
+```
 
--   :material-translate: **中文文档**
+## 🌟 Why ToolRegistry Hub?
 
-    ---
+- **🔧 Focused**: Curated collection of essential utility tools
+- **⚡ Efficient**: Optimized for performance and reliability
+- **🔌 Integrable**: Works standalone or as part of toolregistry ecosystem
+- **🌐 Accessible**: REST API, MCP server, and direct Python usage
+- **📚 Documented**: Comprehensive documentation in multiple languages
+- **🎯 Production Ready**: Battle-tested in real-world applications
 
-    完整的中文文档，包含详细的API参考和示例。
+## 🤝 Get Involved
 
-    [:octicons-arrow-right-24: 中文文档](zh/)
-
-</div>
-
-## 🛠️ Tool Categories
-
-ToolRegistry Hub provides the following tool categories:
-
-### Core Tools
-- **[Calculator Tools](tools/calculator/)** - Mathematical calculations and expressions
-- **[Date Time Tools](tools/datetime/)** - Date, time, and timezone handling
-- **[File Operations](tools/file_ops/)** - File content manipulation
-- **[File System](tools/filesystem/)** - File system operations
-
-### Advanced Tools
-- **[Web Search Tools](tools/websearch/)** - Multi-engine web search capabilities
-- **[Unit Converter](tools/unit_converter/)** - Convert between various units
-- **[Other Tools](tools/other_tools/)** - Additional utility functions
-
-### Deployment
-- **[Server Mode](server/)** - REST API and MCP server
-- **[Docker Deployment](docker/)** - Containerized deployment
-
-## 🌟 Features
-
-- **Easy to Use**: Simple and intuitive API design
-- **Comprehensive**: Wide range of utility tools
-- **Well Documented**: Detailed documentation in multiple languages
-- **Extensible**: Modular design for easy extension
-- **Production Ready**: Suitable for both development and production use
-
-## 🤝 Contributing
-
-We welcome contributions! Please visit our [GitHub repository](https://github.com/Oaklight/toolregistry-hub) to:
-
-- Report issues
-- Submit feature requests
-- Contribute code
-- Improve documentation
-
-## 📄 License
-
-This project is licensed under the MIT License. See the [LICENSE](https://github.com/Oaklight/toolregistry-hub/blob/main/LICENSE) file for details.
+- **[GitHub Repository](https://github.com/Oaklight/toolregistry-hub)** - Source code and issues
+- **[中文文档](../zh/)** - Chinese documentation
+- **[Tools Documentation](tools/)** - Complete tool reference
 
 ---
 
-*Get started by exploring our [English documentation](overview/) or [中文文档](zh/)!*
+_ToolRegistry Hub: Making utility tools accessible and reliable._
