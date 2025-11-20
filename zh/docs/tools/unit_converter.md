@@ -178,14 +178,3 @@ print(f"2立方米 = {cubic_feet}立方英尺")
 milliliters = UnitConverter.fluid_ounces_to_milliliters(8)
 print(f"8液量盎司 = {milliliters}毫升")
 ```
-
-## 导航
-
-- [返回首页](index.md)
-- [查看导航页面](navigation.md)
-- [计算器工具](calculator.md)
-- [日期时间工具](datetime.md)
-- [文件操作工具](file_ops.md)
-- [文件系统工具](filesystem.md)
-- [网络搜索工具](websearch/index.md)
-- [其他工具](other_tools.md)

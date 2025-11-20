@@ -101,13 +101,3 @@ for result in results:
     print(f"摘要: {result.excerpt}")
     print("-" * 50)
 ```
-
-## 导航
-
-- [返回网络搜索主页](index.md)
-- [返回首页](../index.md)
-- [查看导航页面](../navigation.md)
-- [搜索结果类型](search_result.md)
-- [Bing 搜索](bing.md)
-- [SearXNG 搜索](searxng.md)
-- [旧版网络搜索](legacy.md)

@@ -1,6 +1,6 @@
 # 计算器工具
 
-计算器工具提供了各种数学计算功能，从基本的算术运算到更复杂的数学函数。
+计算器工具提供了各种数学计算功能，涵盖从基本算术运算到更复杂的数学函数。
 
 ## 类概览
 
@@ -49,7 +49,7 @@ print(functions)
 - 平方根 (`sqrt`)
 - 对数 (`log`, `ln`)
 - 指数 (`exp`)
-- 三角函数 (未实现)
+- 三角函数（未实现）
 
 #### 统计函数
 
@@ -147,14 +147,3 @@ print(help_info)
 functions = Calculator.list_allowed_fns(with_help=True)
 print(functions)
 ```
-
-## 导航
-
-- [返回首页](index.md)
-- [查看导航页面](navigation.md)
-- [日期时间工具](datetime.md)
-- [文件操作工具](file_ops.md)
-- [文件系统工具](filesystem.md)
-- [网络搜索工具](websearch/index.md)
-- [单位转换工具](unit_converter.md)
-- [其他工具](other_tools.md)

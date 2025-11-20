@@ -48,13 +48,3 @@ custom_result = SearchResult(
 )
 print(f"自定义结果: {custom_result.title} - {custom_result.url}")
 ```
-
-## 导航
-
-- [返回网络搜索主页](index.md)
-- [返回首页](../index.md)
-- [查看导航页面](../navigation.md)
-- [基础搜索类](base_search.md)
-- [Bing 搜索](bing.md)
-- [SearXNG 搜索](searxng.md)
-- [旧版网络搜索](legacy.md)

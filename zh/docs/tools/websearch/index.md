@@ -75,14 +75,3 @@ for result in results:
 ## 架构升级计划
 
 网络搜索模块正在进行架构升级，详细信息可以在[架构升级计划](plan.md)中查看。
-
-## 导航
-
-- [返回首页](../index.md)
-- [查看导航页面](../navigation.md)
-- [计算器工具](../calculator.md)
-- [日期时间工具](../datetime.md)
-- [文件操作工具](../file_ops.md)
-- [文件系统工具](../filesystem.md)
-- [单位转换工具](../unit_converter.md)
-- [其他工具](../other_tools.md)

@@ -113,13 +113,3 @@ SearXNG 是一个自托管的元搜索引擎，它可以聚合多个搜索引擎
 ## 旧版 SearXNG 搜索
 
 旧版 SearXNG 搜索功能在 `websearch_legacy` 模块中提供，使用 `WebSearchSearXNG` 类。详细信息请参阅[旧版网络搜索](legacy.md)文档。
-
-## 导航
-
-- [返回网络搜索主页](index.md)
-- [返回首页](../index.md)
-- [查看导航页面](../navigation.md)
-- [搜索结果类型](search_result.md)
-- [基础搜索类](base_search.md)
-- [Bing 搜索](bing.md)
-- [旧版网络搜索](legacy.md)

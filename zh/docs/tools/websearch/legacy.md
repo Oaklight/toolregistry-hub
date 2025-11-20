@@ -165,13 +165,3 @@ filtered_results = filter_search_results(results)
 print(f"过滤前结果数: {len(results)}")
 print(f"过滤后结果数: {len(filtered_results)}")
 ```
-
-## 导航
-
-- [返回网络搜索主页](index.md)
-- [返回首页](../index.md)
-- [查看导航页面](../navigation.md)
-- [搜索结果类型](search_result.md)
-- [基础搜索类](base_search.md)
-- [Bing 搜索](bing.md)
-- [SearXNG 搜索](searxng.md)
