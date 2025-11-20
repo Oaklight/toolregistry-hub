@@ -24,26 +24,27 @@ theme:
       accent: blue
   language: en
   show_datetime: false
+  topbar_sections: true
 
 # Navigation structure
 nav:
   - Home: index.md
   - Overview: overview.md
   - Tools:
-    - Calculator Tools: tools/calculator.md
-    - Date Time Tools: tools/datetime.md
-    - File Operations: tools/file_ops.md
-    - File System: tools/filesystem.md
-    - Think Tool: tools/think_tool.md
-    - Web Fetch Tool: tools/web_fetch_tool.md
-    - Web Search Tools: tools/websearch/index.md
-    - Unit Converter: tools/unit_converter.md
-    - Other Tools: tools/other_tools.md
+      - Calculator Tools: tools/calculator.md
+      - Date Time Tools: tools/datetime.md
+      - File Operations: tools/file_ops.md
+      - File System: tools/filesystem.md
+      - Think Tool: tools/think_tool.md
+      - Web Fetch Tool: tools/web_fetch_tool.md
+      - Web Search Tools: tools/websearch/index.md
+      - Unit Converter: tools/unit_converter.md
+      - Other Tools: tools/other_tools.md
   - Deployment:
-    - Server Mode: server.md
-    - Docker Deployment: docker.md
+      - Server Mode: server.md
+      - Docker Deployment: docker.md
   - Development:
-    - Helper Functions: dev/helper_functions.md
+      - Helper Functions: dev/helper_functions.md
 
 # Extensions
 markdown_extensions:
