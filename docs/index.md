@@ -10,7 +10,7 @@ hide:
 
 # ToolRegistry Hub
 
-**A curated collection of utility tools extracted from toolregistry** - designed for efficiency, reliability, and ease of use.
+**A curated collection of utility tools extracted from [ToolRegistry](https://toolregistry.readthedocs.io/)** - designed for efficiency, reliability, and ease of use.
 
 ## 🚀 Quick Start
 
@@ -62,7 +62,7 @@ toolregistry-server --mode mcp --port 8000
 
 - **🔧 Focused**: Curated collection of essential utility tools
 - **⚡ Efficient**: Optimized for performance and reliability
-- **🔌 Integrable**: Works standalone or as part of toolregistry ecosystem
+- **🔌 Integrable**: Works standalone or as part of [ToolRegistry](https://toolregistry.readthedocs.io/) ecosystem
 - **🌐 Accessible**: REST API, MCP server, and direct Python usage
 - **📚 Documented**: Comprehensive documentation in multiple languages
 - **🎯 Production Ready**: Battle-tested in real-world applications
