@@ -10,7 +10,7 @@ hide:
 
 # ToolRegistry Hub
 
-**从 toolregistry 中提取的精选实用工具集合** - 专为效率、可靠性和易用性而设计。
+**从 [ToolRegistry](https://toolregistry.readthedocs.io/) 中提取的精选实用工具集合** - 专为效率、可靠性和易用性而设计。
 
 ## 🚀 快速开始
 
@@ -62,7 +62,7 @@ toolregistry-server --mode mcp --port 8000
 
 - **🔧 专注**: 精选的核心实用工具集合
 - **⚡ 高效**: 为性能和可靠性优化
-- **🔌 可集成**: 可独立使用或作为 toolregistry 生态系统的一部分
+- **🔌 可集成**: 可独立使用或作为 [ToolRegistry](https://toolregistry.readthedocs.io/) 生态系统的一部分
 - **🌐 易访问**: REST API、MCP 服务器和直接 Python 使用
 - **📚 文档完善**: 多语言的全面文档
 - **🎯 生产就绪**: 在实际应用中经过实战测试
