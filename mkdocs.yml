@@ -10,6 +10,28 @@ docs_dir: docs
 # Theme configuration
 theme:
   name: material
+  palette:
+    # 支持自动切换（跟随系统）
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    # 明亮模式
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # 暗黑模式
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
   features:
     - navigation.tabs
     - navigation.sections
@@ -18,6 +40,8 @@ theme:
     - navigation.indexes
     - search.highlight
     - search.share
+    - search.suggest
+    - content.code.copy
   language: en
   # use_directory_urls: true
 
@@ -90,6 +114,9 @@ markdown_extensions:
 
 # Plugins
 plugins:
+  - search:
+      lang: en
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
   - mkdocstrings:
       handlers:
         python:
