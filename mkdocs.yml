@@ -21,7 +21,13 @@ theme:
   language: en
   # use_directory_urls: true
 
+# Extra configuration
 extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Oaklight/toolregistry-hub
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/toolregistry-hub/
   alternate:
     - name: English
       link: /en/
@@ -89,14 +95,6 @@ plugins:
         python:
           options:
             docstring_style: google
-
-# Extra configuration
-extra:
-  social:
-    - icon: fontawesome/brands/github
-      link: https://github.com/Oaklight/toolregistry-hub
-    - icon: fontawesome/brands/python
-      link: https://pypi.org/project/toolregistry-hub/
 
 # Custom CSS and JS
 extra_javascript:
