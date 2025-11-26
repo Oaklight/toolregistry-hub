@@ -10,6 +10,10 @@ hide:
 
 # ToolRegistry Hub
 
+[![Docker Image Version](https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=Docker&logo=docker)](https://hub.docker.com/r/oaklight/toolregistry-hub-server)
+[![PyPI Version](https://img.shields.io/pypi/v/toolregistry-hub?label=PyPI&logo=pypi)](https://pypi.org/project/toolregistry-hub/)
+[![GitHub Release](https://img.shields.io/github/v/release/OakLight/toolregistry-hub?label=GitHub&logo=github)](https://github.com/OakLight/toolregistry-hub/releases)
+
 **从 [ToolRegistry](https://toolregistry.readthedocs.io/) 中提取的精选实用工具集合** - 专为效率、可靠性和易用性而设计。
 
 ## 🚀 快速开始
