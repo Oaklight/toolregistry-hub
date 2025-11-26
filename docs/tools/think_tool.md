@@ -10,6 +10,9 @@ author: Oaklight
 
 思考工具为 AI 工具提供推理和头脑风暴功能。此工具允许在不获取新信息或改变外部环境的情况下进行认知处理和思想记录。它专为 AI 工具集成和复杂推理工作流而设计。
 
+???+ note "更新日志"
+    0.5.0 不再以json格式返回思考内容
+
 ## 🎯 概览
 
 ThinkTool 类提供专门的空间用于：
@@ -26,8 +29,8 @@ ThinkTool 类提供专门的空间用于：
 from toolregistry_hub import ThinkTool
 
 # 记录简单想法
-result = ThinkTool.think("我需要考虑如何优化这个算法。")
-print(result["thought"])
+ThinkTool.think("我需要考虑如何优化这个算法。")
+print("思考已记录")
 
 # 复杂推理示例
 complex_thought = """
@@ -38,13 +41,13 @@ complex_thought = """
 4. 选择最合适的解决方案
 5. 规划实施细节
 """
-result = ThinkTool.think(complex_thought)
+ThinkTool.think(complex_thought)
 print("思考过程已成功记录")
 ```
 
 ## 🔧 API 参考
 
-### `think(thought: str) -> Dict[str, str]`
+### `think(thought: str) -> None`
 
 使用工具思考某事。它不会获取新信息或对仓库进行任何更改，只会记录想法。
 
@@ -54,7 +57,7 @@ print("思考过程已成功记录")
 
 **返回值：**
 
-- `Dict[str, str]`: 包含记录想法的字典
+- `None`: 该方法不返回任何值，仅用于记录思考过程
 
 **异常：**
 
@@ -87,7 +90,7 @@ problem_analysis = """
 3. 根据影响和努力程度确定修复优先级
 """
 
-result = ThinkTool.think(problem_analysis)
+ThinkTool.think(problem_analysis)
 print("问题分析已完成并记录")
 ```
 
@@ -127,7 +130,7 @@ algorithm_design = """
 4. 添加路径重建
 """
 
-result = ThinkTool.think(algorithm_design)
+ThinkTool.think(algorithm_design)
 print("算法设计思考已完成")
 ```
 
@@ -172,7 +175,7 @@ review_plan = """
 - 验证测试覆盖率
 """
 
-result = ThinkTool.think(review_plan)
+ThinkTool.think(review_plan)
 print("代码审查计划已完成")
 ```
 
@@ -220,7 +223,7 @@ debugging_strategy = """
 - 检查文件/数据库句柄中明显的资源泄漏
 """
 
-result = ThinkTool.think(debugging_strategy)
+ThinkTool.think(debugging_strategy)
 print("调试策略已记录")
 ```
 
@@ -270,7 +273,7 @@ project_plan = """
 - 可靠性：99.5%的正常运行时间目标
 """
 
-result = ThinkTool.think(project_plan)
+ThinkTool.think(project_plan)
 print("项目规划已记录")
 ```
 
@@ -294,7 +297,8 @@ def structured_thinking(template, content):
 - [ ] 操作项目2
 - [ ] 审查和验证
 """
-    return ThinkTool.think(structured_thought)
+    ThinkTool.think(structured_thought)
+    return "结构化思考已完成"
 
 # 示例用法
 template = "SWOT分析：优势、劣势、机会、威胁"
@@ -320,7 +324,7 @@ content = """
 - 监管变化
 """
 
-result = structured_thinking(template, content)
+structured_thinking(template, content)
 print("结构化分析已完成")
 ```
 
@@ -346,13 +350,13 @@ def iterative_reasoning(problem, iterations=3):
 
 更新的结论：[基于迭代的更新分析]
 """
-        result = ThinkTool.think(current_thought)
+        ThinkTool.think(current_thought)
 
-    return result
+    return "迭代推理已完成"
 
 # 示例
 problem = "如何提高我们移动应用的用户参与度？"
-final_analysis = iterative_reasoning(problem, iterations=3)
+iterative_reasoning(problem, iterations=3)
 print("迭代推理已完成")
 ```
 
@@ -385,12 +389,13 @@ def decision_analysis(options, criteria):
 [基于分析，推荐最佳选项并说明理由]
 """
 
-    return ThinkTool.think(analysis)
+    ThinkTool.think(analysis)
+    return "决策分析已完成"
 
 # 示例用法
 options = ["React Native", "Flutter", "原生 iOS/Android"]
 criteria = ["开发速度", "性能", "团队专业知识", "长期维护"]
-result = decision_analysis(options, criteria)
+decision_analysis(options, criteria)
 print("决策分析已完成")
 ```
 
@@ -425,26 +430,21 @@ def ai_workflow_with_thinking(user_request):
     """在 AI 工作流中集成 ThinkTool 的示例。"""
 
     # 步骤1：分析请求
-    analysis = ThinkTool.think(f"分析用户请求：{user_request}")
+    ThinkTool.think(f"分析用户请求：{user_request}")
 
     # 步骤2：规划方法
-    planning = ThinkTool.think("规划解决此问题的最佳方法...")
+    ThinkTool.think("规划解决此问题的最佳方法...")
 
     # 步骤3：考虑边缘情况
-    edge_cases = ThinkTool.think("我应该考虑哪些边缘情况？")
+    ThinkTool.think("我应该考虑哪些边缘情况？")
 
     # 步骤4：执行计划（使用其他工具）
     # ... 实际实施将放在这里 ...
 
     # 步骤5：审查解决方案
-    review = ThinkTool.think("审查解决方案的完整性和正确性")
+    ThinkTool.think("审查解决方案的完整性和正确性")
 
-    return {
-        'analysis': analysis,
-        'planning': planning,
-        'edge_cases': edge_cases,
-        'review': review
-    }
+    return "AI工作流思考过程已完成"
 ```
 
 ### 文档和审计跟踪
@@ -457,7 +457,7 @@ def create_reasoning_log(decisions):
     log_entries = []
 
     for decision in decisions:
-        entry = ThinkTool.think(f"""
+        ThinkTool.think(f"""
 决策日志条目
 
 时间戳：{decision['timestamp']}
@@ -467,7 +467,7 @@ def create_reasoning_log(decisions):
 最终决策：{decision['decision']}
 置信度：{decision['confidence']}
 """)
-        log_entries.append(entry)
+        log_entries.append(f"决策日志条目 - {decision['timestamp']}")
 
     return log_entries
 ```
