@@ -9,6 +9,13 @@
 ARG PYTHON_VERSION=3.10
 FROM python:${PYTHON_VERSION}-slim AS base
 
+# Accept PyPI mirror as optional build argument
+ARG PYPI_MIRROR
+# Accept local wheel file path as build argument
+ARG LOCAL_WHEEL
+# Accept package version as build argument
+ARG PACKAGE_VERSION
+
 # Prevents Python from writing pyc files.
 ENV PYTHONDONTWRITEBYTECODE=1
 
@@ -30,14 +37,52 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
+# Create temporary directory for potential local wheels
+RUN mkdir -p /tmp/dist/
+
+# Copy the entire project context and extract dist if it exists
+COPY . /tmp/build/
+RUN if [ -d "/tmp/build/dist" ] && [ "$(ls -A /tmp/build/dist 2>/dev/null)" ]; then \
+        cp /tmp/build/dist/*.whl /tmp/dist/ 2>/dev/null || true; \
+    fi
+
 # Configure pip mirror based on geographic location
 COPY docker/requirements.txt .
 # RUN pip config set global.index-url https://mirrors.cernet.edu.cn/pypi/web/simple;
-    
-# Install the package with server dependencies
+
+# Install dependencies first
 RUN --mount=type=cache,target=/root/.cache/pip \
-    # --mount=type=bind,source=requirements.txt,target=requirements.txt \
-    python -m pip install -r requirements.txt
+    if [ -n "$PYPI_MIRROR" ]; then \
+        echo "Using PyPI mirror: $PYPI_MIRROR"; \
+        python -m pip install -i "$PYPI_MIRROR" -r requirements.txt; \
+    else \
+        python -m pip install -r requirements.txt; \
+    fi
+
+# Install the package - prioritize local wheel, then specific version, then latest from PyPI
+RUN if [ -n "$LOCAL_WHEEL" ] && [ -f "/tmp/dist/$LOCAL_WHEEL" ]; then \
+        echo "Installing from local wheel: $LOCAL_WHEEL"; \
+        if [ -n "$PYPI_MIRROR" ]; then \
+            pip install -i "$PYPI_MIRROR" --no-cache-dir "/tmp/dist/$LOCAL_WHEEL"; \
+        else \
+            pip install --no-cache-dir "/tmp/dist/$LOCAL_WHEEL"; \
+        fi; \
+    elif [ -n "$PACKAGE_VERSION" ]; then \
+        echo "Installing toolregistry-hub version: $PACKAGE_VERSION"; \
+        if [ -n "$PYPI_MIRROR" ]; then \
+            pip install -i "$PYPI_MIRROR" --no-cache-dir toolregistry-hub==$PACKAGE_VERSION; \
+        else \
+            pip install --no-cache-dir toolregistry-hub==$PACKAGE_VERSION; \
+        fi; \
+    else \
+        echo "Installing latest toolregistry-hub from PyPI"; \
+        if [ -n "$PYPI_MIRROR" ]; then \
+            pip install -i "$PYPI_MIRROR" --no-cache-dir toolregistry-hub; \
+        else \
+            pip install --no-cache-dir toolregistry-hub; \
+        fi; \
+    fi && \
+    rm -rf /tmp/dist/ /tmp/build/
 
 # Switch to the non-privileged user to run the application.
 USER appuser

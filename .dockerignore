@@ -20,7 +20,7 @@ __pycache__/
 *.so
 build/
 develop-eggs/
-dist/
+# dist/ - commented out to allow local wheel files for Docker builds
 downloads/
 eggs/
 .eggs/
