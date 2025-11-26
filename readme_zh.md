@@ -1,5 +1,9 @@
 # ToolRegistry Hub 文档
 
+[![Docker Image Version](https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=Docker&logo=docker)](https://hub.docker.com/r/oaklight/toolregistry-hub-server)
+[![PyPI Version](https://img.shields.io/pypi/v/toolregistry-hub?label=PyPI&logo=pypi)](https://pypi.org/project/toolregistry-hub/)
+[![GitHub Release](https://img.shields.io/github/v/release/OakLight/toolregistry-hub?label=GitHub&logo=github)](https://github.com/OakLight/toolregistry-hub/releases)
+
 [English version](readme_en.md) | [中文版](readme_zh.md)
 
 欢迎使用 ToolRegistry Hub 文档！本文档提供了对项目中所有工具的详细说明。
