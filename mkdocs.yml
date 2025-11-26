@@ -85,6 +85,7 @@ nav:
       - 网络搜索基类: tools/websearch/base_search.md
       - 搜索结果类型: tools/websearch/search_result.md
       - 旧版网络搜索: tools/websearch/legacy.md
+  - 更新日志: changelog.md
   - ToolRegistry: https://toolregistry.readthedocs.io/
 
 # Extensions
