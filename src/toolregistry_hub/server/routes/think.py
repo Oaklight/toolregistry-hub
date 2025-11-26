@@ -58,5 +58,5 @@ def think(data: ThinkRequest) -> ThinkResponse:
     Returns:
         Response containing the think tool result
     """
-    result = ThinkTool.think(data.thought)
-    return ThinkResponse(thought=result["thought"])
+    ThinkTool.think(data.thought)
+    return ThinkResponse(thought=data.thought)
