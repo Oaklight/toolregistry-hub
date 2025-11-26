@@ -10,6 +10,10 @@ hide:
 
 # ToolRegistry Hub
 
+[![Docker Image Version](https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=Docker&logo=docker)](https://hub.docker.com/r/oaklight/toolregistry-hub-server)
+[![PyPI Version](https://img.shields.io/pypi/v/toolregistry-hub?label=PyPI&logo=pypi)](https://pypi.org/project/toolregistry-hub/)
+[![GitHub Release](https://img.shields.io/github/v/release/OakLight/toolregistry-hub?label=GitHub&logo=github)](https://github.com/OakLight/toolregistry-hub/releases)
+
 **A curated collection of utility tools extracted from [ToolRegistry](https://toolregistry.readthedocs.io/)** - designed for efficiency, reliability, and ease of use.
 
 ## 🚀 Quick Start
