@@ -10,6 +10,9 @@ author: Oaklight
 
 The Think Tool provides simple reasoning and brainstorming functionality for AI tools. This tool allows for cognitive processing and thought recording without obtaining new information or making changes to the external environment. It's designed specifically for AI tool integration and complex reasoning workflows.
 
+???+ note "Changelog"
+    0.5.0 no longer return thoughts as json
+
 ## 🎯 Overview
 
 The ThinkTool class offers a dedicated space for:
@@ -26,8 +29,8 @@ The ThinkTool class offers a dedicated space for:
 from toolregistry_hub import ThinkTool
 
 # Record a simple thought
-result = ThinkTool.think("I need to consider how to optimize this algorithm.")
-print(result["thought"])
+ThinkTool.think("I need to consider how to optimize this algorithm.")
+print("Thought recorded")
 
 # Complex reasoning example
 complex_thought = """
@@ -38,13 +41,13 @@ I need to solve this problem step by step:
 4. Select the most appropriate solution
 5. Plan the implementation details
 """
-result = ThinkTool.think(complex_thought)
+ThinkTool.think(complex_thought)
 print("Thought process recorded successfully")
 ```
 
 ## 🔧 API Reference
 
-### `think(thought: str) -> Dict[str, str]`
+### `think(thought: str) -> None`
 
 Use the tool to think about something. It will not obtain new information or make any changes to the repository, but just log the thought.
 
@@ -54,7 +57,7 @@ Use the tool to think about something. It will not obtain new information or mak
 
 **Returns:**
 
-- `Dict[str, str]`: Dictionary containing the recorded thought
+- `None`: This method does not return any value, it only records the thought process
 
 **Raises:**
 
@@ -87,7 +90,7 @@ Analysis:
 3. Prioritize fixes based on impact and effort
 """
 
-result = ThinkTool.think(problem_analysis)
+ThinkTool.think(problem_analysis)
 print("Problem analysis completed and recorded")
 ```
 
@@ -127,7 +130,7 @@ Implementation plan:
 4. Add path reconstruction
 """
 
-result = ThinkTool.think(algorithm_design)
+ThinkTool.think(algorithm_design)
 print("Algorithm design thinking completed")
 ```
 
@@ -172,7 +175,7 @@ Review approach:
 - Verify test coverage
 """
 
-result = ThinkTool.think(review_plan)
+ThinkTool.think(review_plan)
 print("Code review planning completed")
 ```
 
@@ -220,7 +223,7 @@ Immediate actions:
 - Check for obvious resource leaks in file/database handles
 """
 
-result = ThinkTool.think(debugging_strategy)
+ThinkTool.think(debugging_strategy)
 print("Debugging strategy documented")
 ```
 
@@ -270,7 +273,7 @@ Success Metrics:
 - Reliability: 99.5% uptime target
 """
 
-result = ThinkTool.think(project_plan)
+ThinkTool.think(project_plan)
 print("Project planning documented")
 ```
 
@@ -294,7 +297,8 @@ Next Steps:
 - [ ] Action item 2
 - [ ] Review and validate
 """
-    return ThinkTool.think(structured_thought)
+    ThinkTool.think(structured_thought)
+    return "Structured thinking completed"
 
 # Example usage
 template = "SWOT Analysis: Strengths, Weaknesses, Opportunities, Threats"
@@ -320,7 +324,7 @@ Threats:
 - Regulatory changes
 """
 
-result = structured_thinking(template, content)
+structured_thinking(template, content)
 print("Structured analysis completed")
 ```
 
@@ -346,13 +350,13 @@ New considerations:
 
 Updated conclusion: [Updated analysis based on iteration]
 """
-        result = ThinkTool.think(current_thought)
+        ThinkTool.think(current_thought)
 
-    return result
+    return "Iterative reasoning completed"
 
 # Example
 problem = "How to improve user engagement with our mobile app?"
-final_analysis = iterative_reasoning(problem, iterations=3)
+iterative_reasoning(problem, iterations=3)
 print("Iterative reasoning completed")
 ```
 
@@ -385,12 +389,13 @@ Recommendation:
 [Based on analysis, recommend the best option with justification]
 """
 
-    return ThinkTool.think(analysis)
+    ThinkTool.think(analysis)
+    return "Decision analysis completed"
 
 # Example usage
 options = ["React Native", "Flutter", "Native iOS/Android"]
 criteria = ["Development speed", "Performance", "Team expertise", "Long-term maintenance"]
-result = decision_analysis(options, criteria)
+decision_analysis(options, criteria)
 print("Decision analysis completed")
 ```
 
@@ -425,26 +430,21 @@ def ai_workflow_with_thinking(user_request):
     """Example of integrating ThinkTool in AI workflows."""
 
     # Step 1: Analyze the request
-    analysis = ThinkTool.think(f"Analyzing user request: {user_request}")
+    ThinkTool.think(f"Analyzing user request: {user_request}")
 
     # Step 2: Plan the approach
-    planning = ThinkTool.think("Planning the best approach to solve this...")
+    ThinkTool.think("Planning the best approach to solve this...")
 
     # Step 3: Consider edge cases
-    edge_cases = ThinkTool.think("What edge cases should I consider?")
+    ThinkTool.think("What edge cases should I consider?")
 
     # Step 4: Execute the plan (using other tools)
     # ... actual implementation would go here ...
 
     # Step 5: Review the solution
-    review = ThinkTool.think("Reviewing the solution for completeness and correctness")
+    ThinkTool.think("Reviewing the solution for completeness and correctness")
 
-    return {
-        'analysis': analysis,
-        'planning': planning,
-        'edge_cases': edge_cases,
-        'review': review
-    }
+    return "AI workflow thinking process completed"
 ```
 
 ### Documentation and Audit Trail
@@ -457,7 +457,7 @@ def create_reasoning_log(decisions):
     log_entries = []
 
     for decision in decisions:
-        entry = ThinkTool.think(f"""
+        ThinkTool.think(f"""
 Decision Log Entry
 
 Timestamp: {decision['timestamp']}
@@ -467,7 +467,7 @@ Reasoning Process: {decision['reasoning']}
 Final Decision: {decision['decision']}
 Confidence Level: {decision['confidence']}
 """)
-        log_entries.append(entry)
+        log_entries.append(f"Decision log entry - {decision['timestamp']}")
 
     return log_entries
 ```
