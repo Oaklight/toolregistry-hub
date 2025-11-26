@@ -85,6 +85,7 @@ nav:
       - Web Search Base Class: tools/websearch/base_search.md
       - Search Result Types: tools/websearch/search_result.md
       - Legacy Web Search: tools/websearch/legacy.md
+  - Changelog: changelog.md
   - ToolRegistry: https://toolregistry.readthedocs.io/
 
 # Extensions
