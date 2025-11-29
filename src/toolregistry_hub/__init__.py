@@ -60,6 +60,7 @@ __all__ = [
     "WebSearchGoogle",
     "WebSearchBing",
     "WebSearchSearXNG",
+    "TodoListTool",
 ]
 
 version = "0.5.0"  # standalone version
