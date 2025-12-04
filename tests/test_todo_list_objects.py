@@ -1,23 +1,52 @@
 import pytest
-from toolregistry_hub.todo_list import Todo, TodoListTool
+import sys
+from toolregistry_hub.todo_list import TodoList, Todo
 
 
-def test_todo_from_instance():
-    t = Todo(id="1", content="Do X", status="planned")
-    expected = (
-        "| id | task | status |\n" "| --- | --- | --- |\n" "| 1 | Do X | planned |"
-    )
-    assert TodoListTool.todo_list_from_objects([t]) == expected
+def test_todolist_write_with_dicts():
+    todos = [
+        {"id": "1", "content": "Task one", "status": "planned"},
+        {"id": "2", "content": "Task two", "status": "done"},
+    ]
+    out = TodoList.todolist_write(todos)
+
+    # basic header and separator
+    assert "| id | task | status |" in out
+    assert "| --- | --- | --- |" in out
+
+    # rows present
+    assert "| 1 | Task one | planned |" in out
+    assert "| 2 | Task two | done |" in out
+
+    # there should be exactly header + separator + 2 rows -> 4 lines
+    assert out.count("\n") == 3
 
 
-def test_todo_from_dict():
-    d = {"id": "2", "content": "Write tests", "status": "done"}
-    expected = "| id | task | status |\n| --- | --- | --- |\n| 2 | Write tests | done |"
-    assert TodoListTool.todo_list_from_objects([d]) == expected
-
-
-def test_todo_invalid_raises():
+def test_todolist_write_with_todo_objects():
+    # current implementation accepts dicts only; passing Todo instances should raise
+    t1 = Todo(id="a", content="Do X", status="planned")
+    t2 = Todo(id="b", content="Do Y", status="done")
     with pytest.raises(TypeError):
-        TodoListTool.todo_list_from_objects(
-            [{"id": 3, "content": "Bad", "status": "unknown"}]
+        TodoList.todolist_write([t1, t2])
+
+
+def test_escape_pipe_in_content():
+    todos = [{"id": "p1", "content": "A | B", "status": "planned"}]
+    out = TodoList.todolist_write(todos)
+
+    # pipe character should be escaped in the rendered table
+    assert "\\|" in out
+    assert "| p1 | A \\| B | planned |" in out
+
+
+def test_invalid_element_type_raises_typeerror():
+    with pytest.raises(TypeError):
+        TodoList.todolist_write([1, 2, 3])
+
+
+def test_invalid_status_raises_typeerror():
+    # invalid status value is wrapped and re-raised as TypeError by todolist_write
+    with pytest.raises(TypeError):
+        TodoList.todolist_write(
+            [{"id": "x", "content": "c", "status": "not-a-valid-status"}]
         )
