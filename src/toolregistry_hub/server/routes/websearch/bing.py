@@ -6,7 +6,6 @@ from fastapi import APIRouter
 from loguru import logger
 
 from ....websearch import websearch_bing
-from ...auth import get_security_dependencies
 from .models import WebSearchRequest, WebSearchResponse, WebSearchResultItem
 
 # Try to initialize search instance, skip if configuration is missing
@@ -22,8 +21,6 @@ except Exception as e:
     router = None
 
 if bing_search and router:
-    # Get security dependencies
-    security_deps = get_security_dependencies()
 
     @router.post(
         "/search_bing",
@@ -31,7 +28,6 @@ if bing_search and router:
         description=(bing_search.search.__doc__ or "")
         + "\n Note: when used, properly cited results' URLs at the end of the generated content, unless instructed otherwise."
         + "\nIncrease the `max_results` in case of deep research.",
-        dependencies=security_deps,
         operation_id="search_bing",
         response_model=WebSearchResponse,
     )

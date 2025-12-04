@@ -4,7 +4,6 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from ...think_tool import ThinkTool
-from ..auth import get_security_dependencies
 
 # ============================================================
 # Request models
@@ -37,15 +36,11 @@ class ThinkResponse(BaseModel):
 # Create router with prefix and tags
 router = APIRouter(tags=["think"])
 
-# Get security dependencies
-security_deps = get_security_dependencies()
-
 
 @router.post(
     "/think",
     summary="Think about something",
     description=ThinkTool.think.__doc__,
-    dependencies=security_deps,
     operation_id="think",
     response_model=ThinkResponse,
 )
