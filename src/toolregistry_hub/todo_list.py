@@ -1,6 +1,6 @@
-from typing import List, Literal
+from typing import List, Literal, Dict
 import re
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 
 class Todo(BaseModel):
@@ -9,7 +9,7 @@ class Todo(BaseModel):
     status: Literal["done", "planned", "cancelled"]
 
 
-class TodoListTool:
+class TodoList:
     """Utility for rendering todo lists as Markdown tables.
 
     Public API:
@@ -41,29 +41,37 @@ class TodoListTool:
         # separator
         lines.append("| " + " | ".join(["---"] * len(headers)) + " |")
         for r in rows:
-            id_cell = TodoListTool._escape_cell(str(r.get("id", "")))
-            task_cell = TodoListTool._escape_cell(str(r.get("task", "")))
-            status_cell = TodoListTool._escape_cell(str(r.get("status", "")))
+            id_cell = TodoList._escape_cell(str(r.get("id", "")))
+            task_cell = TodoList._escape_cell(str(r.get("task", "")))
+            status_cell = TodoList._escape_cell(str(r.get("status", "")))
             lines.append(f"| {id_cell} | {task_cell} | {status_cell} |")
         return "\n".join(lines)
 
     @staticmethod
-    def todo_list_from_objects(todos: List[Todo]) -> str:
-        """Convert a list of Todo objects into a Markdown table string.
-
-        This is a minimal, deterministic renderer. It accepts only a list of
-        validated Todo Pydantic models (with status in: done, planned,
-        cancelled) and returns a Markdown table.
+    def todolist_write(todos: List[Dict[str, str]]) -> str:
+        """
+        Convert a list of Todo objects into a Markdown table.
         """
         rows = []
         for t in todos:
-            if not isinstance(t, Todo):
+            if isinstance(t, dict):
                 try:
-                    t = Todo(**t)
-                except Exception as e:
+                    # pydantic v2 推荐用 model_validate
+                    todo = Todo.model_validate(t)
+                except ValidationError as e:
                     raise TypeError(
-                        f"Each item must be a Todo or a dict convertible to Todo: {e}"
+                        f"The elements in the input list must be dictionaries containing the keys: id, content, and status. The status must be one of: done, planned, cancelled: {e}"
                     ) from e
-            rows.append({"id": t.id, "task": t.content, "status": t.status})
+            else:
+                raise TypeError(
+                    "The elements in the input list must be dictionaries containing the keys: id, content, and status. The status must be one of: done, planned, cancelled."
+                )
+            rows.append(
+                {
+                    "id": todo.id,
+                    "task": todo.content,
+                    "status": todo.status,
+                }
+            )
 
-        return TodoListTool._render_table(rows)
+        return TodoList._render_table(rows)
