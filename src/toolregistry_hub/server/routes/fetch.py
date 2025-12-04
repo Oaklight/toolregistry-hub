@@ -6,7 +6,6 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from ...fetch import TIMEOUT_DEFAULT, Fetch
-from ..auth import get_security_dependencies
 
 # ============================================================
 # Request models
@@ -40,15 +39,11 @@ class WebFetchWebpageResponse(BaseModel):
 # Create router with prefix and tags
 router = APIRouter(tags=["fetch"])
 
-# Get security dependencies
-security_deps = get_security_dependencies()
-
 
 @router.post(
     "/fetch_webpage",
     summary="Extract content from a webpage",
     description=Fetch.fetch_content.__doc__,
-    dependencies=security_deps,
     operation_id="web-fetch_webpage",
     response_model=WebFetchWebpageResponse,
 )

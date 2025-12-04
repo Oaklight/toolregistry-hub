@@ -8,7 +8,6 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from ...calculator import Calculator
-from ..auth import get_security_dependencies
 
 # ============================================================
 # Request models
@@ -75,15 +74,11 @@ calculator = Calculator()
 # Create router with prefix and tags
 router = APIRouter(prefix="/calc", tags=["calculator"])
 
-# Get security dependencies
-security_deps = get_security_dependencies()
-
 
 @router.post(
     "/help",
     summary="Get help with particular calculator function",
     description=calculator.help.__doc__,
-    dependencies=security_deps,
     operation_id="calc-help",
     response_model=CalcHelpResponse,
 )
@@ -113,7 +108,6 @@ def calc_help(data: CalcHelpRequest) -> CalcHelpResponse:
     "/allowed_fns",
     summary="Get allowed functions for `evaluate`",
     description=calculator.list_allowed_fns.__doc__,
-    dependencies=security_deps,
     operation_id="calc-list_allowed_fns",
     response_model=CalcListAllowedFnsResponse,
 )
@@ -150,7 +144,6 @@ def calc_list_allowed_fns(
         **Note**: If an error occurs due to an invalid expression, query the `help` method to check the function usage and ensure it is listed by `calc-list_allowed_fns()`.
         """
     ),
-    dependencies=security_deps,
     operation_id="calc-evaluate",
     response_model=CalcEvaluateResponse,
 )

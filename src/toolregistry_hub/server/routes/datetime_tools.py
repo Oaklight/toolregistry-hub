@@ -6,7 +6,6 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
 from ...datetime_utils import DateTime
-from ..auth import get_security_dependencies
 
 # ============================================================
 # Request models
@@ -59,15 +58,11 @@ class ConvertTimezoneResponse(BaseModel):
 # Create router with prefix and tags
 router = APIRouter(prefix="/time", tags=["datetime"])
 
-# Get security dependencies
-security_deps = get_security_dependencies()
-
 
 @router.post(
     "/now",
     summary="Get current time in ISO 8601 format",
     description="Get current time in ISO 8601 format. Optionally specify a timezone, otherwise returns UTC time.",
-    dependencies=security_deps,
     operation_id="time-now",
     response_model=TimeNowResponse,
 )
@@ -104,7 +99,6 @@ def time_now(
     "/convert",
     summary="Convert time between timezones",
     description="Convert a specific time from one timezone to another. Supports both IANA timezone names and UTC/GMT offset formats.",
-    dependencies=security_deps,
     operation_id="time-convert-timezone",
     response_model=ConvertTimezoneResponse,
 )
