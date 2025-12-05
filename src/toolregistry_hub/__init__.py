@@ -24,6 +24,7 @@ from .fetch import Fetch
 from .file_ops import FileOps
 from .filesystem import FileSystem
 from .think_tool import ThinkTool
+from .todo_list import TodoList
 from .unit_converter import UnitConverter
 from .websearch import (
     BingSearch,
@@ -60,7 +61,7 @@ __all__ = [
     "WebSearchGoogle",
     "WebSearchBing",
     "WebSearchSearXNG",
-    "TodoListTool",
+    "TodoList",
 ]
 
 version = "0.5.0"  # standalone version

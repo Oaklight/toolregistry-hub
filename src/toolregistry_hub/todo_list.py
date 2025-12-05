@@ -1,4 +1,5 @@
-from typing import Dict, List, Literal
+import re
+from typing import Dict, List, Literal, Union
 
 from pydantic import BaseModel, ValidationError
 
@@ -12,13 +13,11 @@ class Todo(BaseModel):
 class TodoList:
     """Utility for rendering todo lists as Markdown tables.
 
-    Public API:
-      - todo_list_from_objects(todos: List[Todo]) -> str
+    Supports two input formats:
+    1. Simple string format: "[id] content (status)"
+    2. Dictionary format: {"id": "...", "content": "...", "status": "..."}
 
-    The class intentionally exposes a single static helper that accepts a
-    list of Todo Pydantic objects and returns a Markdown table (string).
-    Internal helpers are static and minimal so external callers only need
-    the one method requested.
+    Always outputs markdown table format.
     """
 
     @staticmethod
@@ -48,43 +47,96 @@ class TodoList:
         return "\n".join(lines)
 
     @staticmethod
-    def todolist_write(todos: List[Dict[str, str]]) -> str:
-        # google style docstring
+    def _parse_simple_format(todo_str: str) -> Dict[str, str]:
+        """Parse simple format string into todo dict.
+
+        Expected format: "[id] content (status)"
+        Example: "[create-test] write a simple test case for todo list tool (planned)"
+
+        Args:
+            todo_str: String in simple format
+
+        Returns:
+            Dict with id, content, status keys
+
+        Raises:
+            ValueError: If string format is invalid
+        """
+        # Pattern to match [id] content (status)
+        pattern = r"^\[([^\]]+)\]\s+(.+?)\s+\(([^)]+)\)$"
+        match = re.match(pattern, todo_str.strip())
+
+        if not match:
+            raise ValueError(
+                f"Invalid todo format: '{todo_str}'. "
+                "Expected format: '[id] content (status)'"
+            )
+
+        id_part, content_part, status_part = match.groups()
+
+        # Validate status
+        valid_statuses = ["planned", "pending", "done", "cancelled"]
+        if status_part not in valid_statuses:
+            raise ValueError(
+                f"Invalid status '{status_part}'. "
+                f"Must be one of: {', '.join(valid_statuses)}"
+            )
+
+        return {"id": id_part, "content": content_part, "status": status_part}
+
+    @staticmethod
+    def todolist_write(todos: Union[List[str], List[Dict[str, str]]]) -> str:
         """
         Create markdown-styled table from list of todo entries.
 
         Args:
-            todos: List[Dict[str, str]]
-            A `todo` entry is defined as a Python Dict of following fields
-            {
-                id: str  # short description of the todo item, such as create-xxx-file
-                content: str  # detailed description of the todo item
-                status: Literal["planned", "pending", "done", "cancelled"]
-            }
+            todos: List of todo entries in one of two formats:
+                1. Simple string format: "[id] content (status)"
+                   Example: "[create-test] write a simple test case (planned)"
+                2. Dictionary format: {"id": "...", "content": "...", "status": "..."}
 
-        Return:
-            markdown-styled table of todo entries
+        Returns:
+            Markdown-styled table of todo entries
+
+        Raises:
+            TypeError: If input format is invalid
+            ValueError: If simple string format is malformed
         """
+        if not isinstance(todos, list):
+            raise TypeError("Input must be a list")
+
+        if not todos:
+            return TodoList._render_table([])
+
         rows = []
-        for t in todos:
-            if isinstance(t, dict):
-                try:
-                    # pydantic v2 推荐用 model_validate
-                    todo = Todo.model_validate(t)
-                except ValidationError as e:
+        for i, todo_item in enumerate(todos):
+            try:
+                if isinstance(todo_item, str):
+                    # Parse simple format
+                    todo_dict = TodoList._parse_simple_format(todo_item)
+                elif isinstance(todo_item, dict):
+                    # Use dictionary format directly
+                    todo_dict = todo_item
+                else:
                     raise TypeError(
-                        "The elements in the input list must be dictionaries containing the keys: `id`, `content`, and `status`. The status must be one of: `planned`, `pending`, `done`, `cancelled`."
-                    ) from e
-            else:
-                raise TypeError(
-                    "The elements in the input list must be dictionaries containing the keys: `id`, `content`, and `status`. The status must be one of: `planned`, `pending`, `done`, `cancelled`."
+                        f"Todo item at index {i} must be either a string or dictionary, "
+                        f"got {type(todo_item)}"
+                    )
+
+                # Validate using Pydantic model
+                todo = Todo.model_validate(todo_dict)
+
+                rows.append(
+                    {
+                        "id": todo.id,
+                        "task": todo.content,
+                        "status": todo.status,
+                    }
                 )
-            rows.append(
-                {
-                    "id": todo.id,
-                    "task": todo.content,
-                    "status": todo.status,
-                }
-            )
+
+            except ValidationError as e:
+                raise TypeError(f"Invalid todo item at index {i}: {e}") from e
+            except ValueError as e:
+                raise ValueError(f"Invalid todo format at index {i}: {e}") from e
 
         return TodoList._render_table(rows)
