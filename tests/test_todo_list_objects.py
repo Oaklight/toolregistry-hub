@@ -8,7 +8,7 @@ def test_todolist_write_with_dicts():
         {"id": "1", "content": "Task one", "status": "planned"},
         {"id": "2", "content": "Task two", "status": "done"},
     ]
-    out = TodoList.todolist_write(todos)
+    out = TodoList.write(todos)
 
     # basic header and separator
     assert "| id | task | status |" in out
@@ -27,12 +27,12 @@ def test_todolist_write_with_todo_objects():
     t1 = Todo(id="a", content="Do X", status="planned")
     t2 = Todo(id="b", content="Do Y", status="done")
     with pytest.raises(TypeError):
-        TodoList.todolist_write([t1, t2])
+        TodoList.write([t1, t2])
 
 
 def test_escape_pipe_in_content():
     todos = [{"id": "p1", "content": "A | B", "status": "planned"}]
-    out = TodoList.todolist_write(todos)
+    out = TodoList.write(todos)
 
     # pipe character should be escaped in the rendered table
     assert "\\|" in out
@@ -41,12 +41,12 @@ def test_escape_pipe_in_content():
 
 def test_invalid_element_type_raises_typeerror():
     with pytest.raises(TypeError):
-        TodoList.todolist_write([1, 2, 3])
+        TodoList.write([1, 2, 3])
 
 
 def test_invalid_status_raises_typeerror():
     # invalid status value is wrapped and re-raised as TypeError by todolist_write
     with pytest.raises(TypeError):
-        TodoList.todolist_write(
+        TodoList.write(
             [{"id": "x", "content": "c", "status": "not-a-valid-status"}]
         )

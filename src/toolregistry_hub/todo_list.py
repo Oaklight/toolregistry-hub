@@ -85,7 +85,7 @@ class TodoList:
         return {"id": id_part, "content": content_part, "status": status_part}
 
     @staticmethod
-    def todolist_write(todos: Union[List[str], List[Dict[str, str]]]) -> str:
+    def write(todos: Union[List[str], List[Dict[str, str]]]) -> str:
         """
         Create markdown-styled table from list of todo entries.
 
