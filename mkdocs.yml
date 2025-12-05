@@ -69,6 +69,7 @@ nav:
       - 文件操作: tools/file_ops.md
       - 文件系统: tools/filesystem.md
       - 思考工具: tools/think_tool.md
+      - 待办事项工具: tools/todo_list.md
       - 单位转换: tools/unit_converter.md
       - 网页获取工具: tools/web_fetch_tool.md
       - 网络搜索工具:
