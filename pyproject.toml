@@ -6,8 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "toolregistry-hub"
 version = "0.5.1"
 authors = [{ name = "Oaklight", email = "oaklight@gmx.com" }]
-description = "ToolRegistry Hub: A collection of commonly used tools for LLM function calling"
-readme = "README.md"
+description = "ToolRegistry Hub: A Python library providing various utility tools for mathematical calculations, date/time operations, file management, web search, unit conversions, and more - designed to support common tasks in LLM function calling and general development"
+readme = "readme_en.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
 classifiers = [
