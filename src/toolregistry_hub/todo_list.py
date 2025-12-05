@@ -1,12 +1,12 @@
-from typing import List, Literal, Dict
-import re
+from typing import Dict, List, Literal
+
 from pydantic import BaseModel, ValidationError
 
 
 class Todo(BaseModel):
     id: str  # short description of the todo item
     content: str  # detailed description of the todo item
-    status: Literal["done", "planned", "cancelled"]
+    status: Literal["planned", "pending", "done", "cancelled"]
 
 
 class TodoList:
@@ -49,8 +49,21 @@ class TodoList:
 
     @staticmethod
     def todolist_write(todos: List[Dict[str, str]]) -> str:
+        # google style docstring
         """
-        Convert a list of Todo objects into a Markdown table.
+        Create markdown-styled table from list of todo entries.
+
+        Args:
+            todos: List[Dict[str, str]]
+            A `todo` entry is defined as a Python Dict of following fields
+            {
+                id: str  # short description of the todo item, such as create-xxx-file
+                content: str  # detailed description of the todo item
+                status: Literal["planned", "pending", "done", "cancelled"]
+            }
+
+        Return:
+            markdown-styled table of todo entries
         """
         rows = []
         for t in todos:
@@ -60,11 +73,11 @@ class TodoList:
                     todo = Todo.model_validate(t)
                 except ValidationError as e:
                     raise TypeError(
-                        f"The elements in the input list must be dictionaries containing the keys: id, content, and status. The status must be one of: done, planned, cancelled: {e}"
+                        "The elements in the input list must be dictionaries containing the keys: `id`, `content`, and `status`. The status must be one of: `planned`, `pending`, `done`, `cancelled`."
                     ) from e
             else:
                 raise TypeError(
-                    "The elements in the input list must be dictionaries containing the keys: id, content, and status. The status must be one of: done, planned, cancelled."
+                    "The elements in the input list must be dictionaries containing the keys: `id`, `content`, and `status`. The status must be one of: `planned`, `pending`, `done`, `cancelled`."
                 )
             rows.append(
                 {
