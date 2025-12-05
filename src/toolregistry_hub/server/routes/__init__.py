@@ -45,7 +45,8 @@ def discover_routers() -> List[APIRouter]:
                     logger.debug(
                         f"Module {modname} has router=None (likely missing configuration)"
                     )
-                else:
+                elif not ispkg:
+                    # Only log for non-package modules that don't have routers
                     logger.debug(
                         f"Module {modname} does not have a valid router attribute"
                     )
