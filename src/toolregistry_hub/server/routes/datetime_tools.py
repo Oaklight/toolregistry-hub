@@ -12,6 +12,16 @@ from ...datetime_utils import DateTime
 # ============================================================
 
 
+class TimeNowRequest(BaseModel):
+    """Request model for getting current time."""
+
+    timezone_name: Optional[str] = Field(
+        None,
+        description="Optional timezone name (e.g., 'Asia/Shanghai', 'UTC+5'). Defaults to UTC if not specified.",
+        examples=["Asia/Shanghai", "UTC+8", "America/New_York"],
+    )
+
+
 class ConvertTimezoneRequest(BaseModel):
     """Request model for timezone conversion."""
 
@@ -66,19 +76,13 @@ router = APIRouter(prefix="/time", tags=["datetime"])
     operation_id="time-now",
     response_model=TimeNowResponse,
 )
-def time_now(
-    timezone_name: Optional[str] = Query(
-        None,
-        description="Optional timezone name (e.g., 'Asia/Shanghai', 'UTC+5'). Defaults to UTC if not specified.",
-        example="Asia/Shanghai",
-    ),
-) -> TimeNowResponse:
+def time_now(request: TimeNowRequest) -> TimeNowResponse:
     """Get current time in ISO 8601 format.
 
     Args:
-        timezone_name: Optional timezone name. Supports both IANA timezone names
-                      (e.g., "America/New_York") and UTC/GMT offset formats
-                      (e.g., "UTC+5", "GMT-3", "UTC+5:30"). Defaults to UTC if None.
+        request: Request containing optional timezone name. Supports both IANA timezone names
+                (e.g., "America/New_York") and UTC/GMT offset formats
+                (e.g., "UTC+5", "GMT-3", "UTC+5:30"). Defaults to UTC if None.
 
     Returns:
         Response containing current time as ISO 8601 formatted string
@@ -87,8 +91,10 @@ def time_now(
         HTTPException: If timezone format is invalid
     """
     try:
-        current_time = DateTime.now(timezone_name)
-        return TimeNowResponse(current_time=current_time, timezone=timezone_name)
+        current_time = DateTime.now(request.timezone_name)
+        return TimeNowResponse(
+            current_time=current_time, timezone=request.timezone_name
+        )
     except ValueError as e:
         from fastapi import HTTPException
 
