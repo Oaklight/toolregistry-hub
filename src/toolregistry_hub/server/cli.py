@@ -3,6 +3,8 @@ import sys
 
 from loguru import logger
 
+from .server_core import set_info
+
 
 def main():
     parser = argparse.ArgumentParser(description="Run the Tool Registry API server.")
@@ -36,7 +38,7 @@ def main():
         try:
             import uvicorn
 
-            from .server_openapi import app, set_info
+            from .server_openapi import app
         except ImportError as e:
             logger.error(f"OpenAPI server dependencies not installed: {e}")
             logger.info("Installation options:")
@@ -54,7 +56,6 @@ def main():
     elif args.mode == "mcp":
         try:
             from .server_mcp import mcp_app
-            from .server_openapi import set_info
         except ImportError as e:
             logger.error(f"MCP server dependencies not installed: {e}")
             logger.info("Installation options:")
