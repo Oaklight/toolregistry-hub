@@ -10,114 +10,162 @@ author: Oaklight
 
 本页面记录了 toolregistry-hub 项目从首个正式发布版本 0.4.14 以来的所有重要变更。
 
+## [0.5.1] - 2025-12-05
+
+### 🔐 安全与认证
+
+- **MCP 服务器认证** (#15)
+	- 为 MCP 服务器添加 Bearer Token 认证支持
+	- 实现 `DebugTokenVerifier` 用于 MCP 认证
+	- 支持基于 Token 配置的认证和开放模式
+	- 添加全面的认证事件日志记录
+	- 将 Token 验证移至 FastAPI 全局依赖项
+	- 重构认证架构，解耦路由和认证关注点
+
+### 📋 任务管理增强
+
+- **Todo List 工具增强** (#15)
+	- 添加 Todo List 工具，支持灵活的输入格式
+	- 支持字典格式和简单字符串格式 `"[id] content (status)"`
+	- 实现全面的输入验证和详细的错误消息
+	- 增强状态选项，添加 "pending" 状态
+	- 支持多种输出格式：'simple'（无输出）、'markdown' 和 'ascii'
+	- 添加 Markdown 表格生成 API 端点
+	- 改进文档和类型注解
+
+### 🌐 服务器功能
+
+- **架构重构**
+	- 创建 `server_core.py` 模块提供基础 FastAPI 应用
+	- 从所有路由中移除认证依赖
+	- 支持创建认证和非认证服务器变体
+	- 改进路由发现日志逻辑
+	- 优化服务器架构，提升可维护性
+
+### 🕐 日期时间功能
+
+- **API 增强**
+	- 为 `time_now` 端点添加 `TimeNowRequest` 模型
+	- 使用结构化请求体替代查询参数
+	- 保持与现有时区名称功能的向后兼容性
+	- 改进 API 文档结构
+
+### 📝 文档改进
+
+- **项目文档**
+	- 更新项目描述和 README 文件
+	- 将 README 引用从 `README.md` 改为 `readme_en.md`
+	- 更新 PyPI 和 GitHub 徽章链接
+	- 改进文档视觉一致性
+
 ## [0.5.0] - 2025-11-11
 
 ### 🔐 安全与认证
 
 - **多 Bearer Token 认证** (#11)
-  - 支持通过环境变量或文件配置多个 Bearer Token
-  - 支持 `API_BEARER_TOKEN` 环境变量（逗号分隔）
-  - 支持 `API_BEARER_TOKENS_FILE` 文件配置（每行一个 Token）
-  - 添加 Token 缓存机制提升效率
-  - 增强认证日志和调试功能
-  - 新增独立的多 Token 认证测试套件
+	- 支持通过环境变量或文件配置多个 Bearer Token
+	- 支持 `API_BEARER_TOKEN` 环境变量（逗号分隔）
+	- 支持 `API_BEARER_TOKENS_FILE` 文件配置（每行一个 Token）
+	- 添加 Token 缓存机制提升效率
+	- 增强认证日志和调试功能
+	- 新增独立的多 Token 认证测试套件
 
 ### 🌐 服务器功能 (#9)
 
 - **REST API 服务器**
-  - 新增 `toolregistry-server` CLI 命令行工具
-  - 支持 OpenAPI 和 MCP 两种服务模式
-  - 为每个工具提供独立的 REST API 端点：
-    - 计算器 API (`/calculator`)
-    - 日期时间 API (`/datetime`)
-    - 网页抓取 API (`/fetch`)
-    - 思考工具 API (`/think`)
-    - 网络搜索 API (`/websearch`)
-  - 自动路由发现和注册机制
-  - 递归路由发现支持嵌套模块
+	- 新增 `toolregistry-server` CLI 命令行工具
+	- 支持 OpenAPI 和 MCP 两种服务模式
+	- 为每个工具提供独立的 REST API 端点：
+		- 计算器 API (`/calculator`)
+		- 日期时间 API (`/datetime`)
+		- 网页抓取 API (`/fetch`)
+		- 思考工具 API (`/think`)
+		- 网络搜索 API (`/websearch`)
+	- 自动路由发现和注册机制
+	- 递归路由发现支持嵌套模块
 
 ### 🐳 Docker 支持
 
 - **完整的容器化部署方案**
-  - 添加 Dockerfile 用于构建容器镜像
-  - 提供 `.env.sample` 环境变量参考
-  - 添加 `requirements.txt` 依赖安装文件
-  - 提供 `compose.yaml` 和 `compose.dev.yaml` 编排配置
-  - 添加构建和推送自动化 Makefile
-  - 优化 `.dockerignore` 减少镜像大小
+	- 添加 Dockerfile 用于构建容器镜像
+	- 提供 `.env.sample` 环境变量参考
+	- 添加 `requirements.txt` 依赖安装文件
+	- 提供 `compose.yaml` 和 `compose.dev.yaml` 编排配置
+	- 添加构建和推送自动化 Makefile
+	- 优化 `.dockerignore` 减少镜像大小
 
 ### 🔍 现代化网络搜索 (#8)
 
 - **新搜索引擎支持**
 
-  - 添加 Brave Search API 集成
-  - 添加 Tavily Search API 集成
-  - 添加 SearXNG 搜索引擎支持
-  - 重构 Bing 搜索为现代化实现
+	- 添加 Brave Search API 集成
+	- 添加 Tavily Search API 集成
+	- 添加 SearXNG 搜索引擎支持
+	- 重构 Bing 搜索为现代化实现
 
 - **统一搜索架构**
 
-  - 引入 `BaseSearch` 抽象基类
-  - 标准化搜索 API 方法签名
-  - 使用 `SearchResult` 数据类提供类型安全
-  - 统一头部生成和内容获取逻辑
+	- 引入 `BaseSearch` 抽象基类
+	- 标准化搜索 API 方法签名
+	- 使用 `SearchResult` 数据类提供类型安全
+	- 统一头部生成和内容获取逻辑
 
 - **高级搜索功能**
 
-  - 多 API Key 支持（Brave 和 Tavily）
-  - 分页支持，最多可获取 180 条结果
-  - 灵活的搜索参数和过滤选项
-  - 改进的结果解析和错误处理
+	- 多 API Key 支持（Brave 和 Tavily）
+	- 分页支持，最多可获取 180 条结果
+	- 灵活的搜索参数和过滤选项
+	- 改进的结果解析和错误处理
 
 - **用户代理优化**
 
-  - 使用 `ua-generator` 替代 `fake-useragent`
-  - 动态用户代理生成提升反爬虫能力
-  - 增强浏览器指纹识别真实性
+	- 使用 `ua-generator` 替代 `fake-useragent`
+	- 动态用户代理生成提升反爬虫能力
+	- 增强浏览器指纹识别真实性
 
 - **模块重构**
-  - 现代搜索引擎移至 `websearch/` 目录
-  - 旧版搜索实现移至 `websearch_legacy/` 目录
-  - 清理过时的 Google 搜索模块
+	- 现代搜索引擎移至 `websearch/` 目录
+	- 旧版搜索实现移至 `websearch_legacy/` 目录
+	- 清理过时的 Google 搜索模块
 
 ### 🕐 时区功能增强 (#5)
 
 - **时区支持**
 
-  - `DateTime.now()` 支持指定时区参数
-  - 新增 `convert_timezone()` 时区转换功能
-  - 支持 IANA 时区名称（如 "Asia/Shanghai"）
-  - 支持 UTC/GMT 偏移格式（如 "UTC+5:30", "GMT-3"）
-  - 处理分数小时偏移（如尼泊尔 UTC+5:45）
+	- `DateTime.now()` 支持指定时区参数
+	- 新增 `convert_timezone()` 时区转换功能
+	- 支持 IANA 时区名称（如 "Asia/Shanghai"）
+	- 支持 UTC/GMT 偏移格式（如 "UTC+5:30", "GMT-3"）
+	- 处理分数小时偏移（如尼泊尔 UTC+5:45）
 
 - **Python 兼容性**
-  - 通过 `backports.zoneinfo` 支持 Python 3.8
-  - 统一时区解析逻辑
-  - 改进错误处理和异常信息
+	- 通过 `backports.zoneinfo` 支持 Python 3.8
+	- 统一时区解析逻辑
+	- 改进错误处理和异常信息
 
 ### 📚 文档重构 (#10)
 
 - **文档结构优化**
-  - 重构文档结构，提升可读性
-  - 添加多语言文档支持
-  - 详细的 Docker 部署指南
-  - 网络搜索引擎使用文档
-  - API 端点和配置说明
+	- 重构文档结构，提升可读性
+	- 添加多语言文档支持
+	- 详细的 Docker 部署指南
+	- 网络搜索引擎使用文档
+	- API 端点和配置说明
 
 ### 🧪 测试改进 (#12)
 
 - **测试覆盖增强**
-  - 添加 0.4.16a0 版本测试
-  - 多 Token 认证测试套件
-  - 时区功能单元测试
-  - 网络搜索引擎测试
+	- 添加 0.4.16a0 版本测试
+	- 多 Token 认证测试套件
+	- 时区功能单元测试
+	- 网络搜索引擎测试
 
 ### 🔄 重构
 
 - **think_tool**: 简化 think 方法返回类型
-  - 将返回类型从 `Dict[str, str]` 改为 `None`
-  - 移除未使用的 typing 导入
-  - 移除思考日志返回值，因为它未被使用
+	- 将返回类型从 `Dict[str, str]` 改为 `None`
+	- 移除未使用的 typing 导入
+	- 移除思考日志返回值，因为它未被使用
 
 ### 📚 文档
 
