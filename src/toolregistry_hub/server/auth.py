@@ -1,10 +1,9 @@
 """Authentication and security utilities for API routes."""
 
 import os
-from typing import List, Optional, Set
+from typing import Optional, Set
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import HTTPBearer
 from loguru import logger
 
 # Define the token authentication scheme
@@ -64,40 +63,3 @@ def get_valid_tokens() -> Optional[Set[str]]:
     if _cached_tokens is None:
         _cached_tokens = _parse_bearer_tokens()
     return _cached_tokens
-
-
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Verify the Bearer Token against multiple valid tokens.
-
-    Args:
-        credentials: HTTP authorization credentials from request header
-
-    Raises:
-        HTTPException: If token is invalid or missing when required
-    """
-    valid_tokens = get_valid_tokens()
-
-    # If no tokens configured, disable verification
-    if not valid_tokens:
-        return
-
-    provided_token = credentials.credentials
-
-    if provided_token not in valid_tokens:
-        logger.warning(f"Invalid token attempt: {provided_token[:8]}...")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing authentication token",
-        )
-
-    logger.debug(f"Authenticated request with token: {provided_token[:8]}...")
-
-
-def get_security_dependencies() -> List:
-    """Get security dependencies based on environment configuration.
-
-    Returns:
-        List of security dependencies. Empty if no token is required.
-    """
-    valid_tokens = get_valid_tokens()
-    return [] if not valid_tokens else [Depends(verify_token)]
