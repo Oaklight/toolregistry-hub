@@ -3,6 +3,7 @@
 [![Docker Image Version](https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=Docker&logo=docker)](https://hub.docker.com/r/oaklight/toolregistry-hub-server)
 [![PyPI Version](https://badge.fury.io/py/toolregistry-hub.svg)](https://pypi.org/project/toolregistry-hub/)
 [![GitHub Release](https://badge.fury.io/gh/OakLight%2Ftoolregistry-hub.svg)](https://github.com/OakLight/toolregistry-hub/releases)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Oaklight/toolregistry-hub)
 
 [English version](readme_en.md) | [中文版](readme_zh.md)
 
