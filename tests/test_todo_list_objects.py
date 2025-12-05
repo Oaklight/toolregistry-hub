@@ -1,52 +1,119 @@
 import pytest
-import sys
-from toolregistry_hub.todo_list import TodoList, Todo
+
+from toolregistry_hub.todo_list import Todo, TodoList
 
 
-def test_todolist_write_with_dicts():
+def test_todolist_update_simple_format():
+    """Test update with simple format (no output)."""
     todos = [
-        {"id": "1", "content": "Task one", "status": "planned"},
-        {"id": "2", "content": "Task two", "status": "done"},
+        "[task1] Task one (planned)",
+        "[task2] Task two (done)",
     ]
-    out = TodoList.write(todos)
+    result = TodoList.update(todos, format="simple")
+
+    # Should return None for simple format
+    assert result is None
+
+
+def test_todolist_update_markdown_format():
+    """Test update with markdown format."""
+    todos = [
+        "[task1] Task one (planned)",
+        "[task2] Task two (done)",
+    ]
+    result = TodoList.update(todos, format="markdown")
 
     # basic header and separator
-    assert "| id | task | status |" in out
-    assert "| --- | --- | --- |" in out
+    assert "| id | task | status |" in result
+    assert "| --- | --- | --- |" in result
 
     # rows present
-    assert "| 1 | Task one | planned |" in out
-    assert "| 2 | Task two | done |" in out
+    assert "| task1 | Task one | planned |" in result
+    assert "| task2 | Task two | done |" in result
 
     # there should be exactly header + separator + 2 rows -> 4 lines
-    assert out.count("\n") == 3
+    assert result.count("\n") == 3
 
 
-def test_todolist_write_with_todo_objects():
-    # current implementation accepts dicts only; passing Todo instances should raise
-    t1 = Todo(id="a", content="Do X", status="planned")
-    t2 = Todo(id="b", content="Do Y", status="done")
-    with pytest.raises(TypeError):
-        TodoList.write([t1, t2])
+def test_todolist_update_ascii_format():
+    """Test update with ASCII format."""
+    todos = [
+        "[task1] Task one (planned)",
+        "[task2] Task two (done)",
+    ]
+    result = TodoList.update(todos, format="ascii")
+
+    # Should contain ASCII table elements
+    assert "+" in result  # table borders
+    assert "ID" in result
+    assert "TASK" in result
+    assert "STATUS" in result
+    assert "task1" in result
+    assert "Task one" in result
+
+
+def test_todolist_update_empty_list():
+    """Test update with empty list."""
+    # Simple format
+    result = TodoList.update([], format="simple")
+    assert result is None
+
+    # Markdown format
+    result = TodoList.update([], format="markdown")
+    assert "| id | task | status |" in result
+    assert "| --- | --- | --- |" in result
+
+    # ASCII format
+    result = TodoList.update([], format="ascii")
+    assert result == "No todos"
+
+
+def test_todolist_update_invalid_format():
+    """Test update with invalid format."""
+    todos = ["[task1] Task one (planned)"]
+    with pytest.raises(ValueError, match="Invalid format"):
+        TodoList.update(todos, format="invalid")
+
+
+def test_todolist_update_invalid_todo_format():
+    """Test update with invalid todo string format."""
+    todos = ["invalid format"]
+    with pytest.raises(ValueError, match="Invalid todo format"):
+        TodoList.update(todos)
+
+
+def test_todolist_update_invalid_status():
+    """Test update with invalid status."""
+    todos = ["[task1] Task one (invalid_status)"]
+    with pytest.raises(ValueError, match="Invalid status"):
+        TodoList.update(todos)
+
+
+def test_todolist_update_non_string_input():
+    """Test update with non-string todo items."""
+    todos = [123, "[task1] Task one (planned)"]
+    with pytest.raises(TypeError, match="must be a string"):
+        TodoList.update(todos)
 
 
 def test_escape_pipe_in_content():
-    todos = [{"id": "p1", "content": "A | B", "status": "planned"}]
-    out = TodoList.write(todos)
+    """Test that pipe characters are escaped in markdown output."""
+    todos = ["[p1] A | B (planned)"]
+    result = TodoList.update(todos, format="markdown")
 
     # pipe character should be escaped in the rendered table
-    assert "\\|" in out
-    assert "| p1 | A \\| B | planned |" in out
+    assert "\\|" in result
+    assert "| p1 | A \\| B | planned |" in result
 
 
-def test_invalid_element_type_raises_typeerror():
-    with pytest.raises(TypeError):
-        TodoList.write([1, 2, 3])
+def test_todo_model_validation():
+    """Test Todo model validation."""
+    # Valid todo
+    todo = Todo(id="test", content="Test task", status="planned")
+    assert todo.id == "test"
+    assert todo.content == "Test task"
+    assert todo.status == "planned"
 
-
-def test_invalid_status_raises_typeerror():
-    # invalid status value is wrapped and re-raised as TypeError by todolist_write
-    with pytest.raises(TypeError):
-        TodoList.write(
-            [{"id": "x", "content": "c", "status": "not-a-valid-status"}]
-        )
+    # Invalid status
+    with pytest.raises(ValueError):
+        Todo(id="test", content="Test task", status="invalid")
