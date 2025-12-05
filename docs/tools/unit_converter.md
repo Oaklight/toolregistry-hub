@@ -471,17 +471,20 @@ from toolregistry_hub import UnitConverter
 oven_temp_f = 350  # 350°F用于烘焙
 oven_temp_c = UnitConverter.fahrenheit_to_celsius(oven_temp_f)
 print(f"预热烤箱至 {oven_temp_c:.0f}°C")
+# 输出: 预热烤箱至 177°C
 
 # 液体测量
 ml_in_cup = 240
 cups = 2.5
 ml = cups * ml_in_cup
 print(f"{cups}杯 = {ml}毫升")
+# 输出: 2.5杯 = 600.0毫升
 
 # 重量转换
 pounds = 1.5  # 1.5磅肉
 kg = UnitConverter.pounds_to_kilograms(pounds)
 print(f"{pounds}磅 = {kg:.3f}千克")
+# 输出: 1.5磅 = 0.680千克
 ```
 
 ### 旅行转换
@@ -493,16 +496,19 @@ from toolregistry_hub import UnitConverter
 kmh = 100  # 限速为km/h
 mph = UnitConverter.kmh_to_mph(kmh)
 print(f"限速：{kmh} km/h = {mph:.1f} mph")
+# 输出: 限速：100 km/h = 62.1 mph
 
 # 燃油效率
 km_per_l = 12  # 12 km/L燃油效率
 mpg = UnitConverter.km_per_liter_to_mpg(km_per_l)
 print(f"燃油效率：{km_per_l} km/L = {mpg:.1f} mpg")
+# 输出: 燃油效率：12 km/L = 28.2 mpg
 
 # 温度转换
 weather_c = 22  # 摄氏度天气
 weather_f = UnitConverter.celsius_to_fahrenheit(weather_c)
 print(f"天气：{weather_c}°C = {weather_f}°F")
+# 输出: 天气：22°C = 71.6°F
 ```
 
 ### 科学计算
@@ -511,19 +517,23 @@ print(f"天气：{weather_c}°C = {weather_f}°F")
 from toolregistry_hub import UnitConverter
 
 # 电气计算
-voltage_kv = 132  # 高压线路
-voltage_v = UnitConverter.kilovolt_to_volt(voltage_kv)
-print(f"电压：{voltage_kv} kV = {voltage_v} V")
+voltage_v = 132000  # 高压线路（伏特）
+voltage_kv = UnitConverter.volt_to_kilovolt(voltage_v)
+print(f"电压：{voltage_v} V = {voltage_kv} kV")
+# 输出: 电压：132000 V = 132.0 kV
 
 # 数据存储
 bytes_data = 1024 * 1024 * 500  # 500 MB的字节数
-mb_data = UnitConverter.bytes_to_megabytes(bytes_data)
+kb_data = UnitConverter.bytes_to_kilobytes(bytes_data)
+mb_data = UnitConverter.kilobytes_to_megabytes(kb_data)
 print(f"数据大小：{bytes_data}字节 = {mb_data} MB")
+# 输出: 数据大小：524288000字节 = 500.0 MB
 
 # 压力转换
 pressure_bar = 2.5  # 巴压力
 pressure_atm = UnitConverter.bar_to_atm(pressure_bar)
 print(f"压力：{pressure_bar} bar = {pressure_atm:.2f} atm")
+# 输出: 压力：2.5 bar = 2.47 atm
 ```
 
 ### 工程转换
@@ -535,16 +545,19 @@ from toolregistry_hub import UnitConverter
 length_ft = 10.5  # 英尺长度
 length_m = UnitConverter.feet_to_meters(length_ft)
 print(f"长度：{length_ft}英尺 = {length_m:.3f}米")
+# 输出: 长度：10.5英尺 = 3.200米
 
 # 面积计算
 area_sqm = 150  # 平方米面积
 area_sqft = UnitConverter.square_meters_to_square_feet(area_sqm)
 print(f"面积：{area_sqm}平方米 = {area_sqft:.1f}平方英尺")
+# 输出: 面积：150平方米 = 1614.6平方英尺
 
 # 功率计算
-horsepower = 250  # 发动机功率，单位为马力
-kilowatts = UnitConverter.horsepower_to_kilowatts(horsepower)
-print(f"功率：{horsepower}马力 = {kilowatts:.1f}千瓦")
+kilowatts = 186  # 发动机功率，单位为千瓦
+horsepower = UnitConverter.kilowatts_to_horsepower(kilowatts)
+print(f"功率：{kilowatts}千瓦 = {horsepower:.1f}马力")
+# 输出: 功率：186千瓦 = 249.4马力
 ```
 
 ## 🚨 重要说明
