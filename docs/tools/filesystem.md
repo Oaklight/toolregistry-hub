@@ -30,15 +30,18 @@ from toolregistry_hub import FileSystem
 FileSystem.create_dir("my_directory")
 FileSystem.create_file("my_directory/test.txt")
 files = FileSystem.list_dir("my_directory")
-print(files)  # ['test.txt']
+print(files)
+# 输出: ['test.txt']
 
 # 检查存在性
 exists = FileSystem.exists("my_directory/test.txt")
-print(f"文件存在: {exists}")  # True
+print(f"文件存在: {exists}")
+# 输出: 文件存在: True
 
 # 获取文件信息
 size = FileSystem.get_size("my_directory/test.txt")
 print(f"文件大小: {size} 字节")
+# 输出: 文件大小: 0 字节
 ```
 
 ## 📋 API 参考
@@ -210,6 +213,7 @@ for dir_name in directories:
 # 检查目录结构
 if FileSystem.is_dir("project"):
     print("项目目录存在")
+# 输出: 项目目录存在
 ```
 
 ### 文件操作
@@ -229,6 +233,7 @@ FileSystem.move("README.md", "docs/README.md")
 
 # 删除文件
 FileSystem.delete("config.backup.json")
+# 文件操作成功完成
 ```
 
 ### 递归目录列出
@@ -239,18 +244,22 @@ from toolregistry_hub import FileSystem
 # 列出直接内容
 files = FileSystem.list_dir("src")
 print("直接文件:", files)
+# 输出: 直接文件: ['main.py', 'utils']
 
 # 列出深度为3的内容
 files = FileSystem.list_dir("src", depth=3)
 print(f"找到 {len(files)} 个项目")
+# 输出: 找到 3 个项目
 
 # 包括隐藏文件
-files_with_hidden = FileSystem.list_dir(".", show_hidden=True)
+files_with_hidden = FileSystem.list_dir("src", show_hidden=True)
 print("包括隐藏文件的文件:", files_with_hidden)
+# 输出: 包括隐藏文件的文件: ['.hidden_file', 'main.py', 'utils']
 
 # 递归列出 Python 文件
 python_files = [f for f in FileSystem.list_dir("src", depth=5) if f.endswith('.py')]
 print(f"找到 {len(python_files)} 个 Python 文件")
+# 输出: 找到 2 个 Python 文件
 ```
 
 ### 路径工具
@@ -261,10 +270,12 @@ from toolregistry_hub import FileSystem
 # 安全连接路径
 config_path = FileSystem.join_paths("etc", "app", "config.yaml")
 print(f"配置路径: {config_path}")
+# 输出: 配置路径: etc/app/config.yaml
 
 # 获取绝对路径
 abs_src_path = FileSystem.get_absolute_path("src")
 print(f"绝对 src 路径: {abs_src_path}")
+# 输出: 绝对 src 路径: /path/to/current/directory/src
 
 # 跨平台路径处理
 log_file = FileSystem.join_paths("logs", "app.log")
@@ -278,15 +289,17 @@ from toolregistry_hub import FileSystem
 import time
 
 # 获取文件大小
-size = FileSystem.get_size("large_file.zip")
+size = FileSystem.get_size("config.json")
 print(f"文件大小: {size:,} 字节")
+# 输出: 文件大小: 16 字节
 
 # 获取最后修改时间
 mod_time = FileSystem.get_last_modified_time("config.json")
 print(f"最后修改时间: {time.ctime(mod_time)}")
+# 输出: 最后修改时间: Sat Dec  6 00:49:17 2025
 
 # 检查文件与目录
-path = "some_path"
+path = "config.json"
 if FileSystem.exists(path):
     if FileSystem.is_file(path):
         print(f"{path} 是文件，大小: {FileSystem.get_size(path)} 字节")
@@ -294,6 +307,7 @@ if FileSystem.exists(path):
         print(f"{path} 是目录")
 else:
     print(f"{path} 不存在")
+# 输出: config.json 是文件，大小: 16 字节
 ```
 
 ## 🛠️ 最佳实践
