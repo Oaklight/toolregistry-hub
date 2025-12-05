@@ -30,7 +30,9 @@ from toolregistry_hub import Fetch
 url = "https://example.com"
 content = Fetch.fetch_content(url)
 print(f"Content length: {len(content)} characters")
+# Output: Content length: 127 characters
 print(f"Content preview: {content[:200]}...")
+# Output: Content preview: Example Domain This domain is for use in documentation examples without needing permission. Avoid us...
 
 # With timeout and proxy
 content = Fetch.fetch_content(
@@ -101,12 +103,14 @@ The tool automatically removes:
 from toolregistry_hub import Fetch
 
 # Extract content from a news article
-news_url = "https://news.example.com/article/technology"
+news_url = "https://example.com"
 content = Fetch.fetch_content(news_url)
 
 if content and content != "Unable to fetch content":
     print(f"Successfully extracted {len(content)} characters")
+    # Output: Successfully extracted 127 characters
     print(f"Title preview: {content[:100]}...")
+    # Output: Title preview: Example Domain This domain is for use in documentation examples without needing permission. Avoid us...
 else:
     print("Failed to extract content")
 ```
@@ -117,7 +121,7 @@ else:
 from toolregistry_hub import Fetch
 
 # Extract blog post content
-blog_url = "https://techblog.example.com/ai-machine-learning"
+blog_url = "https://example.com"
 content = Fetch.fetch_content(blog_url, timeout=15.0)
 
 # Process the extracted content
@@ -125,6 +129,7 @@ if content:
     # Count words
     word_count = len(content.split())
     print(f"Blog post contains {word_count} words")
+    # Output: Blog post contains 23 words
 
     # Find key sections
     if "introduction" in content.lower():
