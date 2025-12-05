@@ -1,6 +1,6 @@
 """TodoList API routes."""
 
-from typing import Dict, List, Union
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
@@ -12,18 +12,30 @@ from ...todo_list import TodoList
 # ============================================================
 
 
-class TodoListWriteRequest(BaseModel):
-    """Request model for todo list write operation."""
+class TodoListUpdateRequest(BaseModel):
+    """Request model for todo list update operation.
 
-    todos: Union[List[str], List[Dict[str, str]]] = Field(
-        description="List of todo entries in simple string format or dictionary format",
+    Status Constraints:
+    - planned: Task is scheduled but not yet started
+    - pending: Task is currently being worked on (in progress)
+    - done: Task has been completed successfully
+    - cancelled: Task has been cancelled or abandoned
+    """
+
+    todos: List[str] = Field(
+        description="List of todo entries in simple string format: '[id] content (status)'",
         examples=[
             [
-                "[fix-bug] resolve critical issue (done)",
-                "[implement-feature] add new functionality (pending)",
-                "[create-test] write a simple test case for todo list tool (planned)",
+                "[write-docs] Update API documentation (done)",
+                "[old-feature] Remove deprecated feature (cancelled)",
+                "[setup-env] Configure development environment (planned)",
+                "[fix-bug] Resolve critical login issue (pending)",
             ]
         ],
+    )
+    format: Optional[Literal["markdown", "simple", "ascii"]] = Field(
+        default="simple",
+        description="Output format - 'simple' (no output), 'markdown', or 'ascii'",
     )
 
 
@@ -32,11 +44,17 @@ class TodoListWriteRequest(BaseModel):
 # ============================================================
 
 
-class TodoListWriteResponse(BaseModel):
-    """Response model for todo list write operation."""
+class TodoListUpdateResponse(BaseModel):
+    """Response model for todo list update operation.
 
-    markdown_table: str = Field(
-        ..., description="Markdown-styled table of todo entries"
+    Returns formatted todo list based on the requested format:
+    - simple: Returns None (no output)
+    - markdown: Returns markdown table format
+    - ascii: Returns ASCII table format
+    """
+
+    formatted_output: Optional[str] = Field(
+        None, description="Formatted todo list output (None for 'simple' format)"
     )
 
 
@@ -49,30 +67,34 @@ router = APIRouter(prefix="/todolist", tags=["todolist"])
 
 
 @router.post(
-    "/write",
-    summary="Create markdown table from todo entries",
-    description=TodoList.write.__doc__,
-    operation_id="todolist-write",
-    response_model=TodoListWriteResponse,
+    "/update",
+    summary="Update todo list with optional formatting",
+    description=TodoList.update.__doc__,
+    operation_id="todolist-update",
+    response_model=TodoListUpdateResponse,
 )
-def todolist_write(data: TodoListWriteRequest) -> TodoListWriteResponse:
-    """Create markdown-styled table from list of todo entries.
+def todolist_update(data: TodoListUpdateRequest) -> TodoListUpdateResponse:
+    """Update or create todo list for tracking purposes with optional formatting output.
 
     Args:
-        data: Request containing list of todo entries in one of two formats:
-            1. Simple string format: "[id] content (status)"
-               Example: "[create-test] write a simple test case (planned)"
-            2. Dictionary format: {"id": "...", "content": "...", "status": "..."}
+        data: Request containing list of todo entries in simple string format
+              and optional format specification
 
     Returns:
-        Response containing markdown-styled table of todo entries
+        Response containing formatted todo list output (None for 'simple' format)
 
     Raises:
-        HTTPException: If input format is invalid or todo format is malformed
+        HTTPException: If input format is invalid, todo format is malformed, or status is invalid
+
+    Valid status values:
+    - planned: Task is scheduled but not yet started
+    - pending: Task is currently being worked on (in progress)
+    - done: Task has been completed successfully
+    - cancelled: Task has been cancelled or abandoned
     """
     try:
-        markdown_table = TodoList.write(data.todos)
-        return TodoListWriteResponse(markdown_table=markdown_table)
+        formatted_output = TodoList.update(data.todos, data.format)
+        return TodoListUpdateResponse(formatted_output=formatted_output)
     except TypeError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
