@@ -18,15 +18,20 @@ from toolregistry_hub import Calculator
 
 # Calculate expressions
 result = Calculator.evaluate("2 + 3 * 4")
-print(result)  # Output: 14
+print(result)
+# Output: 14
 
 # Get help information
 help_info = Calculator.help("sqrt")
 print(help_info)
+# Output: function: sqrt(x: float) -> float
+#     square root of a number.
 
 # List all available functions
 functions = Calculator.list_allowed_fns(with_help=True)
 print(functions)
+# Output: {"add": "function: add(a: float, b: float) -> float\n    Adds two numbers.", ...}
+# (Returns a JSON string containing all available functions and their help information)
 ```
 
 ### Supported Operations
@@ -142,8 +147,12 @@ from toolregistry_hub import Calculator
 # Get help information for a specific function
 help_info = Calculator.help("sqrt")
 print(help_info)
+# Output: function: sqrt(x: float) -> float
+#     square root of a number.
 
 # List all available functions
 functions = Calculator.list_allowed_fns(with_help=True)
 print(functions)
+# Output: {"add": "function: add(a: float, b: float) -> float\n    Adds two numbers.", ...}
+# (Returns a JSON string containing all available functions and their help information)
 ```
