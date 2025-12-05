@@ -30,7 +30,9 @@ from toolregistry_hub import Fetch
 url = "https://example.com"
 content = Fetch.fetch_content(url)
 print(f"内容长度: {len(content)} 字符")
+# 输出: 内容长度: 127 字符
 print(f"内容预览: {content[:200]}...")
+# 输出: 内容预览: Example Domain This domain is for use in documentation examples without needing permission. Avoid us...
 
 # 使用超时和代理
 content = Fetch.fetch_content(
@@ -101,12 +103,14 @@ graph TD
 from toolregistry_hub import Fetch
 
 # 从新闻文章提取内容
-news_url = "https://news.example.com/article/technology"
+news_url = "https://example.com"
 content = Fetch.fetch_content(news_url)
 
 if content and content != "Unable to fetch content":
     print(f"成功提取 {len(content)} 字符")
+    # 输出: 成功提取 127 字符
     print(f"标题预览: {content[:100]}...")
+    # 输出: 标题预览: Example Domain This domain is for use in documentation examples without needing permission. Avoid us...
 else:
     print("提取内容失败")
 ```
@@ -117,7 +121,7 @@ else:
 from toolregistry_hub import Fetch
 
 # 提取博客文章内容
-blog_url = "https://techblog.example.com/ai-machine-learning"
+blog_url = "https://example.com"
 content = Fetch.fetch_content(blog_url, timeout=15.0)
 
 # 处理提取的内容
@@ -125,6 +129,7 @@ if content:
     # 统计单词数
     word_count = len(content.split())
     print(f"博客文章包含 {word_count} 个单词")
+    # 输出: 博客文章包含 23 个单词
 
     # 查找关键部分
     if "introduction" in content.lower():
