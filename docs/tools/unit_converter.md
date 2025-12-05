@@ -40,14 +40,17 @@ from toolregistry_hub import UnitConverter
 # Temperature conversion
 celsius = UnitConverter.fahrenheit_to_celsius(98.6)
 print(f"98.6°F = {celsius:.1f}°C")
+# Output: 98.6°F = 37.0°C
 
 # Length conversion
 feet = UnitConverter.meters_to_feet(2.5)
 print(f"2.5 meters = {feet:.2f} feet")
+# Output: 2.5 meters = 8.20 feet
 
 # Weight conversion
 pounds = UnitConverter.kilograms_to_pounds(70)
 print(f"70 kg = {pounds:.1f} lbs")
+# Output: 70 kg = 154.3 lbs
 ```
 
 ## 📋 Conversion Categories
@@ -384,17 +387,20 @@ from toolregistry_hub import UnitConverter
 oven_temp_f = 350  # 350°F for baking
 oven_temp_c = UnitConverter.fahrenheit_to_celsius(oven_temp_f)
 print(f"Preheat oven to {oven_temp_c:.0f}°C")
+# Output: Preheat oven to 177°C
 
 # Liquid measurements
 ml_in_cup = 240
 cups = 2.5
 ml = cups * ml_in_cup
 print(f"{cups} cups = {ml} ml")
+# Output: 2.5 cups = 600.0 ml
 
 # Weight conversions
 pounds = 1.5  # 1.5 lbs of meat
 kg = UnitConverter.pounds_to_kilograms(pounds)
 print(f"{pounds} lbs = {kg:.3f} kg")
+# Output: 1.5 lbs = 0.680 kg
 ```
 
 ### Travel Conversions
@@ -406,16 +412,19 @@ from toolregistry_hub import UnitConverter
 kmh = 100  # Speed limit in km/h
 mph = UnitConverter.kmh_to_mph(kmh)
 print(f"Speed limit: {kmh} km/h = {mph:.1f} mph")
+# Output: Speed limit: 100 km/h = 62.1 mph
 
 # Fuel efficiency
 km_per_l = 12  # 12 km/L fuel efficiency
 mpg = UnitConverter.km_per_liter_to_mpg(km_per_l)
 print(f"Fuel efficiency: {km_per_l} km/L = {mpg:.1f} mpg")
+# Output: Fuel efficiency: 12 km/L = 28.2 mpg
 
 # Temperature conversion
 weather_c = 22  # Weather in Celsius
 weather_f = UnitConverter.celsius_to_fahrenheit(weather_c)
 print(f"Weather: {weather_c}°C = {weather_f}°F")
+# Output: Weather: 22°C = 71.6°F
 ```
 
 ### Scientific Calculations
@@ -424,19 +433,23 @@ print(f"Weather: {weather_c}°C = {weather_f}°F")
 from toolregistry_hub import UnitConverter
 
 # Electrical calculations
-voltage_kv = 132  # High voltage line
-voltage_v = UnitConverter.kilovolt_to_volt(voltage_kv)
-print(f"Voltage: {voltage_kv} kV = {voltage_v} V")
+voltage_v = 132000  # High voltage line (volts)
+voltage_kv = UnitConverter.volt_to_kilovolt(voltage_v)
+print(f"Voltage: {voltage_v} V = {voltage_kv} kV")
+# Output: Voltage: 132000 V = 132.0 kV
 
 # Data storage
 bytes_data = 1024 * 1024 * 500  # 500 MB in bytes
-mb_data = UnitConverter.bytes_to_megabytes(bytes_data)
+kb_data = UnitConverter.bytes_to_kilobytes(bytes_data)
+mb_data = UnitConverter.kilobytes_to_megabytes(kb_data)
 print(f"Data size: {bytes_data} bytes = {mb_data} MB")
+# Output: Data size: 524288000 bytes = 500.0 MB
 
 # Pressure conversions
 pressure_bar = 2.5  # Pressure in bar
 pressure_atm = UnitConverter.bar_to_atm(pressure_bar)
 print(f"Pressure: {pressure_bar} bar = {pressure_atm:.2f} atm")
+# Output: Pressure: 2.5 bar = 2.47 atm
 ```
 
 ### Engineering Conversions
@@ -448,16 +461,19 @@ from toolregistry_hub import UnitConverter
 length_ft = 10.5  # Length in feet
 length_m = UnitConverter.feet_to_meters(length_ft)
 print(f"Length: {length_ft} ft = {length_m:.3f} m")
+# Output: Length: 10.5 ft = 3.200 m
 
 # Area calculations
 area_sqm = 150  # Area in square meters
 area_sqft = UnitConverter.square_meters_to_square_feet(area_sqm)
 print(f"Area: {area_sqm} m² = {area_sqft:.1f} ft²")
+# Output: Area: 150 m² = 1614.6 ft²
 
 # Power calculations
-horsepower = 250  # Engine power in HP
-kilowatts = UnitConverter.horsepower_to_kilowatts(horsepower)
-print(f"Power: {horsepower} HP = {kilowatts:.1f} kW")
+kilowatts = 186  # Engine power in kW
+horsepower = UnitConverter.kilowatts_to_horsepower(kilowatts)
+print(f"Power: {kilowatts} kW = {horsepower:.1f} HP")
+# Output: Power: 186 kW = 249.4 HP
 ```
 
 ## 🚨 Important Notes
