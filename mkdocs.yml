@@ -69,6 +69,7 @@ nav:
       - File Operations: tools/file_ops.md
       - File System: tools/filesystem.md
       - Think Tool: tools/think_tool.md
+      - Todo List Tool: tools/todo_list.md
       - Unit Converter: tools/unit_converter.md
       - Web Fetch Tool: tools/web_fetch_tool.md
       - Web Search Tools:
