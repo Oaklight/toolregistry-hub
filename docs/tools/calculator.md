@@ -18,15 +18,20 @@ from toolregistry_hub import Calculator
 
 # 计算表达式
 result = Calculator.evaluate("2 + 3 * 4")
-print(result)  # 输出: 14
+print(result)
+# 输出: 14
 
 # 获取帮助信息
 help_info = Calculator.help("sqrt")
 print(help_info)
+# 输出: function: sqrt(x: float) -> float
+#     square root of a number.
 
 # 列出所有可用函数
 functions = Calculator.list_allowed_fns(with_help=True)
 print(functions)
+# 输出: {"add": "function: add(a: float, b: float) -> float\n    Adds two numbers.", ...}
+# (返回包含所有可用函数及其帮助信息的JSON字符串)
 ```
 
 ### 支持的操作
@@ -123,15 +128,18 @@ from toolregistry_hub import Calculator
 
 # 基本算术
 result = Calculator.evaluate("2 + 3 * 4")
-print(result)  # 输出: 14
+print(result)
+# 输出: 14
 
 # 使用函数
 result = Calculator.evaluate("sqrt(16) + pow(2, 3)")
-print(result)  # 输出: 12.0
+print(result)
+# 输出: 12.0
 
 # 混合使用函数和运算符
 result = Calculator.evaluate("sqrt(16) + 2 ** 3")
-print(result)  # 输出: 12.0
+print(result)
+# 输出: 12.0
 ```
 
 ### 获取帮助信息
@@ -142,8 +150,12 @@ from toolregistry_hub import Calculator
 # 获取特定函数的帮助信息
 help_info = Calculator.help("sqrt")
 print(help_info)
+# 输出: function: sqrt(x: float) -> float
+#     square root of a number.
 
 # 列出所有可用函数
 functions = Calculator.list_allowed_fns(with_help=True)
 print(functions)
+# 输出: {"add": "function: add(a: float, b: float) -> float\n    Adds two numbers.", ...}
+# (返回包含所有可用函数及其帮助信息的JSON字符串)
 ```
