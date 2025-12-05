@@ -30,15 +30,18 @@ from toolregistry_hub import FileSystem
 FileSystem.create_dir("my_directory")
 FileSystem.create_file("my_directory/test.txt")
 files = FileSystem.list_dir("my_directory")
-print(files)  # ['test.txt']
+print(files)
+# Output: ['test.txt']
 
 # Check existence
 exists = FileSystem.exists("my_directory/test.txt")
-print(f"File exists: {exists}")  # True
+print(f"File exists: {exists}")
+# Output: File exists: True
 
 # Get file information
 size = FileSystem.get_size("my_directory/test.txt")
 print(f"File size: {size} bytes")
+# Output: File size: 0 bytes
 ```
 
 ## 📋 API Reference
@@ -144,6 +147,7 @@ for dir_name in directories:
 # Check directory structure
 if FileSystem.is_dir("project"):
     print("Project directory exists")
+# Output: Project directory exists
 ```
 
 ### File Operations
@@ -163,6 +167,7 @@ FileSystem.move("README.md", "docs/README.md")
 
 # Delete files
 FileSystem.delete("config.backup.json")
+# File operations completed successfully
 ```
 
 ### Recursive Directory Listing
@@ -173,18 +178,22 @@ from toolregistry_hub import FileSystem
 # List immediate contents
 files = FileSystem.list_dir("src")
 print("Direct files:", files)
+# Output: Direct files: ['main.py', 'utils']
 
 # List with depth 3
 files = FileSystem.list_dir("src", depth=3)
 print(f"Found {len(files)} items")
+# Output: Found 3 items
 
 # Include hidden files
-files_with_hidden = FileSystem.list_dir(".", show_hidden=True)
+files_with_hidden = FileSystem.list_dir("src", show_hidden=True)
 print("Files including hidden:", files_with_hidden)
+# Output: Files including hidden: ['.hidden_file', 'main.py', 'utils']
 
 # List Python files recursively
 python_files = [f for f in FileSystem.list_dir("src", depth=5) if f.endswith('.py')]
 print(f"Found {len(python_files)} Python files")
+# Output: Found 2 Python files
 ```
 
 ### Path Utilities
@@ -195,10 +204,12 @@ from toolregistry_hub import FileSystem
 # Join paths safely
 config_path = FileSystem.join_paths("etc", "app", "config.yaml")
 print(f"Config path: {config_path}")
+# Output: Config path: etc/app/config.yaml
 
 # Get absolute paths
 abs_src_path = FileSystem.get_absolute_path("src")
 print(f"Absolute src path: {abs_src_path}")
+# Output: Absolute src path: /path/to/current/directory/src
 
 # Cross-platform path handling
 log_file = FileSystem.join_paths("logs", "app.log")
@@ -212,15 +223,17 @@ from toolregistry_hub import FileSystem
 import time
 
 # Get file size
-size = FileSystem.get_size("large_file.zip")
+size = FileSystem.get_size("config.json")
 print(f"File size: {size:,} bytes")
+# Output: File size: 16 bytes
 
 # Get last modified time
 mod_time = FileSystem.get_last_modified_time("config.json")
 print(f"Last modified: {time.ctime(mod_time)}")
+# Output: Last modified: Sat Dec  6 00:49:17 2025
 
 # Check file vs directory
-path = "some_path"
+path = "config.json"
 if FileSystem.exists(path):
     if FileSystem.is_file(path):
         print(f"{path} is a file, size: {FileSystem.get_size(path)} bytes")
@@ -228,6 +241,7 @@ if FileSystem.exists(path):
         print(f"{path} is a directory")
 else:
     print(f"{path} does not exist")
+# Output: config.json is a file, size: 16 bytes
 ```
 
 ## 🛠️ Best Practices
