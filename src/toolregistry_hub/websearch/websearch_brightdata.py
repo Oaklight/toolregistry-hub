@@ -36,6 +36,7 @@ import httpx
 from loguru import logger
 
 from .base import TIMEOUT_DEFAULT, BaseSearch
+from .google_parser import BRIGHTDATA_CONFIG, GoogleResultParser
 from .search_result import SearchResult
 
 
@@ -69,6 +70,9 @@ class BrightDataSearch(BaseSearch):
         self.base_url = "https://api.brightdata.com/request"
         self.rate_limit_delay = rate_limit_delay
         self.last_request_time = 0
+
+        # Initialize parser with Bright Data configuration
+        self.parser = GoogleResultParser(BRIGHTDATA_CONFIG)
 
         # Ensure zone exists
         self._ensure_zone_exists()
@@ -221,7 +225,23 @@ class BrightDataSearch(BaseSearch):
                 # Bright Data returns the Google SERP data as text
                 raw_data = response.text
                 data = json.loads(raw_data)
-                results = self._parse_results(data)
+
+                # # Debug: Log the complete raw response structure
+                # logger.debug(f"Bright Data raw response keys: {list(data.keys())}")
+                # logger.debug(
+                #     f"Bright Data full response: {json.dumps(data, indent=2, ensure_ascii=False)}"
+                # )
+
+                # # Debug: Log organic results structure if available
+                # if "organic" in data:
+                #     logger.debug(f"Number of organic results: {len(data['organic'])}")
+                #     if data["organic"]:
+                #         logger.debug(
+                #             f"First organic result structure: {json.dumps(data['organic'][0], indent=2, ensure_ascii=False)}"
+                #         )
+
+                # Use universal parser
+                results = self.parser.parse(data)
 
                 logger.info(
                     f"Bright Data search for '{query}' (page {page_num}) returned {len(results)} results"
@@ -257,20 +277,7 @@ class BrightDataSearch(BaseSearch):
     def _parse_results(self, raw_results: Dict[str, Any]) -> List[SearchResult]:
         """Parse Bright Data API response into standardized format.
 
-        The Bright Data API returns Google SERP data in the following structure:
-        {
-            "organic": [
-                {
-                    "title": "...",
-                    "link": "...",  # Note: field name is 'link', not 'url'
-                    "description": "..."
-                }
-            ],
-            "images": ["url1", "url2"],
-            "pagination": {"current_page": 1},
-            "related": ["query1", "query2"],
-            "ai_overview": "..."
-        }
+        This method now delegates to the universal GoogleResultParser.
 
         Args:
             raw_results: Raw API response data (parsed JSON)
@@ -278,23 +285,7 @@ class BrightDataSearch(BaseSearch):
         Returns:
             List of parsed search results
         """
-        results = []
-
-        # Extract organic search results
-        organic_results = raw_results.get("organic", [])
-
-        for item in organic_results:
-            # Bright Data uses 'link' field, not 'url'
-            url = item.get("link") or item.get("url", "")
-            result = SearchResult(
-                title=item.get("title", "No title"),
-                url=url,
-                content=item.get("description", "No content available"),
-                score=1.0,  # Bright Data doesn't provide relevance scores
-            )
-            results.append(result)
-
-        return results
+        return self.parser.parse(raw_results)
 
     def _wait_for_rate_limit(self):
         """Ensure minimum delay between API requests to avoid rate limits."""

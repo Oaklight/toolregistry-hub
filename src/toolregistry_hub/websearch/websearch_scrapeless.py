@@ -37,6 +37,7 @@ import httpx
 from loguru import logger
 
 from .base import TIMEOUT_DEFAULT, BaseSearch
+from .google_parser import SCRAPELESS_CONFIG, GoogleResultParser
 from .search_result import SearchResult
 
 
@@ -63,6 +64,9 @@ class ScrapelessSearch(BaseSearch):
 
         self.base_url = base_url
         self.endpoint = f"{self.base_url}/api/v1/scraper/request"
+
+        # Initialize parser with Scrapeless configuration
+        self.parser = GoogleResultParser(SCRAPELESS_CONFIG)
 
     @property
     def _headers(self) -> dict:
@@ -153,8 +157,18 @@ class ScrapelessSearch(BaseSearch):
                 # Parse JSON response from Scrapeless DeepSERP API
                 response_data = response.json()
 
-                # DeepSERP returns structured data directly
-                results = self._parse_deepserp_results(response_data)
+                # # Debug: Log the complete raw response structure
+                # logger.debug(f"Scrapeless raw response keys: {list(response_data.keys())}")
+                # logger.debug(f"Scrapeless full response: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
+
+                # # Debug: Log organic results structure if available
+                # if "organic_results" in response_data:
+                #     logger.debug(f"Number of organic_results: {len(response_data['organic_results'])}")
+                #     if response_data['organic_results']:
+                #         logger.debug(f"First organic_result structure: {json.dumps(response_data['organic_results'][0], indent=2, ensure_ascii=False)}")
+
+                # Use universal parser
+                results = self.parser.parse(response_data)
 
                 logger.info(
                     f"Scrapeless DeepSERP search for '{query}' returned {len(results)} results"
@@ -177,11 +191,12 @@ class ScrapelessSearch(BaseSearch):
         except Exception as e:
             logger.error(f"Scrapeless API request failed: {e}")
             return []
+
     def _parse_results(self, raw_results: Any) -> List[SearchResult]:
         """Parse raw search results into standardized format.
-        
+
         This method is required by BaseSearch abstract class.
-        For DeepSERP API, raw_results is the JSON response dict.
+        This method now delegates to the universal GoogleResultParser.
 
         Args:
             raw_results: Raw API response data (parsed JSON dict)
@@ -189,74 +204,7 @@ class ScrapelessSearch(BaseSearch):
         Returns:
             List of parsed search results
         """
-        return self._parse_deepserp_results(raw_results)
-
-
-    def _parse_deepserp_results(
-        self, response_data: Dict[str, Any]
-    ) -> List[SearchResult]:
-        """Parse DeepSERP API response into standardized format.
-
-        The DeepSERP API returns structured data in the following format:
-        {
-            "organic_results": [
-                {
-                    "position": 1,
-                    "title": "...",
-                    "link": "...",
-                    "snippet": "...",
-                    "redirect_link": "...",
-                    "snippet_highlighted_words": [...],
-                    "source": "..."
-                }
-            ]
-        }
-
-        Args:
-            response_data: Raw API response data (parsed JSON)
-
-        Returns:
-            List of parsed search results
-        """
-        results = []
-
-        # Extract organic search results
-        organic_results = response_data.get("organic_results", [])
-
-        for item in organic_results:
-            try:
-                # Extract required fields
-                title = item.get("title", "No title")
-                url = item.get("link") or item.get("redirect_link", "")
-                snippet = item.get("snippet", "No description available")
-                position = item.get("position", 0)
-
-                if not url:
-                    logger.debug(f"Skipping result without URL: {title}")
-                    continue
-
-                # Calculate score based on position (higher position = lower score)
-                score = 1.0 - (position * 0.05) if position > 0 else 1.0
-                score = max(0.0, min(1.0, score))  # Clamp between 0 and 1
-
-                result = SearchResult(
-                    title=title,
-                    url=url,
-                    content=snippet,
-                    score=score,
-                )
-                results.append(result)
-                logger.debug(f"Parsed result {position}: {title[:50]}...")
-
-            except Exception as e:
-                logger.debug(f"Error parsing DeepSERP result: {e}")
-                continue
-
-        if not results:
-            logger.warning("No results parsed from DeepSERP response")
-            logger.debug(f"Response data: {json.dumps(response_data, indent=2)[:500]}")
-
-        return results
+        return self.parser.parse(raw_results)
 
 
 def main():
