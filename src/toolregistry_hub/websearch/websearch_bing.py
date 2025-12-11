@@ -19,6 +19,7 @@ Usage:
 """
 
 import base64
+import os
 import time
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
@@ -70,7 +71,12 @@ class BingSearch(BaseSearch):
         if not self.bing_base_url.endswith("/search"):
             self.bing_base_url += "/search"  # Ensure the URL ends with /search
 
-        self.proxy = proxy
+        self.proxy = proxy or os.environ.get("BING_PROXY_URL", None)
+        if self.proxy:
+            logger.info(f"Bing search using proxy: {self.proxy}")
+        else:
+            logger.debug("Bing search without proxy")
+
         self.rate_limit_delay = rate_limit_delay
         self.last_request_time = 0
 
