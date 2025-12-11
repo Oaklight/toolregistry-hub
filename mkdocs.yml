@@ -74,8 +74,9 @@ nav:
       - 网页获取工具: tools/web_fetch_tool.md
       - 网络搜索工具:
           - 概述: tools/websearch/index.md
-          - Bing 搜索: tools/websearch/bing.md
           - Brave 搜索: tools/websearch/brave.md
+          - BrightData 搜索: tools/websearch/brightdata.md
+          - Scrapeless 搜索: tools/websearch/scrapeless.md
           - Tavily 搜索: tools/websearch/tavily.md
           - SearXNG 搜索: tools/websearch/searxng.md
   - 部署:
@@ -86,6 +87,7 @@ nav:
       - 网络搜索基类: tools/websearch/base_search.md
       - 搜索结果类型: tools/websearch/search_result.md
       - 旧版网络搜索: tools/websearch/legacy.md
+      - Bing 搜索 (已弃用): tools/websearch/bing.md
   - 更新日志: changelog.md
   - ToolRegistry: https://toolregistry.readthedocs.io/
 
