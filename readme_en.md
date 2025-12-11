@@ -1,8 +1,8 @@
 # ToolRegistry Hub Documentation
 
 [![Docker Image Version](https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=Docker&logo=docker)](https://hub.docker.com/r/oaklight/toolregistry-hub-server)
-[![PyPI Version](https://badge.fury.io/py/toolregistry-hub.svg)](https://pypi.org/project/toolregistry-hub/)
-[![GitHub Release](https://badge.fury.io/gh/OakLight%2Ftoolregistry-hub.svg)](https://github.com/OakLight/toolregistry-hub/releases)
+[![PyPI version](https://badge.fury.io/py/toolregistry-hub.svg?icon=si%3Apython)](https://badge.fury.io/py/toolregistry-hub)
+[![GitHub version](https://badge.fury.io/gh/oaklight%2Ftoolregistry-hub.svg?icon=si%3Agithub)](https://badge.fury.io/gh/oaklight%2Ftoolregistry-hub)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Oaklight/toolregistry-hub)
 
 [中文版](readme_zh.md) | [English version](readme_en.md)
