@@ -1,5 +1,15 @@
 # Bing Search
 
+!!! warning "Deprecated"
+    **Bing Search is deprecated as of version 0.5.2** due to frequent bot detection issues.
+    
+    **Recommended alternatives:**
+    
+    - [Brave Search](brave.md) - For general web search
+    - [Tavily Search](tavily.md) - For AI-optimized search
+    - [SearXNG Search](searxng.md) - For privacy-focused search
+    - [BrightData Search](brightdata.md) or [Scrapeless Search](scrapeless.md) - For Google results
+
 Bing search provides functionality to perform web searches using the Microsoft Bing search engine.
 
 ## Class Overview
