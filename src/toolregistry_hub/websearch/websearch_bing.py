@@ -1,6 +1,14 @@
 """
 Bing Web Search Implementation
 
+.. deprecated:: 0.5.2
+    This module is deprecated due to frequent bot detection issues.
+    Please use alternative search providers:
+    - BraveSearch for general web search
+    - TavilySearch for AI-optimized search
+    - SearXNGSearch for privacy-focused search
+    - BrightDataGoogleSearch or ScrapelessGoogleSearch for Google results
+
 This module provides a simple interface to Bing Web Search functionality.
 Bing offers comprehensive web search results with good localization and relevance.
 
@@ -21,6 +29,7 @@ Usage:
 import base64
 import os
 import time
+import warnings
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from time import sleep
@@ -39,6 +48,10 @@ from .search_result import SearchResult
 class BingSearch(BaseSearch):
     """BingSearch provides a unified interface for performing web searches on Bing.
     It handles search queries and result processing.
+
+    .. deprecated:: 0.5.2
+        BingSearch is deprecated due to frequent bot detection issues.
+        Use BraveSearch, TavilySearch, SearXNGSearch, or Google-based alternatives instead.
 
     Features:
     - Performs web searches using Bing
@@ -62,11 +75,21 @@ class BingSearch(BaseSearch):
     ):
         """Initialize BingSearch with configuration parameters.
 
+        .. deprecated:: 0.5.2
+            BingSearch is deprecated. Use alternative search providers instead.
+
         Args:
             bing_base_url: Base URL for the Bing search. Defaults to "https://www.bing.com".
             proxy: Optional proxy server URL (e.g. "http://proxy.example.com:8080")
             rate_limit_delay: Delay between requests in seconds to avoid rate limits.
         """
+        warnings.warn(
+            "BingSearch is deprecated due to frequent bot detection issues. "
+            "Please use BraveSearch, TavilySearch, SearXNGSearch, or Google-based alternatives instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        
         self.bing_base_url = bing_base_url.rstrip("/")
         if not self.bing_base_url.endswith("/search"):
             self.bing_base_url += "/search"  # Ensure the URL ends with /search
@@ -76,7 +99,7 @@ class BingSearch(BaseSearch):
             logger.info(f"Bing search using proxy: {self.proxy}")
         else:
             logger.debug("Bing search without proxy")
-
+        
         self.rate_limit_delay = rate_limit_delay
         self.last_request_time = 0
 
