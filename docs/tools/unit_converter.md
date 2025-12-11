@@ -59,40 +59,127 @@ print(f"70 kg = {pounds:.1f} lbs")
 
 | From → To            | Method                    | Example                                          |
 | -------------------- | ------------------------- | ------------------------------------------------ |
-| Celsius → Fahrenheit | `celsius_to_fahrenheit()` | `UnitConverter.celsius_to_fahrenheit(25)` = 77.0 |
-| Fahrenheit → Celsius | `fahrenheit_to_celsius()` | `UnitConverter.fahrenheit_to_celsius(77)` = 25.0 |
-| Kelvin → Celsius     | `kelvin_to_celsius()`     | `UnitConverter.kelvin_to_celsius(298.15)` = 25.0 |
-| Celsius → Kelvin     | `celsius_to_kelvin()`     | `UnitConverter.celsius_to_kelvin(25)` = 298.15   |
+| Celsius → Fahrenheit | `celsius_to_fahrenheit()` | `UnitConverter.celsius_to_fahrenheit(25) = 77.0` |
+| Fahrenheit → Celsius | `fahrenheit_to_celsius()` | `UnitConverter.fahrenheit_to_celsius(77) = 25.0` |
+| Kelvin → Celsius     | `kelvin_to_celsius()`     | `UnitConverter.kelvin_to_celsius(298.15) = 25.0` |
+| Celsius → Kelvin     | `celsius_to_kelvin()`     | `UnitConverter.celsius_to_kelvin(25) = 298.15`   |
 
 ### Length Conversions
 
 | From → To            | Method                    | Example                                            |
 | -------------------- | ------------------------- | -------------------------------------------------- |
-| Meters → Feet        | `meters_to_feet()`        | `UnitConverter.meters_to_feet(1)` = 3.28084        |
-| Feet → Meters        | `feet_to_meters()`        | `UnitConverter.feet_to_meters(10)` = 3.048         |
-| Centimeters → Inches | `centimeters_to_inches()` | `UnitConverter.centimeters_to_inches(25.4)` = 10.0 |
-| Inches → Centimeters | `inches_to_centimeters()` | `UnitConverter.inches_to_centimeters(12)` = 30.48  |
+| Meters → Feet        | `meters_to_feet()`        | `UnitConverter.meters_to_feet(1) = 3.28084`        |
+| Feet → Meters        | `feet_to_meters()`        | `UnitConverter.feet_to_meters(10) = 3.048`         |
+| Centimeters → Inches | `centimeters_to_inches()` | `UnitConverter.centimeters_to_inches(25.4) = 10.0` |
+| Inches → Centimeters | `inches_to_centimeters()` | `UnitConverter.inches_to_centimeters(12) = 30.48`  |
 
 ### Weight Conversions
 
 | From → To          | Method                  | Example                                           |
 | ------------------ | ----------------------- | ------------------------------------------------- |
-| Kilograms → Pounds | `kilograms_to_pounds()` | `UnitConverter.kilograms_to_pounds(1)` = 2.20462  |
-| Pounds → Kilograms | `pounds_to_kilograms()` | `UnitConverter.pounds_to_kilograms(10)` = 4.53592 |
+| Kilograms → Pounds | `kilograms_to_pounds()` | `UnitConverter.kilograms_to_pounds(1) = 2.20462`  |
+| Pounds → Kilograms | `pounds_to_kilograms()` | `UnitConverter.pounds_to_kilograms(10) = 4.53592` |
 
 ### Time Conversions
 
 | From → To         | Method                 | Example                                         |
 | ----------------- | ---------------------- | ----------------------------------------------- |
-| Seconds → Minutes | `seconds_to_minutes()` | `UnitConverter.seconds_to_minutes(180)` = 3.0   |
-| Minutes → Seconds | `minutes_to_seconds()` | `UnitConverter.minutes_to_seconds(2.5)` = 150.0 |
+| Seconds → Minutes | `seconds_to_minutes()` | `UnitConverter.seconds_to_minutes(180) = 3.0`   |
+| Minutes → Seconds | `minutes_to_seconds()` | `UnitConverter.minutes_to_seconds(2.5) = 150.0` |
 
 ### Capacity Conversions
 
 | From → To        | Method                | Example                                         |
 | ---------------- | --------------------- | ----------------------------------------------- |
-| Liters → Gallons | `liters_to_gallons()` | `UnitConverter.liters_to_gallons(10)` = 2.64172 |
-| Gallons → Liters | `gallons_to_liters()` | `UnitConverter.gallons_to_liters(1)` = 3.78541  |
+| Liters → Gallons | `liters_to_gallons()` | `UnitConverter.liters_to_gallons(10) = 2.64172` |
+| Gallons → Liters | `gallons_to_liters()` | `UnitConverter.gallons_to_liters(1) = 3.78541`  |
+
+### Area Conversions
+
+| From → To                   | Method                           | Example                                                    |
+| --------------------------- | -------------------------------- | ---------------------------------------------------------- |
+| Square Meters → Square Feet | `square_meters_to_square_feet()` | `UnitConverter.square_meters_to_square_feet(1) = 10.7639`  |
+| Square Feet → Square Meters | `square_feet_to_square_meters()` | `UnitConverter.square_feet_to_square_meters(10) = 0.92903` |
+
+### Speed Conversions
+
+| From → To  | Method         | Example                                   |
+| ---------- | -------------- | ----------------------------------------- |
+| km/h → mph | `kmh_to_mph()` | `UnitConverter.kmh_to_mph(100) = 62.1371` |
+| mph → km/h | `mph_to_kmh()` | `UnitConverter.mph_to_kmh(60) = 96.5606`  |
+
+### Data Storage Conversions
+
+| From → To             | Method                     | Example                                            |
+| --------------------- | -------------------------- | -------------------------------------------------- |
+| Bits → Bytes          | `bits_to_bytes()`          | `UnitConverter.bits_to_bytes(8) = 1.0`             |
+| Bytes → Kilobytes     | `bytes_to_kilobytes()`     | `UnitConverter.bytes_to_kilobytes(1024) = 1.0`     |
+| Kilobytes → Megabytes | `kilobytes_to_megabytes()` | `UnitConverter.kilobytes_to_megabytes(1024) = 1.0` |
+
+### Pressure Conversions
+
+| From → To        | Method            | Example                                     |
+| ---------------- | ----------------- | ------------------------------------------- |
+| Pascal → Bar     | `pascal_to_bar()` | `UnitConverter.pascal_to_bar(100000) = 1.0` |
+| Bar → Atmosphere | `bar_to_atm()`    | `UnitConverter.bar_to_atm(1.01325) = 1.0`   |
+
+### Power Conversions
+
+| From → To              | Method                      | Example                                              |
+| ---------------------- | --------------------------- | ---------------------------------------------------- |
+| Watts → Kilowatts      | `watts_to_kilowatts()`      | `UnitConverter.watts_to_kilowatts(1500) = 1.5`       |
+| Kilowatts → Horsepower | `kilowatts_to_horsepower()` | `UnitConverter.kilowatts_to_horsepower(1) = 1.34102` |
+
+### Energy Conversions
+
+| From → To                 | Method                         | Example                                                  |
+| ------------------------- | ------------------------------ | -------------------------------------------------------- |
+| Joules → Calories         | `joules_to_calories()`         | `UnitConverter.joules_to_calories(4184) = 1000.0`        |
+| Calories → Kilowatt-hours | `calories_to_kilowatt_hours()` | `UnitConverter.calories_to_kilowatt_hours(860421) = 1.0` |
+
+### Frequency Conversions
+
+| From → To             | Method                     | Example                                            |
+| --------------------- | -------------------------- | -------------------------------------------------- |
+| Hertz → Kilohertz     | `hertz_to_kilohertz()`     | `UnitConverter.hertz_to_kilohertz(1000) = 1.0`     |
+| Kilohertz → Megahertz | `kilohertz_to_megahertz()` | `UnitConverter.kilohertz_to_megahertz(1000) = 1.0` |
+
+### Fuel Economy Conversions
+
+| From → To  | Method                  | Example                                         |
+| ---------- | ----------------------- | ----------------------------------------------- |
+| km/L → mpg | `km_per_liter_to_mpg()` | `UnitConverter.km_per_liter_to_mpg(12) = 28.24` |
+| mpg → km/L | `mpg_to_km_per_liter()` | `UnitConverter.mpg_to_km_per_liter(30) = 12.75` |
+
+### Electrical Conversions
+
+| From → To            | Method                    | Example                                           |
+| -------------------- | ------------------------- | ------------------------------------------------- |
+| Ampere → Milliampere | `ampere_to_milliampere()` | `UnitConverter.ampere_to_milliampere(1) = 1000.0` |
+| Volt → Kilovolt      | `volt_to_kilovolt()`      | `UnitConverter.volt_to_kilovolt(1000) = 1.0`      |
+| Ohm → Kiloohm        | `ohm_to_kiloohm()`        | `UnitConverter.ohm_to_kiloohm(1000) = 1.0`        |
+
+### Magnetic Conversions
+
+| From → To     | Method             | Example                                     |
+| ------------- | ------------------ | ------------------------------------------- |
+| Weber → Tesla | `weber_to_tesla()` | `UnitConverter.weber_to_tesla(1, 1) = 1.0`  |
+| Gauss → Tesla | `gauss_to_tesla()` | `UnitConverter.gauss_to_tesla(10000) = 1.0` |
+| Tesla → Weber | `tesla_to_weber()` | `UnitConverter.tesla_to_weber(1, 1) = 1.0`  |
+| Tesla → Gauss | `tesla_to_gauss()` | `UnitConverter.tesla_to_gauss(1) = 10000.0` |
+
+### Radiation Conversions
+
+| From → To      | Method              | Example                                  |
+| -------------- | ------------------- | ---------------------------------------- |
+| Gray → Sievert | `gray_to_sievert()` | `UnitConverter.gray_to_sievert(1) = 1.0` |
+
+### Light Intensity Conversions
+
+| From → To   | Method           | Example                                      |
+| ----------- | ---------------- | -------------------------------------------- |
+| Lux → Lumen | `lux_to_lumen()` | `UnitConverter.lux_to_lumen(100, 2) = 200.0` |
+| Lumen → Lux | `lumen_to_lux()` | `UnitConverter.lumen_to_lux(200, 2) = 100.0` |
 
 ## 🔧 Complete API Reference
 
