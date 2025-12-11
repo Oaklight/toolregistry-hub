@@ -84,6 +84,7 @@ class ScrapelessSearch(BaseSearch):
         timeout: float = TIMEOUT_DEFAULT,
         language: str = "en",
         country: str = "us",
+        start: int = 0,
         **kwargs,
     ) -> List[SearchResult]:
         """Perform a Google search using Scrapeless DeepSERP API.
@@ -94,6 +95,7 @@ class ScrapelessSearch(BaseSearch):
             timeout: Request timeout in seconds
             language: Language code (e.g., 'en', 'zh-CN', 'es'). Defaults to 'en'
             country: Country code (e.g., 'us', 'cn', 'uk'). Defaults to 'us'
+            start: Starting offset for pagination (0-based). Defaults to 0.
             **kwargs: Additional parameters
 
         Returns:
@@ -103,31 +105,57 @@ class ScrapelessSearch(BaseSearch):
             logger.warning("Empty query provided")
             return []
 
-        results = self._search_impl(
-            query=query,
-            max_results=max_results,
-            timeout=timeout,
-            language=language,
-            country=country,
-            **kwargs,
-        )
+        results = []
+
+        if max_results <= 10:
+            # Single request for small result sets
+            results.extend(
+                self._search_impl(
+                    query=query,
+                    timeout=timeout,
+                    language=language,
+                    country=country,
+                    start=start,
+                    **kwargs,
+                )
+            )
+        else:
+            # Multiple requests for larger result sets
+            # Google returns ~10 results per page
+            num_pages = (max_results + 9) // 10
+
+            for page in range(num_pages):
+                page_start = start + (page * 10)
+                page_results = self._search_impl(
+                    query=query,
+                    timeout=timeout,
+                    language=language,
+                    country=country,
+                    start=page_start,
+                    **kwargs,
+                )
+                results.extend(page_results)
+
+                # Stop if we got fewer results than expected (no more results available)
+                if len(page_results) < 10:
+                    break
 
         return results[:max_results] if results else []
 
     def _search_impl(
         self,
         query: str,
-        max_results: int = 5,
+        start: int = 0,
         timeout: float = TIMEOUT_DEFAULT,
         language: str = "en",
         country: str = "us",
         **kwargs,
     ) -> List[SearchResult]:
-        """Perform the actual search using Scrapeless DeepSERP API.
+        """Perform the actual search using Scrapeless DeepSERP API for a single page.
 
         Args:
             query: The search query string
-            max_results: Maximum number of results to return
+            start: Starting offset for pagination (0-based)
             timeout: Request timeout in seconds
             language: Language code
             country: Country code
@@ -136,13 +164,19 @@ class ScrapelessSearch(BaseSearch):
         Returns:
             List of SearchResult
         """
+        if not query.strip():
+            logger.warning("Empty query provided")
+            return []
+
         # Prepare request payload for Scrapeless DeepSERP API
+        # Use 'start' parameter for pagination (Google search standard)
         payload = {
             "actor": "scraper.google.search",
             "input": {
                 "q": query,
                 "hl": language,
                 "gl": country,
+                "start": start,  # Pagination offset
             },
             "async": False,  # Wait for result synchronously
         }
@@ -170,8 +204,9 @@ class ScrapelessSearch(BaseSearch):
                 # Use universal parser
                 results = self.parser.parse(response_data)
 
+                page_num = start // 10
                 logger.info(
-                    f"Scrapeless DeepSERP search for '{query}' returned {len(results)} results"
+                    f"Scrapeless DeepSERP search for '{query}' (page {page_num}) returned {len(results)} results"
                 )
                 return results
 
