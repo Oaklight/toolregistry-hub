@@ -1,42 +1,13 @@
-class UnitConverter:
-    """Performs unit conversions.
+import inspect
+import json
+import textwrap
+from typing import Literal
 
-    Methods:
-        Temperature conversions:
-            celsius_to_fahrenheit, fahrenheit_to_celsius, kelvin_to_celsius, celsius_to_kelvin
-        Length conversions:
-            meters_to_feet, feet_to_meters, centimeters_to_inches, inches_to_centimeters
-        Weight conversions:
-            kilograms_to_pounds, pounds_to_kilograms
-        Time conversions:
-            seconds_to_minutes, minutes_to_seconds
-        Capacity conversions:
-            liters_to_gallons, gallons_to_liters
-        Area conversions:
-            square_meters_to_square_feet, square_feet_to_square_meters
-        Speed conversions:
-            kmh_to_mph, mph_to_kmh
-        Data storage conversions:
-            bits_to_bytes, bytes_to_kilobytes, kilobytes_to_megabytes
-        Pressure conversions:
-            pascal_to_bar, bar_to_atm
-        Power conversions:
-            watts_to_kilowatts, kilowatts_to_horsepower
-        Energy conversions:
-            joules_to_calories, calories_to_kilowatt_hours
-        Frequency conversions:
-            hertz_to_kilohertz, kilohertz_to_megahertz
-        Fuel economy conversions:
-            km_per_liter_to_mpg, mpg_to_km_per_liter
-        Electrical conversions:
-            ampere_to_milliampere, volt_to_kilovolt, ohm_to_kiloohm
-        Magnetic conversions:
-            weber_to_tesla, gauss_to_tesla
-        Radiation conversions:
-            gray_to_sievert
-        Light intensity conversions:
-            lux_to_lumen, lumen_to_lux
-    """
+from .utils import get_all_static_methods
+
+
+class BaseUnitConverter:
+    """Base class for UnitConverter, providing core unit conversion operations."""
 
     # ========= Temperature conversions =========
     @staticmethod
@@ -264,3 +235,235 @@ class UnitConverter:
     def lumen_to_lux(lumen: float, area: float) -> float:
         """Convert lumen to lux given an area in square meters."""
         return lumen / area
+
+
+class UnitConverter:
+    """Performs unit conversions.
+
+    This class provides a unified interface for a wide range of unit conversion operations,
+    including temperature, length, weight, time, capacity, area, speed, data storage,
+    pressure, power, energy, frequency, fuel economy, electrical, magnetic, radiation,
+    and light intensity conversions.
+
+    Methods:
+        Temperature conversions:
+            celsius_to_fahrenheit, fahrenheit_to_celsius, kelvin_to_celsius, celsius_to_kelvin
+        Length conversions:
+            meters_to_feet, feet_to_meters, centimeters_to_inches, inches_to_centimeters
+        Weight conversions:
+            kilograms_to_pounds, pounds_to_kilograms
+        Time conversions:
+            seconds_to_minutes, minutes_to_seconds
+        Capacity conversions:
+            liters_to_gallons, gallons_to_liters
+        Area conversions:
+            square_meters_to_square_feet, square_feet_to_square_meters
+        Speed conversions:
+            kmh_to_mph, mph_to_kmh
+        Data storage conversions:
+            bits_to_bytes, bytes_to_kilobytes, kilobytes_to_megabytes
+        Pressure conversions:
+            pascal_to_bar, bar_to_atm
+        Power conversions:
+            watts_to_kilowatts, kilowatts_to_horsepower
+        Energy conversions:
+            joules_to_calories, calories_to_kilowatt_hours
+        Frequency conversions:
+            hertz_to_kilohertz, kilohertz_to_megahertz
+        Fuel economy conversions:
+            km_per_liter_to_mpg, mpg_to_km_per_liter
+        Electrical conversions:
+            ampere_to_milliampere, volt_to_kilovolt, ohm_to_kiloohm
+        Magnetic conversions:
+            weber_to_tesla, gauss_to_tesla, tesla_to_weber, tesla_to_gauss
+        Radiation conversions:
+            gray_to_sievert
+        Light intensity conversions:
+            lux_to_lumen, lumen_to_lux
+        Utility methods:
+            convert, list_conversions, help
+    """
+
+    # ====== Conversion categories ======
+    _CONVERSION_CATEGORIES = {
+        "temperature": [
+            "celsius_to_fahrenheit",
+            "fahrenheit_to_celsius",
+            "kelvin_to_celsius",
+            "celsius_to_kelvin",
+        ],
+        "length": [
+            "meters_to_feet",
+            "feet_to_meters",
+            "centimeters_to_inches",
+            "inches_to_centimeters",
+        ],
+        "weight": ["kilograms_to_pounds", "pounds_to_kilograms"],
+        "time": ["seconds_to_minutes", "minutes_to_seconds"],
+        "capacity": ["liters_to_gallons", "gallons_to_liters"],
+        "area": ["square_meters_to_square_feet", "square_feet_to_square_meters"],
+        "speed": ["kmh_to_mph", "mph_to_kmh"],
+        "data_storage": [
+            "bits_to_bytes",
+            "bytes_to_kilobytes",
+            "kilobytes_to_megabytes",
+        ],
+        "pressure": ["pascal_to_bar", "bar_to_atm"],
+        "power": ["watts_to_kilowatts", "kilowatts_to_horsepower"],
+        "energy": ["joules_to_calories", "calories_to_kilowatt_hours"],
+        "frequency": ["hertz_to_kilohertz", "kilohertz_to_megahertz"],
+        "fuel_economy": ["km_per_liter_to_mpg", "mpg_to_km_per_liter"],
+        "electrical": ["ampere_to_milliampere", "volt_to_kilovolt", "ohm_to_kiloohm"],
+        "magnetic": [
+            "weber_to_tesla",
+            "gauss_to_tesla",
+            "tesla_to_weber",
+            "tesla_to_gauss",
+        ],
+        "radiation": ["gray_to_sievert"],
+        "light_intensity": ["lux_to_lumen", "lumen_to_lux"],
+    }
+
+    @staticmethod
+    def _all_conversions() -> list[str]:
+        """Get all available conversion function names."""
+        return get_all_static_methods(BaseUnitConverter)
+
+    @staticmethod
+    def list_conversions(
+        category: Literal[
+            "all",
+            "temperature",
+            "length",
+            "weight",
+            "time",
+            "capacity",
+            "area",
+            "speed",
+            "data_storage",
+            "pressure",
+            "power",
+            "energy",
+            "frequency",
+            "fuel_economy",
+            "electrical",
+            "magnetic",
+            "radiation",
+            "light_intensity",
+        ] = "all",
+        with_help: bool = False,
+    ) -> str:
+        """Returns a JSON string of available conversion functions with optional descriptions.
+
+        Args:
+            category (str, optional): Category of conversions to list. Defaults to "all".
+            with_help (bool, optional): If True, includes descriptions of each function. Defaults to False.
+
+        Returns:
+            str: A JSON string containing the conversion functions, optionally with their descriptions.
+        """
+        if category == "all":
+            conversions = UnitConverter._all_conversions()
+        elif category in UnitConverter._CONVERSION_CATEGORIES:
+            conversions = UnitConverter._CONVERSION_CATEGORIES[category]
+        else:
+            raise ValueError(f"Invalid category: {category}")
+
+        if not with_help:
+            return json.dumps(conversions)
+
+        conversion_help = {}
+        for fn_name in conversions:
+            conversion_help[fn_name] = UnitConverter.help(fn_name)
+
+        return json.dumps(conversion_help)
+
+    @staticmethod
+    def help(fn_name: str) -> str:
+        """Returns the help documentation for a specific conversion function.
+
+        Args:
+            fn_name (str): Name of the conversion function to get help for.
+
+        Returns:
+            str: Help documentation for the specified function.
+
+        Raises:
+            ValueError: If the function name is not recognized.
+        """
+        if fn_name not in UnitConverter._all_conversions() + [
+            "convert",
+            "list_conversions",
+        ]:
+            raise ValueError(f"Conversion function '{fn_name}' is not recognized.")
+
+        if hasattr(BaseUnitConverter, fn_name):
+            target = getattr(BaseUnitConverter, fn_name)
+        else:
+            raise ValueError(f"Conversion function '{fn_name}' cannot be resolved.")
+
+        if callable(target):
+            docstring = inspect.getdoc(target) or ""
+            docstring = docstring.strip()
+            signature = inspect.signature(target)
+            return (
+                f"function: {fn_name}{signature}\n{textwrap.indent(docstring, ' ' * 4)}"
+            )
+        else:
+            raise ValueError(f"'{fn_name}' is not a callable function.")
+
+    @staticmethod
+    def convert(
+        value: float,
+        conversion: str,
+        **kwargs,
+    ) -> float:
+        """Performs a unit conversion using the specified conversion function.
+
+        This is a convenience method that allows calling any conversion function by name.
+
+        Args:
+            value (float): The value to convert.
+            conversion (str): Name of the conversion function to use.
+            **kwargs: Additional keyword arguments required by specific conversion functions.
+
+        Returns:
+            float: The converted value.
+
+        Raises:
+            ValueError: If the conversion function is not recognized or if required parameters are missing.
+
+        Examples:
+            >>> UnitConverter.convert(100, "celsius_to_fahrenheit")
+            212.0
+            >>> UnitConverter.convert(10, "meters_to_feet")
+            32.8084
+            >>> UnitConverter.convert(100, "lux_to_lumen", area=2)
+            200.0
+        """
+        if conversion not in UnitConverter._all_conversions():
+            raise ValueError(f"Conversion function '{conversion}' is not recognized.")
+
+        if not hasattr(BaseUnitConverter, conversion):
+            raise ValueError(f"Conversion function '{conversion}' cannot be resolved.")
+
+        func = getattr(BaseUnitConverter, conversion)
+
+        # Get function signature to determine required parameters
+        sig = inspect.signature(func)
+        params = list(sig.parameters.keys())
+
+        # Build arguments for the function call
+        args = [value]
+        for param in params[1:]:  # Skip first parameter (value)
+            if param in kwargs:
+                args.append(kwargs[param])
+            elif sig.parameters[param].default != inspect.Parameter.empty:
+                # Parameter has a default value, use it
+                args.append(sig.parameters[param].default)
+            else:
+                raise ValueError(
+                    f"Missing required parameter '{param}' for conversion '{conversion}'"
+                )
+
+        return func(*args)
