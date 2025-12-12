@@ -6,6 +6,18 @@
 
 Bright Data 是一个企业级的网页数据平台，提供强大的反爬虫绕过能力。通过集成 Bright Data 的 SERP API，我们可以:
 
+## 类概览
+
+- `BrightDataSearch` - 提供 Bright Data Google 搜索功能的类
+
+#### 初始化参数
+
+- `api_keys: Optional[str] = None` - 逗号分隔的 Bright Data API 令牌。如果未提供，将尝试从 BRIGHTDATA_API_KEY 环境变量获取
+- `zone: Optional[str] = None` - Bright Data zone 名称 (默认: "mcp_unlocker")
+- `rate_limit_delay: float = 1.0` - 请求间延迟(秒)，避免速率限制
+
+## 架构
+
 - ✅ 绕过 Google 的反爬虫机制
 - ✅ 获取结构化的搜索结果
 - ✅ 支持分页查询
@@ -50,7 +62,7 @@ BRIGHTDATA_ZONE=mcp_unlocker
 
 ### Python API
 
-```python
+````python
 from toolregistry_hub.websearch import BrightDataSearch
 
 # 初始化搜索客户端
@@ -66,19 +78,42 @@ for result in results:
     print(f"评分: {result.score}")  # 基于搜索位置的评分
     print("-" * 50)
 
-# 分页搜索(获取第2页结果)
+### 使用多个 API 密钥
+
+```python
+from toolregistry_hub.websearch import BrightDataSearch
+
+# 使用多个 API 密钥进行负载均衡
+api_keys = "token1,token2,token3"
+search = BrightDataSearch(api_keys=api_keys)
+
+# 执行搜索
+results = search.search("机器学习教程", max_results=10)
+
+# 处理搜索结果
+for result in results:
+    print(f"标题: {result.title}")
+    print(f"URL: {result.url}")
+    print(f"内容: {result.content[:200]}...")
+    print("-" * 50)
+````
+
+# 分页搜索(获取第 2 页结果)
+
 results_page2 = search.search(
-    "artificial intelligence"，
-    max_results=10，
-    cursor="1"  # 页码从 0 开始
+"artificial intelligence"，
+max_results=10，
+cursor="1" # 页码从 0 开始
 )
 
 # 自定义超时
+
 results = search.search(
-    "machine learning"，
-    max_results=5，
-    timeout=30.0
+"machine learning"，
+max_results=5，
+timeout=30.0
 )
+
 ```
 
 ### REST API
@@ -86,8 +121,10 @@ results = search.search(
 #### 端点
 
 ```
+
 POST /api/v1/search/brightdata
-```
+
+````
 
 #### 请求示例
 
@@ -101,15 +138,15 @@ curl -X POST "http://localhost:8000/api/v1/search/brightdata" \
     "timeout": 10.0，
     "cursor": "0"
   }'
-```
+````
 
 #### 请求参数
 
-| 参数          | 类型    | 必需 | 默认值 | 说明                     |
-| ------------- | ------- | ---- | ------ | ------------------------ |
-| `query`       | string  | ✅   | -      | 搜索查询字符串           |
-| `max_results` | integer | ❌   | 5      | 返回结果数量(1-20)       |
-| `timeout`     | float   | ❌   | 10.0   | 请求超时时间(秒)         |
+| 参数          | 类型    | 必需 | 默认值 | 说明                      |
+| ------------- | ------- | ---- | ------ | ------------------------- |
+| `query`       | string  | ✅   | -      | 搜索查询字符串            |
+| `max_results` | integer | ❌   | 5      | 返回结果数量(1-20)        |
+| `timeout`     | float   | ❌   | 10.0   | 请求超时时间(秒)          |
 | `cursor`      | string  | ❌   | "0"    | 分页游标(页码，从 0 开始) |
 
 #### 响应示例
@@ -182,7 +219,7 @@ from toolregistry_hub.websearch import BrightDataSearch
 
 # 使用自定义配置
 search = BrightDataSearch(
-    api_token="your_custom_token"，
+    api_keys="your_custom_token"，
     zone="custom_zone_name"，
     rate_limit_delay=2.0  # 每次请求间隔2秒
 )

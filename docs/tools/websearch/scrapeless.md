@@ -13,6 +13,11 @@ Scrapeless Google 搜索提供了使用 Scrapeless DeepSERP API 进行 Google �
 
 - `ScrapelessSearch` - 提供 Scrapeless DeepSERP API Google 搜索功能的类
 
+#### 初始化参数
+
+- `api_keys: Optional[str] = None` - 逗号分隔的 Scrapeless API 密钥。如果未提供，将尝试从 SCRAPELESS_API_KEY 环境变量获取
+- `base_url: Optional[str] = "https://api.scrapeless.com"` - Scrapeless API 的基础 URL
+
 ## 架构
 
 Scrapeless 搜索实现使用了**通用的 Google 结果解析器** ([`GoogleResultParser`](../../websearch/google_parser.md)),它可以:
@@ -50,6 +55,26 @@ for result in results:
     print(f"URL: {result.url}")
     print(f"内容: {result.content}")
     print(f"评分: {result.score}")  # 基于位置的评分
+    print("-" * 50)
+```
+
+### 使用多个 API 密钥
+
+```python
+from toolregistry_hub.websearch import ScrapelessSearch
+
+# 使用多个 API 密钥进行负载均衡
+api_keys = "key1,key2,key3"
+scrapeless_search = ScrapelessSearch(api_keys=api_keys)
+
+# 执行搜索
+results = scrapeless_search.search("机器学习教程", max_results=10)
+
+# 处理搜索结果
+for result in results:
+    print(f"标题: {result.title}")
+    print(f"URL: {result.url}")
+    print(f"内容: {result.content}")
     print("-" * 50)
 ```
 
@@ -99,7 +124,7 @@ from toolregistry_hub.websearch import ScrapelessSearch
 
 # 创建自定义配置的搜索实例
 scrapeless_search = ScrapelessSearch(
-    api_key="your-api-key-here",
+    api_keys="your-api-key-here",
     base_url="https://api.scrapeless.com"
 )
 
@@ -253,6 +278,7 @@ SCRAPELESS_CONFIG = GoogleAPIConfig(
 ```
 
 此配置告诉解析器:
+
 - 在哪里找到有机搜索结果(`organic_results` 数组)
 - 检查哪些字段获取 URL(先尝试 `link`,然后是 `redirect_link`)
 - 检查哪些字段获取描述(先尝试 `snippet`,然后是 `description`)
