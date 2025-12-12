@@ -512,10 +512,7 @@ def replace_by_conflict_diff(path: str, diff: str) -> bool:
         # Walk through original lines; when we hit a conflict location, skip
         # the original "incoming" chunk and insert the "current" chunk instead.
         for blk in blocks:
-            # copy everything up to the conflict
-            patched_lines.extend(
-                original_lines[orig_pos : orig_pos + len(blk.incoming_lines)]
-            )
+            # skip the incoming_lines (don't copy them)
             orig_pos += len(blk.incoming_lines)
 
             # replace with the chosen side (current_lines)
