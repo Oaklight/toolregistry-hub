@@ -93,21 +93,29 @@ mcp_app.run()
 
 - `POST /think` - 处理思考请求
 
-#### 网络搜索工具
+#### 网络工具
 
-- `POST /web/search_bing` - 使用 Bing 进行网络搜索
+- `POST /web/fetch_webpage` - 提取网页内容
 - `POST /web/search_brave` - 使用 Brave 进行网络搜索
 - `POST /web/search_searxng` - 使用 SearXNG 进行网络搜索
 - `POST /web/search_tavily` - 使用 Tavily 进行网络搜索
+- `POST /web/search_scrapeless` - 使用 Scrapeless 进行网络搜索
+- `POST /web/search_brightdata` - 使用 BrightData 进行网络搜索
 
 #### 日期时间工具
 
 - `POST /time/now` - 获取当前时间
 - `POST /time/convert` - 时区转换
 
-#### 网页获取工具
+#### 待办事项工具
 
-- `POST /fetch_webpage` - 提取网页内容
+- `POST /todolist/update` - 更新待办事项列表
+
+#### 单位转换工具
+
+- `POST /unit/help` - 获取单位转换帮助信息
+- `POST /unit/list_conversions` - 列出可用的单位转换
+- `POST /unit/convert` - 执行单位转换
 
 ## 认证
 
@@ -177,8 +185,8 @@ curl -X POST "http://localhost:8000/time/now" \
   -H "Content-Type: application/json" \
   -d '{}'
 
-# 使用 Bing 搜索
-curl -X POST "http://localhost:8000/web/search_bing" \
+# 使用 Brave 搜索
+curl -X POST "http://localhost:8000/web/search_brave" \
   -H "Content-Type: application/json" \
   -d '{"query": "python programming", "max_results": 5}'
 ```

@@ -64,21 +64,26 @@ extra:
 nav:
   - 首页: index.md
   - 工具:
-      - 计算器工具: tools/calculator.md
-      - 日期时间工具: tools/datetime.md
-      - 文件操作: tools/file_ops.md
-      - 文件系统: tools/filesystem.md
-      - 思考工具: tools/think_tool.md
-      - 待办事项工具: tools/todo_list.md
-      - 单位转换: tools/unit_converter.md
-      - 网页获取工具: tools/web_fetch_tool.md
-      - 网络搜索工具:
-          - 概述: tools/websearch/index.md
-          - Brave 搜索: tools/websearch/brave.md
-          - BrightData 搜索: tools/websearch/brightdata.md
-          - Scrapeless 搜索: tools/websearch/scrapeless.md
-          - Tavily 搜索: tools/websearch/tavily.md
-          - SearXNG 搜索: tools/websearch/searxng.md
+      - 计算与转换:
+          - 计算器工具: tools/calculator.md
+          - 单位转换: tools/unit_converter.md
+      - 日期与时间:
+          - 日期时间工具: tools/datetime.md
+      - 文件管理:
+          - 文件操作: tools/file_ops.md
+          - 文件系统: tools/filesystem.md
+      - 网络工具:
+          - 网页获取工具: tools/websearch/web_fetch_tool.md
+          - 网络搜索工具:
+              - 概述: tools/websearch/index.md
+              - Brave 搜索: tools/websearch/brave.md
+              - BrightData 搜索: tools/websearch/brightdata.md
+              - Scrapeless 搜索: tools/websearch/scrapeless.md
+              - Tavily 搜索: tools/websearch/tavily.md
+              - SearXNG 搜索: tools/websearch/searxng.md
+      - 其他工具:
+          - 思考工具: tools/think_tool.md
+          - 待办事项工具: tools/todo_list.md
   - 部署:
       - 服务器模式: server.md
       - Docker 部署: docker.md
@@ -86,8 +91,9 @@ nav:
       - 辅助函数: dev/helper_functions.md
       - 网络搜索基类: tools/websearch/base_search.md
       - 搜索结果类型: tools/websearch/search_result.md
-      - 旧版网络搜索: tools/websearch/legacy.md
-      - Bing 搜索 (已弃用): tools/websearch/bing.md
+      - 已弃用:
+          - 旧版网络搜索: tools/websearch/legacy.md
+          - Bing 搜索 (已弃用): tools/websearch/bing.md
   - 更新日志: changelog.md
   - ToolRegistry: https://toolregistry.readthedocs.io/
 
