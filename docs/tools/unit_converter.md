@@ -10,6 +10,21 @@ author: Oaklight
 
 The UnitConverter tools provide comprehensive unit conversion functions for various measurement systems. These tools support conversions across multiple categories including temperature, length, weight, time, capacity, area, speed, data storage, pressure, power, energy, and many more.
 
+!!! note "API Change Notice (v0.5.2+)"
+    Starting from v0.5.2, the UnitConverter API has undergone a major change. Direct method calls (like `celsius_to_fahrenheit()`) are no longer exposed. Instead, use the unified `convert()` method. This reduces LLM tool field length and improves performance.
+    
+    **Old usage** (v0.5.1 and earlier):
+    ```python
+    result = UnitConverter.celsius_to_fahrenheit(25)
+    ```
+    
+    **New usage** (v0.5.2+):
+    ```python
+    result = UnitConverter.convert(25, "celsius_to_fahrenheit")
+    ```
+    
+    All conversion functionality remains the same, only the calling pattern has changed.
+
 ## 🎯 Overview
 
 The UnitConverter class offers precise conversions between different units of measurement:
@@ -38,31 +53,44 @@ The UnitConverter class offers precise conversions between different units of me
 from toolregistry_hub import UnitConverter
 
 # Temperature conversion
-celsius = UnitConverter.fahrenheit_to_celsius(98.6)
+celsius = UnitConverter.convert(98.6, "fahrenheit_to_celsius")
 print(f"98.6°F = {celsius:.1f}°C")
 # Output: 98.6°F = 37.0°C
 
 # Length conversion
-feet = UnitConverter.meters_to_feet(2.5)
+feet = UnitConverter.convert(2.5, "meters_to_feet")
 print(f"2.5 meters = {feet:.2f} feet")
 # Output: 2.5 meters = 8.20 feet
 
 # Weight conversion
-pounds = UnitConverter.kilograms_to_pounds(70)
+pounds = UnitConverter.convert(70, "kilograms_to_pounds")
 print(f"70 kg = {pounds:.1f} lbs")
 # Output: 70 kg = 154.3 lbs
+
+# List all available conversions
+import json
+conversions = json.loads(UnitConverter.list_conversions("all"))
+print(f"Available conversions: {len(conversions)}")
+
+# List conversions by category
+temp_conversions = json.loads(UnitConverter.list_conversions("temperature"))
+print(f"Temperature conversions: {temp_conversions}")
+
+# Get help for a specific conversion
+help_text = UnitConverter.help("celsius_to_fahrenheit")
+print(help_text)
 ```
 
 ## 📋 Conversion Categories
 
 ### Temperature Conversions
 
-| From → To            | Method                    | Formula/Conversion Factor | Example                                          |
-| -------------------- | ------------------------- | ------------------------- | ------------------------------------------------ |
-| Celsius → Fahrenheit | `celsius_to_fahrenheit()` | °F = (°C × 9/5) + 32      | `UnitConverter.celsius_to_fahrenheit(25) = 77.0` |
-| Fahrenheit → Celsius | `fahrenheit_to_celsius()` | °C = (°F - 32) × 5/9      | `UnitConverter.fahrenheit_to_celsius(77) = 25.0` |
-| Kelvin → Celsius     | `kelvin_to_celsius()`     | °C = K - 273.15           | `UnitConverter.kelvin_to_celsius(298.15) = 25.0` |
-| Celsius → Kelvin     | `celsius_to_kelvin()`     | K = °C + 273.15           | `UnitConverter.celsius_to_kelvin(25) = 298.15`   |
+| From → To            | Conversion Function     | Formula/Conversion Factor | Example                                                     |
+| -------------------- | ----------------------- | ------------------------- | ----------------------------------------------------------- |
+| Celsius → Fahrenheit | `celsius_to_fahrenheit` | °F = (°C × 9/5) + 32      | `UnitConverter.convert(25, "celsius_to_fahrenheit") = 77.0` |
+| Fahrenheit → Celsius | `fahrenheit_to_celsius` | °C = (°F - 32) × 5/9      | `UnitConverter.convert(77, "fahrenheit_to_celsius") = 25.0` |
+| Kelvin → Celsius     | `kelvin_to_celsius`     | °C = K - 273.15           | `UnitConverter.convert(298.15, "kelvin_to_celsius") = 25.0` |
+| Celsius → Kelvin     | `celsius_to_kelvin`     | K = °C + 273.15           | `UnitConverter.convert(25, "celsius_to_kelvin") = 298.15`   |
 
 ### Length Conversions
 
@@ -190,7 +218,7 @@ from toolregistry_hub import UnitConverter
 
 # Recipe conversions
 oven_temp_f = 350  # 350°F for baking
-oven_temp_c = UnitConverter.fahrenheit_to_celsius(oven_temp_f)
+oven_temp_c = UnitConverter.convert(oven_temp_f, "fahrenheit_to_celsius")
 print(f"Preheat oven to {oven_temp_c:.0f}°C")
 # Output: Preheat oven to 177°C
 
@@ -203,7 +231,7 @@ print(f"{cups} cups = {ml} ml")
 
 # Weight conversions
 pounds = 1.5  # 1.5 lbs of meat
-kg = UnitConverter.pounds_to_kilograms(pounds)
+kg = UnitConverter.convert(pounds, "pounds_to_kilograms")
 print(f"{pounds} lbs = {kg:.3f} kg")
 # Output: 1.5 lbs = 0.680 kg
 ```
@@ -215,19 +243,19 @@ from toolregistry_hub import UnitConverter
 
 # Distance conversions
 kmh = 100  # Speed limit in km/h
-mph = UnitConverter.kmh_to_mph(kmh)
+mph = UnitConverter.convert(kmh, "kmh_to_mph")
 print(f"Speed limit: {kmh} km/h = {mph:.1f} mph")
 # Output: Speed limit: 100 km/h = 62.1 mph
 
 # Fuel efficiency
 km_per_l = 12  # 12 km/L fuel efficiency
-mpg = UnitConverter.km_per_liter_to_mpg(km_per_l)
+mpg = UnitConverter.convert(km_per_l, "km_per_liter_to_mpg")
 print(f"Fuel efficiency: {km_per_l} km/L = {mpg:.1f} mpg")
 # Output: Fuel efficiency: 12 km/L = 28.2 mpg
 
 # Temperature conversion
 weather_c = 22  # Weather in Celsius
-weather_f = UnitConverter.celsius_to_fahrenheit(weather_c)
+weather_f = UnitConverter.convert(weather_c, "celsius_to_fahrenheit")
 print(f"Weather: {weather_c}°C = {weather_f}°F")
 # Output: Weather: 22°C = 71.6°F
 ```
@@ -239,20 +267,20 @@ from toolregistry_hub import UnitConverter
 
 # Electrical calculations
 voltage_v = 132000  # High voltage line (volts)
-voltage_kv = UnitConverter.volt_to_kilovolt(voltage_v)
+voltage_kv = UnitConverter.convert(voltage_v, "volt_to_kilovolt")
 print(f"Voltage: {voltage_v} V = {voltage_kv} kV")
 # Output: Voltage: 132000 V = 132.0 kV
 
 # Data storage
 bytes_data = 1024 * 1024 * 500  # 500 MB in bytes
-kb_data = UnitConverter.bytes_to_kilobytes(bytes_data)
-mb_data = UnitConverter.kilobytes_to_megabytes(kb_data)
+kb_data = UnitConverter.convert(bytes_data, "bytes_to_kilobytes")
+mb_data = UnitConverter.convert(kb_data, "kilobytes_to_megabytes")
 print(f"Data size: {bytes_data} bytes = {mb_data} MB")
 # Output: Data size: 524288000 bytes = 500.0 MB
 
 # Pressure conversions
 pressure_bar = 2.5  # Pressure in bar
-pressure_atm = UnitConverter.bar_to_atm(pressure_bar)
+pressure_atm = UnitConverter.convert(pressure_bar, "bar_to_atm")
 print(f"Pressure: {pressure_bar} bar = {pressure_atm:.2f} atm")
 # Output: Pressure: 2.5 bar = 2.47 atm
 ```
@@ -264,21 +292,28 @@ from toolregistry_hub import UnitConverter
 
 # Material dimensions
 length_ft = 10.5  # Length in feet
-length_m = UnitConverter.feet_to_meters(length_ft)
+length_m = UnitConverter.convert(length_ft, "feet_to_meters")
 print(f"Length: {length_ft} ft = {length_m:.3f} m")
 # Output: Length: 10.5 ft = 3.200 m
 
 # Area calculations
 area_sqm = 150  # Area in square meters
-area_sqft = UnitConverter.square_meters_to_square_feet(area_sqm)
+area_sqft = UnitConverter.convert(area_sqm, "square_meters_to_square_feet")
 print(f"Area: {area_sqm} m² = {area_sqft:.1f} ft²")
 # Output: Area: 150 m² = 1614.6 ft²
 
 # Power calculations
 kilowatts = 186  # Engine power in kW
-horsepower = UnitConverter.kilowatts_to_horsepower(kilowatts)
+horsepower = UnitConverter.convert(kilowatts, "kilowatts_to_horsepower")
 print(f"Power: {kilowatts} kW = {horsepower:.1f} HP")
 # Output: Power: 186 kW = 249.4 HP
+
+# Conversions with additional parameters (e.g., light intensity)
+lux_value = 100
+area = 2  # square meters
+lumens = UnitConverter.convert(lux_value, "lux_to_lumen", area=area)
+print(f"Luminous flux: {lux_value} lux × {area} m² = {lumens} lumens")
+# Output: Luminous flux: 100 lux × 2 m² = 200.0 lumens
 ```
 
 ## 🚨 Important Notes
