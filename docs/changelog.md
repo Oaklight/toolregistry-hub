@@ -10,6 +10,33 @@ author: Oaklight
 
 This page documents all notable changes to the toolregistry-hub project since the first official release version 0.4.14.
 
+## [0.5.2] - 2025-12-12
+
+### ✨ New Features
+
+- **Unit Converter API Routes**
+	- Add unit converter API routes
+	- Refactor unit converter with base class and utility methods
+	- Update unit converter tests
+
+- **Web Search Enhancements**
+	- Add Scrapeless DeepSERP API (Google SERP) integration
+	- Add Bright Data search (Google SERP) integration
+	- Implement universal Google search results parser
+	- Add Bright Data engines test for Bing and Yandex
+	- Add environment variable support for Bing search proxy
+
+### ⚠️ Deprecations
+
+- **Bing Search**: Mark BingSearch as deprecated due to bot detection issues
+
+### 📝 Documentation Improvements
+
+- Update badge styles in README
+- Add DeepWiki badge to documentation
+- Update project description and README file
+- Add references directory to gitignore
+
 ## [0.5.1] - 2025-12-05
 
 ### 🔐 Security & Authentication
