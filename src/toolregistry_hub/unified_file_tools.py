@@ -7,62 +7,34 @@ import fnmatch
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List
 
 from .utils.diff_utility import (
     DiffStyle,
     replace_by_conflict_diff,
     replace_by_unified_diff,
 )
+from .utils.file_parsing import read_single_file_json
 from .utils.filesystem import validate_path
 
 
 class UnifiedFileTools:
-    MAX_READ_SIZE = 1048576  # 1MB
+    MAX_WORDS = 200_000  # ~20万单词限制
 
     @staticmethod
-    def read_file(path: str, max_size: Optional[int] = None) -> Dict[str, Any]:
-        """
-        Read the contents of a file with an optional size limit.
+    def read_file(paths: List[str]) -> List[Dict[str, Any]]:
+        """Read multiple files using _read_single_file.
 
         Args:
-            path: Path to the file relative to the workspace directory.
-            max_size: Optional maximum number of bytes to read. Defaults to 1MB.
+            paths: List of file paths relative to workspace.
 
         Returns:
-            Dict[str, Any] containing file info or {"error": str} on failure.
+            List of dicts, each with "status", "notice", "content" (numbered).
         """
-        validation = validate_path(path)
-        if not validation["valid"]:
-            return {"error": validation["message"]}
-
-        max_size = max_size or UnifiedFileTools.MAX_READ_SIZE
-        try:
-            stat = os.stat(path)
-            size = stat.st_size
-            truncated = size > max_size
-
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
-                if truncated:
-                    f.read(max_size)
-                    content = f.read()[:max_size]  # Wait, better chunk read
-                    # Simple: read all, slice if large
-                    content = f.read()
-                    if len(content.encode("utf-8")) > max_size:
-                        content = content[: max_size // 4]  # Rough char limit
-                        truncated = True
-                else:
-                    content = f.read()
-
-            lines = content.splitlines()
-            return {
-                "content": content,
-                "truncated": truncated,
-                "size": size,
-                "line_count": len(lines),
-            }
-        except Exception as e:
-            return {"error": str(e)}
+        return [
+            read_single_file_json(path, max_words=UnifiedFileTools.MAX_WORDS)
+            for path in paths
+        ]
 
     @staticmethod
     def write_to_file(path: str, content: str) -> Dict[str, Any]:
