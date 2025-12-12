@@ -25,13 +25,12 @@ Usage:
 API Documentation: https://docs.tavily.com/documentation/api-reference/endpoint/search
 """
 
-import os
-import time
 from typing import Dict, List, Optional
 
 import httpx
 from loguru import logger
 
+from ..utils.api_key_parser import APIKeyParser
 from .base import TIMEOUT_DEFAULT, BaseSearch
 from .search_result import SearchResult
 
@@ -46,34 +45,20 @@ class TavilySearch(BaseSearch):
             api_keys: Comma-separated Tavily API keys. If not provided, will try to get from TAVILY_API_KEY env var.
             rate_limit_delay: Delay between requests in seconds to avoid rate limits.
         """
-        api_keys_str = api_keys or os.getenv("TAVILY_API_KEY")
-        if not api_keys_str:
-            raise ValueError(
-                "Tavily API keys are required. Set TAVILY_API_KEY environment variable "
-                "or pass api_keys parameter (comma-separated)."
-            )
-
-        # Parse and validate API keys
-        self.api_keys = [key.strip() for key in api_keys_str.split(",") if key.strip()]
-        if not self.api_keys:
-            raise ValueError("No valid API keys provided")
+        # Initialize API key parser for multiple keys
+        self.api_key_parser = APIKeyParser(
+            api_keys=api_keys,
+            env_var_name="TAVILY_API_KEY",
+            rate_limit_delay=rate_limit_delay,
+        )
 
         self.base_url = "https://api.tavily.com"
-        self.rate_limit_delay = rate_limit_delay
-        self.last_request_time = 0
-        self._current_key_index = 0
-
-    def _get_next_api_key(self) -> str:
-        """Round-robin API key selection."""
-        key = self.api_keys[self._current_key_index]
-        self._current_key_index = (self._current_key_index + 1) % len(self.api_keys)
-        return key
 
     @property
     def _headers(self) -> dict:
         """Generate headers with the current API key."""
         return {
-            "Authorization": f"Bearer {self._get_next_api_key()}",
+            "Authorization": f"Bearer {self.api_key_parser.get_next_api_key()}",
             "Content-Type": "application/json",
         }
 
@@ -214,15 +199,9 @@ class TavilySearch(BaseSearch):
 
     def _wait_for_rate_limit(self):
         """Ensure minimum delay between API requests to avoid rate limits."""
-        current_time = time.time()
-        time_since_last_request = current_time - self.last_request_time
-
-        if time_since_last_request < self.rate_limit_delay:
-            sleep_time = self.rate_limit_delay - time_since_last_request
-            logger.debug(f"Rate limiting: sleeping for {sleep_time:.2f}s")
-            time.sleep(sleep_time)
-
-        self.last_request_time = time.time()
+        # Get the current API key and pass it to the rate limiter
+        current_key = self.api_key_parser.get_next_api_key()
+        self.api_key_parser.wait_for_rate_limit(api_key=current_key)
 
 
 def main():

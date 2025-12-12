@@ -30,8 +30,7 @@ API Documentation: https://docs.scrapeless.com/
 """
 
 import json
-import os
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 import httpx
 from loguru import logger
@@ -46,21 +45,23 @@ class ScrapelessSearch(BaseSearch):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_keys: Optional[str] = None,
         base_url: str = "https://api.scrapeless.com",
     ):
         """Initialize Scrapeless search client.
 
         Args:
-            api_key: Scrapeless API key. If not provided, will try to get from SCRAPELESS_API_KEY env var.
+            api_keys: Comma-separated Scrapeless API keys. If not provided, will try to get from SCRAPELESS_API_KEY env var.
             base_url: Base URL for Scrapeless API. Defaults to https://api.scrapeless.com
         """
-        self.api_key = api_key or os.getenv("SCRAPELESS_API_KEY")
-        if not self.api_key:
-            raise ValueError(
-                "Scrapeless API key is required. Set SCRAPELESS_API_KEY environment variable "
-                "or pass api_key parameter."
-            )
+        # Import APIKeyParser locally to avoid circular imports
+        from ..utils.api_key_parser import APIKeyParser
+
+        # Initialize API key parser for multiple keys
+        self.api_key_parser = APIKeyParser(
+            api_keys=api_keys,
+            env_var_name="SCRAPELESS_API_KEY",
+        )
 
         self.base_url = base_url
         self.endpoint = f"{self.base_url}/api/v1/scraper/request"
@@ -68,12 +69,16 @@ class ScrapelessSearch(BaseSearch):
         # Initialize parser with Scrapeless configuration
         self.parser = GoogleResultParser(SCRAPELESS_CONFIG)
 
+        logger.info(
+            f"Initialized ScrapelessSearch with {self.api_key_parser.key_count} API keys"
+        )
+
     @property
     def _headers(self) -> dict:
         """Generate headers with API key authentication."""
         return {
+            "X-API-Key": self.api_key_parser.get_next_api_key(),
             "Content-Type": "application/json",
-            "X-API-Key": self.api_key,
         }
 
     def search(
