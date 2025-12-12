@@ -28,13 +28,13 @@ API Documentation: https://docs.brightdata.com/
 
 import json
 import os
-import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
 
 import httpx
 from loguru import logger
 
+from ..utils.api_key_parser import APIKeyParser
 from .base import TIMEOUT_DEFAULT, BaseSearch
 from .google_parser import BRIGHTDATA_CONFIG, GoogleResultParser
 from .search_result import SearchResult
@@ -45,81 +45,91 @@ class BrightDataSearch(BaseSearch):
 
     def __init__(
         self,
-        api_token: Optional[str] = None,
+        api_tokens: Optional[str] = None,
         zone: Optional[str] = None,
-        rate_limit_delay: float = 1.0,
     ):
         """Initialize Bright Data search client.
 
         Args:
-            api_token: Bright Data API token. If not provided, will try to get from BRIGHTDATA_API_KEY env var.
+            api_tokens: Comma-separated Bright Data API tokens. If not provided, will try to get from BRIGHTDATA_API_KEY env var.
             zone: Zone name for the request. If not provided, will try BRIGHTDATA_ZONE env var, defaults to 'mcp_unlocker'.
-            rate_limit_delay: Delay between requests in seconds to avoid rate limits.
 
         Raises:
-            ValueError: If API token is not provided and not found in environment variables.
+            ValueError: If API tokens are not provided and not found in environment variables.
         """
-        self.api_token = api_token or os.getenv("BRIGHTDATA_API_KEY")
-        if not self.api_token:
-            raise ValueError(
-                "Bright Data API token is required. Set BRIGHTDATA_API_KEY environment variable "
-                "or pass api_token parameter."
-            )
+        # Initialize API key parser for multiple tokens
+        self.api_key_parser = APIKeyParser(
+            api_keys=api_tokens,
+            env_var_name="BRIGHTDATA_API_KEY",
+        )
 
         self.zone = zone or os.getenv("BRIGHTDATA_ZONE", "mcp_unlocker")
         self.base_url = "https://api.brightdata.com/request"
-        self.rate_limit_delay = rate_limit_delay
-        self.last_request_time = 0
 
         # Initialize parser with Bright Data configuration
         self.parser = GoogleResultParser(BRIGHTDATA_CONFIG)
 
-        # Ensure zone exists
-        self._ensure_zone_exists()
+        # Ensure zone exists for each API key
+        self._ensure_zone_exists_for_all_keys()
 
-        logger.info(f"Initialized BrightDataSearch with zone: {self.zone}")
+        logger.info(
+            f"Initialized BrightDataSearch with zone: {self.zone}, {self.api_key_parser.key_count} API tokens"
+        )
 
-    def _ensure_zone_exists(self):
-        """Ensure the required zone exists, create it if it doesn't."""
-        try:
-            # Check if zone exists
-            with httpx.Client(timeout=30.0) as client:
-                response = client.get(
-                    "https://api.brightdata.com/zone/get_active_zones",
-                    headers=self._headers,
-                )
-                response.raise_for_status()
-                zones = response.json() or []
+    def _ensure_zone_exists_for_all_keys(self):
+        """Ensure the required zone exists for all API keys."""
+        for i, api_key in enumerate(self.api_key_parser.api_keys):
+            try:
+                # Check if zone exists using current API key
+                headers = {
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                }
 
-                has_zone = any(zone.get("name") == self.zone for zone in zones)
-
-                if not has_zone:
-                    logger.info(f"Zone '{self.zone}' not found, creating it...")
-                    # Create the zone
-                    create_response = client.post(
-                        "https://api.brightdata.com/zone",
-                        headers=self._headers,
-                        json={
-                            "zone": {"name": self.zone, "type": "unblocker"},
-                            "plan": {"type": "unblocker"},
-                        },
+                with httpx.Client(timeout=30.0) as client:
+                    response = client.get(
+                        "https://api.brightdata.com/zone/get_active_zones",
+                        headers=headers,
                     )
-                    create_response.raise_for_status()
-                    logger.info(f"Zone '{self.zone}' created successfully")
-                else:
-                    logger.debug(f"Zone '{self.zone}' already exists")
+                    response.raise_for_status()
+                    zones = response.json() or []
 
-        except Exception as e:
-            logger.warning(
-                f"Could not verify/create zone '{self.zone}': {e}. "
-                f"Proceeding anyway - zone might exist or will be created on first use."
-            )
+                    has_zone = any(zone.get("name") == self.zone for zone in zones)
+
+                    if not has_zone:
+                        logger.info(
+                            f"Zone '{self.zone}' not found for key {i + 1}/{len(self.api_key_parser)}, creating it..."
+                        )
+                        # Create the zone
+                        create_response = client.post(
+                            "https://api.brightdata.com/zone",
+                            headers=headers,
+                            json={
+                                "zone": {"name": self.zone, "type": "unblocker"},
+                                "plan": {"type": "unblocker"},
+                            },
+                        )
+                        create_response.raise_for_status()
+                        logger.info(
+                            f"Zone '{self.zone}' created successfully for key {i + 1}/{len(self.api_key_parser)}"
+                        )
+                    else:
+                        logger.debug(
+                            f"Zone '{self.zone}' already exists for key {i + 1}/{len(self.api_key_parser)}"
+                        )
+
+            except Exception as e:
+                logger.warning(
+                    f"Could not verify/create zone '{self.zone}' for key {i + 1}/{len(self.api_key_parser)}: {e}. "
+                    f"Proceeding anyway - zone might exist or will be created on first use."
+                )
 
     @property
     def _headers(self) -> dict:
         """Generate headers for API requests."""
         return {
-            "Authorization": f"Bearer {self.api_token}",
+            "Authorization": f"Bearer {self.api_key_parser.get_next_api_key()}",
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
@@ -210,9 +220,6 @@ class BrightDataSearch(BaseSearch):
         timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
 
         try:
-            # Rate limiting: ensure minimum delay between requests
-            self._wait_for_rate_limit()
-
             with httpx.Client(timeout=timeout) as client:
                 response = client.post(
                     self.base_url,
@@ -289,21 +296,15 @@ class BrightDataSearch(BaseSearch):
 
     def _wait_for_rate_limit(self):
         """Ensure minimum delay between API requests to avoid rate limits."""
-        current_time = time.time()
-        time_since_last_request = current_time - self.last_request_time
-
-        if time_since_last_request < self.rate_limit_delay:
-            sleep_time = self.rate_limit_delay - time_since_last_request
-            logger.debug(f"Rate limiting: sleeping for {sleep_time:.2f}s")
-            time.sleep(sleep_time)
-
-        self.last_request_time = time.time()
+        # Get the current API key and pass it to the rate limiter
+        current_key = self.api_key_parser.get_next_api_key()
+        self.api_key_parser.wait_for_rate_limit(api_key=current_key)
 
 
 def main():
     """Demo usage of BrightDataSearch."""
     try:
-        search = BrightDataSearch(rate_limit_delay=1.2)
+        search = BrightDataSearch()
 
         # Test basic search
         print("=== Basic Search Test ===")
