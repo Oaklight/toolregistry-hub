@@ -15,20 +15,20 @@ class TestBrightDataSearch:
 
     def test_init_with_api_token(self):
         """Test initialization with API token."""
-        search = BrightDataSearch(api_token="test_token_123")
-        assert search.api_token == "test_token_123"
+        search = BrightDataSearch(api_keys="test_token_123")
+        assert search.api_key_parser.key_count == 1
         assert search.zone == "mcp_unlocker"  # Default zone
 
     def test_init_with_custom_zone(self):
         """Test initialization with custom zone."""
-        search = BrightDataSearch(api_token="test_token", zone="custom_zone")
+        search = BrightDataSearch(api_keys="test_token", zone="custom_zone")
         assert search.zone == "custom_zone"
 
     @patch.dict("os.environ", {"BRIGHTDATA_API_KEY": "env_token"})
     def test_init_from_env(self):
         """Test initialization from environment variable."""
         search = BrightDataSearch()
-        assert search.api_token == "env_token"
+        assert search.api_keys == "env_token"
 
     @patch.dict(
         "os.environ",
@@ -47,7 +47,7 @@ class TestBrightDataSearch:
 
     def test_headers_property(self):
         """Test headers property."""
-        search = BrightDataSearch(api_token="test_token")
+        search = BrightDataSearch(api_keys="test_token")
         headers = search._headers
 
         assert headers["Authorization"] == "Bearer test_token"
@@ -88,7 +88,7 @@ class TestBrightDataSearch:
         mock_client.return_value = mock_client_instance
 
         # Perform search
-        search = BrightDataSearch(api_token="test_token")
+        search = BrightDataSearch(api_keys="test_token")
         results = search.search("test query", max_results=5)
 
         # Assertions
@@ -112,7 +112,7 @@ class TestBrightDataSearch:
         mock_client_instance.post.return_value = mock_response
         mock_client.return_value = mock_client_instance
 
-        search = BrightDataSearch(api_token="test_token")
+        search = BrightDataSearch(api_keys="test_token")
         search.search("test query", cursor="2")
 
         # Verify the URL contains correct start parameter
@@ -123,7 +123,7 @@ class TestBrightDataSearch:
     @patch("httpx.Client")
     def test_search_empty_query(self, mock_client):
         """Test search with empty query."""
-        search = BrightDataSearch(api_token="test_token")
+        search = BrightDataSearch(api_keys="test_token")
         results = search.search("")
 
         assert results == []
@@ -138,7 +138,7 @@ class TestBrightDataSearch:
         mock_client_instance.post.side_effect = httpx.TimeoutException("Timeout")
         mock_client.return_value = mock_client_instance
 
-        search = BrightDataSearch(api_token="test_token")
+        search = BrightDataSearch(api_keys="test_token")
         results = search.search("test query")
 
         assert results == []
@@ -158,7 +158,7 @@ class TestBrightDataSearch:
         )
         mock_client.return_value = mock_client_instance
 
-        search = BrightDataSearch(api_token="invalid_token")
+        search = BrightDataSearch(api_keys="invalid_token")
         results = search.search("test query")
 
         assert results == []
@@ -178,7 +178,7 @@ class TestBrightDataSearch:
         )
         mock_client.return_value = mock_client_instance
 
-        search = BrightDataSearch(api_token="test_token", zone="invalid_zone")
+        search = BrightDataSearch(api_keys="test_token", zone="invalid_zone")
         results = search.search("test query")
 
         assert results == []
@@ -198,7 +198,7 @@ class TestBrightDataSearch:
         )
         mock_client.return_value = mock_client_instance
 
-        search = BrightDataSearch(api_token="test_token")
+        search = BrightDataSearch(api_keys="test_token")
         results = search.search("test query")
 
         assert results == []
@@ -216,14 +216,14 @@ class TestBrightDataSearch:
         mock_client_instance.post.return_value = mock_response
         mock_client.return_value = mock_client_instance
 
-        search = BrightDataSearch(api_token="test_token")
+        search = BrightDataSearch(api_keys="test_token")
         results = search.search("test query")
 
         assert results == []
 
     def test_parse_results(self):
         """Test parsing of API results."""
-        search = BrightDataSearch(api_token="test_token")
+        search = BrightDataSearch(api_keys="test_token")
 
         raw_results = {
             "organic": [
@@ -252,14 +252,14 @@ class TestBrightDataSearch:
 
     def test_parse_results_empty(self):
         """Test parsing of empty results."""
-        search = BrightDataSearch(api_token="test_token")
+        search = BrightDataSearch(api_keys="test_token")
         results = search._parse_results({"organic": []})
 
         assert results == []
 
     def test_parse_results_missing_fields(self):
         """Test parsing results with missing fields."""
-        search = BrightDataSearch(api_token="test_token")
+        search = BrightDataSearch(api_keys="test_token")
 
         raw_results = {
             "organic": [
@@ -280,7 +280,7 @@ class TestBrightDataSearch:
         """Test rate limiting functionality."""
         mock_time.side_effect = [0, 0.5, 1.5]  # Simulate time progression
 
-        search = BrightDataSearch(api_token="test_token", rate_limit_delay=1.0)
+        search = BrightDataSearch(api_keys="test_token")
         search.last_request_time = 0
 
         # First call should not sleep
@@ -304,7 +304,7 @@ class TestBrightDataSearch:
         mock_client_instance.post.return_value = mock_response
         mock_client.return_value = mock_client_instance
 
-        search = BrightDataSearch(api_token="test_token")
+        search = BrightDataSearch(api_keys="test_token")
         search.search("test query", max_results=45)
 
         # Should make 3 calls (45 / 20 = 2.25, rounded up to 3)
@@ -323,7 +323,7 @@ class TestBrightDataSearch:
         mock_client_instance.post.return_value = mock_response
         mock_client.return_value = mock_client_instance
 
-        search = BrightDataSearch(api_token="test_token")
+        search = BrightDataSearch(api_keys="test_token")
         search.search("test query", max_results=200)
 
         # Should make 9 calls (180 / 20 = 9)
