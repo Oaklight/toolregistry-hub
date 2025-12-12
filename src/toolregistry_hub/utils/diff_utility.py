@@ -344,7 +344,11 @@ def replace_by_unified_diff(path: str, diff: str) -> bool:
                 elif hl.startswith("-"):
                     orig_pos += 1
                 elif hl.startswith("+"):
-                    patched_lines.append(hl[1:])
+                    # Add the new line without the + prefix, but ensure it has a newline
+                    new_line = hl[1:]
+                    if not new_line.endswith('\n'):
+                        new_line += '\n'
+                    patched_lines.append(new_line)
                 else:
                     raise ValueError(f"Invalid diff line: {hl}")
 
