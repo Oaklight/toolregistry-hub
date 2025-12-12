@@ -14,13 +14,13 @@ class TestScrapelessSearch:
 
     def test_init_with_api_key(self):
         """Test initialization with API key."""
-        search = ScrapelessSearch(api_key="test_key_123")
+        search = ScrapelessSearch(api_keys="test_key_123")
         assert search.api_key == "test_key_123"
         assert search.base_url == "https://api.scrapeless.com"
 
     def test_init_with_custom_base_url(self):
         """Test initialization with custom base URL."""
-        search = ScrapelessSearch(api_key="test_key", base_url="https://custom.api.com")
+        search = ScrapelessSearch(api_keys="test_key", base_url="https://custom.api.com")
         assert search.base_url == "https://custom.api.com"
 
     @patch.dict("os.environ", {"SCRAPELESS_API_KEY": "env_key"})
@@ -37,7 +37,7 @@ class TestScrapelessSearch:
 
     def test_headers_property(self):
         """Test headers property."""
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
         headers = search._headers
 
         assert headers["Content-Type"] == "application/json"
@@ -74,7 +74,7 @@ class TestScrapelessSearch:
         mock_client.return_value = mock_client_instance
 
         # Perform search
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
         results = search.search("test query", max_results=5, engine="google")
 
         # Assertions
@@ -87,7 +87,7 @@ class TestScrapelessSearch:
     @patch("httpx.Client")
     def test_search_empty_query(self, mock_client):
         """Test search with empty query."""
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
         results = search.search("")
 
         assert results == []
@@ -107,7 +107,7 @@ class TestScrapelessSearch:
         mock_client_instance.post.return_value = mock_response
         mock_client.return_value = mock_client_instance
 
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
         results = search.search("test query", engine="unsupported")
 
         # Should fall back to Google
@@ -124,7 +124,7 @@ class TestScrapelessSearch:
         mock_client_instance.post.side_effect = httpx.TimeoutException("Timeout")
         mock_client.return_value = mock_client_instance
 
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
         results = search.search("test query")
 
         assert results == []
@@ -144,7 +144,7 @@ class TestScrapelessSearch:
         )
         mock_client.return_value = mock_client_instance
 
-        search = ScrapelessSearch(api_key="invalid_key")
+        search = ScrapelessSearch(api_keys="invalid_key")
         results = search.search("test query")
 
         assert results == []
@@ -164,14 +164,14 @@ class TestScrapelessSearch:
         )
         mock_client.return_value = mock_client_instance
 
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
         results = search.search("test query")
 
         assert results == []
 
     def test_parse_google_results(self):
         """Test parsing of Google search results."""
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
 
         html = """
         <html>
@@ -198,14 +198,14 @@ class TestScrapelessSearch:
 
     def test_parse_google_results_empty(self):
         """Test parsing of empty Google results."""
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
         results = search._parse_google_results("<html></html>")
 
         assert results == []
 
     def test_parse_bing_results(self):
         """Test parsing of Bing search results."""
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
 
         html = """
         <html>
@@ -229,7 +229,7 @@ class TestScrapelessSearch:
 
     def test_parse_duckduckgo_results(self):
         """Test parsing of DuckDuckGo search results."""
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
 
         html = """
         <html>
@@ -253,7 +253,7 @@ class TestScrapelessSearch:
 
     def test_parse_baidu_results(self):
         """Test parsing of Baidu search results."""
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
 
         html = """
         <html>
@@ -276,7 +276,7 @@ class TestScrapelessSearch:
 
     def test_parse_generic_results(self):
         """Test generic parser for unknown search engines."""
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
 
         html = """
         <html>
@@ -305,7 +305,7 @@ class TestScrapelessSearch:
         mock_client_instance.post.return_value = mock_response
         mock_client.return_value = mock_client_instance
 
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
         results = search.search("test query", max_results=5)
 
         # Should cap results to max_results
@@ -325,7 +325,7 @@ class TestScrapelessSearch:
         mock_client_instance.post.return_value = mock_response
         mock_client.return_value = mock_client_instance
 
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
         search.search("test query", engine="google")
 
         # Verify payload structure
@@ -340,7 +340,7 @@ class TestScrapelessSearch:
 
     def test_search_engines_available(self):
         """Test that all search engines are available."""
-        search = ScrapelessSearch(api_key="test_key")
+        search = ScrapelessSearch(api_keys="test_key")
 
         assert "google" in search.SEARCH_ENGINES
         assert "bing" in search.SEARCH_ENGINES

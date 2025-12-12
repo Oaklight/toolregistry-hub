@@ -5,7 +5,7 @@ but without any authentication middleware. It serves as the foundation
 for both OpenAPI and MCP server implementations.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
@@ -18,7 +18,7 @@ from .routes import get_all_routers
 load_dotenv()
 
 
-def create_core_app(dependencies: Optional[List[Depends]] = None) -> FastAPI:
+def create_core_app(dependencies: Optional[List[Any]] = None) -> FastAPI:
     """Create the core FastAPI application without authentication.
 
     Args:
