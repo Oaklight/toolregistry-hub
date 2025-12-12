@@ -34,18 +34,16 @@ def _parse_bearer_tokens() -> Optional[Set[str]]:
 
     # Method 2: Token file (one token per line)
     token_file = os.getenv("API_BEARER_TOKENS_FILE")
-    if token_file and os.path.exists(token_file):
+    if token_file:
         try:
-            with open(token_file, "r", encoding="utf-8") as f:
-                file_tokens = [line.strip() for line in f if line.strip()]
-                # Use APIKeyParser to validate tokens
-                parser = APIKeyParser(api_keys=",".join(file_tokens))
-                valid_file_tokens = list(parser.api_keys)
-                tokens.update(valid_file_tokens)
-                logger.info(
-                    f"Loaded {len(valid_file_tokens)} tokens from file: {token_file}"
-                )
-        except Exception as e:
+            # Use APIKeyParser with file support
+            parser = APIKeyParser(api_tokens_file=token_file)
+            valid_file_tokens = list(parser.api_keys)
+            tokens.update(valid_file_tokens)
+            logger.info(
+                f"Loaded {len(valid_file_tokens)} tokens from env: API_BEARER_TOKENS_FILE={token_file}"
+            )
+        except ValueError as e:
             logger.error(f"Error reading token file {token_file}: {e}")
 
     if tokens:
