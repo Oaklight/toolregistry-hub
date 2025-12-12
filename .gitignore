@@ -208,3 +208,5 @@ __marimo__/
 github_refs
 
 references/
+.kilocode/
+.cline/
