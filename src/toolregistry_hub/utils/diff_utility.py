@@ -298,7 +298,8 @@ def replace_by_unified_diff(path: str, diff: str) -> bool:
     This function reads a file from the given path, applies the unified diff
     to it, and writes the result back to the same path. The operation is
     atomic - it writes to a temporary file first and then replaces the
-    original file.
+    original file. This version processes files line by line for memory efficiency
+    with large files.
 
     Args:
         path: Path to the file to modify.
@@ -329,44 +330,71 @@ def replace_by_unified_diff(path: str, diff: str) -> bool:
         line3
     """
     try:
-        with open(path, encoding="utf-8", errors="replace") as f:
-            original_lines = f.readlines()
-
         hunks, _ = _parse_unified_diff(diff)
 
-        patched_lines: List[str] = []
-        orig_pos = 0
-
-        for h in hunks:
-            # copy unchanged prefix
-            patched_lines.extend(original_lines[orig_pos : h.orig_start - 1])
-            orig_pos = h.orig_start - 1
-
-            # apply hunk
-            for hl in h.lines:
-                if hl.startswith(" "):
-                    patched_lines.append(original_lines[orig_pos])
-                    orig_pos += 1
-                elif hl.startswith("-"):
-                    orig_pos += 1
-                elif hl.startswith("+"):
-                    # Add the new line without the + prefix, but ensure it has a newline
-                    new_line = hl[1:]
-                    if not new_line.endswith("\n"):
-                        new_line += "\n"
-                    patched_lines.append(new_line)
-                else:
-                    raise ValueError(f"Invalid diff line: {hl}")
-
-        # trailing unchanged lines
-        patched_lines.extend(original_lines[orig_pos:])
+        # Convert hunks to a more efficient format for line-by-line processing
+        hunk_index = 0
+        hunk = hunks[hunk_index] if hunks else None
+        orig_line_num = 1  # 1-based line number in original file
+        hunk_line_index = 0  # index within current hunk
 
         tmp_path = f"{path}.tmp"
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            f.writelines(patched_lines)
+        with open(path, "r", encoding="utf-8", errors="replace") as input_file, open(
+            tmp_path, "w", encoding="utf-8"
+        ) as output_file:
+            for line in input_file:
+                # Check if we need to apply changes for this line
+                if (
+                    hunk
+                    and orig_line_num >= hunk.orig_start
+                    and orig_line_num < hunk.orig_start + hunk.orig_len
+                    and hunk_line_index < len(hunk.lines)
+                ):
+                    hunk_line = hunk.lines[hunk_line_index]
+
+                    if hunk_line.startswith(" "):
+                        # Context line - keep original
+                        output_file.write(line)
+                        hunk_line_index += 1
+                    elif hunk_line.startswith("-"):
+                        # Line to be deleted - skip original line
+                        hunk_line_index += 1
+                        continue
+                    elif hunk_line.startswith("+"):
+                        # Line to be added - write new line
+                        new_line = hunk_line[1:]
+                        if not new_line.endswith("\n"):
+                            new_line += "\n"
+                        output_file.write(new_line)
+                        hunk_line_index += 1
+                        # Don't increment orig_line_num since we didn't consume original line
+                        continue
+                    else:
+                        raise ValueError(f"Invalid diff line: {hunk_line}")
+                else:
+                    # No change needed for this line
+                    output_file.write(line)
+
+                orig_line_num += 1
+
+                # Check if we've finished current hunk
+                if hunk and hunk_line_index >= len(hunk.lines):
+                    hunk_index += 1
+                    if hunk_index < len(hunks):
+                        hunk = hunks[hunk_index]
+                        hunk_line_index = 0
+                    else:
+                        hunk = None
+
         os.replace(tmp_path, path)
         return True
     except Exception:
+        # Clean up temporary file if it exists
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except:
+            pass
         return False
 
 
@@ -481,7 +509,8 @@ def replace_by_conflict_diff(path: str, diff: str) -> bool:
     to it, and writes the result back to the same path. It resolves conflicts
     by replacing the incoming side with the current side. The operation is
     atomic - it writes to a temporary file first and then replaces the
-    original file.
+    original file. This version processes files line by line for memory efficiency
+    with large files.
 
     The conflict diff format should contain blocks like:
         <<<<<<< HEAD
@@ -502,7 +531,7 @@ def replace_by_conflict_diff(path: str, diff: str) -> bool:
 
     Example:
         >>> with open('test.txt', 'w') as f:
-        ...     f.write('line1\\nline2\\nline3\\n')
+        ...     f.write('<<<<<<< HEAD\\nline1\\nline2\\n=======\\nline1\\nline2 changed\\n>>>>>>> incoming\\n')
         >>> conflict_content = '''<<<<<<< HEAD
         ... line1
         ... line2
@@ -515,34 +544,90 @@ def replace_by_conflict_diff(path: str, diff: str) -> bool:
         >>> with open('test.txt') as f:
         ...     print(f.read())
         line1
-        line2 changed
-        line3
+        line2
     """
     try:
-        with open(path, encoding="utf-8", errors="replace") as f:
-            original_lines = f.readlines()
-
         blocks = _parse_conflict_diff(diff)
 
-        patched_lines: List[str] = []
-        orig_pos = 0
+        if not blocks:
+            # No conflict blocks to process, file remains unchanged
+            return True
 
-        # Walk through original lines; when we hit a conflict location, skip
-        # the original "incoming" chunk and insert the "current" chunk instead.
-        for blk in blocks:
-            # skip the incoming_lines (don't copy them)
-            orig_pos += len(blk.incoming_lines)
+        # Convert blocks to a more efficient format for line-by-line processing
+        # Create a lookup for conflict regions
+        conflict_regions = []
+        current_pos = 0
 
-            # replace with the chosen side (current_lines)
-            patched_lines.extend(blk.current_lines)
+        for block in blocks:
+            incoming_start = current_pos
+            incoming_end = current_pos + len(block.incoming_lines)
 
-        # trailing unchanged lines
-        patched_lines.extend(original_lines[orig_pos:])
+            conflict_regions.append(
+                {
+                    "incoming_start": incoming_start,
+                    "incoming_end": incoming_end,
+                    "current_lines": block.current_lines,
+                    "block": block,
+                }
+            )
+
+            current_pos = incoming_end
 
         tmp_path = f"{path}.tmp"
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            f.writelines(patched_lines)
+        with open(path, "r", encoding="utf-8", errors="replace") as input_file, open(
+            tmp_path, "w", encoding="utf-8"
+        ) as output_file:
+            line_index = 0
+            region_index = 0
+            current_region = (
+                conflict_regions[region_index] if conflict_regions else None
+            )
+
+            for line in input_file:
+                # Check if current line is within a conflict region
+                if (
+                    current_region
+                    and current_region["incoming_start"]
+                    <= line_index
+                    < current_region["incoming_end"]
+                ):
+                    # This line is part of the "incoming" content that should be skipped
+                    line_index += 1
+
+                    # Check if we've reached the end of this conflict region
+                    if line_index >= current_region["incoming_end"]:
+                        # Write the "current" lines (chosen resolution)
+                        for current_line in current_region["current_lines"]:
+                            output_file.write(current_line)
+
+                        # Move to next region
+                        region_index += 1
+                        if region_index < len(conflict_regions):
+                            current_region = conflict_regions[region_index]
+                        else:
+                            current_region = None
+
+                    continue
+                else:
+                    # Line is not in a conflict region, write it as-is
+                    output_file.write(line)
+                    line_index += 1
+
+                    # Check if we've entered a new conflict region
+                    if (
+                        current_region
+                        and line_index == current_region["incoming_start"]
+                    ):
+                        # Next lines will be part of conflict region
+                        pass
+
         os.replace(tmp_path, path)
         return True
     except Exception:
+        # Clean up temporary file if it exists
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except:
+            pass
         return False
