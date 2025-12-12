@@ -12,7 +12,7 @@ from ...fetch import TIMEOUT_DEFAULT, Fetch
 # ============================================================
 
 
-class WebFetchWebpageRequest(BaseModel):
+class FetchWebpageRequest(BaseModel):
     """Request model for webpage fetching."""
 
     url: str = Field(
@@ -26,7 +26,7 @@ class WebFetchWebpageRequest(BaseModel):
 # ============================================================
 
 
-class WebFetchWebpageResponse(BaseModel):
+class FetchWebpageResponse(BaseModel):
     """Response model for webpage fetching."""
 
     content: str = Field(..., description="Extracted content from the webpage")
@@ -37,17 +37,17 @@ class WebFetchWebpageResponse(BaseModel):
 # ============================================================
 
 # Create router with prefix and tags
-router = APIRouter(tags=["fetch"])
+router = APIRouter(prefix="/web", tags=["web"])
 
 
 @router.post(
     "/fetch_webpage",
     summary="Extract content from a webpage",
     description=Fetch.fetch_content.__doc__,
-    operation_id="web-fetch_webpage",
-    response_model=WebFetchWebpageResponse,
+    operation_id="fetch_webpage",
+    response_model=FetchWebpageResponse,
 )
-def fetch_webpage(data: WebFetchWebpageRequest) -> WebFetchWebpageResponse:
+def fetch_webpage(data: FetchWebpageRequest) -> FetchWebpageResponse:
     """Extract content from a webpage.
 
     Args:
@@ -58,4 +58,4 @@ def fetch_webpage(data: WebFetchWebpageRequest) -> WebFetchWebpageResponse:
     """
     timeout = data.timeout if data.timeout is not None else TIMEOUT_DEFAULT
     content = Fetch.fetch_content(data.url, timeout=timeout)
-    return WebFetchWebpageResponse(content=content)
+    return FetchWebpageResponse(content=content)
