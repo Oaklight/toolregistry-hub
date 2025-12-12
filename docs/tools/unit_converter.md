@@ -10,6 +10,21 @@ author: Oaklight
 
 单位转换工具提供各种测量系统的综合单位转换功能。这些工具支持多个类别之间的转换，包括温度、长度、重量、时间、容量、面积、速度、数据存储、压力、功率、能量等。
 
+!!! note "API 变化提示 (v0.5.2+)"
+    从 v0.5.2 版本开始，UnitConverter 的 API 发生了重大变化。不再直接暴露所有转换方法（如 `celsius_to_fahrenheit()`），而是通过统一的 `convert()` 方法进行调用。这样做是为了减少 LLM 工具字段的长度，提高性能。
+    
+    **旧版本用法** (v0.5.1 及更早):
+    ```python
+    result = UnitConverter.celsius_to_fahrenheit(25)
+    ```
+    
+    **新版本用法** (v0.5.2+):
+    ```python
+    result = UnitConverter.convert(25, "celsius_to_fahrenheit")
+    ```
+    
+    所有转换功能保持不变，只是调用方式有所改变。
+
 ## 🎯 概述
 
 UnitConverter 类提供不同测量单位之间的精确转换：
@@ -38,28 +53,41 @@ UnitConverter 类提供不同测量单位之间的精确转换：
 from toolregistry_hub import UnitConverter
 
 # 温度转换
-celsius = UnitConverter.fahrenheit_to_celsius(98.6)
+celsius = UnitConverter.convert(98.6, "fahrenheit_to_celsius")
 print(f"98.6°F = {celsius:.1f}°C")
 
 # 长度转换
-feet = UnitConverter.meters_to_feet(2.5)
+feet = UnitConverter.convert(2.5, "meters_to_feet")
 print(f"2.5米 = {feet:.2f}英尺")
 
 # 重量转换
-pounds = UnitConverter.kilograms_to_pounds(70)
+pounds = UnitConverter.convert(70, "kilograms_to_pounds")
 print(f"70千克 = {pounds:.1f}磅")
+
+# 查看所有可用的转换函数
+import json
+conversions = json.loads(UnitConverter.list_conversions("all"))
+print(f"可用转换: {len(conversions)}个")
+
+# 按类别查看转换函数
+temp_conversions = json.loads(UnitConverter.list_conversions("temperature"))
+print(f"温度转换: {temp_conversions}")
+
+# 获取特定转换函数的帮助
+help_text = UnitConverter.help("celsius_to_fahrenheit")
+print(help_text)
 ```
 
 ## 📋 转换类别
 
 ### 温度转换
 
-| 从 → 到         | 方法                      | 公式/转换因子        | 示例                                             |
-| --------------- | ------------------------- | -------------------- | ------------------------------------------------ |
-| 摄氏度 → 华氏度 | `celsius_to_fahrenheit()` | °F = (°C × 9/5) + 32 | `UnitConverter.celsius_to_fahrenheit(25) = 77.0` |
-| 华氏度 → 摄氏度 | `fahrenheit_to_celsius()` | °C = (°F - 32) × 5/9 | `UnitConverter.fahrenheit_to_celsius(77) = 25.0` |
-| 开尔文 → 摄氏度 | `kelvin_to_celsius()`     | °C = K - 273.15      | `UnitConverter.kelvin_to_celsius(298.15) = 25.0` |
-| 摄氏度 → 开尔文 | `celsius_to_kelvin()`     | K = °C + 273.15      | `UnitConverter.celsius_to_kelvin(25) = 298.15`   |
+| 从 → 到         | 转换函数名                | 公式/转换因子        | 示例                                                      |
+| --------------- | ------------------------- | -------------------- | --------------------------------------------------------- |
+| 摄氏度 → 华氏度 | `celsius_to_fahrenheit`   | °F = (°C × 9/5) + 32 | `UnitConverter.convert(25, "celsius_to_fahrenheit") = 77.0` |
+| 华氏度 → 摄氏度 | `fahrenheit_to_celsius`   | °C = (°F - 32) × 5/9 | `UnitConverter.convert(77, "fahrenheit_to_celsius") = 25.0` |
+| 开尔文 → 摄氏度 | `kelvin_to_celsius`       | °C = K - 273.15      | `UnitConverter.convert(298.15, "kelvin_to_celsius") = 25.0` |
+| 摄氏度 → 开尔文 | `celsius_to_kelvin`       | K = °C + 273.15      | `UnitConverter.convert(25, "celsius_to_kelvin") = 298.15`   |
 
 ### 长度转换
 
@@ -187,7 +215,7 @@ from toolregistry_hub import UnitConverter
 
 # 食谱转换
 oven_temp_f = 350  # 350°F用于烘焙
-oven_temp_c = UnitConverter.fahrenheit_to_celsius(oven_temp_f)
+oven_temp_c = UnitConverter.convert(oven_temp_f, "fahrenheit_to_celsius")
 print(f"预热烤箱至 {oven_temp_c:.0f}°C")
 # 输出: 预热烤箱至 177°C
 
@@ -200,7 +228,7 @@ print(f"{cups}杯 = {ml}毫升")
 
 # 重量转换
 pounds = 1.5  # 1.5磅肉
-kg = UnitConverter.pounds_to_kilograms(pounds)
+kg = UnitConverter.convert(pounds, "pounds_to_kilograms")
 print(f"{pounds}磅 = {kg:.3f}千克")
 # 输出: 1.5磅 = 0.680千克
 ```
@@ -212,19 +240,19 @@ from toolregistry_hub import UnitConverter
 
 # 距离转换
 kmh = 100  # 限速为km/h
-mph = UnitConverter.kmh_to_mph(kmh)
+mph = UnitConverter.convert(kmh, "kmh_to_mph")
 print(f"限速：{kmh} km/h = {mph:.1f} mph")
 # 输出: 限速：100 km/h = 62.1 mph
 
 # 燃油效率
 km_per_l = 12  # 12 km/L燃油效率
-mpg = UnitConverter.km_per_liter_to_mpg(km_per_l)
+mpg = UnitConverter.convert(km_per_l, "km_per_liter_to_mpg")
 print(f"燃油效率：{km_per_l} km/L = {mpg:.1f} mpg")
 # 输出: 燃油效率：12 km/L = 28.2 mpg
 
 # 温度转换
 weather_c = 22  # 摄氏度天气
-weather_f = UnitConverter.celsius_to_fahrenheit(weather_c)
+weather_f = UnitConverter.convert(weather_c, "celsius_to_fahrenheit")
 print(f"天气：{weather_c}°C = {weather_f}°F")
 # 输出: 天气：22°C = 71.6°F
 ```
@@ -236,20 +264,20 @@ from toolregistry_hub import UnitConverter
 
 # 电气计算
 voltage_v = 132000  # 高压线路（伏特）
-voltage_kv = UnitConverter.volt_to_kilovolt(voltage_v)
+voltage_kv = UnitConverter.convert(voltage_v, "volt_to_kilovolt")
 print(f"电压：{voltage_v} V = {voltage_kv} kV")
 # 输出: 电压：132000 V = 132.0 kV
 
 # 数据存储
 bytes_data = 1024 * 1024 * 500  # 500 MB的字节数
-kb_data = UnitConverter.bytes_to_kilobytes(bytes_data)
-mb_data = UnitConverter.kilobytes_to_megabytes(kb_data)
+kb_data = UnitConverter.convert(bytes_data, "bytes_to_kilobytes")
+mb_data = UnitConverter.convert(kb_data, "kilobytes_to_megabytes")
 print(f"数据大小：{bytes_data}字节 = {mb_data} MB")
 # 输出: 数据大小：524288000字节 = 500.0 MB
 
 # 压力转换
 pressure_bar = 2.5  # 巴压力
-pressure_atm = UnitConverter.bar_to_atm(pressure_bar)
+pressure_atm = UnitConverter.convert(pressure_bar, "bar_to_atm")
 print(f"压力：{pressure_bar} bar = {pressure_atm:.2f} atm")
 # 输出: 压力：2.5 bar = 2.47 atm
 ```
@@ -261,21 +289,28 @@ from toolregistry_hub import UnitConverter
 
 # 材料尺寸
 length_ft = 10.5  # 英尺长度
-length_m = UnitConverter.feet_to_meters(length_ft)
+length_m = UnitConverter.convert(length_ft, "feet_to_meters")
 print(f"长度：{length_ft}英尺 = {length_m:.3f}米")
 # 输出: 长度：10.5英尺 = 3.200米
 
 # 面积计算
 area_sqm = 150  # 平方米面积
-area_sqft = UnitConverter.square_meters_to_square_feet(area_sqm)
+area_sqft = UnitConverter.convert(area_sqm, "square_meters_to_square_feet")
 print(f"面积：{area_sqm}平方米 = {area_sqft:.1f}平方英尺")
 # 输出: 面积：150平方米 = 1614.6平方英尺
 
 # 功率计算
 kilowatts = 186  # 发动机功率，单位为千瓦
-horsepower = UnitConverter.kilowatts_to_horsepower(kilowatts)
+horsepower = UnitConverter.convert(kilowatts, "kilowatts_to_horsepower")
 print(f"功率：{kilowatts}千瓦 = {horsepower:.1f}马力")
 # 输出: 功率：186千瓦 = 249.4马力
+
+# 带额外参数的转换（如光强度转换）
+lux_value = 100
+area = 2  # 平方米
+lumens = UnitConverter.convert(lux_value, "lux_to_lumen", area=area)
+print(f"光通量：{lux_value} lux × {area} m² = {lumens} lumens")
+# 输出: 光通量：100 lux × 2 m² = 200.0 lumens
 ```
 
 ## 🚨 重要说明
