@@ -7,14 +7,15 @@
 
 from dataclasses import asdict
 
-from fastapi import APIRouter
 from loguru import logger
 
 from ....websearch import websearch_bing
-from .models import WebSearchRequest, WebSearchResponse, WebSearchResultItem
+from ..websearch.models import WebSearchRequest, WebSearchResponse, WebSearchResultItem
 
-# Try to initialize search instance, skip if configuration is missing
-router = APIRouter(prefix="/web", tags=["websearch"])
+# DEPRECATED: Bing search is deprecated due to bot detection issues
+# Router is set to None to prevent automatic registration
+# router = APIRouter(prefix="/web", tags=["websearch"])
+router = None
 bing_search = None
 
 try:
