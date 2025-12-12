@@ -92,24 +92,22 @@ def diff_context(ours: str, theirs: str, n: int = 3) -> str:
         A string containing the context diff output with no line terminators.
 
     Example:
-        >>> original = "line1\\nline2\\nline3\\nline4\\nline5"
+        >>> original = "line1\\nline2\\nline3"
         >>> modified = "line1\\nline2 changed\\nline3\\nline4\\nline5"
         >>> print(diff_context(original, modified))
         ***
         ---
         ***************
-        *** 1,5 ****
-        ! line1
+        *** 1,3 ****
+        line1
         ! line2
-          line3
-          line4
-          line5
-        \------- 1,5 ----
-        ! line1
+        line3
+        --- 1,5 ----
+        line1
         ! line2 changed
-          line3
-          line4
-          line5
+        line3
+        + line4
+        + line5
     """
     return "\n".join(
         difflib.context_diff(ours.splitlines(), theirs.splitlines(), lineterm="", n=n)
