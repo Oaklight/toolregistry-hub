@@ -5,9 +5,26 @@ Provides functions for reading files with line‑numbering, word‑based truncat
 and low‑memory streaming for large files.
 """
 
+import re
 from typing import Any, Dict, Optional, Tuple
 
 from .filesystem import validate_path
+
+
+def strip_line_number_prefix(line: str) -> str:
+    """Strip line number prefix if present (format: "N | content").
+
+    Args:
+        line: Line that may contain line number prefix.
+
+    Returns:
+        Line with line number prefix removed if present, otherwise original line.
+    """
+    # Check for line number prefix pattern: "N | content" where N is digits
+    match = re.match(r"^\s*\d+\s*\|\s*(.*)$", line)
+    if match:
+        return match.group(1)
+    return line
 
 
 def read_file_with_limit(

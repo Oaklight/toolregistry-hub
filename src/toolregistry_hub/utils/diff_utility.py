@@ -37,6 +37,8 @@ from typing import List, Literal, Tuple
 
 from typing_extensions import TypeAlias
 
+from .file_parsing import strip_line_number_prefix
+
 DiffStyle: TypeAlias = Literal["unified", "conflict"]
 
 # ======================================================================
@@ -233,7 +235,8 @@ def _parse_unified_diff(diff: str) -> Tuple[List[Hunk], List[str]]:
 
     This function processes a unified diff format string and extracts
     individual hunks along with any leading context lines that don't
-    belong to any hunk.
+    belong to any hunk. It also handles line number prefixes that may be
+    present when diffs are generated from numbered content.
 
     Args:
         diff: A string containing the unified diff content.
@@ -266,7 +269,8 @@ def _parse_unified_diff(diff: str) -> Tuple[List[Hunk], List[str]]:
     while i < len(lines):
         m = hunk_regex.match(lines[i])
         if not m:
-            context.append(lines[i])
+            # Strip line number prefix from context lines
+            context.append(strip_line_number_prefix(lines[i]))
             i += 1
             continue
 
@@ -278,7 +282,9 @@ def _parse_unified_diff(diff: str) -> Tuple[List[Hunk], List[str]]:
         hunk_lines: List[str] = []
         i += 1
         while i < len(lines) and not hunk_regex.match(lines[i]):
-            hunk_lines.append(lines[i])
+            # Strip line number prefix from hunk lines
+            stripped_line = strip_line_number_prefix(lines[i])
+            hunk_lines.append(stripped_line)
             i += 1
 
         hunks.append(Hunk(orig_start, orig_len, new_start, new_len, hunk_lines))
@@ -346,8 +352,8 @@ def replace_by_unified_diff(path: str, diff: str) -> bool:
                 elif hl.startswith("+"):
                     # Add the new line without the + prefix, but ensure it has a newline
                     new_line = hl[1:]
-                    if not new_line.endswith('\n'):
-                        new_line += '\n'
+                    if not new_line.endswith("\n"):
+                        new_line += "\n"
                     patched_lines.append(new_line)
                 else:
                     raise ValueError(f"Invalid diff line: {hl}")
@@ -396,6 +402,8 @@ def _parse_conflict_diff(diff: str) -> List[ConflictBlock]:
 
     This function processes a conflict diff format string and extracts
     individual conflict blocks, each containing both sides of the conflict.
+    It also handles line number prefixes that may be present when diffs
+    are generated from numbered content.
 
     Args:
         diff: A string containing the conflict diff content.
@@ -435,7 +443,8 @@ def _parse_conflict_diff(diff: str) -> List[ConflictBlock]:
         i += 1
         incoming: List[str] = []
         while i < len(lines) and not sep_re.match(lines[i]):
-            incoming.append(lines[i])
+            # Strip line number prefix from incoming lines
+            incoming.append(strip_line_number_prefix(lines[i]))
             i += 1
         if i >= len(lines):
             break
@@ -444,7 +453,8 @@ def _parse_conflict_diff(diff: str) -> List[ConflictBlock]:
         i += 1
         current: List[str] = []
         while i < len(lines) and not end_re.match(lines[i]):
-            current.append(lines[i])
+            # Strip line number prefix from current lines
+            current.append(strip_line_number_prefix(lines[i]))
             i += 1
         if i >= len(lines):
             break
@@ -473,6 +483,13 @@ def replace_by_conflict_diff(path: str, diff: str) -> bool:
     atomic - it writes to a temporary file first and then replaces the
     original file.
 
+    The conflict diff format should contain blocks like:
+        <<<<<<< HEAD
+        original content
+        =======
+        new content
+        >>>>>>> incoming
+
     Args:
         path: Path to the file to modify.
         diff: A string containing the conflict diff to apply.
@@ -485,7 +502,7 @@ def replace_by_conflict_diff(path: str, diff: str) -> bool:
 
     Example:
         >>> with open('test.txt', 'w') as f:
-        ...     f.write('<<<<<<< HEAD\\nline1\\nline2\\n=======\\nline1\\nline2 changed\\n>>>>>>> incoming\\n')
+        ...     f.write('line1\\nline2\\nline3\\n')
         >>> conflict_content = '''<<<<<<< HEAD
         ... line1
         ... line2
@@ -498,7 +515,8 @@ def replace_by_conflict_diff(path: str, diff: str) -> bool:
         >>> with open('test.txt') as f:
         ...     print(f.read())
         line1
-        line2
+        line2 changed
+        line3
     """
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
