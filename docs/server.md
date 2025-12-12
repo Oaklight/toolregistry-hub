@@ -93,21 +93,29 @@ In OpenAPI mode, all tools are provided as REST API endpoints. After starting th
 
 - `POST /think` - Process thinking requests
 
-#### Web Search Tools
+#### Web Tools
 
-- `POST /web/search_bing` - Search the web using Bing
+- `POST /web/fetch_webpage` - Extract content from webpages
 - `POST /web/search_brave` - Search the web using Brave
 - `POST /web/search_searxng` - Search the web using SearXNG
 - `POST /web/search_tavily` - Search the web using Tavily
+- `POST /web/search_scrapeless` - Search the web using Scrapeless
+- `POST /web/search_brightdata` - Search the web using BrightData
 
 #### Date Time Tools
 
 - `POST /time/now` - Get current time
 - `POST /time/convert` - Convert time zones
 
-#### Web Fetch Tool
+#### Todo List Tool
 
-- `POST /fetch_webpage` - Extract content from webpages
+- `POST /todolist/update` - Update todo list
+
+#### Unit Converter Tool
+
+- `POST /unit/help` - Get unit conversion help information
+- `POST /unit/list_conversions` - List available unit conversions
+- `POST /unit/convert` - Perform unit conversion
 
 ## Authentication
 
@@ -177,8 +185,8 @@ curl -X POST "http://localhost:8000/time/now" \
   -H "Content-Type: application/json" \
   -d '{}'
 
-# Search using Bing
-curl -X POST "http://localhost:8000/web/search_bing" \
+# Search using Brave
+curl -X POST "http://localhost:8000/web/search_brave" \
   -H "Content-Type: application/json" \
   -d '{"query": "python programming", "max_results": 5}'
 ```
@@ -208,9 +216,9 @@ response = requests.post(
 current_time = response.json()
 print(f"Current time: {current_time['current_time']}")
 
-# Search using Bing
+# Search using Brave
 response = requests.post(
-    f"{base_url}/web/search_bing",
+    f"{base_url}/web/search_brave",
     json={"query": "python programming", "max_results": 5}
 )
 search_results = response.json()

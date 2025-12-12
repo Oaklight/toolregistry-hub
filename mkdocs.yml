@@ -64,21 +64,26 @@ extra:
 nav:
   - Home: index.md
   - Tools:
-      - Calculator Tools: tools/calculator.md
-      - Date Time Tools: tools/datetime.md
-      - File Operations: tools/file_ops.md
-      - File System: tools/filesystem.md
-      - Think Tool: tools/think_tool.md
-      - Todo List Tool: tools/todo_list.md
-      - Unit Converter: tools/unit_converter.md
-      - Web Fetch Tool: tools/web_fetch_tool.md
-      - Web Search Tools:
-          - Overview: tools/websearch/index.md
-          - Brave Search: tools/websearch/brave.md
-          - BrightData Search: tools/websearch/brightdata.md
-          - Scrapeless Search: tools/websearch/scrapeless.md
-          - Tavily Search: tools/websearch/tavily.md
-          - SearXNG Search: tools/websearch/searxng.md
+      - Calculation & Conversion:
+          - Calculator Tools: tools/calculator.md
+          - Unit Converter: tools/unit_converter.md
+      - Date & Time:
+          - Date Time Tools: tools/datetime.md
+      - File Management:
+          - File Operations: tools/file_ops.md
+          - File System: tools/filesystem.md
+      - Web Tools:
+          - Web Fetch Tool: tools/websearch/web_fetch_tool.md
+          - Web Search Tools:
+              - Overview: tools/websearch/index.md
+              - Brave Search: tools/websearch/brave.md
+              - BrightData Search: tools/websearch/brightdata.md
+              - Scrapeless Search: tools/websearch/scrapeless.md
+              - Tavily Search: tools/websearch/tavily.md
+              - SearXNG Search: tools/websearch/searxng.md
+      - Other Tools:
+          - Think Tool: tools/think_tool.md
+          - Todo List Tool: tools/todo_list.md
   - Deployment:
       - Server Mode: server.md
       - Docker Deployment: docker.md
@@ -86,8 +91,9 @@ nav:
       - Helper Functions: dev/helper_functions.md
       - Web Search Base Class: tools/websearch/base_search.md
       - Search Result Types: tools/websearch/search_result.md
-      - Legacy Web Search: tools/websearch/legacy.md
-      - Bing Search (Deprecated): tools/websearch/bing.md
+      - Deprecated:
+          - Legacy Web Search: tools/websearch/legacy.md
+          - Bing Search: tools/websearch/bing.md
   - Changelog: changelog.md
   - ToolRegistry: https://toolregistry.readthedocs.io/
 
