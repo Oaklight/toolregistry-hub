@@ -47,7 +47,6 @@ RUN if [ -d "/tmp/build/dist" ] && [ "$(ls -A /tmp/build/dist 2>/dev/null)" ]; t
     fi
 
 # Configure pip mirror based on geographic location
-COPY docker/requirements.txt .
 # RUN pip config set global.index-url https://mirrors.cernet.edu.cn/pypi/web/simple;
 
 # Install dependencies first
@@ -59,27 +58,27 @@ RUN --mount=type=cache,target=/root/.cache/pip \
         python -m pip install -r requirements.txt; \
     fi
 
-# Install the package - prioritize local wheel, then specific version, then latest from PyPI
+# Install the package with server extras - prioritize local wheel + deps, then specific version from PyPI, then latest
 RUN if [ -n "$LOCAL_WHEEL" ] && [ -f "/tmp/dist/$LOCAL_WHEEL" ]; then \
-        echo "Installing from local wheel: $LOCAL_WHEEL"; \
+        echo "Installing from local wheel: $LOCAL_WHEEL + server deps"; \
         if [ -n "$PYPI_MIRROR" ]; then \
-            pip install -i "$PYPI_MIRROR" --no-cache-dir "/tmp/dist/$LOCAL_WHEEL"; \
+            pip install -i "$PYPI_MIRROR" --no-cache-dir "/tmp/dist/$LOCAL_WHEEL" "fastapi>=0.119.0" "uvicorn[standard]>=0.24.0" "fastmcp>=2.12.4"; \
         else \
-            pip install --no-cache-dir "/tmp/dist/$LOCAL_WHEEL"; \
+            pip install --no-cache-dir "/tmp/dist/$LOCAL_WHEEL" "fastapi>=0.119.0" "uvicorn[standard]>=0.24.0" "fastmcp>=2.12.4"; \
         fi; \
     elif [ -n "$PACKAGE_VERSION" ]; then \
-        echo "Installing toolregistry-hub version: $PACKAGE_VERSION"; \
+        echo "Installing toolregistry-hub[server] version: $PACKAGE_VERSION"; \
         if [ -n "$PYPI_MIRROR" ]; then \
-            pip install -i "$PYPI_MIRROR" --no-cache-dir toolregistry-hub==$PACKAGE_VERSION; \
+            pip install -i "$PYPI_MIRROR" --no-cache-dir "toolregistry-hub[server]==$PACKAGE_VERSION"; \
         else \
-            pip install --no-cache-dir toolregistry-hub==$PACKAGE_VERSION; \
+            pip install --no-cache-dir "toolregistry-hub[server]==$PACKAGE_VERSION"; \
         fi; \
     else \
-        echo "Installing latest toolregistry-hub from PyPI"; \
+        echo "Installing latest toolregistry-hub[server] from PyPI"; \
         if [ -n "$PYPI_MIRROR" ]; then \
-            pip install -i "$PYPI_MIRROR" --no-cache-dir toolregistry-hub; \
+            pip install -i "$PYPI_MIRROR" --no-cache-dir "toolregistry-hub[server]"; \
         else \
-            pip install --no-cache-dir toolregistry-hub; \
+            pip install --no-cache-dir "toolregistry-hub[server]"; \
         fi; \
     fi && \
     rm -rf /tmp/dist/ /tmp/build/
