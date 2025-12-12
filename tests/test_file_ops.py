@@ -109,7 +109,7 @@ class TestFileOps:
         """Test path validation with empty path."""
         result = FileOps.validate_path("")
         assert result["valid"] is False
-        assert "Empty path" in result["message"]
+        assert "Empty path" in str(result["message"])
 
     def test_validate_path_dangerous_chars(self):
         """Test path validation with dangerous characters."""
@@ -124,7 +124,7 @@ class TestFileOps:
         for path in dangerous_paths:
             result = FileOps.validate_path(path)
             assert result["valid"] is False
-            assert "dangerous characters" in result["message"]
+            assert "dangerous characters" in str(result["message"])
 
     def test_search_files(self):
         """Test searching files with regex."""

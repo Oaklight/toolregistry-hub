@@ -1,0 +1,8 @@
+{
+  "reportMissingImports": false,
+  "reportMissingTypeStubs": false,
+  "reportAttributeAccessIssue": false,
+  "pythonVersion": "3.12",
+  "include": ["src", "tests"],
+  "typeCheckingMode": "basic"
+}

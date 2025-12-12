@@ -356,7 +356,7 @@ class TestUnitConverter:
     def test_list_conversions_invalid_category(self):
         """Test listing conversions with invalid category."""
         with pytest.raises(ValueError, match="Invalid category"):
-            UnitConverter.list_conversions("invalid_category")
+            UnitConverter.list_conversions("invalid_category")  # type: ignore[reportArgumentType]
 
     # Test help method
     def test_help_valid_function(self):
