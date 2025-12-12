@@ -64,4 +64,4 @@ __all__ = [
     "TodoList",
 ]
 
-version = "0.5.1"  # standalone version
+version = "0.5.2"  # standalone version
