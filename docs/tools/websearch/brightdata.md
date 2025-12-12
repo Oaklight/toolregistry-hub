@@ -6,6 +6,18 @@ This document describes how to use the Bright Data SERP API for Google searches.
 
 Bright Data is an enterprise-grade web data platform that provides powerful anti-bot bypass capabilities. By integrating Bright Data's SERP API, we can:
 
+## Class Overview
+
+- `BrightDataSearch` - A class that provides Bright Data Google search functionality
+
+#### Initialization Parameters
+
+- `api_keys: Optional[str] = None` - Comma-separated Bright Data API tokens. If not provided, will try to get from BRIGHTDATA_API_KEY env var
+- `zone: Optional[str] = None` - Bright Data zone name (default: "mcp_unlocker")
+- `rate_limit_delay: float = 1.0` - Delay between requests in seconds to avoid rate limits
+
+## Architecture
+
 - ✅ Bypass Google's anti-bot mechanisms
 - ✅ Get structured search results
 - ✅ Support pagination
@@ -50,7 +62,7 @@ BRIGHTDATA_ZONE=mcp_unlocker
 
 ### Python API
 
-```python
+````python
 from toolregistry_hub.websearch import BrightDataSearch
 
 # Initialize search client
@@ -66,19 +78,42 @@ for result in results:
     print(f"Score: {result.score}")  # Score based on search position
     print("-" * 50)
 
+### Using Multiple API Keys
+
+```python
+from toolregistry_hub.websearch import BrightDataSearch
+
+# Create search instance with multiple API keys for load balancing
+api_keys = "token1,token2,token3"
+search = BrightDataSearch(api_keys=api_keys)
+
+# Execute search
+results = search.search("machine learning tutorial", max_results=10)
+
+# Process search results
+for result in results:
+    print(f"Title: {result.title}")
+    print(f"URL: {result.url}")
+    print(f"Content: {result.content[:200]}...")
+    print("-" * 50)
+````
+
 # Paginated search (get page 2 results)
+
 results_page2 = search.search(
-    "artificial intelligence",
-    max_results=10,
-    cursor="1"  # Page number starts from 0
+"artificial intelligence",
+max_results=10,
+cursor="1" # Page number starts from 0
 )
 
 # Custom timeout
+
 results = search.search(
-    "machine learning",
-    max_results=5,
-    timeout=30.0
+"machine learning",
+max_results=5,
+timeout=30.0
 )
+
 ```
 
 ### REST API
@@ -86,8 +121,10 @@ results = search.search(
 #### Endpoint
 
 ```
+
 POST /web/search_brightdata_google
-```
+
+````
 
 #### Request Example
 
@@ -101,16 +138,16 @@ curl -X POST "http://localhost:8000/web/search_brightdata_google" \
     "timeout": 10.0,
     "cursor": "0"
   }'
-```
+````
 
 #### Request Parameters
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `query` | string | ✅ | - | Search query string |
-| `max_results` | integer | ❌ | 5 | Number of results to return (1-20) |
-| `timeout` | float | ❌ | 10.0 | Request timeout in seconds |
-| `cursor` | string | ❌ | "0" | Pagination cursor (page number, starts from 0) |
+| Parameter     | Type    | Required | Default | Description                                    |
+| ------------- | ------- | -------- | ------- | ---------------------------------------------- |
+| `query`       | string  | ✅       | -       | Search query string                            |
+| `max_results` | integer | ❌       | 5       | Number of results to return (1-20)             |
+| `timeout`     | float   | ❌       | 10.0    | Request timeout in seconds                     |
+| `cursor`      | string  | ❌       | "0"     | Pagination cursor (page number, starts from 0) |
 
 #### Response Example
 
@@ -127,7 +164,7 @@ curl -X POST "http://localhost:8000/web/search_brightdata_google" \
       "title": "Best Python Scraping Libraries",
       "url": "https://example.com/libraries",
       "content": "A comprehensive guide to Python scraping tools...",
-      "score": 0.90
+      "score": 0.9
     }
   ]
 }
@@ -182,7 +219,7 @@ from toolregistry_hub.websearch import BrightDataSearch
 
 # Use custom configuration
 search = BrightDataSearch(
-    api_token="your_custom_token",
+    api_keys="your_custom_token",
     zone="custom_zone_name",
     rate_limit_delay=2.0  # 2 seconds delay between requests
 )
@@ -272,13 +309,13 @@ from toolregistry_hub.websearch import BrightDataSearch
 try:
     search = BrightDataSearch()
     results = search.search("test query")
-    
+
     if not results:
         print("No results found or error occurred")
     else:
         for result in results:
             print(f"{result.title} (score: {result.score})")
-            
+
 except ValueError as e:
     print(f"Configuration error: {e}")
 except Exception as e:
@@ -347,6 +384,7 @@ BRIGHTDATA_CONFIG = GoogleAPIConfig(
 ```
 
 This configuration tells the parser:
+
 - Where to find organic results in the API response
 - Which fields to check for URLs (in priority order)
 - Which fields to check for descriptions

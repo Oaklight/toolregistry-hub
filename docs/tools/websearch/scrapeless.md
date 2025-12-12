@@ -13,6 +13,11 @@ Scrapeless Google Search provides functionality to perform Google web searches u
 
 - `ScrapelessSearch` - A class that provides Scrapeless DeepSERP API Google search functionality
 
+#### Initialization Parameters
+
+- `api_keys: Optional[str] = None` - Comma-separated Scrapeless API keys. If not provided, will try to get from SCRAPELESS_API_KEY env var
+- `base_url: Optional[str] = "https://api.scrapeless.com"` - Base URL for Scrapeless API
+
 ## Architecture
 
 Scrapeless search implementation uses a **universal Google result parser** ([`GoogleResultParser`](../../websearch/google_parser.md)) that:
@@ -50,6 +55,26 @@ for result in results:
     print(f"URL: {result.url}")
     print(f"Content: {result.content}")
     print(f"Score: {result.score}")  # Position-based score
+    print("-" * 50)
+```
+
+### Using Multiple API Keys
+
+```python
+from toolregistry_hub.websearch import ScrapelessSearch
+
+# Create search instance with multiple API keys for load balancing
+api_keys = "key1,key2,key3"
+scrapeless_search = ScrapelessSearch(api_keys=api_keys)
+
+# Execute search
+results = scrapeless_search.search("machine learning tutorial", max_results=10)
+
+# Process search results
+for result in results:
+    print(f"Title: {result.title}")
+    print(f"URL: {result.url}")
+    print(f"Content: {result.content}")
     print("-" * 50)
 ```
 
@@ -99,7 +124,7 @@ from toolregistry_hub.websearch import ScrapelessSearch
 
 # Create search instance with custom configuration
 scrapeless_search = ScrapelessSearch(
-    api_key="your-api-key-here",
+    api_keys="your-api-key-here",
     base_url="https://api.scrapeless.com"
 )
 
@@ -253,6 +278,7 @@ SCRAPELESS_CONFIG = GoogleAPIConfig(
 ```
 
 This configuration tells the parser:
+
 - Where to find organic results (`organic_results` array)
 - Which fields to check for URLs (tries `link` first, then `redirect_link`)
 - Which fields to check for descriptions (tries `snippet` first, then `description`)
