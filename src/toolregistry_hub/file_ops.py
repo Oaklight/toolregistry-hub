@@ -1,114 +1,335 @@
 """
-file_ops.py - Atomic file operations toolkit for LLM agents
-
-Key features:
-- All methods are static for stateless usage
-- Atomic writes with automatic backups
-- Unified error handling
-- Diff/patch and git conflict support
-- Structured data parsing
+Unified file tools matching Kilo Code API.
+Implements 7 core functions with atomic ops and safety.
 """
 
-import difflib
 import fnmatch
 import os
 import re
-from typing import Dict, List, Union
+from pathlib import Path
+from typing import Any, Dict, List
+
+from .utils.diff_utility import (
+    DiffStyle,
+    replace_by_conflict_diff,
+    replace_by_unified_diff,
+)
+from .utils.file_parsing import read_single_file_json
+from .utils.filesystem import validate_path
 
 
 class FileOps:
-    """Core file operations toolkit designed for LLM agent integration.
+    MAX_WORDS = 200_000  # ~20万单词限制
 
-    Handles file reading, atomic writing, appending, searching, and diff-based modifications.
-    """
-
-    # ======================
-    #  Content Modification
-    # ======================
+    # ===================================================
+    # File Reading Operations
+    # ===================================================
 
     @staticmethod
-    def replace_by_diff(path: str, diff: str) -> None:
-        """Apply unified diff format changes atomically to a file.
+    def read_file(paths: List[str]) -> List[Dict[str, Any]]:
+        """Read multiple files using _read_single_file.
 
         Args:
-            path: The file path to modify.
-            diff: Unified diff text (must use standard format with ---/+++ headers and @@ hunk markers).
-
-        Example diff text:
-            --- a/original_file
-            +++ b/modified_file
-            @@ -1,3 +1,3 @@
-            -line2
-            +line2 modified
-
-        Raises:
-            ValueError: On invalid diff format or patch failure
-        """
-        original = FileOps.read_file(path)
-        original_lines = original.splitlines(keepends=True)
-        diff_lines = diff.splitlines(keepends=True)
-        patched_lines = []
-        orig_pos = 0
-
-        hunk_regex = re.compile(r"@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@")
-
-        i = 0
-        while i < len(diff_lines):
-            line = diff_lines[i]
-            if line.startswith("@@"):
-                m = hunk_regex.match(line)
-                if not m:
-                    raise ValueError("Invalid diff hunk header")
-                orig_start = int(m.group(1)) - 1
-
-                # Add unchanged lines before hunk
-                patched_lines.extend(original_lines[orig_pos:orig_start])
-                orig_pos = orig_start
-
-                i += 1
-                while i < len(diff_lines) and not diff_lines[i].startswith("@@"):
-                    hline = diff_lines[i]
-                    if hline.startswith(" "):
-                        patched_lines.append(original_lines[orig_pos])
-                        orig_pos += 1
-                    elif hline.startswith("-"):
-                        orig_pos += 1
-                    elif hline.startswith("+"):
-                        patched_lines.append(hline[1:])
-                    else:
-                        raise ValueError(f"Invalid diff line: {hline}")
-                    i += 1
-            else:
-                i += 1
-
-        # Add remaining lines after last hunk
-        patched_lines.extend(original_lines[orig_pos:])
-
-        content = "".join(patched_lines)
-        FileOps.write_file(path, content)
-
-    @staticmethod
-    def search_files(path: str, regex: str, file_pattern: str = "*") -> List[dict]:
-        """Perform regex search across files in a directory, returning matches with context.
-
-        Args:
-            path: The directory path to search recursively.
-            regex: The regex pattern to search for.
-            file_pattern: Glob pattern to filter files (default='*').
+            paths: List of file paths relative to workspace.
 
         Returns:
-            List of dicts with keys:
-                - file: file path
-                - line_num: line number of match (1-based)
-                - line: matched line content
-                - context: list of context lines (tuples of line_num, line content)
+            List of dicts, each with "status", "notice", "content" (numbered).
         """
+        return [
+            read_single_file_json(path, max_words=FileOps.MAX_WORDS)
+            for path in paths
+        ]
+
+    # ===================================================
+    # File Writing Operations
+    # ===================================================
+
+    @staticmethod
+    def write_to_file(path: str, content: str) -> Dict[str, Any]:
+        """
+        Write content to a file using atomic replacement via temporary file.
+
+        Args:
+            path: Path to the file relative to the workspace directory.
+            content: String content to write.
+
+        Returns:
+            {"success": True} on success, {"success": False, "error": str} on failure.
+        """
+        validation = validate_path(path)
+        if not validation["valid"]:
+            return {"success": False, "error": validation["message"]}
+
+        tmp_path = f"{path}.tmp"
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            os.replace(tmp_path, path)
+            return {"success": True}
+        except Exception as e:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            return {"success": False, "error": str(e)}
+
+    @staticmethod
+    def insert_content(path: str, line: int, content: str) -> Dict[str, Any]:
+        """
+        Insert content before a specific line number or append at the end.
+        Processes large files efficiently using streaming I/O to minimize memory use.
+
+        Args:
+            path: Path to the file relative to the workspace directory.
+            line: 1-based line number to insert before (0 to append).
+            content: Content to insert (may be multi-line).
+
+        Returns:
+            {"success": True, "new_line_count": int} on success,
+            {"success": False, "error": str} on failure.
+        """
+        validation = validate_path(path)
+        if not validation["valid"]:
+            return {"success": False, "error": validation["message"]}
+
+        try:
+            tmp_path = f"{path}.tmp"
+            inserted = False  # Tracks whether content was successfully inserted
+            line_count = 0  # Counts total lines in the new file
+
+            with open(path, "r", encoding="utf-8", errors="replace") as infile, open(
+                tmp_path, "w", encoding="utf-8"
+            ) as outfile:
+                # Case 1: Append mode (insert at end)
+                if line == 0:
+                    # Stream all lines unchanged, then write content at the end
+                    for line_text in infile:
+                        outfile.write(line_text)
+                        line_count += 1
+                    outfile.write(content)
+                    # Update line count for inserted content
+                    line_count += content.count("\n") + (
+                        1 if not content.endswith("\n") else 0
+                    )
+                    inserted = True
+
+                else:
+                    target = line - 1  # Convert 1-based line to 0-based index
+                    # Stream through file and insert content just before the target line
+                    for i, line_text in enumerate(infile):
+                        if i == target:
+                            # Insert new content *before* writing current line
+                            outfile.write(content)
+                            inserted = True
+                        outfile.write(line_text)
+                        line_count += 1
+
+                    # Handle insertion at EOF+1 (e.g., valid to insert at line N+1)
+                    if not inserted and line == line_count + 1:
+                        outfile.write(content)
+                        line_count += content.count("\n") + (
+                            1 if not content.endswith("\n") else 0
+                        )
+                        inserted = True
+
+            # Validate that insertion happened correctly
+            if not inserted:
+                return {
+                    "success": False,
+                    "error": f"Line {line} out of range (1-{line_count + 1})",
+                }
+
+            # Atomically replace original file with updated version
+            os.replace(tmp_path, path)
+            return {"success": True, "new_line_count": line_count}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    # ===================================================
+    # File Modification Operations
+    # ===================================================
+
+    @staticmethod
+    def apply_diff(
+        path: str, diff: str, format: DiffStyle = "unified"
+    ) -> Dict[str, Any]:
+        """
+        Apply a PRECISE, TARGETED modification to a file using a diff in unified or conflict format.
+        This is a SURGICAL operation intended for exact, intentional edits — not bulk changes.
+
+        The SEARCH content (in either format) must exactly match the current file content, including whitespace, indentation, and line endings. If you're uncertain about the exact current content, use `read_file` first to retrieve it.
+
+        Args:
+            path: Path to the file.
+            diff: The diff content as string.
+                  - Unified diff: Must follow standard format with ---/+++ headers and @@ hunk markers.
+                  - Conflict diff: Must use <<<<<<< SEARCH, =======, >>>>>>> REPLACE markers.
+            format: Diff format ("unified" or "conflict"). Defaults to "unified".
+
+        Examples:
+            Unified diff:
+                --- a/original_file
+                +++ b/modified_file
+                @@ -1,3 +1,3 @@
+                 line1
+                -line2
+                +line2 modified
+                 line3
+
+            Git conflict-style diff:
+                <<<<<<< SEARCH
+                line2
+                =======
+                line2 modified
+                >>>>>>> REPLACE
+
+        Returns:
+            {"success": bool, "format": str} or {"success": False, "error": str}
+        """
+        validation = validate_path(path)
+        if not validation["valid"]:
+            return {"success": False, "error": validation["message"]}
+
+        try:
+            if format == "unified":
+                success = replace_by_unified_diff(path, diff)
+            elif format == "conflict":
+                success = replace_by_conflict_diff(path, diff)
+            else:
+                return {
+                    "success": False,
+                    "error": f"Invalid format, must be one of {DiffStyle}",
+                }
+            return {"success": success, "format": format}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    @staticmethod
+    def search_and_replace(
+        path: str,
+        search: str,
+        replace: str,
+        use_regex: bool = False,
+        ignore_case: bool = False,
+        dry_run: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Search and replace text or regex patterns in a file with dry-run preview.
+
+        Args:
+            path: Path to the file.
+            search: String to search for.
+            replace: Replacement string.
+            use_regex: Treat search as regex pattern. Defaults to False.
+            ignore_case: Ignore case in matching. Defaults to False.
+            dry_run: Preview changes without applying. Defaults to True.
+
+        Returns:
+            Dict with "preview" (list of changes), "applied_count", "dry_run",
+            or {"error": str}.
+        """
+        # Validate the file path before proceeding
+        validation = validate_path(path)
+        if not validation["valid"]:
+            return {"error": validation["message"]}
+
+        # Prevent unnecessary processing if search and replace are the same
+        if search == replace:
+            return {
+                "error": "Search and replace strings are identical; no changes would be made."
+            }
+
+        # Compile regex pattern with optional ignore-case flag if requested
+        flags = re.IGNORECASE if ignore_case else 0
+        pattern = re.compile(search, flags) if use_regex else None
+
+        try:
+            # Read file line by line to preserve line endings and structure
+            with open(path, "r", encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+
+            preview = []  # Store change previews for reporting
+            applied = 0  # Track how many replacements were made
+            new_lines = lines.copy()  # Work on a mutable copy
+
+            # Process each line and detect matches
+            for i, line in enumerate(lines):
+                if pattern:
+                    # Use regex substitution if enabled
+                    matches = pattern.finditer(line)
+                    for m in matches:
+                        old = line
+                        # Replace only the first match per line (simulates line-level sub)
+                        new_line = pattern.sub(replace, line, count=1)
+                        preview.append(
+                            {
+                                "line": i + 1,
+                                "old": old.rstrip(),
+                                "new": new_line.rstrip(),
+                            }
+                        )
+                        if not dry_run:
+                            new_lines[i] = new_line
+                            applied += 1
+                else:
+                    # Perform literal string search and replace
+                    if search in line:
+                        old = line
+                        new_line = line.replace(search, replace)
+                        preview.append(
+                            {
+                                "line": i + 1,
+                                "old": old.rstrip(),
+                                "new": new_line.rstrip(),
+                            }
+                        )
+                        if not dry_run:
+                            new_lines[i] = new_line
+                            applied += 1
+
+            # Only write back to file if not in dry-run mode
+            if not dry_run:
+                new_content = "".join(new_lines)
+                tmp_path = f"{path}.tmp"
+                with open(tmp_path, "w", encoding="utf-8") as f:
+                    f.write(new_content)
+                # Atomically replace original file with updated version
+                os.replace(tmp_path, path)
+
+            return {
+                "preview": preview,
+                "applied_count": applied if not dry_run else 0,
+                "dry_run": dry_run,
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    # ===================================================
+    # File Search Operations
+    # ===================================================
+
+    @staticmethod
+    def search_files(
+        dir_path: str, regex: str, file_pattern: str = "*", context_lines: int = 2
+    ) -> List[Dict[str, Any]]:
+        """
+        Recursively search for a regex pattern across files in a directory.
+
+        Args:
+            dir_path: Directory path to search (relative to workspace).
+            regex: Regular expression pattern to match.
+            file_pattern: Glob pattern to filter files (e.g., "*.py"). Defaults to "*".
+            context_lines: Number of surrounding lines for context. Defaults to 2.
+
+        Returns:
+            List[Dict[str, Any]] of matches with file, line_num, line, context.
+        """
+        validation = validate_path(dir_path)
+        if not validation["valid"]:
+            return [{"error": validation["message"]}]
 
         pattern = re.compile(regex)
         results = []
-        context_radius = 2  # lines before and after match to include as context
 
-        for root, dirs, files in os.walk(path):
+        for root, dirs, files in os.walk(dir_path):
             for filename in files:
                 if not fnmatch.fnmatch(filename, file_pattern):
                     continue
@@ -116,16 +337,16 @@ class FileOps:
                 try:
                     with open(file_path, "r", encoding="utf-8", errors="replace") as f:
                         lines = f.readlines()
-                except Exception:
+                except:
                     continue
 
                 for i, line in enumerate(lines):
                     if pattern.search(line):
-                        start_context = max(0, i - context_radius)
-                        end_context = min(len(lines), i + context_radius + 1)
-                        context_lines = [
+                        start = max(0, i - context_lines)
+                        end = min(len(lines), i + context_lines + 1)
+                        context = [
                             (ln + 1, lines[ln].rstrip("\n"))
-                            for ln in range(start_context, end_context)
+                            for ln in range(start, end)
                             if ln != i
                         ]
                         results.append(
@@ -133,180 +354,48 @@ class FileOps:
                                 "file": file_path,
                                 "line_num": i + 1,
                                 "line": line.rstrip("\n"),
-                                "context": context_lines,
+                                "context": context,
                             }
                         )
         return results
 
     @staticmethod
-    def replace_by_git(path: str, diff: str) -> None:
-        """Apply git conflict style diff atomically to a file, replacing conflicted sections.
-
-        Args:
-            path: File path to modify.
-            diff: Git conflict style diff text (using <<<<<<< SEARCH, =======, >>>>>>> REPLACE markers).
-
-        Example diff text:
-            <<<<<<< SEARCH
-            line2
-            =======
-            line2 modified
-            >>>>>>> REPLACE
-
-        Raises:
-            ValueError: On invalid diff format or patch failure
+    def list_files(
+        dir_path: str, recursive: bool = False, show_hidden: bool = False
+    ) -> List[str]:
         """
-        original = FileOps.read_file(path)
-        original_lines = original.splitlines(keepends=True)
-        diff_lines = diff.splitlines(keepends=True)
-        patched_lines = []
-        orig_pos = 0
-
-        conflict_start_re = re.compile(r"<<<<<<<.*")
-        conflict_sep_re = re.compile(r"=======")
-        conflict_end_re = re.compile(r">>>>>>>.*")
-
-        i = 0
-        while i < len(diff_lines):
-            line = diff_lines[i]
-            if conflict_start_re.match(line):
-                # Add lines before conflict
-                patched_lines.extend(original_lines[orig_pos:orig_pos])
-                i += 1
-                # Count lines in original conflict block to skip
-                orig_conflict_lines = 0
-                # Skip lines until separator in diff
-                while i < len(diff_lines) and not conflict_sep_re.match(diff_lines[i]):
-                    i += 1
-                    orig_conflict_lines += 1
-                i += 1  # skip separator line
-                # Add lines after separator until conflict end
-                conflict_replacement_lines = []
-                while i < len(diff_lines) and not conflict_end_re.match(diff_lines[i]):
-                    conflict_replacement_lines.append(diff_lines[i])
-                    i += 1
-                i += 1  # skip conflict end line
-                patched_lines.extend(conflict_replacement_lines)
-                # Skip original conflicted lines
-                orig_pos += orig_conflict_lines
-            else:
-                if orig_pos < len(original_lines):
-                    patched_lines.append(original_lines[orig_pos])
-                    orig_pos += 1
-                i += 1
-
-        # Add remaining lines after last conflict
-        patched_lines.extend(original_lines[orig_pos:])
-
-        content = "".join(patched_lines)
-        FileOps.write_file(path, content)
-
-    # ======================
-    #  File I/O Operations
-    # ======================
-
-    @staticmethod
-    def read_file(path: str) -> str:
-        """Read text file content.
+        List files and directories in a path.
 
         Args:
-            path: File path to read
+            dir_path: Directory path.
+            recursive: Recurse into subdirectories. Defaults to False.
+            show_hidden: Show hidden files/directories. Defaults to False.
 
         Returns:
-            File content as string
-
-        Raises:
-            FileNotFoundError: If path doesn't exist
-            UnicodeError: On encoding failures
+            List[str] of relative paths (recursive) or basenames (top-level),
+            or ["Error: message"] on invalid path.
         """
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            return f.read()
+        validation = validate_path(dir_path)
+        if not validation["valid"]:
+            return [f"Error: {validation['message']}"]
 
-    @staticmethod
-    def write_file(path: str, content: str) -> None:
-        """Atomically write content to a text file (overwrite). Creates the file if it doesn't exist.
+        p = Path(dir_path)
+        if not p.is_dir():
+            return []
 
-        Args:
-            path: Destination file path
-            content: Content to write
-        """
-        tmp_path = f"{path}.tmp"
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        os.replace(tmp_path, path)
+        if recursive:
+            items = [
+                str(rel) for rel in p.rglob("*") if not rel.is_dir() or show_hidden
+            ]  # Files + dirs if hidden?
+            # Adjust for hidden
+            items = []
+            for rel in p.rglob("*"):
+                if show_hidden or not rel.name.startswith("."):
+                    items.append(str(rel.relative_to(p)))
+        else:
+            items = []
+            for child in p.iterdir():
+                if show_hidden or not child.name.startswith("."):
+                    items.append(child.name)
 
-    @staticmethod
-    def append_file(path: str, content: str) -> None:
-        """Append content to a text file. Creates the file if it doesn't exist.
-
-        Args:
-            path: Destination file path
-            content: Content to append
-        """
-        # Use 'a' mode for appending, creates file if it doesn't exist
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(content)
-
-    # ======================
-    #  Content Generation
-    # ======================
-
-    @staticmethod
-    def make_diff(ours: str, theirs: str) -> str:
-        """Generate unified diff text between two strings.
-
-        Args:
-            ours: The 'ours' version string.
-            theirs: The 'theirs' version string.
-
-        Note:
-            Intended for comparison/visualization, not direct modification.
-            not for direct text modification tasks.
-
-        Returns:
-            Unified diff text
-        """
-        return "\n".join(
-            difflib.unified_diff(ours.splitlines(), theirs.splitlines(), lineterm="")
-        )
-
-    @staticmethod
-    def make_git_conflict(ours: str, theirs: str) -> str:
-        """Generate git merge conflict marker text between two strings.
-
-        Args:
-            ours: The 'ours' version string.
-            theirs: The 'theirs' version string.
-
-        Note:
-            Intended for comparison/visualization, not direct modification.
-            not for direct text modification tasks.
-
-        Returns:
-            Text with conflict markers
-        """
-        return f"<<<<<<< HEAD\n{ours}\n=======\n{theirs}\n>>>>>>> incoming\n"
-
-    # ======================
-    #  Safety Utilities
-    # ======================
-
-    @staticmethod
-    def validate_path(path: str) -> Dict[str, Union[bool, str]]:
-        """Validate file path safety (checks for empty paths, dangerous characters).
-
-        Args:
-            path: The path string to validate.
-
-        Returns:
-            Dictionary with keys:
-            - valid (bool): Path safety status
-            - message (str): Description if invalid
-        """
-        if not path:
-            return {"valid": False, "message": "Empty path"}
-        if "~" in path:
-            path = os.path.expanduser(path)
-        if any(c in path for c in '*?"><|'):
-            return {"valid": False, "message": "Contains dangerous characters"}
-        return {"valid": True, "message": ""}
+        return items

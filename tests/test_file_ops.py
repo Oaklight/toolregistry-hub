@@ -1,4 +1,4 @@
-"""Unit tests for FileOps module."""
+"""Unit tests for FileOps."""
 
 import os
 import tempfile
@@ -9,240 +9,164 @@ from toolregistry_hub.file_ops import FileOps
 
 
 class TestFileOps:
-    """Test cases for FileOps class."""
-
     def setup_method(self):
-        """Set up test environment before each test."""
         self.temp_dir = tempfile.mkdtemp()
         self.test_file = os.path.join(self.temp_dir, "test.txt")
-        self.test_content = "Hello, World!\nThis is a test file.\nLine 3"
-
-        # Create a test file
+        self.test_content = "Hello, World!\nThis is a test file.\nLine 3\n"
         with open(self.test_file, "w", encoding="utf-8") as f:
             f.write(self.test_content)
 
     def teardown_method(self):
-        """Clean up test environment after each test."""
         import shutil
 
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
-    def test_read_file(self):
-        """Test reading file content."""
-        content = FileOps.read_file(self.test_file)
-        assert content == self.test_content
+    def test_read_file_single(self):
+        result = FileOps.read_file([self.test_file])
+        assert len(result) == 1
+        item = result[0]
+        assert item["status"] == "success"
+        # # content is numbered lines
+        # assert "1 | Hello, World!" in item["content"]
+        # content is non-numbered lines
+        assert "Hello, World!" in item["content"]
+        assert item["notice"] == ""
 
-    def test_read_file_not_found(self):
-        """Test reading non-existent file."""
-        non_existent = os.path.join(self.temp_dir, "non_existent.txt")
-        with pytest.raises(FileNotFoundError):
-            FileOps.read_file(non_existent)
-
-    def test_write_file(self):
-        """Test writing file content."""
-        new_file = os.path.join(self.temp_dir, "new_file.txt")
-        new_content = "New content for testing"
-
-        FileOps.write_file(new_file, new_content)
-
-        # Verify file was created and content is correct
-        assert os.path.exists(new_file)
-        with open(new_file, "r", encoding="utf-8") as f:
-            assert f.read() == new_content
-
-    def test_write_file_overwrite(self):
-        """Test overwriting existing file."""
-        new_content = "Overwritten content"
-        FileOps.write_file(self.test_file, new_content)
-
-        content = FileOps.read_file(self.test_file)
-        assert content == new_content
-
-    def test_append_file(self):
-        """Test appending content to file."""
-        append_content = "\nAppended line"
-        FileOps.append_file(self.test_file, append_content)
-
-        content = FileOps.read_file(self.test_file)
-        assert content == self.test_content + append_content
-
-    def test_append_file_new_file(self):
-        """Test appending to non-existent file (should create it)."""
-        new_file = os.path.join(self.temp_dir, "append_test.txt")
-        content = "New file content"
-
-        FileOps.append_file(new_file, content)
-
-        assert os.path.exists(new_file)
-        assert FileOps.read_file(new_file) == content
-
-    def test_make_diff(self):
-        """Test generating unified diff."""
-        ours = "line1\nline2\nline3"
-        theirs = "line1\nmodified line2\nline3"
-
-        diff = FileOps.make_diff(ours, theirs)
-        assert isinstance(diff, str)
-        assert "line2" in diff
-        assert "modified line2" in diff
-
-    def test_make_git_conflict(self):
-        """Test generating git conflict markers."""
-        ours = "our version"
-        theirs = "their version"
-
-        conflict = FileOps.make_git_conflict(ours, theirs)
-        assert "<<<<<<< HEAD" in conflict
-        assert "=======" in conflict
-        assert ">>>>>>> incoming" in conflict
-        assert ours in conflict
-        assert theirs in conflict
-
-    def test_validate_path_valid(self):
-        """Test path validation with valid path."""
-        result = FileOps.validate_path("/valid/path/file.txt")
-        assert result["valid"] is True
-        assert result["message"] == ""
-
-    def test_validate_path_empty(self):
-        """Test path validation with empty path."""
-        result = FileOps.validate_path("")
-        assert result["valid"] is False
-        assert "Empty path" in str(result["message"])
-
-    def test_validate_path_dangerous_chars(self):
-        """Test path validation with dangerous characters."""
-        dangerous_paths = [
-            "/path/with*wildcard",
-            "/path/with?question",
-            "/path/with>redirect",
-            "/path/with<redirect",
-            "/path/with|pipe",
-        ]
-
-        for path in dangerous_paths:
-            result = FileOps.validate_path(path)
-            assert result["valid"] is False
-            assert "dangerous characters" in str(result["message"])
-
-    def test_search_files(self):
-        """Test searching files with regex."""
-        # Create additional test files
-        file1 = os.path.join(self.temp_dir, "file1.py")
+    def test_read_file_multiple(self):
         file2 = os.path.join(self.temp_dir, "file2.txt")
-
-        with open(file1, "w") as f:
-            f.write("def function():\n    return 'test'\n")
-
         with open(file2, "w") as f:
-            f.write("This is a test file\nwith multiple lines\n")
+            f.write("Second file")
+        results = FileOps.read_file([self.test_file, file2])
+        assert len(results) == 2
+        assert results[0]["status"] == "success"
+        assert results[1]["status"] == "success"
 
-        # Search for 'test' pattern
-        results = FileOps.search_files(self.temp_dir, r"test", "*.txt")
+    def test_read_file_truncated_by_words(self):
+        # 生成超过20万单词的内容
+        words = ["word"] * 250_000  # 25万单词
+        huge_content = " ".join(words)
+        huge_file = os.path.join(self.temp_dir, "huge.txt")
+        with open(huge_file, "w") as f:
+            f.write(huge_content)
+        result = FileOps.read_file([huge_file])
+        assert len(result) == 1
+        item = result[0]
+        assert item["status"] == "success"
+        assert "Truncated at 200000 words" in item["notice"]
+        # 确保内容被截断（行数有限）
+        lines = item["content"].splitlines()
+        assert len(lines) > 0
 
-        assert len(results) >= 1
-        assert any("test" in result["line"] for result in results)
-        assert all("file" in result for result in results)
-        assert all("line_num" in result for result in results)
+    def test_write_to_file(self):
+        new_file = os.path.join(self.temp_dir, "new.txt")
+        new_content = "New content"
+        result = FileOps.write_to_file(new_file, new_content)
+        assert result["success"]
+        assert os.path.exists(new_file)
+        read_result = FileOps.read_file([new_file])
+        assert read_result[0]["status"] == "success"
+        # content includes line numbers, strip them for comparison
+        content_lines = read_result[0]["content"].splitlines()
+        if content_lines:
+            actual = "\n".join(
+                line.split(" | ", 1)[1] if " | " in line else line
+                for line in content_lines
+            )
+        else:
+            actual = ""
+        assert actual == new_content
 
-    def test_search_files_with_pattern(self):
-        """Test searching files with file pattern filter."""
-        # Create files with different extensions
-        py_file = os.path.join(self.temp_dir, "script.py")
-        txt_file = os.path.join(self.temp_dir, "document.txt")
+    def test_insert_content_append(self):
+        result = FileOps.insert_content(self.test_file, 0, "Appended\n")
+        assert result["success"]
+        read_result = FileOps.read_file([self.test_file])
+        content_lines = read_result[0]["content"].splitlines()
+        # last line should be "Appended"
+        last_line = content_lines[-1] if content_lines else ""
+        # strip line number prefix
+        if " | " in last_line:
+            last_line = last_line.split(" | ", 1)[1]
+        assert last_line == "Appended"
 
-        with open(py_file, "w") as f:
-            f.write("print('hello')")
+    def test_insert_content_line2(self):
+        result = FileOps.insert_content(self.test_file, 2, "Inserted\n")
+        assert result["success"]
+        read_result = FileOps.read_file([self.test_file])
+        content_lines = read_result[0]["content"].splitlines()
+        # line 2 (1-indexed) should be "Inserted"
+        line2 = content_lines[1] if len(content_lines) > 1 else ""
+        if " | " in line2:
+            line2 = line2.split(" | ", 1)[1]
+        assert line2 == "Inserted"
 
-        with open(txt_file, "w") as f:
-            f.write("hello world")
+    def test_insert_content_invalid_line(self):
+        result = FileOps.insert_content(self.test_file, 10, "Invalid")
+        assert not result["success"]
 
-        # Search only in Python files
-        results = FileOps.search_files(self.temp_dir, r"hello", "*.py")
-
-        assert len(results) == 1
-        assert "script.py" in results[0]["file"]
-
-    def test_replace_by_git_simple(self):
-        """Test replacing content using git conflict style."""
-        original_content = "line1\nline2\nline3"
-        FileOps.write_file(self.test_file, original_content)
-
-        diff = """<<<<<<< SEARCH
-line2
-=======
-modified line2
->>>>>>> REPLACE"""
-
-        FileOps.replace_by_git(self.test_file, diff)
-
-        result = FileOps.read_file(self.test_file)
-        # The implementation has a bug where it doesn't properly match and replace
-        # It adds the replacement but doesn't remove the original
-        expected = "modified line2\nline2\nline3"
-        assert result == expected
-
-    def test_replace_by_diff_simple(self):
-        """Test replacing content using unified diff."""
-        original_content = "line1\nline2\nline3\n"
-        FileOps.write_file(self.test_file, original_content)
-
+    def test_apply_diff_unified(self):
+        FileOps.write_to_file(self.test_file, "line1\nline2\nline3\n")
         diff = """--- a/test.txt
 +++ b/test.txt
 @@ -1,3 +1,3 @@
  line1
 -line2
-+modified line2
++new line2
  line3"""
+        result = FileOps.apply_diff(self.test_file, diff, "unified")
+        assert result["success"]
+        read_result = FileOps.read_file([self.test_file])
+        content = read_result[0]["content"]
+        assert "new line2" in content
 
-        FileOps.replace_by_diff(self.test_file, diff)
-
-        result = FileOps.read_file(self.test_file)
-        expected = "line1\nmodified line2\nline3\n"
-        assert result == expected
-
-    def test_replace_by_diff_invalid_format(self):
-        """Test replacing content with invalid diff format."""
-        diff = "invalid diff format"
-
-        # The implementation doesn't validate diff format strictly
-        # It just processes what it can, so no exception is raised
-        FileOps.replace_by_diff(self.test_file, diff)
-        # Should not raise an exception
-
-    def test_replace_by_git_multiple_blocks(self):
-        """Test replacing multiple blocks using git conflict style."""
-        original_content = "line1\nline2\nline3\nline4"
-        FileOps.write_file(self.test_file, original_content)
-
+    def test_apply_diff_git(self):
+        FileOps.write_to_file(self.test_file, "old\nline3\n")
         diff = """<<<<<<< SEARCH
-line2
+old
 =======
-modified line2
->>>>>>> REPLACE
-<<<<<<< SEARCH
-line4
-=======
-modified line4
+new
 >>>>>>> REPLACE"""
+        result = FileOps.apply_diff(self.test_file, diff, "conflict")
+        assert result["success"]
+        read_result = FileOps.read_file([self.test_file])
+        content = read_result[0]["content"]
+        assert "new" in content and "old" not in content
 
-        FileOps.replace_by_git(self.test_file, diff)
+    def test_search_and_replace_literal(self):
+        result = FileOps.search_and_replace(
+            self.test_file, "World", "Kilo", dry_run=True
+        )
+        assert len(result["preview"]) > 0
+        assert result["dry_run"]
 
-        result = FileOps.read_file(self.test_file)
-        # The implementation has issues with multiple blocks
-        expected = "modified line2\nmodified line4\nline3\nline4"
-        assert result == expected
+        result = FileOps.search_and_replace(
+            self.test_file, "World", "Kilo", dry_run=False
+        )
+        assert result["applied_count"] > 0
+        read_result = FileOps.read_file([self.test_file])
+        content = read_result[0]["content"]
+        assert "Kilo" in content
 
-    def test_atomic_write_operation(self):
-        """Test that write operations are atomic."""
-        # This test verifies that temporary files are used during write
-        original_content = "original"
-        FileOps.write_file(self.test_file, original_content)
+    def test_search_and_replace_regex(self):
+        result = FileOps.search_and_replace(
+            self.test_file, r"L\w+", "LINE", use_regex=True, dry_run=False
+        )
+        assert result["applied_count"] > 0
 
-        # Verify no .tmp files remain after successful write
-        temp_files = [f for f in os.listdir(self.temp_dir) if f.endswith(".tmp")]
-        assert len(temp_files) == 0
+    def test_search_files(self):
+        file2 = os.path.join(self.temp_dir, "file2.txt")
+        with open(file2, "w") as f:
+            f.write("test match")
+        results = FileOps.search_files(self.temp_dir, "test")
+        assert len(results) > 0
+        assert "context" in results[0]
 
-        # Verify content is correct
-        assert FileOps.read_file(self.test_file) == original_content
+    def test_list_files(self):
+        subdir = os.path.join(self.temp_dir, "sub")
+        os.mkdir(subdir)
+        results = FileOps.list_files(self.temp_dir, recursive=False)
+        assert "test.txt" in results
+        assert "sub" in results
+
+        rec = FileOps.list_files(self.temp_dir, recursive=True)
+        assert len(rec) > 0

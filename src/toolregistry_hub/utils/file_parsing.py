@@ -111,7 +111,7 @@ def read_file_with_limit(
 def read_single_file_json(path: str, max_words: int = 200_000) -> Dict[str, Any]:
     """Read a single file and return JSON‑compatible dict.
 
-    This is the extracted version of UnifiedFileTools._read_single_file.
+    This is the extracted version of FileOps._read_single_file.
 
     Args:
         path: File path.
