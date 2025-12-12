@@ -10,6 +10,33 @@ author: Oaklight
 
 本页面记录了 toolregistry-hub 项目从首个正式发布版本 0.4.14 以来的所有重要变更。
 
+## [0.5.2] - 2025-12-12
+
+### ✨ 新功能
+
+- **单位转换器 API 路由**
+	- 添加单位转换器 API 路由
+	- 重构单位转换器，使用基类和工具方法
+	- 更新单位转换器测试
+
+- **网络搜索增强**
+	- 添加 Scrapeless DeepSERP API (Google SERP) 集成
+	- 添加 Bright Data (Google SERP) 搜索集成
+	- 实现通用 Google 搜索结果解析器
+	- 添加 Bright Data 引擎测试（Bing 和 Yandex）
+	- 为 Bing 搜索添加环境变量支持
+
+### ⚠️ 弃用
+
+- **Bing 搜索**：由于机器人检测问题，标记 BingSearch 为已弃用
+
+### 📝 文档改进
+
+- 更新 README 中的徽章样式
+- 添加 DeepWiki 徽章到文档
+- 更新项目描述和 README 文件
+- 将 references 目录添加到 gitignore
+
 ## [0.5.1] - 2025-12-05
 
 ### 🔐 安全与认证
