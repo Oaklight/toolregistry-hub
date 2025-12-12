@@ -7,7 +7,8 @@ different web search implementations.
 
 import os
 import re
-from typing import List, Optional
+import time
+from typing import Dict, List, Optional
 
 
 class APIKeyParser:
@@ -18,6 +19,7 @@ class APIKeyParser:
         api_keys: Optional[str] = None,
         env_var_name: Optional[str] = None,
         key_separator: str = ",",
+        rate_limit_delay: float = 1.0,
     ):
         """Initialize API key parser.
 
@@ -25,6 +27,7 @@ class APIKeyParser:
             api_keys: Comma-separated API keys string. If not provided, will try to get from env_var_name.
             env_var_name: Environment variable name to get API keys from.
             key_separator: Separator used to split multiple API keys. Defaults to ",".
+            rate_limit_delay: Delay between requests in seconds to avoid rate limits.
 
         Raises:
             ValueError: If no valid API keys are provided or found in environment.
@@ -44,6 +47,9 @@ class APIKeyParser:
             raise ValueError("No valid API keys provided")
 
         self._current_key_index = 0
+        self.rate_limit_delay = rate_limit_delay
+        # Track last request time for each API key individually
+        self._last_request_times: Dict[str, float] = {}
 
     def _parse_api_keys(self, api_keys_str: str, separator: str) -> List[str]:
         """Parse and validate API keys from string.
@@ -146,6 +152,35 @@ class APIKeyParser:
         if 0 <= index < len(self.api_keys):
             return self.api_keys[index]
         raise IndexError(f"Index {index} out of range for {len(self.api_keys)} keys")
+
+    def wait_for_rate_limit(self, api_key: Optional[str] = None):
+        """Ensure minimum delay between API requests to avoid rate limits for a specific key.
+        
+        Args:
+            api_key: The API key to check rate limit for. If None, uses the last used key.
+        """
+        if api_key is None:
+            # Use the last used key (the one that was just selected)
+            if self._current_key_index == 0:
+                # If we're at the beginning, use the last key
+                api_key = self.api_keys[-1]
+            else:
+                api_key = self.api_keys[self._current_key_index - 1]
+        
+        current_time = time.time()
+        
+        # Get the last request time for this specific API key
+        last_request_time = self._last_request_times.get(api_key, 0)
+        time_since_last_request = current_time - last_request_time
+
+        if time_since_last_request < self.rate_limit_delay:
+            sleep_time = self.rate_limit_delay - time_since_last_request
+            import logging
+            logging.debug(f"Rate limiting for key {api_key[:10]}...: sleeping for {sleep_time:.2f}s")
+            time.sleep(sleep_time)
+
+        # Update the last request time for this specific API key
+        self._last_request_times[api_key] = time.time()
 
 
 def create_api_key_parser(

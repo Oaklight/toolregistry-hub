@@ -2,6 +2,7 @@
 
 import os
 import sys
+import time
 import unittest
 from unittest.mock import patch
 
@@ -77,7 +78,14 @@ class TestAPIKeyParser(unittest.TestCase):
 
         # Get keys in sequence
         keys = [parser.get_next_api_key() for _ in range(6)]
-        expected = ["valid-key1", "valid-key2", "valid-key3", "valid-key1", "valid-key2", "valid-key3"]
+        expected = [
+            "valid-key1",
+            "valid-key2",
+            "valid-key3",
+            "valid-key1",
+            "valid-key2",
+            "valid-key3",
+        ]
         self.assertEqual(keys, expected)
 
     def test_is_valid_api_key(self):
@@ -98,6 +106,50 @@ class TestAPIKeyParser(unittest.TestCase):
         # Note: "invalid@key" actually matches the alphanumeric pattern, so it's considered valid
         # Let's use a key with special characters that don't match any pattern
         self.assertFalse(parser._is_valid_api_key("invalid key"))
+
+    def test_wait_for_rate_limit(self):
+        """Test rate limiting functionality."""
+        parser = APIKeyParser(api_keys="valid-key1,valid-key2", rate_limit_delay=0.1)
+
+        # First call should not sleep
+        start_time = time.time()
+        parser.wait_for_rate_limit()
+        elapsed = time.time() - start_time
+        self.assertLess(elapsed, 0.05)  # Should be very fast
+
+        # Second call should sleep for the remaining time
+        start_time = time.time()
+        parser.wait_for_rate_limit()
+        elapsed = time.time() - start_time
+        self.assertGreaterEqual(
+            elapsed, 0.05
+        )  # Should have slept for at least some time
+
+    def test_per_key_rate_limiting(self):
+        """Test that rate limiting is applied per API key independently."""
+        parser = APIKeyParser(api_keys="key1,key2", rate_limit_delay=0.1)
+
+        # Use key1
+        start_time = time.time()
+        parser.wait_for_rate_limit(api_key="key1")
+        elapsed1 = time.time() - start_time
+        self.assertLess(elapsed1, 0.05)  # Should be very fast
+
+        # Use key2 immediately - should not be rate limited
+        start_time = time.time()
+        parser.wait_for_rate_limit(api_key="key2")
+        elapsed2 = time.time() - start_time
+        self.assertLess(
+            elapsed2, 0.05
+        )  # Should be very fast, not affected by key1's rate limit
+
+        # Use key1 again - should be rate limited
+        start_time = time.time()
+        parser.wait_for_rate_limit(api_key="key1")
+        elapsed3 = time.time() - start_time
+        self.assertGreaterEqual(
+            elapsed3, 0.05
+        )  # Should have slept for at least some time
 
 
 if __name__ == "__main__":
