@@ -6,18 +6,24 @@ for token authentication, following FastAPI best practices.
 
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from loguru import logger
 
 from .auth import get_valid_tokens
 from .server_core import create_core_app
 
+# Define the token authentication scheme
+security = HTTPBearer()
 
-async def verify_bearer_token(authorization: Annotated[str, Header()]) -> str:
+
+async def verify_bearer_token(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+) -> str:
     """Verify Bearer token from Authorization header.
 
     Args:
-        authorization: Authorization header value (e.g., "Bearer token123")
+        credentials: HTTP Bearer credentials from the Authorization header
 
     Returns:
         The verified token string
@@ -31,17 +37,8 @@ async def verify_bearer_token(authorization: Annotated[str, Header()]) -> str:
     if not valid_tokens:
         return ""
 
-    # Check if authorization header has Bearer format
-    if not authorization.startswith("Bearer "):
-        logger.warning("Missing or invalid authorization header format")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization header must be in format: Bearer <token>",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Extract token from "Bearer <token>"
-    token = authorization.split(" ", 1)[1]
+    # Extract token from credentials
+    token = credentials.credentials
 
     if token not in valid_tokens:
         logger.warning(f"Invalid token attempt: {token[:8]}...")
