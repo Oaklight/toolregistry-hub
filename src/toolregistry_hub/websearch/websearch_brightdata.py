@@ -45,13 +45,13 @@ class BrightDataSearch(BaseSearch):
 
     def __init__(
         self,
-        api_tokens: Optional[str] = None,
+        api_keys: Optional[str] = None,
         zone: Optional[str] = None,
     ):
         """Initialize Bright Data search client.
 
         Args:
-            api_tokens: Comma-separated Bright Data API tokens. If not provided, will try to get from BRIGHTDATA_API_KEY env var.
+            api_keys: Comma-separated Bright Data API tokens. If not provided, will try to get from BRIGHTDATA_API_KEY env var.
             zone: Zone name for the request. If not provided, will try BRIGHTDATA_ZONE env var, defaults to 'mcp_unlocker'.
 
         Raises:
@@ -59,7 +59,7 @@ class BrightDataSearch(BaseSearch):
         """
         # Initialize API key parser for multiple tokens
         self.api_key_parser = APIKeyParser(
-            api_keys=api_tokens,
+            api_keys=api_keys,
             env_var_name="BRIGHTDATA_API_KEY",
         )
 
