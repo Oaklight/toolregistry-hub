@@ -4,7 +4,7 @@
 PACKAGE_NAME := toolregistry-hub
 DIST_DIR := dist
 DOCKER_IMAGE := oaklight/toolregistry-hub-server
-VERSION := $(shell python -c "try:\n    import tomllib\nexcept ImportError:\n    import tomli as tomllib\nwith open('pyproject.toml', 'rb') as f:\n    print(tomllib.load(f)['project']['version'])" 2>/dev/null || echo "0.1.0")
+VERSION := $(shell grep '^version\s*=\s*"' pyproject.toml | cut -d'"' -f2 || echo "0.4.14")
 
 # Optional variables
 V ?= $(VERSION)
@@ -41,16 +41,22 @@ build-docker:
 		LOCAL_WHEEL=$$(ls $(DIST_DIR)/*.whl | head -n 1 | xargs basename); \
 		echo "🎯 Found local wheel: $$LOCAL_WHEEL"; \
 		BUILD_ARGS="--build-arg LOCAL_WHEEL=$$LOCAL_WHEEL"; \
-	else \
-		echo "📦 No local wheel found, will install from PyPI"; \
+	elif [ -n "$(V)" ]; then \
+		echo "📦 Using specified version: $(V)"; \
 		BUILD_ARGS="--build-arg PACKAGE_VERSION=$(V)"; \
+	elif [ -n "$(VERSION)" ]; then \
+		echo "📦 Using pyproject.toml version: $(VERSION)"; \
+		BUILD_ARGS="--build-arg PACKAGE_VERSION=$(VERSION)"; \
+	else \
+		echo "📦 No local wheel or version specified, will install latest from PyPI"; \
 	fi; \
 	if [ -n "$(MIRROR)" ]; then \
 		echo "🌐 Using PyPI mirror: $(MIRROR)"; \
 		BUILD_ARGS="$$BUILD_ARGS --build-arg PYPI_MIRROR=$(MIRROR)"; \
 	fi; \
 	echo "🐳 Building with args: $$BUILD_ARGS"; \
-	cd docker && docker build -f Dockerfile $$BUILD_ARGS -t $(DOCKER_IMAGE):$(V) -t $(DOCKER_IMAGE):latest ..
+	IMG_TAG=$$([ -n "$(V)" ] && echo "$(V)" || echo "latest"); \
+	cd docker && docker build -f Dockerfile $$BUILD_ARGS -t $(DOCKER_IMAGE):$$IMG_TAG -t $(DOCKER_IMAGE):latest ..
 	@echo "✅ Docker image built successfully."
 
 # Push Docker image to registry
