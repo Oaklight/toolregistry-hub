@@ -67,6 +67,7 @@ class UnifiedFileTools:
     def insert_content(path: str, line: int, content: str) -> Dict[str, Any]:
         """
         Insert content before a specific line number or append at the end.
+        Processes large files efficiently using streaming I/O to minimize memory use.
 
         Args:
             path: Path to the file relative to the workspace directory.
@@ -82,25 +83,55 @@ class UnifiedFileTools:
             return {"success": False, "error": validation["message"]}
 
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
-                lines = f.readlines()
+            tmp_path = f"{path}.tmp"
+            inserted = False  # Tracks whether content was successfully inserted
+            line_count = 0  # Counts total lines in the new file
 
-            if line == 0:
-                lines.append(content)
-            elif 1 <= line <= len(lines) + 1:
-                lines.insert(line - 1, content)
-            else:
+            with open(path, "r", encoding="utf-8", errors="replace") as infile, open(
+                tmp_path, "w", encoding="utf-8"
+            ) as outfile:
+                # Case 1: Append mode (insert at end)
+                if line == 0:
+                    # Stream all lines unchanged, then write content at the end
+                    for line_text in infile:
+                        outfile.write(line_text)
+                        line_count += 1
+                    outfile.write(content)
+                    # Update line count for inserted content
+                    line_count += content.count("\n") + (
+                        1 if not content.endswith("\n") else 0
+                    )
+                    inserted = True
+
+                else:
+                    target = line - 1  # Convert 1-based line to 0-based index
+                    # Stream through file and insert content just before the target line
+                    for i, line_text in enumerate(infile):
+                        if i == target:
+                            # Insert new content *before* writing current line
+                            outfile.write(content)
+                            inserted = True
+                        outfile.write(line_text)
+                        line_count += 1
+
+                    # Handle insertion at EOF+1 (e.g., valid to insert at line N+1)
+                    if not inserted and line == line_count + 1:
+                        outfile.write(content)
+                        line_count += content.count("\n") + (
+                            1 if not content.endswith("\n") else 0
+                        )
+                        inserted = True
+
+            # Validate that insertion happened correctly
+            if not inserted:
                 return {
                     "success": False,
-                    "error": f"Line {line} out of range (1-{len(lines) + 1})",
+                    "error": f"Line {line} out of range (1-{line_count + 1})",
                 }
 
-            new_content = "".join(lines)
-            tmp_path = f"{path}.tmp"
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                f.write(new_content)
+            # Atomically replace original file with updated version
             os.replace(tmp_path, path)
-            return {"success": True, "new_line_count": len(lines)}
+            return {"success": True, "new_line_count": line_count}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -109,21 +140,29 @@ class UnifiedFileTools:
         path: str, diff: str, format: DiffStyle = "unified"
     ) -> Dict[str, Any]:
         """
-        Apply a unified or conflict format diff to a file.
+        Apply a PRECISE, TARGETED modification to a file using a diff in unified or conflict format.
+        This is a SURGICAL operation intended for exact, intentional edits — not bulk changes.
+
+        The SEARCH content (in either format) must exactly match the current file content, including whitespace, indentation, and line endings. If you're uncertain about the exact current content, use `read_file` first to retrieve it.
 
         Args:
             path: Path to the file.
-            diff: The diff content as string. Unified diff text (must use standard format with ---/+++ headers and @@ hunk markers), or Git conflict style diff text (using <<<<<<< SEARCH, =======, >>>>>>> REPLACE markers).
+            diff: The diff content as string.
+                  - Unified diff: Must follow standard format with ---/+++ headers and @@ hunk markers.
+                  - Conflict diff: Must use <<<<<<< SEARCH, =======, >>>>>>> REPLACE markers.
             format: Diff format ("unified" or "conflict"). Defaults to "unified".
 
         Examples:
-            - Unified diff text:
+            Unified diff:
                 --- a/original_file
                 +++ b/modified_file
                 @@ -1,3 +1,3 @@
+                 line1
                 -line2
                 +line2 modified
-            - git conflict diff text:
+                 line3
+
+            Git conflict-style diff:
                 <<<<<<< SEARCH
                 line2
                 =======
@@ -131,7 +170,7 @@ class UnifiedFileTools:
                 >>>>>>> REPLACE
 
         Returns:
-            {"success": bool, "format": str} or {"success": False, "error": str}.
+            {"success": bool, "format": str} or {"success": False, "error": str}
         """
         validation = validate_path(path)
         if not validation["valid"]:
@@ -175,29 +214,39 @@ class UnifiedFileTools:
             Dict with "preview" (list of changes), "applied_count", "dry_run",
             or {"error": str}.
         """
+        # Validate the file path before proceeding
         validation = validate_path(path)
         if not validation["valid"]:
             return {"error": validation["message"]}
 
+        # Prevent unnecessary processing if search and replace are the same
+        if search == replace:
+            return {
+                "error": "Search and replace strings are identical; no changes would be made."
+            }
+
+        # Compile regex pattern with optional ignore-case flag if requested
         flags = re.IGNORECASE if ignore_case else 0
         pattern = re.compile(search, flags) if use_regex else None
 
         try:
+            # Read file line by line to preserve line endings and structure
             with open(path, "r", encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
 
-            preview = []
-            applied = 0
-            new_lines = lines.copy()
+            preview = []  # Store change previews for reporting
+            applied = 0  # Track how many replacements were made
+            new_lines = lines.copy()  # Work on a mutable copy
 
+            # Process each line and detect matches
             for i, line in enumerate(lines):
                 if pattern:
+                    # Use regex substitution if enabled
                     matches = pattern.finditer(line)
                     for m in matches:
                         old = line
-                        new_line = pattern.sub(
-                            replace, line, count=1
-                        )  # First match or global?
+                        # Replace only the first match per line (simulates line-level sub)
+                        new_line = pattern.sub(replace, line, count=1)
                         preview.append(
                             {
                                 "line": i + 1,
@@ -209,6 +258,7 @@ class UnifiedFileTools:
                             new_lines[i] = new_line
                             applied += 1
                 else:
+                    # Perform literal string search and replace
                     if search in line:
                         old = line
                         new_line = line.replace(search, replace)
@@ -223,11 +273,13 @@ class UnifiedFileTools:
                             new_lines[i] = new_line
                             applied += 1
 
+            # Only write back to file if not in dry-run mode
             if not dry_run:
                 new_content = "".join(new_lines)
                 tmp_path = f"{path}.tmp"
                 with open(tmp_path, "w", encoding="utf-8") as f:
                     f.write(new_content)
+                # Atomically replace original file with updated version
                 os.replace(tmp_path, path)
 
             return {
