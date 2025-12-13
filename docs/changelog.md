@@ -10,6 +10,51 @@ author: Oaklight
 
 This page documents all notable changes to the toolregistry-hub project since the first official release version 0.4.14.
 
+## [0.5.3] - 2025-12-13
+
+### 🔧 Refactoring
+
+- **Multi-API Key Management System**
+	- Consolidate scattered API key implementations into centralized APIKeyParser utility
+	- Replace individual API key management across websearch engines with unified system
+	- Implement consistent API key rotation and error handling across all search providers
+	- Refactor all websearch engines (Brave, Brightdata, Scrapeless, Tavily) to use centralized API key management
+	- Improve search engine reliability and performance
+	- Add rate limiting support to API key parser
+
+- **Utils Module Structure**
+	- Migrate utils module to package structure for better organization
+	- Add fn_namespace.py module for function namespace utilities
+	- Improve module imports and dependencies
+	- Simplify version extraction from pyproject.toml
+	- Update build configuration for better reproducibility
+
+- **Version Management System**
+	- Configure pyproject.toml to use dynamic version loading from toolregistry_hub.version
+	- Remove hardcoded version from pyproject.toml, use setuptools dynamic version attribute
+	- Centralize version management with single source of truth in `__init__.py`
+	- Improve build process with setuptools dynamic version support
+
+### 🐛 Bug Fixes
+
+- **Docker Build Process**
+	- Fix Dockerfile package installation with server extras (fastapi, uvicorn, fastmcp)
+	- Improve Makefile build logic for better package installation handling
+	- Remove redundant docker/requirements.txt file
+	- Enhance package installation logic for local wheel, specific version, and latest from PyPI
+
+- **Type Annotations & Compatibility**
+	- Resolve type annotation and parameter naming issues for pyright compatibility
+	- Fix type hints in server_core.py and websearch modules
+	- Improve test compatibility and type safety
+
+### 📝 Documentation
+
+- **Docker Documentation**
+	- Add comprehensive Docker documentation and migration guide
+	- Add Docker README files in both English and Chinese
+	- Provide OpenWebUI tool server migration documentation
+
 ## [0.5.2] - 2025-12-12
 
 ### ✨ New Features
