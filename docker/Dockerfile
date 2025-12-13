@@ -49,15 +49,6 @@ RUN if [ -d "/tmp/build/dist" ] && [ "$(ls -A /tmp/build/dist 2>/dev/null)" ]; t
 # Configure pip mirror based on geographic location
 # RUN pip config set global.index-url https://mirrors.cernet.edu.cn/pypi/web/simple;
 
-# Install dependencies first
-RUN --mount=type=cache,target=/root/.cache/pip \
-    if [ -n "$PYPI_MIRROR" ]; then \
-        echo "Using PyPI mirror: $PYPI_MIRROR"; \
-        python -m pip install -i "$PYPI_MIRROR" -r requirements.txt; \
-    else \
-        python -m pip install -r requirements.txt; \
-    fi
-
 # Install the package with server extras - prioritize local wheel + deps, then specific version from PyPI, then latest
 RUN if [ -n "$LOCAL_WHEEL" ] && [ -f "/tmp/dist/$LOCAL_WHEEL" ]; then \
         echo "Installing from local wheel: $LOCAL_WHEEL + server deps"; \
