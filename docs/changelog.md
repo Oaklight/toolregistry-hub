@@ -10,6 +10,51 @@ author: Oaklight
 
 本页面记录了 toolregistry-hub 项目从首个正式发布版本 0.4.14 以来的所有重要变更。
 
+## [0.5.3] - 2025-12-13
+
+### 🔧 重构
+
+- **多API密钥管理系统**
+	- 将分散的API密钥实现整合为统一的APIKeyParser工具
+	- 替换网络搜索引擎中分散的API密钥管理为统一系统
+	- 在所有搜索提供商中实现一致的API密钥轮换和错误处理
+	- 重构所有网络搜索引擎（Brave、Brightdata、Scrapeless、Tavily）以使用集中式API密钥管理
+	- 提升搜索引擎的可靠性和性能
+	- 为API密钥解析器添加速率限制支持
+
+- **工具模块结构**
+	- 将工具模块迁移到包结构，提升组织性
+	- 添加fn_namespace.py模块用于函数命名空间工具
+	- 改进模块导入和依赖关系
+	- 简化从pyproject.toml中提取版本的过程
+	- 更新构建配置，提升可重现性
+
+- **版本管理系统**
+	- 配置pyproject.toml使用从toolregistry_hub.version动态加载版本
+	- 从pyproject.toml中移除硬编码版本，使用setuptools动态版本属性
+	- 通过在`__init__.py`中设置单一版本来源来集中版本管理
+	- 通过setuptools动态版本支持改进构建流程
+
+### 🐛 修复
+
+- **Docker 构建流程**
+	- 修复Dockerfile中包含服务器扩展包(fastapi, uvicorn, fastmcp)的包安装
+	- 改进Makefile构建逻辑，提升包安装处理
+	- 移除冗余的docker/requirements.txt文件
+	- 增强本地wheel、特定版本和从PyPI最新版本的包安装逻辑
+
+- **类型注解与兼容性**
+	- 解决pyright兼容性的类型注解和参数命名问题
+	- 修复server_core.py和websearch模块中的类型提示
+	- 改进测试兼容性和类型安全
+
+### 📝 文档
+
+- **Docker 文档**
+	- 添加全面的Docker文档和迁移指南
+	- 添加中英文Docker README文件
+	- 提供OpenWebUI工具服务器迁移文档
+
 ## [0.5.2] - 2025-12-12
 
 ### ✨ 新功能
