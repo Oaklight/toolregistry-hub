@@ -4,7 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "toolregistry-hub"
-version = "0.5.2"
+# Relying on tool.setuptools.dynamic to load `version` from `__init__.py` at build time.
+dynamic = ['version']
 authors = [{ name = "Oaklight", email = "oaklight@gmx.com" }]
 description = "ToolRegistry Hub: A Python library providing various utility tools for mathematical calculations, date/time operations, file management, web search, unit conversions, and more - designed to support common tasks in LLM function calling and general development"
 readme = "readme_en.md"
@@ -53,6 +54,9 @@ where = ["src"]
 [tool.setuptools.package-data]
 "toolregistry.hub" = ["py.typed"]
 "toolregistry_hub" = ["py.typed"]
+
+[tool.setuptools.dynamic]
+version = { attr = "toolregistry_hub.version" }
 
 [project.scripts]
 toolregistry-server = "toolregistry_hub.server.cli:main"
