@@ -56,7 +56,7 @@ where = ["src"]
 "toolregistry_hub" = ["py.typed"]
 
 [tool.setuptools.dynamic]
-version = { attr = "toolregistry_hub.version" }
+version = { attr = "toolregistry_hub.__version__" }
 
 [project.scripts]
 toolregistry-server = "toolregistry_hub.server.cli:main"
