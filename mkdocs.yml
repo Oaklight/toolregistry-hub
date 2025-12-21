@@ -64,6 +64,7 @@ extra:
 nav:
   - 首页: index.md
   - 工具:
+      - tools/index.md
       - 计算与转换:
           - 计算器工具: tools/calculator.md
           - 单位转换: tools/unit_converter.md
