@@ -4,7 +4,7 @@
 
 ## 概述
 
-Bright Data 是一个企业级的网页数据平台，提供强大的反爬虫绕过能力。通过集成 Bright Data 的 SERP API，我们可以:
+通过集成 Bright Data 的 SERP API，我们可以绕过 Google 的反爬虫机制并可靠地获取结构化的搜索结果。
 
 ## 类概览
 
@@ -15,14 +15,6 @@ Bright Data 是一个企业级的网页数据平台，提供强大的反爬虫�
 - `api_keys: Optional[str] = None` - 逗号分隔的 Bright Data API 令牌。如果未提供，将尝试从 BRIGHTDATA_API_KEY 环境变量获取
 - `zone: Optional[str] = None` - Bright Data zone 名称 (默认: "mcp_unlocker")
 - `rate_limit_delay: float = 1.0` - 请求间延迟(秒)，避免速率限制
-
-## 架构
-
-- ✅ 绕过 Google 的反爬虫机制
-- ✅ 获取结构化的搜索结果
-- ✅ 支持分页查询
-- ✅ 无需担心 IP 封禁或 CAPTCHA
-- ✅ **统一的解析逻辑**，与其他 Google 搜索提供商保持一致
 
 ## 架构
 

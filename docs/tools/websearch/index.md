@@ -99,7 +99,3 @@ for result in results:
 - [Scrapeless 搜索](scrapeless.md) - Scrapeless DeepSERP API 的实现
 - [Bing 搜索](bing.md) - ⚠️ **已废弃** Bing 搜索引擎的实现
 - [旧版网络搜索](legacy.md) - 旧版网络搜索模块的文档
-
-## 架构升级计划
-
-网络搜索模块正在进行架构升级，详细信息可以在[架构升级计划](plan.md)中查看。
