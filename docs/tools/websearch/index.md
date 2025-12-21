@@ -99,7 +99,3 @@ for result in results:
 - [Scrapeless Search](scrapeless.md) - Implementation of Scrapeless Universal API
 - [Bing Search](bing.md) - ⚠️ **DEPRECATED** Implementation of Bing search engine
 - [Legacy Web Search](legacy.md) - Documentation of the legacy web search module
-
-## Architecture Upgrade Plan
-
-The web search module is undergoing an architecture upgrade. Detailed information can be found in the [Architecture Upgrade Plan](plan.md).

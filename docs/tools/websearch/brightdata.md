@@ -4,7 +4,7 @@ This document describes how to use the Bright Data SERP API for Google searches.
 
 ## Overview
 
-Bright Data is an enterprise-grade web data platform that provides powerful anti-bot bypass capabilities. By integrating Bright Data's SERP API, we can:
+By integrating Bright Data's SERP API, we can bypass Google's anti-bot mechanisms and get structured search results reliably.
 
 ## Class Overview
 
@@ -15,14 +15,6 @@ Bright Data is an enterprise-grade web data platform that provides powerful anti
 - `api_keys: Optional[str] = None` - Comma-separated Bright Data API tokens. If not provided, will try to get from BRIGHTDATA_API_KEY env var
 - `zone: Optional[str] = None` - Bright Data zone name (default: "mcp_unlocker")
 - `rate_limit_delay: float = 1.0` - Delay between requests in seconds to avoid rate limits
-
-## Architecture
-
-- ✅ Bypass Google's anti-bot mechanisms
-- ✅ Get structured search results
-- ✅ Support pagination
-- ✅ No worries about IP bans or CAPTCHAs
-- ✅ **Unified parsing** with other Google search providers
 
 ## Architecture
 
