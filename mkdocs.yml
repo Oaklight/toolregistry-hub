@@ -64,6 +64,7 @@ extra:
 nav:
   - Home: index.md
   - Tools:
+      - tools/index.md
       - Calculation & Conversion:
           - Calculator Tools: tools/calculator.md
           - Unit Converter: tools/unit_converter.md
