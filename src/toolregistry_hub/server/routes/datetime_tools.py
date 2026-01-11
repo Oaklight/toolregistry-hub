@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from ...datetime_utils import DateTime
@@ -72,7 +72,7 @@ router = APIRouter(prefix="/time", tags=["datetime"])
 @router.post(
     "/now",
     summary="Get current time in ISO 8601 format",
-    description="Get current time in ISO 8601 format. Optionally specify a timezone, otherwise returns UTC time.",
+    description=DateTime.now.__doc__,
     operation_id="time-now",
     response_model=TimeNowResponse,
 )
@@ -104,7 +104,7 @@ def time_now(request: TimeNowRequest) -> TimeNowResponse:
 @router.post(
     "/convert",
     summary="Convert time between timezones",
-    description="Convert a specific time from one timezone to another. Supports both IANA timezone names and UTC/GMT offset formats.",
+    description=DateTime.convert_timezone.__doc__,
     operation_id="time-convert-timezone",
     response_model=ConvertTimezoneResponse,
 )
