@@ -71,9 +71,16 @@ def main():
         set_info(mode="mcp", mcp_transport=args.mcp_transport)
 
         if args.mcp_transport == "stdio":
-            mcp_app.run()  # Run MCP in stdio mode; assumes FastMCP supports this method
+            mcp_app.run(
+                show_banner=False
+            )  # Run MCP in stdio mode; assumes FastMCP supports this method
         else:
-            mcp_app.run(transport=args.mcp_transport, host=args.host, port=args.port)
+            mcp_app.run(
+                transport=args.mcp_transport,
+                host=args.host,
+                port=args.port,
+                show_banner=False,
+            )
 
 
 if __name__ == "__main__":
