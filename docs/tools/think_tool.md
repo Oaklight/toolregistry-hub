@@ -1,473 +1,369 @@
 ---
-title: Think Tool
-summary: Simple reasoning and brainstorming functionality for AI tools
-description: Think tool provides a space for reasoning and brainstorming without obtaining new information or making external changes, designed for AI tool integration.
-keywords: think tool, reasoning, brainstorming, AI tools, cognitive processing
+title: Cognitive Tools
+summary: Modular cognitive operations for structured reasoning
+description: Cognitive tools separate knowledge recall from logical reasoning, inspired by cognitive psychology research and designed for AI integration.
+keywords: cognitive tools, reasoning, memory, recall, think tool, AI tools
 author: Oaklight
 ---
 
-# Think Tool
+# Cognitive Tools
 
-The Think Tool provides simple reasoning and brainstorming functionality for AI tools. This tool allows for cognitive processing and thought recording without obtaining new information or making changes to the external environment. It's designed specifically for AI tool integration and complex reasoning workflows.
+Cognitive tools provide modular operations for structured reasoning, separating **knowledge/memory/facts** from **reasoning/logic**. Inspired by cognitive psychology and the paper ["Eliciting Reasoning in Language Models with Cognitive Tools"](https://arxiv.org/html/2506.12115).
 
 ???+ note "Changelog"
-    0.5.0 no longer return thoughts as json
+    **0.6.0** - Major redesign: Separated into `recall()` (memory) and `reason()` (logic) with `cognitive_operation()` for extensibility
 
-## 🎯 Overview
+    0.5.0 - No longer return thoughts as json
 
-The ThinkTool class offers a dedicated space for:
+## 🎯 Core Concept
 
-- **Reasoning**: Logical analysis and problem decomposition
-- **Brainstorming**: Idea generation and creative thinking
-- **Planning**: Step-by-step planning and strategy development
-- **Analysis**: Breaking down complex problems into manageable parts
-- **Documentation**: Recording thought processes for later reference
+Research shows that **knowledge and reasoning are separate cognitive processes**:
+
+- **Knowledge/Memory/Facts**: Content about the world, observations, context
+- **Reasoning/Logic**: Mathematical/logical operations independent of specific world knowledge
+
+Our tools reflect this separation for clearer, more structured thinking.
 
 ## 🚀 Quick Start
 
 ```python
 from toolregistry_hub import ThinkTool
 
-# Record a simple thought
-ThinkTool.think("I need to consider how to optimize this algorithm.")
-print("Thought recorded")
+# Recall facts and knowledge (memory)
+ThinkTool.recall(
+    topic="Python async patterns",
+    context="Project uses FastAPI, has blocking DB calls"
+)
 
-# Complex reasoning example
-complex_thought = """
-I need to solve this problem step by step:
-1. First, understand the requirements clearly
-2. Identify the constraints and limitations
-3. Consider different approaches and their trade-offs
-4. Select the most appropriate solution
-5. Plan the implementation details
-"""
-ThinkTool.think(complex_thought)
-print("Thought process recorded successfully")
+# Perform logical reasoning
+ThinkTool.reason(
+    content="Blocking calls in async context cause performance issues. "
+            "Need to use asyncpg for async PostgreSQL. "
+            "Solution: Replace sync DB calls with async equivalents.",
+    reasoning_type="causal"
+)
+
+# Custom cognitive operation for novel patterns
+ThinkTool.cognitive_operation(
+    operation_type="hypothesis_generation",
+    content="H1: DB query issue (high likelihood)\n"
+            "H2: Memory leak (medium)\n"
+            "H3: Network latency (low)",
+    metadata="Single-cause debugging failed, trying multiple hypotheses"
+)
 ```
 
 ## 🔧 API Reference
 
-### `think(thought: str) -> None`
+### `recall(topic: str, context: Optional[str] = None)`
 
-Use the tool to think about something. It will not obtain new information or make any changes to the repository, but just log the thought.
+Recall facts, knowledge, and observations. This is for **memory**, not reasoning.
+
+**When to use:**
+
+- Before reasoning, to gather relevant background
+- To explicitly state what you know/remember
+- To separate factual recall from logical inference
 
 **Parameters:**
 
-- `thought` (str): The thought, reasoning process, or brainstorming content to record
+- `topic` (str): What to recall information about
+- `context` (str, optional): Observed facts from current situation
 
-**Returns:**
-
-- `None`: This method does not return any value, it only records the thought process
-
-**Raises:**
-
-- No exceptions - designed to be safe and reliable
-
-## 🛠️ Use Cases
-
-### Problem Solving
+**Examples:**
 
 ```python
-from toolregistry_hub import ThinkTool
+# Recall general knowledge
+ThinkTool.recall(
+    topic="FastAPI dependency injection patterns"
+)
 
-# Complex problem analysis
-problem_analysis = """
-Problem: The application is running slowly under high load.
-
-Analysis:
-1. Identify potential bottlenecks:
-   - Database queries taking too long
-   - Memory leaks in the application
-   - Inefficient algorithms
-   - Network latency issues
-
-2. Consider solutions for each:
-   - Database: Add indexes, optimize queries, consider caching
-   - Memory: Review object lifecycle, fix memory leaks
-   - Algorithms: Profile and optimize critical paths
-   - Network: Implement connection pooling, reduce round trips
-
-3. Prioritize fixes based on impact and effort
-"""
-
-ThinkTool.think(problem_analysis)
-print("Problem analysis completed and recorded")
+# Recall with current context
+ThinkTool.recall(
+    topic="Bug in auth.py line 45",
+    context="Started after v2.0, affects 5% of users, no pattern in user types"
+)
 ```
 
-### Algorithm Design
+### `reason(content: str, reasoning_type: Optional[str] = None)`
+
+Perform logical reasoning and analysis.
+
+**When to use:**
+
+- Problem analysis
+- Evaluating options and trade-offs
+- Drawing conclusions
+- Planning solutions
+- Understanding problems
+- Examining solutions
+
+**Parameters:**
+
+- `content` (str): Your reasoning process and conclusions
+- `reasoning_type` (str, optional): Type of reasoning - `"deductive"`, `"inductive"`, `"abductive"`, `"analogical"`, or `"causal"`
+
+**Reasoning Types:**
+
+- **deductive**: From general principles to specific conclusion
+- **inductive**: From specific observations to general pattern
+- **abductive**: Inference to best explanation
+- **analogical**: Reasoning by analogy/similarity
+- **causal**: Cause-and-effect reasoning
+
+**Examples:**
 
 ```python
-from toolregistry_hub import ThinkTool
+# Problem analysis
+ThinkTool.reason(
+    content="Auth fails after v2.0. New code has shared cache without locks. "
+            "Intermittent failures suggest race condition. Fix: add synchronization.",
+    reasoning_type="causal"
+)
 
-# Algorithm brainstorming
-algorithm_design = """
-Designing a pathfinding algorithm:
-
-Requirements:
-- Find shortest path between two points
-- Handle obstacles and blocked paths
-- Optimize for performance with large maps
-- Support different movement costs
-
-Approach options:
-1. A* Algorithm:
-   - Pros: Optimal, efficient with good heuristic
-   - Cons: Memory usage can be high
-
-2. Dijkstra's Algorithm:
-   - Pros: Guaranteed shortest path
-   - Cons: Slower than A* for single destination
-
-3. Breadth-First Search:
-   - Pros: Simple to implement
-   - Cons: Not optimal for weighted graphs
-
-Decision: Use A* with Manhattan distance heuristic
-Implementation plan:
-1. Define node structure with position and costs
-2. Implement priority queue for open set
-3. Create heuristic function
-4. Add path reconstruction
-"""
-
-ThinkTool.think(algorithm_design)
-print("Algorithm design thinking completed")
+# Solution evaluation
+ThinkTool.reason(
+    content="Option A: Mutex lock - simple but may reduce throughput. "
+            "Option B: Thread-safe cache - better performance but more complex. "
+            "Choose B for long-term maintainability."
+)
 ```
 
-### Code Review Planning
+### `cognitive_operation(operation_type: str, content: str, metadata: Optional[str] = None)`
+
+Custom cognitive operation for patterns not covered by recall/reason.
+
+**When to use:**
+
+- Your thinking doesn't fit recall or reason
+- Novel reasoning patterns
+- Domain-specific cognitive operations
+
+**Parameters:**
+
+- `operation_type` (str): Name of operation
+- `content` (str): The cognitive work being performed
+- `metadata` (str, optional): Context about why/how this operation is used
+
+**Common Operation Types:**
+
+- `hypothesis_generation`: Create multiple hypotheses to test
+- `mental_simulation`: Simulate execution/outcomes mentally
+- `constraint_satisfaction`: Work through constraints systematically
+- `pattern_matching`: Identify patterns in data/code
+- `metacognitive_monitoring`: Reflect on your reasoning process
+
+**Examples:**
+
+```python
+# Hypothesis generation
+ThinkTool.cognitive_operation(
+    operation_type="hypothesis_generation",
+    content="H1: DB query inefficiency (high likelihood, test: add query logging)\n"
+            "H2: Memory leak in cache (medium, test: monitor memory)\n"
+            "H3: Network latency (low, test: check network metrics)",
+    metadata="Single-cause debugging failed"
+)
+
+# Mental simulation
+ThinkTool.cognitive_operation(
+    operation_type="mental_simulation",
+    content="1. User clicks → onClick handler\n"
+            "2. Handler calls API → async request\n"
+            "3. UI shows loading (MISSING!)\n"
+            "4. API returns → state update\n"
+            "Problem: No loading state shown",
+    metadata="Simulating to find UX issue"
+)
+```
+
+## 🛠️ Usage Patterns
+
+### Complete Problem-Solving Workflow
 
 ```python
 from toolregistry_hub import ThinkTool
 
-# Code review strategy
-review_plan = """
-Code Review Checklist:
+# Step 1: Recall relevant knowledge
+ThinkTool.recall(
+    topic="Authentication systems and race conditions",
+    context="v2.0 refactored token validation, intermittent failures for 5% users"
+)
 
-1. Functionality:
-   - Does the code meet requirements?
-   - Are edge cases handled properly?
-   - Is error handling comprehensive?
+# Step 2: Reason about the problem
+ThinkTool.reason(
+    content="Timing correlation: failures started with v2.0 deployment. "
+            "Intermittent nature suggests race condition, not logic error. "
+            "v2.0 introduced shared cache without proper locking. "
+            "Conclusion: Race condition in cache access.",
+    reasoning_type="causal"
+)
 
-2. Code Quality:
-   - Is the code readable and well-structured?
-   - Are variable names descriptive?
-   - Is there proper documentation?
+# Step 3: Generate solution hypotheses
+ThinkTool.cognitive_operation(
+    operation_type="hypothesis_generation",
+    content="Solution 1: Add mutex lock (simple, may reduce throughput)\n"
+            "Solution 2: Use thread-safe cache (better performance)\n"
+            "Solution 3: Remove caching (safest, worst performance)"
+)
 
-3. Performance:
-   - Are there any obvious performance issues?
-   - Is the algorithm complexity appropriate?
-   - Are there unnecessary resource allocations?
-
-4. Security:
-   - Are user inputs properly validated?
-   - Is sensitive data handled securely?
-   - Are there potential injection vulnerabilities?
-
-5. Testing:
-   - Are there sufficient test cases?
-   - Do tests cover edge cases?
-   - Is the code testable?
-
-Review approach:
-- Start with high-level architecture
-- Move to detailed function analysis
-- Check for consistency with coding standards
-- Verify test coverage
-"""
-
-ThinkTool.think(review_plan)
-print("Code review planning completed")
+# Step 4: Evaluate solutions
+ThinkTool.reason(
+    content="Solution 1 works but impacts performance under load. "
+            "Solution 2 is best long-term: better performance and maintainability. "
+            "Solution 3 is too drastic. "
+            "Decision: Implement thread-safe cache (Solution 2)."
+)
 ```
 
 ### Debugging Strategy
 
 ```python
-from toolregistry_hub import ThinkTool
+# Recall observations
+ThinkTool.recall(
+    topic="Memory leak symptoms",
+    context="Memory usage increases linearly over time, "
+            "correlates with user sessions, "
+            "started after adding WebSocket support"
+)
 
-# Debugging approach for a complex issue
-debugging_strategy = """
-Debugging Strategy for Memory Leak Issue:
-
-Problem: Application memory usage increases over time
-
-Hypothesis formation:
-1. Object references not being released
-2. Event listeners not being removed
-3. Closures holding references
-4. Cached data growing without bounds
-
-Investigation plan:
-1. Monitor memory usage patterns
-   - Check if leak is linear or step-wise
-   - Identify when memory spikes occur
-   - Correlate with user actions
-
-2. Analyze object lifecycle
-   - Track object creation and destruction
-   - Look for objects that aren't being garbage collected
-   - Check for circular references
-
-3. Review recent changes
-   - Check for new features that might cause leaks
-   - Review any performance optimizations
-   - Look at third-party library updates
-
-4. Implement debugging tools
-   - Add memory usage logging
-   - Create object count tracking
-   - Implement heap snapshots
-
-Immediate actions:
-- Add memory monitoring to detect leak rate
-- Identify the most common objects in memory
-- Check for obvious resource leaks in file/database handles
-"""
-
-ThinkTool.think(debugging_strategy)
-print("Debugging strategy documented")
+# Analyze cause
+ThinkTool.reason(
+    content="Linear growth + session correlation suggests per-session leak. "
+            "WebSocket timing is suspicious. "
+            "Likely cause: WebSocket event listeners not being removed. "
+            "Need to check cleanup in session termination.",
+    reasoning_type="abductive"
+)
 ```
 
-### Project Planning
+### Design Decision
 
 ```python
-from toolregistry_hub import ThinkTool
+# Recall constraints
+ThinkTool.recall(
+    topic="Project tech stack and requirements",
+    context="FastAPI backend, 15 similar endpoints, team prefers DRY principles"
+)
 
-# Project planning and milestone setting
-project_plan = """
-Project: Customer Portal Development
-
-Phase 1: Foundation (Weeks 1-2)
-- Set up development environment
-- Create project structure and configuration
-- Implement basic authentication system
-- Set up database schema
-
-Phase 2: Core Features (Weeks 3-6)
-- User dashboard implementation
-- Profile management system
-- Basic CRUD operations for customer data
-- Form validation and error handling
-
-Phase 3: Advanced Features (Weeks 7-10)
-- Search and filtering functionality
-- Data export capabilities
-- Advanced user permissions
-- Audit logging
-
-Phase 4: Polish and Deploy (Weeks 11-12)
-- Performance optimization
-- Security review and hardening
-- User acceptance testing
-- Deployment preparation
-
-Risk Assessment:
-- Timeline risks: Dependencies on external APIs
-- Technical risks: Integration complexity
-- Resource risks: Team availability
-- Scope risks: Feature creep
-
-Success Metrics:
-- Performance: Page load times under 2 seconds
-- Security: No critical vulnerabilities found
-- User Experience: 90%+ user satisfaction
-- Reliability: 99.5% uptime target
-"""
-
-ThinkTool.think(project_plan)
-print("Project planning documented")
+# Reason about approach
+ThinkTool.reason(
+    content="15 similar endpoints → high duplication risk. "
+            "Could use base class, but FastAPI works better with dependency injection. "
+            "Factory function pattern is more Pythonic and plays well with FastAPI. "
+            "Decision: Use factory functions instead of inheritance.",
+    reasoning_type="analogical"
+)
 ```
 
 ## 🎯 Best Practices
 
-### Structured Thinking
+### 1. Separate Memory from Logic
+
+**Good:**
 
 ```python
-from toolregistry_hub import ThinkTool
+# First recall facts
+ThinkTool.recall(
+    topic="Python 3.9 features",
+    context="Project requires Python 3.9+"
+)
 
-def structured_thinking(template, content):
-    """Use structured templates for better thinking."""
-    structured_thought = f"""
-{template}
-
-Details:
-{content}
-
-Next Steps:
-- [ ] Action item 1
-- [ ] Action item 2
-- [ ] Review and validate
-"""
-    ThinkTool.think(structured_thought)
-    return "Structured thinking completed"
-
-# Example usage
-template = "SWOT Analysis: Strengths, Weaknesses, Opportunities, Threats"
-content = """
-Strengths:
-- Strong technical team
-- Proven track record
-- Good customer relationships
-
-Weaknesses:
-- Limited marketing budget
-- Small team size
-- Technology debt
-
-Opportunities:
-- Growing market demand
-- New technology trends
-- Partnership possibilities
-
-Threats:
-- Increasing competition
-- Economic uncertainty
-- Regulatory changes
-"""
-
-structured_thinking(template, content)
-print("Structured analysis completed")
+# Then reason about them
+ThinkTool.reason(
+    content="Python 3.9 introduced dict merge operator |. "
+            "This simplifies our config merging code. "
+            "Can replace dict(**a, **b) with a | b."
+)
 ```
 
-### Iterative Reasoning
+**Avoid:**
 
 ```python
-from toolregistry_hub import ThinkTool
-
-def iterative_reasoning(problem, iterations=3):
-    """Perform iterative reasoning on a problem."""
-    current_thought = f"Initial analysis of: {problem}"
-
-    for i in range(iterations):
-        current_thought = f"""
-Iteration {i + 1}:
-
-Current understanding: {current_thought}
-
-New considerations:
-- Additional factor to consider
-- Alternative perspective
-- Potential refinement
-
-Updated conclusion: [Updated analysis based on iteration]
-"""
-        ThinkTool.think(current_thought)
-
-    return "Iterative reasoning completed"
-
-# Example
-problem = "How to improve user engagement with our mobile app?"
-iterative_reasoning(problem, iterations=3)
-print("Iterative reasoning completed")
+# Don't mix memory and reasoning
+ThinkTool.reason(
+    content="Python 3.9 has dict merge (this is memory, not reasoning). "
+            "We can use it to simplify code (this is reasoning)."
+)
 ```
 
-### Decision Making
+### 2. Use Appropriate Reasoning Types
 
 ```python
-from toolregistry_hub import ThinkTool
+# Causal reasoning for cause-effect
+ThinkTool.reason(
+    content="Change X caused effect Y because...",
+    reasoning_type="causal"
+)
 
-def decision_analysis(options, criteria):
-    """Analyze decision options against criteria."""
-    analysis = f"""
-Decision Analysis
+# Abductive reasoning for best explanation
+ThinkTool.reason(
+    content="Given symptoms A, B, C, most likely cause is...",
+    reasoning_type="abductive"
+)
 
-Options to evaluate:
-{chr(10).join(f"- {option}" for option in options)}
+# Inductive reasoning for patterns
+ThinkTool.reason(
+    content="These 5 bugs all involve null checks. "
+            "Pattern: need better null handling throughout.",
+    reasoning_type="inductive"
+)
+```
 
-Evaluation criteria:
-{chr(10).join(f"- {criterion}" for criterion in criteria)}
+### 3. Use cognitive_operation for Novel Patterns
 
-Scoring matrix:
-"""
-
-    for option in options:
-        analysis += f"\n{option}:\n"
-        for criterion in criteria:
-            analysis += f"  - {criterion}: [Score and rationale]\n"
-
-    analysis += """
-Recommendation:
-[Based on analysis, recommend the best option with justification]
-"""
-
-    ThinkTool.think(analysis)
-    return "Decision analysis completed"
-
-# Example usage
-options = ["React Native", "Flutter", "Native iOS/Android"]
-criteria = ["Development speed", "Performance", "Team expertise", "Long-term maintenance"]
-decision_analysis(options, criteria)
-print("Decision analysis completed")
+```python
+# When standard tools don't fit
+ThinkTool.cognitive_operation(
+    operation_type="constraint_satisfaction",
+    content="✓ Must use Python 3.9+ (satisfied)\n"
+            "✓ Must be async (satisfied)\n"
+            "✗ No new dependencies (violated: need aiohttp)\n"
+            "→ Decision: Use stdlib urllib with asyncio",
+    metadata="Systematic constraint checking"
+)
 ```
 
 ## 🚨 Important Notes
 
-### Purpose and Limitations
+### What These Tools Do
 
-**What ThinkTool Does:**
+- **recall()**: Explicitly state facts, knowledge, observations
+- **reason()**: Perform logical analysis, evaluation, planning
+- **cognitive_operation()**: Custom operations for novel patterns
 
-- Records reasoning processes
-- Provides structured thinking space
-- Documents brainstorming sessions
-- Supports complex problem analysis
-- Enables iterative reasoning
-
-**What ThinkTool Does NOT Do:**
+### What These Tools Do NOT Do
 
 - Access external information or APIs
 - Make changes to code or data
 - Execute code or run tests
 - Access file systems or databases
-- Communicate with other tools or services
-- Perform actual computations or analysis
+- Perform actual computations
 
-### Integration with AI Workflows
+### Legacy `think()` Method
 
-ThinkTool is designed to integrate seamlessly with AI assistant workflows:
-
-```python
-# Example AI workflow integration
-def ai_workflow_with_thinking(user_request):
-    """Example of integrating ThinkTool in AI workflows."""
-
-    # Step 1: Analyze the request
-    ThinkTool.think(f"Analyzing user request: {user_request}")
-
-    # Step 2: Plan the approach
-    ThinkTool.think("Planning the best approach to solve this...")
-
-    # Step 3: Consider edge cases
-    ThinkTool.think("What edge cases should I consider?")
-
-    # Step 4: Execute the plan (using other tools)
-    # ... actual implementation would go here ...
-
-    # Step 5: Review the solution
-    ThinkTool.think("Reviewing the solution for completeness and correctness")
-
-    return "AI workflow thinking process completed"
-```
-
-### Documentation and Audit Trail
-
-ThinkTool creates a valuable audit trail of reasoning processes:
+The original `think(reasoning, facts)` method is still available for backward compatibility but is deprecated. Use `recall()` and `reason()` instead for clearer separation of concerns.
 
 ```python
-def create_reasoning_log(decisions):
-    """Create a comprehensive log of reasoning decisions."""
-    log_entries = []
+# Legacy (deprecated)
+ThinkTool.think(
+    reasoning="Some reasoning...",
+    facts="Some facts..."
+)
 
-    for decision in decisions:
-        ThinkTool.think(f"""
-Decision Log Entry
-
-Timestamp: {decision['timestamp']}
-Context: {decision['context']}
-Options Considered: {decision['options']}
-Reasoning Process: {decision['reasoning']}
-Final Decision: {decision['decision']}
-Confidence Level: {decision['confidence']}
-""")
-        log_entries.append(f"Decision log entry - {decision['timestamp']}")
-
-    return log_entries
+# New approach (recommended)
+ThinkTool.recall(topic="...", context="...")
+ThinkTool.reason(content="...")
 ```
+
+## 📚 References
+
+- Brown et al., ["Eliciting Reasoning in Language Models with Cognitive Tools"](https://arxiv.org/html/2506.12115)
+- Cognitive psychology research on knowledge vs. reasoning separation
+- Anderson's ACT-R cognitive architecture
+
+## 🔗 Related Tools
+
+- [Calculator](calculator.md) - For actual mathematical computations
+- [Todo List](todo_list.md) - For task tracking and planning
+- [File Operations](file_ops.md) - For reading/writing files
