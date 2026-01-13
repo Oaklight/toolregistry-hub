@@ -33,6 +33,22 @@ Tavily search provides functionality to perform web searches using the Tavily Se
    export TAVILY_API_KEY="tvly-your-api-key-here"
    ```
 
+## Free Tier
+
+Tavily Search offers moderate free tier allowances:
+
+- **1,000 free searches per month after registration**
+- **Suitable for personal projects and small application testing**
+- **Supports AI-generated answer functionality**
+
+### Maximizing Free Usage
+
+1. **Multi-API Key Rotation**: Use multiple API keys for load balancing to further extend free tier capacity
+2. **Plan Search Frequency**: Control search frequency wisely to avoid wasting quota
+
+!!! note "Free Tier Policy"
+All free tier information may be subject to provider policy changes. Information is accurate at the time of writing.
+
 ## Usage Examples
 
 ### Basic Usage

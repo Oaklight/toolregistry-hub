@@ -50,6 +50,23 @@ BRIGHTDATA_API_KEY=your_api_token_here
 BRIGHTDATA_ZONE=mcp_unlocker
 ```
 
+## Free Tier
+
+Bright Data offers very generous free tier allowances:
+
+- **5,000 free queries per month upon registration**
+- **No personal information verification or detailed documentation required**
+- **Token box appears in the bottom right corner after registration**
+- **Immediately available, no approval waiting required**
+
+### Maximizing Free Usage
+
+1. **Multi-Token Rotation**: Use multiple API tokens for load balancing
+2. **Plan Search Frequency**: Control search frequency wisely to avoid wasting quota
+
+!!! note "Free Tier Policy"
+    All free tier information may be subject to provider policy changes. Information is accurate at the time of writing.
+
 ## Usage
 
 ### Python API

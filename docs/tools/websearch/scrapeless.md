@@ -36,6 +36,23 @@ Scrapeless search implementation uses a **universal Google result parser** ([`Go
    export SCRAPELESS_API_KEY="your-scrapeless-api-key-here"
    ```
 
+## Free Tier
+
+Scrapeless doesn't offer a traditional free tier, but provides competitive pricing:
+
+- **No free tier available**
+- **Affordable pricing compared to other providers**
+- **Cost-effective for production use**
+- **Pay-as-you-go model**
+
+### Cost Optimization Tips
+
+**Efficient Queries**: Optimize search queries to get better results with fewer requests
+
+
+!!! note "Pricing Information"
+   All pricing information may be subject to provider policy changes. Information is accurate at the time of writing.
+
 ## Usage Examples
 
 ### Basic Google Search

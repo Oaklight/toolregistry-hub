@@ -33,6 +33,23 @@ Brave search provides functionality to perform web searches using the Brave Sear
    export BRAVE_API_KEY="your-brave-api-key-here"
    ```
 
+## Free Tier
+
+Brave Search offers generous free tier allowances:
+
+- **Two separate free plans available after registration**, each providing 2,000 queries per month
+- **Total: 4,000 free queries per month**
+- **Data Search free tier**: <https://api-dashboard.search.brave.com/app/plans?tab=normal>
+- **AI Search free tier**: <https://api-dashboard.search.brave.com/app/plans?tab=ai>
+
+### Maximizing Free Usage
+
+1. **Multi-API Key Rotation**: Use multiple API keys for load balancing to further extend free tier capacity
+2. **Plan Search Frequency**: Control search frequency wisely to avoid wasting quota
+
+!!! note "Free Tier Policy"
+   All free tier information may be subject to provider policy changes. Information is accurate at the time of writing.
+
 ## Usage Examples
 
 ### Basic Usage

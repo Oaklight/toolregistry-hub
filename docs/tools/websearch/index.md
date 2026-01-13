@@ -5,6 +5,26 @@ The web search tools provide functionality to perform web searches through vario
 !!! note "Bing Search Deprecated"
     Bing Search has been deprecated due to frequent bot detection issues. Please use alternative search providers.
 
+## Free Tier Summary
+
+Here's a quick overview of free tier offerings for each search provider:
+
+| Provider | Free Tier | Monthly Limit | Notes |
+|----------|-----------|---------------|-------|
+| **Brave Search** | ✅ Yes | 4,000 queries | Two separate plans (2,000 each) |
+| **Bright Data** | ✅ Yes | 5,000 queries | No verification required |
+| **Tavily** | ✅ Yes | 1,000 queries | AI-optimized search |
+| **Scrapeless** | ❌ No | - | Affordable paid plans |
+| **SearXNG** | ✅ Free | Unlimited | Self-hosted, open source |
+
+### tip "Maximizing Free Usage"
+
+- **Multi-API Key Rotation**: All providers support multiple API keys for load balancing
+- **SearXNG for High Volume**: Consider self-hosting SearXNG for unlimited free searches
+
+!!! note "Free Tier Policy"
+    All free tier information may be subject to provider policy changes. Information is accurate at the time of writing.
+
 ## Module Overview
 
 The web search tools mainly include the following two versions:

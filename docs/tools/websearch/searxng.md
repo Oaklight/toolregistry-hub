@@ -22,6 +22,33 @@ SearXNG search provides functionality to perform web searches using the SearXNG 
 - `_search_impl(query: str, **kwargs) -> List[SearchResult]`: Implement specific search logic
 - `_parse_results(raw_results: Dict) -> List[SearchResult]`: Parse raw search results
 
+## Free Tier
+
+SearXNG offers unique advantages for free usage:
+
+- **Completely free and open source**
+- **Self-hosted solution - no API limits**
+- **Privacy-focused - no tracking or data collection**
+- **Unlimited searches when self-hosted**
+
+### Deployment Options
+
+1. **Private Instance**: Deploy your own SearXNG instance for unlimited free usage
+2. **Public Instances**: Use existing public instances (may have rate limits)
+3. **Residential IP Proxy**: For agentic search, consider using residential IP proxy to prevent bot detection
+
+### Cost Considerations
+
+- **Self-hosting costs**: Server hosting and maintenance
+- **Proxy costs**: Optional residential IP proxy for enhanced reliability
+- **No API fees**: No per-query charges unlike commercial providers
+
+!!! tip "Recommended for Agentic Search"
+    For AI agents and automated search applications, consider deploying a private SearXNG instance with residential IP proxy to prevent bot detection and ensure reliable service.
+
+!!! note "Free Usage Policy"
+    SearXNG is open source and free to use. Self-hosting provides unlimited usage without API restrictions.
+
 ## Usage Examples
 
 ### Basic Usage
