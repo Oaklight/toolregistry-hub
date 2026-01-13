@@ -73,3 +73,40 @@ def test_think_structure_custom():
         thinking_type="gut_feeling",
         focus_area="Decision Making",
     )
+
+
+def test_recall_without_topic_tag():
+    """Test recall without optional topic_tag."""
+    ThinkTool.recall(
+        knowledge_content="FastAPI uses Pydantic for data validation and serialization."
+    )
+
+
+def test_reason_without_optional_params():
+    """Test reason without optional parameters."""
+    ThinkTool.reason(
+        thought_process="Analyzing the problem step by step to find the root cause."
+    )
+
+
+def test_think_without_focus_area():
+    """Test think without optional focus_area."""
+    ThinkTool.think(
+        thought="What if we try a completely different approach?",
+        thinking_type="brainstorming",
+    )
+
+
+def test_think_with_recommended_types():
+    """Test think with all recommended thinking types."""
+    recommended_types = [
+        "brainstorming",
+        "mental_simulation",
+        "perspective_taking",
+        "intuition",
+    ]
+    for thinking_type in recommended_types:
+        ThinkTool.think(
+            thought=f"Testing {thinking_type} mode.",
+            thinking_type=thinking_type,
+        )
