@@ -5,10 +5,10 @@ but without any authentication middleware. It serves as the foundation
 for both OpenAPI and MCP server implementations.
 """
 
-from typing import List, Optional, Any
+from typing import Any, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from loguru import logger
 
 from ..__init__ import version

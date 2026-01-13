@@ -8,7 +8,7 @@ from ...version_check import check_for_updates
 router = APIRouter(prefix="/version", tags=["version"])
 
 
-@router.get("/")
+@router.get("/", include_in_schema=False)
 async def get_version_info():
     """Get current version information and check for updates.
 
@@ -21,7 +21,7 @@ async def get_version_info():
     return JSONResponse(content=version_info, status_code=200)
 
 
-@router.get("/check")
+@router.get("/check", include_in_schema=False)
 async def check_updates():
     """Check for available updates.
 
