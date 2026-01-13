@@ -88,8 +88,19 @@ class DateTime:
     def now(timezone_name: Optional[str] = None) -> str:
         """Get current time in ISO 8601 format.
 
+        As an LLM, you have no sense of current time; use this tool to obtain accurate,
+        up-to-date time information. Essential for answering time-related questions,
+        generating timestamps, or scheduling tasks. Especially useful when performing
+        searches, taking notes, or communicating where current time context is needed.
+
         Args:
-            timezone_name: Optional timezone name (e.g., "Asia/Shanghai", "UTC+5"). Defaults to UTC if None.
+            timezone_name: Optional timezone name (e.g., "Asia/Shanghai", "UTC+5").
+                Defaults to UTC if None. Supports both IANA timezone names
+                (e.g., "America/New_York") and UTC/GMT offset formats
+                (e.g., "UTC+5", "GMT-3", "UTC+5:30").
+
+        Returns:
+            Current time as ISO 8601 formatted string.
 
         Raises:
             ValueError: If timezone is invalid.
@@ -108,10 +119,17 @@ class DateTime:
     ) -> Dict[str, Any]:
         """Convert time between timezones.
 
+        As an LLM, you may need to convert times across timezones for scheduling,
+        coordination, or understanding global events. Use this tool to accurately
+        convert a given time from one timezone to another.
+
         Args:
             time_str: Time in 24-hour format (HH:MM)
-            source_timezone: Source timezone (e.g., "America/Chicago", "UTC+5")
-            target_timezone: Target timezone (e.g., "Asia/Shanghai", "GMT-3")
+            source_timezone: Source timezone (e.g., "America/Chicago", "UTC+5").
+                Supports both IANA timezone names (e.g., "America/New_York") and
+                UTC/GMT offset formats (e.g., "UTC+5", "GMT-3", "UTC+5:30").
+            target_timezone: Target timezone (e.g., "Asia/Shanghai", "GMT-3").
+                Supports both IANA timezone names and UTC/GMT offset formats.
 
         Returns:
             Dict with source_time, target_time, time_difference, and timezone info.
