@@ -10,6 +10,55 @@ author: Oaklight
 
 This page documents all notable changes to the toolregistry-hub project since the first official release version 0.4.14.
 
+## [0.5.4] - 2026-01-13
+
+### 🔄 Refactoring
+
+- **Unified Cognitive Tools Architecture**
+	- Consolidate reason and think endpoints into single think endpoint, combining structured reasoning and exploratory thinking
+	- Merge thinking modes: analysis, hypothesis, planning, verification, correction (structured) with brainstorming, mental_simulation, perspective_taking, intuition (exploratory)
+	- Simplify API surface by removing separate /reason endpoint and updating request models
+	- Unify parameter naming: 'thought' → 'thought_process', 'thinking_type' → 'thinking_mode'
+	- Refactor test suite with comprehensive coverage of all thinking modes and parameter combinations
+	- Update documentation to reflect "recall + think" dual-tool cognitive architecture
+
+### ✨ New Features
+
+- **PyPI Version Check & Update Notifications**
+	- Add comprehensive PyPI version checking system, inspired by argo-proxy implementation
+	- New `version_check.py` module with async PyPI API calls and intelligent version comparison
+	- Implement pre-release version support (alpha, beta, rc) and event loop safety handling
+	- Add `/version/` and `/version/check` API endpoints returning version info and update status
+	- CLI adds `--version` parameter to display current version and check for updates
+	- Enhanced startup banner with automatic version info and update notifications
+	- Use standard library for version comparison without additional dependencies
+	- Include complete synchronous test suite (10 tests)
+
+- **ASCII Art Banner**
+	- Add new banner.py module with ASCII art banner
+	- Implement centered alignment and consistent border styling (80-char width)
+	- Display banner on CLI startup with show_banner=False parameter to disable
+
+### 📝 Documentation Improvements
+
+- **Time-Sensitive Query Guidance for Web Search**
+	- Add IMPORTANT note in all websearch class docstrings
+	- Emphasize LLMs have no inherent sense of time and training data may be outdated
+	- Require checking current time with datetime tools for queries like "recent news"
+	- Applied to all search provider classes
+
+- **DateTime Tools Documentation Enhancement**
+	- Add detailed descriptions for now() and convert_timezone() methods
+	- Expand parameter documentation with timezone format examples
+	- Route descriptions directly reference method docstrings for better consistency
+
+### 🔧 Maintenance
+
+- **Version Attribute Fix**
+	- Update pyproject.toml to use __version__ attribute instead of version
+	- Add __version__ variable in __init__.py following Python version convention
+	- Maintain backward compatibility by keeping version variable
+
 ## [0.5.3] - 2025-12-13
 
 ### 🔧 Refactoring
