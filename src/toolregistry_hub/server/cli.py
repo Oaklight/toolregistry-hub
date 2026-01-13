@@ -4,32 +4,50 @@ import sys
 from loguru import logger
 
 from .. import __version__
+from .banner import BANNER_ART
 from .server_core import set_info
 
 
 def print_banner():
-    """Print the ToolRegistry Hub banner."""
-    # Center the version string within 76 characters (80 - 4 for ": " and " :")
-    version_text = f"🔨🦾 Version {__version__}"
-    centered_version = version_text.center(75)
+    """Print the ToolRegistry Hub banner with centered content and border."""
+    width = 80
+    border_char = "·"
 
-    banner = f"""
-················································································
-:                                                                              :
-:   _____           _______           _     _              _   _       _       :
-:  |_   _|         | | ___ \         (_)   | |            | | | |     | |      :
-:    | | ___   ___ | | |_/ /___  __ _ _ ___| |_ _ __ _   _| |_| |_   _| |__    :
-:    | |/ _ \ / _ \| |    // _ \/ _` | / __| __| '__| | | |  _  | | | | '_ \   :
-:    | | (_) | (_) | | |\ \  __/ (_| | \__ \ |_| |  | |_| | | | | |_| | |_) |  :
-:    \_/\___/ \___/|_\_| \_\___|\__, |_|___/\__|_|   \__, \_| |_/\__,_|_.__/   :
-:                                __/ |                __/ |                    :
-:                               |___/                |___/                     :
-:                                                                              :
-: {centered_version} :
-:                                                                              :
-················································································
-"""
-    print(banner)
+    # Split banner art into lines
+    art_lines = BANNER_ART.split("\n")
+
+    # Add version line
+    version_line = f"Version {__version__}"
+
+    # Build the banner
+    lines = []
+
+    # Top border
+    lines.append(border_char * width)
+
+    # Empty line
+    lines.append(f": {' ' * (width - 4)} :")
+
+    # Art lines - center each line
+    for line in art_lines:
+        centered = line.center(width - 4)
+        lines.append(f": {centered} :")
+
+    # Empty line
+    lines.append(f": {' ' * (width - 4)} :")
+
+    # Version line - centered
+    centered_version = version_line.center(width - 4)
+    lines.append(f": {centered_version} :")
+
+    # Empty line
+    lines.append(f": {' ' * (width - 4)} :")
+
+    # Bottom border
+    lines.append(border_char * width)
+
+    # Print the banner
+    print("\n".join(lines))
 
 
 def main():
