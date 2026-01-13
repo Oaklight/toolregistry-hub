@@ -10,6 +10,15 @@ author: Oaklight
 
 This page documents all notable changes to the toolregistry-hub project since the first official release version 0.4.14.
 
+## [0.5.4.post1] - 2026-01-13
+
+### 🐛 Bug Fixes
+
+- **Version Endpoint Visibility**
+	- Hide version endpoints (`/version/` and `/version/check`) from OpenAPI documentation using `include_in_schema=False`
+	- Version endpoints remain fully functional and accessible via HTTP requests
+	- Prevents version endpoints from being exposed as LLM tools in MCP mode
+
 ## [0.5.4] - 2026-01-13
 
 ### 🔄 Refactoring
