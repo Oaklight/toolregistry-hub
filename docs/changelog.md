@@ -10,6 +10,15 @@ author: Oaklight
 
 本页面记录了 toolregistry-hub 项目从首个正式发布版本 0.4.14 以来的所有重要变更。
 
+## [0.5.4.post1] - 2026-01-13
+
+### 🐛 修复
+
+- **版本端点可见性**
+	- 使用 `include_in_schema=False` 从 OpenAPI 文档中隐藏版本端点（`/version/` 和 `/version/check`）
+	- 版本端点保持完全功能，可通过 HTTP 请求正常访问
+	- 防止版本端点在 MCP 模式下被暴露为 LLM 工具
+
 ## [0.5.4] - 2026-01-13
 
 ### 🔄 重构
