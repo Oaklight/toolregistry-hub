@@ -89,7 +89,7 @@ class BingSearch(BaseSearch):
             DeprecationWarning,
             stacklevel=2,
         )
-        
+
         self.bing_base_url = bing_base_url.rstrip("/")
         if not self.bing_base_url.endswith("/search"):
             self.bing_base_url += "/search"  # Ensure the URL ends with /search
@@ -99,7 +99,7 @@ class BingSearch(BaseSearch):
             logger.info(f"Bing search using proxy: {self.proxy}")
         else:
             logger.debug("Bing search without proxy")
-        
+
         self.rate_limit_delay = rate_limit_delay
         self.last_request_time = 0
 
@@ -120,6 +120,11 @@ class BingSearch(BaseSearch):
         **kwargs,
     ) -> List[SearchResult]:
         """Perform search and return results.
+
+        IMPORTANT: For time-sensitive queries (e.g., "recent news", "latest updates", "today's events"),
+        you MUST first obtain the current date/time using an available time/datetime tool before
+        constructing your search query. As an LLM, you have no inherent sense of current time - your
+        training data may be outdated. Always verify the current date when temporal context matters.
 
         Args:
             query: The search query.

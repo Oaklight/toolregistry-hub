@@ -93,6 +93,11 @@ class ScrapelessSearch(BaseSearch):
     ) -> List[SearchResult]:
         """Perform a Google search using Scrapeless DeepSERP API.
 
+        IMPORTANT: For time-sensitive queries (e.g., "recent news", "latest updates", "today's events"),
+        you MUST first obtain the current date/time using an available time/datetime tool before
+        constructing your search query. As an LLM, you have no inherent sense of current time - your
+        training data may be outdated. Always verify the current date when temporal context matters.
+
         Args:
             query: The search query string
             max_results: Maximum number of results to return (1~20 recommended)
