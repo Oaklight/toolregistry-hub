@@ -19,70 +19,39 @@ from ...think_tool import ThinkTool
 class RecallRequest(BaseModel):
     """Request for recall tool (memory/knowledge/facts)."""
 
-    topic: str = Field(
-        description="What to recall information about",
-        examples=["Python async patterns", "Bug in auth.py line 45"],
+    knowledge_content: str = Field(
+        description="Dump your raw memory/knowledge about a subject. Can be internal knowledge or information from current context."
     )
-    context: Optional[str] = Field(
-        default=None,
-        description="Optional observed facts from current situation",
-        examples=["Project uses FastAPI, has blocking DB calls"],
+    topic_tag: Optional[str] = Field(
+        default=None, description="A short label for this memory block"
     )
 
 
 class ReasonRequest(BaseModel):
-    """Request for reason tool (logical reasoning/analysis)."""
+    """Request for reason tool (goal-directed logical reasoning)."""
 
-    content: str = Field(
-        description="Your reasoning process and conclusions",
-        examples=[
-            "Auth fails after v2.0. New code has shared cache without locks. Intermittent failures suggest race condition."
-        ],
+    thought_process: str = Field(
+        description="Your detailed stream of thoughts following a goal-directed path. Don't summarize; show the work."
     )
     reasoning_type: Optional[
-        Literal["deductive", "inductive", "abductive", "analogical", "causal"]
-    ] = Field(
-        default=None,
-        description="Optional type of reasoning",
-        examples=["causal"],
-    )
-
-
-class CognitiveOperationRequest(BaseModel):
-    """Request for custom cognitive operation (extensibility)."""
-
-    operation_type: str = Field(
-        description="Name of operation",
-        examples=[
-            "hypothesis_generation",
-            "mental_simulation",
-            "constraint_satisfaction",
-        ],
-    )
-    content: str = Field(
-        description="The cognitive work being performed",
-        examples=[
-            "H1: DB query issue (high), H2: Memory leak (medium), H3: Network (low)"
-        ],
-    )
-    metadata: Optional[str] = Field(
-        default=None,
-        description="Optional context about why/how this operation is used",
-        examples=["Single-cause debugging failed, trying multiple hypotheses"],
+        Literal["analysis", "hypothesis", "planning", "verification", "correction"]
+    ] = Field(default=None, description="The stage of the problem-solving lifecycle")
+    focus_area: Optional[str] = Field(
+        default=None, description="What specific problem are you trying to solve here?"
     )
 
 
 class ThinkRequest(BaseModel):
-    """Request for legacy think tool (backward compatibility)."""
+    """Request for think tool (free-form exploratory thinking)."""
 
-    reasoning: str = Field(
-        description="Logical reasoning process",
-        examples=["Error in auth.py after v2.0, likely from refactor"],
+    thought: str = Field(
+        description="Your exploratory thinking without a predetermined path. For open-ended exploration, gut feelings, or trying out ideas."
     )
-    facts: Optional[str] = Field(
-        default=None,
-        description="Optional factual information",
-        examples=["User uses Python 3.9. Error in auth.py line 45."],
+    thinking_type: str = Field(
+        description="The specific mode of thinking. Recommended: 'brainstorming', 'mental_simulation', 'perspective_taking', 'intuition', or any custom string."
+    )
+    focus_area: Optional[str] = Field(
+        default=None, description="The context or problem you are thinking about"
     )
 
 
@@ -100,12 +69,6 @@ class CognitiveToolResponse(BaseModel):
     )
 
 
-class ThinkResponse(BaseModel):
-    """Response for legacy think tool."""
-
-    reasoning: str = Field(..., description="The processed reasoning")
-
-
 # ============================================================
 # API routes
 # ============================================================
@@ -115,80 +78,61 @@ router = APIRouter(tags=["cognitive-tools"])
 
 @router.post(
     "/recall",
-    summary="Recall facts and knowledge (memory)",
+    summary="Dump raw memory and knowledge",
     description=ThinkTool.recall.__doc__,
     operation_id="recall",
     response_model=CognitiveToolResponse,
 )
 def recall(data: RecallRequest) -> CognitiveToolResponse:
-    """Recall facts, knowledge, and observations (memory, not reasoning).
+    """Retrieve and record factual knowledge (what you know).
 
     Args:
-        data: Request containing topic and optional context
+        data: Request containing knowledge content and optional topic tag
 
     Returns:
         Response confirming the operation was processed
     """
-    ThinkTool.recall(data.topic, data.context)
+    ThinkTool.recall(data.knowledge_content, data.topic_tag)
     return CognitiveToolResponse(message="Knowledge recalled")
 
 
 @router.post(
     "/reason",
-    summary="Perform logical reasoning (logic/analysis)",
+    summary="Goal-directed logical reasoning",
     description=ThinkTool.reason.__doc__,
     operation_id="reason",
     response_model=CognitiveToolResponse,
 )
 def reason(data: ReasonRequest) -> CognitiveToolResponse:
-    """Perform logical reasoning and analysis.
+    """Perform goal-directed logical reasoning (how you solve problems).
 
     Args:
-        data: Request containing reasoning content and optional type
+        data: Request containing thought process, reasoning type, and focus area
 
     Returns:
         Response confirming the operation was processed
     """
-    ThinkTool.reason(data.content, data.reasoning_type)
+    ThinkTool.reason(data.thought_process, data.reasoning_type, data.focus_area)
     return CognitiveToolResponse(message="Reasoning completed")
 
 
 @router.post(
-    "/cognitive-operation",
-    summary="Custom cognitive operation (extensibility)",
-    description=ThinkTool.cognitive_operation.__doc__,
-    operation_id="cognitive_operation",
+    "/think",
+    summary="Open-ended exploratory thinking",
+    description=ThinkTool.think.__doc__,
+    operation_id="think",
     response_model=CognitiveToolResponse,
 )
-def cognitive_operation(data: CognitiveOperationRequest) -> CognitiveToolResponse:
-    """Perform custom cognitive operation for novel reasoning patterns.
+def think(data: ThinkRequest) -> CognitiveToolResponse:
+    """Free-form exploratory thinking without a predetermined path.
 
     Args:
-        data: Request containing operation type, content, and optional metadata
+        data: Request containing thought, thinking type, and focus area
 
     Returns:
         Response confirming the operation was processed
     """
-    ThinkTool.cognitive_operation(data.operation_type, data.content, data.metadata)
-    return CognitiveToolResponse(message=f"Operation '{data.operation_type}' completed")
-
-
-@router.post(
-    "/think",
-    summary="Think (legacy - use recall/reason instead)",
-    description=ThinkTool.think.__doc__,
-    operation_id="think",
-    response_model=ThinkResponse,
-    deprecated=True,
-)
-def think(data: ThinkRequest) -> ThinkResponse:
-    """Legacy think method. Use recall() and reason() instead.
-
-    Args:
-        data: Request containing reasoning and optional facts
-
-    Returns:
-        Response containing the processed reasoning
-    """
-    ThinkTool.think(data.reasoning, data.facts)
-    return ThinkResponse(reasoning=data.reasoning)
+    ThinkTool.think(data.thought, data.thinking_type, data.focus_area)
+    return CognitiveToolResponse(
+        message=f"Exploratory thinking '{data.thinking_type}' recorded"
+    )
