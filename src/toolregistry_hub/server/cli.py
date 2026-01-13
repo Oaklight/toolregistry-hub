@@ -3,10 +3,39 @@ import sys
 
 from loguru import logger
 
+from .. import __version__
 from .server_core import set_info
 
 
+def print_banner():
+    """Print the ToolRegistry Hub banner."""
+    # Center the version string within 76 characters (80 - 4 for ": " and " :")
+    version_text = f"🔨🦾 Version {__version__}"
+    centered_version = version_text.center(75)
+
+    banner = f"""
+················································································
+:                                                                              :
+:   _____           _______           _     _              _   _       _       :
+:  |_   _|         | | ___ \         (_)   | |            | | | |     | |      :
+:    | | ___   ___ | | |_/ /___  __ _ _ ___| |_ _ __ _   _| |_| |_   _| |__    :
+:    | |/ _ \ / _ \| |    // _ \/ _` | / __| __| '__| | | |  _  | | | | '_ \   :
+:    | | (_) | (_) | | |\ \  __/ (_| | \__ \ |_| |  | |_| | | | | |_| | |_) |  :
+:    \_/\___/ \___/|_\_| \_\___|\__, |_|___/\__|_|   \__, \_| |_/\__,_|_.__/   :
+:                                __/ |                __/ |                    :
+:                               |___/                |___/                     :
+:                                                                              :
+: {centered_version} :
+:                                                                              :
+················································································
+"""
+    print(banner)
+
+
 def main():
+    # Print banner at startup
+    print_banner()
+
     parser = argparse.ArgumentParser(description="Run the Tool Registry API server.")
     parser.add_argument(
         "--host",
@@ -71,9 +100,16 @@ def main():
         set_info(mode="mcp", mcp_transport=args.mcp_transport)
 
         if args.mcp_transport == "stdio":
-            mcp_app.run(show_banner=False)  # Run MCP in stdio mode; assumes FastMCP supports this method
+            mcp_app.run(
+                show_banner=False
+            )  # Run MCP in stdio mode; assumes FastMCP supports this method
         else:
-            mcp_app.run(transport=args.mcp_transport, host=args.host, port=args.port, show_banner=False)
+            mcp_app.run(
+                transport=args.mcp_transport,
+                host=args.host,
+                port=args.port,
+                show_banner=False,
+            )
 
 
 if __name__ == "__main__":
