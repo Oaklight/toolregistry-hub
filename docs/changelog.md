@@ -10,6 +10,20 @@ author: Oaklight
 
 本页面记录了 toolregistry-hub 项目从首个正式发布版本 0.4.14 以来的所有重要变更。
 
+## [0.5.5] - 2026-01-31
+
+### 🔄 重构
+
+- **Think 工具增强**
+	- 统一 reason 和 think 端点为单一的 think 端点
+	- 重新排序参数并简化思考模式
+
+### 🔧 维护
+
+- **Docker 改进**
+	- Dockerfile 添加 `REGISTRY_MIRROR` 构建参数，支持自定义镜像仓库
+	- `.dockerignore` 添加 `references/` 目录忽略，减小镜像体积
+
 ## [0.5.4.post1] - 2026-01-13
 
 ### 🐛 修复
