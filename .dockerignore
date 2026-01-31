@@ -96,3 +96,4 @@ dmypy.json
 .cursorindexingignore
 .pypirc
 github_refs
+references/
