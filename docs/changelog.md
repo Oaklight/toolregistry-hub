@@ -10,6 +10,20 @@ author: Oaklight
 
 This page documents all notable changes to the toolregistry-hub project since the first official release version 0.4.14.
 
+## [0.5.5] - 2026-01-31
+
+### 🔄 Refactoring
+
+- **Think Tool Enhancement**
+	- Unify reason and think endpoints into single think endpoint
+	- Reorder parameters and simplify thinking modes
+
+### 🔧 Maintenance
+
+- **Docker Improvements**
+	- Add `REGISTRY_MIRROR` build argument to Dockerfile for custom registry support
+	- Add `references/` directory to `.dockerignore` to reduce image size
+
 ## [0.5.4.post1] - 2026-01-13
 
 ### 🐛 Bug Fixes

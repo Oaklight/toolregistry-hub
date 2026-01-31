@@ -1,67 +1,43 @@
 ---
 title: Cognitive Tools
-summary: Modular cognitive operations for structured reasoning
-description: Cognitive tools separate knowledge recall from logical reasoning, inspired by cognitive psychology research and designed for AI integration.
-keywords: cognitive tools, reasoning, memory, recall, think tool, AI tools
+summary: Unified cognitive tool for structured reasoning
+description: A single think tool that handles all cognitive operations including memory recall, reasoning, and exploration.
+keywords: cognitive tools, reasoning, memory, think tool, AI tools
 author: Oaklight
 ---
 
 # Cognitive Tools
 
-Cognitive tools provide modular operations for structured reasoning, separating **knowledge/memory/facts** from **reasoning/logic**. Design inspired by [Anthropic's Claude Think Tool](https://www.anthropic.com/engineering/claude-think-tool) and the cognitive psychology paper ["Eliciting Reasoning in Language Models with Cognitive Tools"](https://arxiv.org/html/2506.12115).
+A unified cognitive tool for structured reasoning, combining **knowledge recall**, **logical reasoning**, and **creative exploration** into a single flexible interface. Design inspired by [Anthropic's Claude Think Tool](https://www.anthropic.com/engineering/claude-think-tool) and the cognitive psychology paper ["Eliciting Reasoning in Language Models with Cognitive Tools"](https://arxiv.org/html/2506.12115).
 
 ## 🎯 Design Philosophy
 
-### Why Do We Need Cognitive Tools?
+### Why a Unified Tool?
 
 When interacting with AI models, we found that the model's "thinking" process is often a black box. The core goal of cognitive tools is: **transform the model's thinking process from "black box" to "white box"**, making its reasoning visible, traceable, and correctable.
 
-Research shows that **knowledge and reasoning are separate cognitive processes**:
-
-- **Knowledge/Memory/Facts**: Content about the world, observations, context
-- **Reasoning/Logic**: Mathematical/logical operations independent of specific world knowledge
-
-Our tools reflect this separation for clearer, more structured thinking.
-
 ### Design Evolution
 
-#### Generation 1: Single `think()` Tool
+#### Generation 1-3: From Complexity to Simplicity
 
-The initial design, inspired by [Anthropic's Claude Think Tool](https://www.anthropic.com/engineering/claude-think-tool), had only one `think()` method, allowing models to freely record thinking content like a scratchpad. This design was simple and direct, but we discovered problems in practice:
+We went through several iterations:
 
-- **Lack of structure**: Model's thinking content was mixed, hard to distinguish between recalling facts and performing reasoning
-- **Difficult to trace**: Users couldn't quickly locate problem types when reviewing
-- **Low efficiency**: Models didn't know when to use which thinking approach
+1. **Single `think()` tool** - Simple but lacked structure
+2. **Three tools (`recall` + `reason` + `think`)** - Theoretically perfect but models struggled to choose
+3. **Two tools (`recall` + `think`)** - Better, but `recall` was rarely used in practice
 
-#### Generation 2: Three-Tool Separation (`recall` + `reason` + `think`)
+#### Generation 4: Current Design (Unified `think`)
 
-Inspired by Brown et al.'s paper ["Eliciting Reasoning in Language Models with Cognitive Tools"](https://arxiv.org/html/2506.12115), we subdivided the cognitive process into three independent tools:
+Based on real-world usage feedback, we made a key insight: **models almost never used `recall` separately**. They preferred to dump everything into `think`. So we:
 
-- **`recall()`**: Specifically for memory retrieval and fact statements
-- **`reason()`**: For goal-directed logical reasoning with explicit reasoning stage markers
-- **`think()`**: For free exploratory thinking without structural constraints
-
-This design was theoretically perfect, but in actual use we found:
-
-- **Model selection difficulty**: Models either only used `think` or only used `reason`, rarely mixing them
-- **Blurred boundaries**: The distinction between `reason` and `think` wasn't intuitive enough for models
-- **Cognitive burden**: Three tools increased the model's selection cost
-
-#### Generation 3: Current Design (`recall` + `think`)
-
-Based on actual usage feedback, we made a key simplification: **merge `reason` and `think` into a unified `think` tool**.
-
-**Core improvements:**
-
-1. **Simplified selection**: Models no longer need to struggle between `think` and `reason`
-2. **Clear contrast**: `recall` (static knowledge) vs `think` (dynamic thinking)
-3. **Preserved flexibility**: Support all thinking modes through `thinking_mode` parameter
-4. **Encourage detail**: Parameter naming (`thought_process`) hints at writing lengthy content
+1. **Merged `recall` into `think`** - Added `"recalling"` as a thinking mode
+2. **Reordered parameters** - `thinking_mode` → `focus_area` → `thought_process` (decide HOW to think before WHAT to think)
+3. **Simplified modes** - Reduced from 9 to 6 core modes with clear use cases
 
 **Design philosophy:**
 
-- **Tools as recorders**: These tools don't execute operations, they record thinking processes
-- **Parameters as hints**: Guide model behavior through parameter naming (`thought_process` instead of `content`)
+- **One tool, many modes**: Simpler mental model for the AI
+- **Parameter order matters**: Guide the model to decide thinking approach first
 - **Modes as guidance**: Predefined modes provide direction but don't limit creativity
 
 ## 🚀 Quick Start
@@ -69,153 +45,195 @@ Based on actual usage feedback, we made a key simplification: **merge `reason` a
 ```python
 from toolregistry_hub import ThinkTool
 
-# Recall facts and knowledge (memory)
-ThinkTool.recall(
-    knowledge_content="FastAPI uses dependency injection. Project has blocking DB calls "
-                      "that need to be converted to async for proper performance.",
-    topic_tag="Python async patterns"
+# Recall facts and knowledge (using "recalling" mode)
+ThinkTool.think(
+    thinking_mode="recalling",
+    focus_area="Python async patterns",
+    thought_process="FastAPI uses dependency injection. Project has blocking DB calls "
+                    "that need to be converted to async for proper performance."
 )
 
-# Record thinking process (includes structured reasoning and free exploration)
+# Analyze a problem
 ThinkTool.think(
+    thinking_mode="reasoning",
+    focus_area="Database performance optimization",
     thought_process="Blocking calls in async context cause performance issues. "
                     "Need to use asyncpg for async PostgreSQL. "
-                    "Solution: Replace sync DB calls with async equivalents.",
-    thinking_mode="analysis",
-    focus_area="Database performance optimization"
+                    "Solution: Replace sync DB calls with async equivalents."
+)
+
+# Plan implementation steps
+ThinkTool.think(
+    thinking_mode="planning",
+    focus_area="Migration strategy",
+    thought_process="1. Identify all sync DB calls. 2. Install asyncpg. "
+                    "3. Create async connection pool. 4. Migrate one endpoint at a time."
 )
 ```
 
 ## 🔧 API Reference
 
-### `recall(knowledge_content: str, topic_tag: Optional[str] = None)`
+### `think(thinking_mode, focus_area, thought_process)`
 
-Retrieve and record factual knowledge (what you know). Use this to dump your raw memory/knowledge about a subject into the context.
+Record your cognitive process - thinking, reasoning, planning, or recalling.
 
-**Parameters:**
+**Parameters (in recommended order):**
 
-- `knowledge_content` (str): The detailed facts and information you are recalling. Can be long.
-- `topic_tag` (str, optional): A short label for this memory block.
+1. `thinking_mode` (str, optional): The type of cognitive operation. **Choose this FIRST** to guide your thinking.
+    - Core modes: `"reasoning"`, `"planning"`, `"reflection"`
+    - Memory mode: `"recalling"` (use this to dump knowledge/facts)
+    - Creative modes: `"brainstorming"`, `"exploring"`
+    - Or use any custom string
 
-### `think(thought_process: str, thinking_mode: Optional[str] = None, focus_area: Optional[str] = None)`
+2. `focus_area` (str, optional): What specific problem or topic you're thinking about. **Set this SECOND**.
 
-Record your thinking process - both structured reasoning and free exploration.
-
-This unified tool handles all forms of active thinking:
-
-- Structured problem-solving (analysis, planning, verification, etc.)
-- Creative exploration (brainstorming, mental simulation, etc.)
-- Intuitive insights and gut feelings
-
-**Parameters:**
-
-- `thought_process` (str): Your detailed stream of thoughts. Can be long and messy.
-- `thinking_mode` (str, optional): The type of thinking you're doing. Common modes:
-    - Structured: `"analysis"`, `"hypothesis"`, `"planning"`, `"verification"`, `"correction"`
-    - Exploratory: `"brainstorming"`, `"mental_simulation"`, `"perspective_taking"`, `"intuition"`
-    - Or use any custom string that describes your thinking mode
-- `focus_area` (str, optional): What specific problem or topic you're thinking about.
+3. `thought_process` (str): Your detailed stream of thoughts. **Write this LAST**. Can be long and messy.
 
 **Thinking Mode Descriptions:**
 
-| Mode | Purpose | Example Scenario |
-|------|---------|------------------|
-| `analysis` | Systematically analyze problems | Examine error patterns, understand root causes |
-| `hypothesis` | Form theories about causes | Infer possible causes based on symptoms |
-| `planning` | Develop solution plans | Design implementation steps and strategies |
-| `verification` | Check if something works | Test fixes, confirm results |
-| `correction` | Fix mistakes in thinking | Correct previous wrong assumptions |
-| `brainstorming` | Generate ideas freely | Explore multiple possibilities without judgment |
-| `mental_simulation` | Imagine how something plays out | Simulate user interaction flows |
-| `perspective_taking` | Consider other viewpoints | Think from different role perspectives |
-| `intuition` | Follow gut feelings | Instinctive judgments based on experience |
+| Mode | Purpose | When to Use |
+|------|---------|-------------|
+| `reasoning` | Logical analysis and deduction | Analyzing problems, evaluating options, making logical deductions |
+| `planning` | Breaking down tasks, creating strategies | Designing implementation steps, creating action plans |
+| `reflection` | Reviewing, verifying, self-correction | Checking your work, finding errors, correcting assumptions |
+| `recalling` | Dumping knowledge/facts from memory | Gathering background info, stating what you know |
+| `brainstorming` | Generating ideas freely | Exploring possibilities without judgment |
+| `exploring` | Mental simulation, what-if scenarios | Imagining how things play out, considering hypotheticals |
 
 ## 🎯 Usage Guide
 
-### When to Use `recall()`
+### Parameter Order Matters
 
-- Before reasoning, to gather relevant background
-- To explicitly state what you know/remember
-- To separate factual recall from logical inference
-- Treat this as a scratchpad for your memory
+The parameter order is intentional: `thinking_mode` → `focus_area` → `thought_process`
 
-### When to Use `think()`
+This guides the model to:
+1. **First** decide HOW to think (mode)
+2. **Then** narrow the scope (focus)
+3. **Finally** write the actual thoughts
 
-- Analyze problems
-- Form hypotheses
-- Plan solutions
-- Verify results
-- Correct mistakes
-- Brainstorm
-- Explore possibilities
-- Follow intuition
+```python
+# Good: Mode first, then focus, then content
+ThinkTool.think(
+    thinking_mode="planning",           # 1. Decide approach
+    focus_area="API refactoring",       # 2. Narrow scope
+    thought_process="Step 1: ..."       # 3. Write thoughts
+)
+```
+
+### When to Use Each Mode
+
+**`reasoning`** - For logical analysis:
+```python
+ThinkTool.think(
+    thinking_mode="reasoning",
+    focus_area="Error diagnosis",
+    thought_process="The error occurs after the database call. "
+                    "Looking at the stack trace, it's a connection timeout. "
+                    "This suggests the connection pool is exhausted..."
+)
+```
+
+**`planning`** - For task breakdown:
+```python
+ThinkTool.think(
+    thinking_mode="planning",
+    focus_area="Feature implementation",
+    thought_process="1. Create the data model. 2. Add API endpoint. "
+                    "3. Write tests. 4. Update documentation."
+)
+```
+
+**`reflection`** - For self-correction:
+```python
+ThinkTool.think(
+    thinking_mode="reflection",
+    focus_area="Previous assumption",
+    thought_process="Wait, I assumed the error was in the database layer, "
+                    "but looking more carefully, it's actually a network issue..."
+)
+```
+
+**`recalling`** - For knowledge dump:
+```python
+ThinkTool.think(
+    thinking_mode="recalling",
+    focus_area="Python 3.9 features",
+    thought_process="Python 3.9 introduced dict merge operator |. "
+                    "Also added removeprefix() and removesuffix() to strings. "
+                    "Type hints got more flexible with built-in generics."
+)
+```
+
+**`brainstorming`** - For idea generation:
+```python
+ThinkTool.think(
+    thinking_mode="brainstorming",
+    focus_area="Performance optimization",
+    thought_process="Could use caching. Maybe Redis? Or in-memory LRU? "
+                    "What about lazy loading? Or precomputing results? "
+                    "Database indexing might help too..."
+)
+```
+
+**`exploring`** - For what-if scenarios:
+```python
+ThinkTool.think(
+    thinking_mode="exploring",
+    focus_area="Architecture decision",
+    thought_process="If we use microservices, we'd need service discovery. "
+                    "That adds complexity but improves scalability. "
+                    "What if we start monolithic and split later?"
+)
+```
 
 ### Best Practices
 
-**1. Separate Memory from Logic**
+**1. Don't Summarize - Show the Full Process**
 
 ```python
-# First recall facts
-ThinkTool.recall(
-    knowledge_content="Python 3.9 introduced dict merge operator |. "
-                      "Project requires Python 3.9+.",
-    topic_tag="Python 3.9 features"
-)
-
-# Then reason about them
+# Good: Detailed thinking
 ThinkTool.think(
-    thought_process="We currently use dict(**a, **b) for merging configs. "
-                    "The | operator is cleaner and more readable. "
-                    "Since we require 3.9+, we can safely use this.",
-    thinking_mode="planning"
-)
-```
-
-**2. Don't Summarize - Show the Full Process**
-
-```python
-# Good practice
-ThinkTool.think(
+    thinking_mode="reasoning",
+    focus_area="Bug investigation",
     thought_process="First checking error logs... found timeout errors. "
                     "Timeout occurs in database queries. Looking at the query, missing index. "
-                    "Adding index should solve it. But need to verify in test environment first...",
-    thinking_mode="analysis"
+                    "Adding index should solve it. But need to verify in test environment first..."
 )
 
-# Avoid
+# Avoid: Too brief
 ThinkTool.think(
-    thought_process="Found it's an index issue",  # Too brief, lost the thinking process
-    thinking_mode="analysis"
+    thinking_mode="reasoning",
+    focus_area="Bug investigation",
+    thought_process="Found it's an index issue"  # Lost the thinking process
 )
 ```
 
-**3. Use Appropriate Thinking Modes**
+**2. Use Modes Appropriately**
 
 Choose the mode that best describes your current thinking type, but don't overthink it - modes are guidance, not restrictions.
 
 ## 🚨 Important Notes
 
-### What These Tools Do
+### What This Tool Does
 
-- **recall()**: Retrieve and record factual knowledge from memory
-- **think()**: Record various forms of active thinking processes
+- Records various forms of cognitive processes
+- Makes thinking visible and traceable
+- Guides structured reasoning through modes
 
-### What These Tools Do NOT Do
+### What This Tool Does NOT Do
 
 - Access external information or APIs
 - Make changes to code or data
 - Execute code or run tests
-- Access file systems or databases
 - Perform actual computations
 
-These tools are **recorders of thinking processes**, not executors. Their value lies in making thinking processes visible, traceable, and improvable.
+This tool is a **recorder of thinking processes**, not an executor. Its value lies in making thinking visible, traceable, and improvable.
 
 ## 📚 References
 
-- Anthropic, ["Claude Think Tool"](https://www.anthropic.com/engineering/claude-think-tool) - Inspiration for the early single-tool design
-- Brown et al., ["Eliciting Reasoning in Language Models with Cognitive Tools"](https://arxiv.org/html/2506.12115) - Theoretical foundation for the three-tool separation design
+- Anthropic, ["Claude Think Tool"](https://www.anthropic.com/engineering/claude-think-tool) - Original inspiration
+- Brown et al., ["Eliciting Reasoning in Language Models with Cognitive Tools"](https://arxiv.org/html/2506.12115) - Theoretical foundation
 - Cognitive psychology research on knowledge vs. reasoning separation
-- Anderson's ACT-R cognitive architecture
 
 ## 🔗 Related Tools
 
