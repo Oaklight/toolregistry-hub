@@ -1,6 +1,6 @@
 """Cognitive tools API routes.
 
-Simplified design: recall (memory) + think (reasoning/exploration)
+Unified design: single think tool handles all cognitive operations
 Inspired by "Eliciting Reasoning in Language Models with Cognitive Tools" (arxiv.org/html/2506.12115).
 """
 
@@ -16,29 +16,29 @@ from ...think_tool import ThinkTool
 # ============================================================
 
 
-class RecallRequest(BaseModel):
-    """Request for recall tool (memory/knowledge/facts)."""
-
-    knowledge_content: str = Field(
-        description="Dump your raw memory/knowledge about a subject. Can be internal knowledge or information from current context."
-    )
-    topic_tag: Optional[str] = Field(
-        default=None, description="A short label for this memory block"
-    )
-
-
 class ThinkRequest(BaseModel):
-    """Request for think tool (unified thinking - both structured reasoning and free exploration)."""
+    """Request for think tool (unified cognitive operations).
 
-    thought_process: str = Field(
-        description="Your detailed stream of thoughts. Can be long and messy. Don't summarize; show your actual thought process."
-    )
+    Parameter order matters: thinking_mode -> focus_area -> thought_process
+    This guides the model to decide HOW to think before WHAT to think about.
+    """
+
     thinking_mode: Optional[str] = Field(
         default=None,
-        description="The type of thinking you're doing. Common modes: 'analysis', 'hypothesis', 'planning', 'verification', 'correction', 'brainstorming', 'mental_simulation', 'perspective_taking', 'intuition', or any custom string.",
+        description="The type of cognitive operation. Choose this FIRST. "
+        "Core modes: 'reasoning' (analysis/deduction), 'planning' (task breakdown), 'reflection' (review/verify). "
+        "Memory mode: 'recalling' (dump knowledge/facts). "
+        "Creative modes: 'brainstorming' (generate ideas), 'exploring' (what-if scenarios). "
+        "Or use any custom string.",
+        examples=["reasoning", "planning", "reflection", "recalling"],
     )
     focus_area: Optional[str] = Field(
-        default=None, description="What specific problem or topic you're thinking about"
+        default=None,
+        description="What specific problem or topic you're thinking about. Set this SECOND.",
+    )
+    thought_process: str = Field(
+        description="Your detailed stream of thoughts. Write this LAST. "
+        "Can be long and messy. Don't summarize; show your actual thought process.",
     )
 
 
@@ -64,41 +64,21 @@ router = APIRouter(tags=["cognitive-tools"])
 
 
 @router.post(
-    "/recall",
-    summary="Dump raw memory and knowledge",
-    description=ThinkTool.recall.__doc__,
-    operation_id="recall",
-    response_model=CognitiveToolResponse,
-)
-def recall(data: RecallRequest) -> CognitiveToolResponse:
-    """Retrieve and record factual knowledge (what you know).
-
-    Args:
-        data: Request containing knowledge content and optional topic tag
-
-    Returns:
-        Response confirming the operation was processed
-    """
-    ThinkTool.recall(data.knowledge_content, data.topic_tag)
-    return CognitiveToolResponse(message="Knowledge recalled")
-
-
-@router.post(
     "/think",
-    summary="Record thinking process - structured reasoning and free exploration",
+    summary="Record cognitive process - thinking, reasoning, planning, or recalling",
     description=ThinkTool.think.__doc__,
     operation_id="think",
     response_model=CognitiveToolResponse,
 )
 def think(data: ThinkRequest) -> CognitiveToolResponse:
-    """Record your thinking process - both structured reasoning and free exploration.
+    """Record your cognitive process - unified tool for all thinking operations.
 
     Args:
-        data: Request containing thought process, thinking mode, and focus area
+        data: Request containing thinking_mode, focus_area, and thought_process
 
     Returns:
         Response confirming the operation was processed
     """
-    ThinkTool.think(data.thought_process, data.thinking_mode, data.focus_area)
+    ThinkTool.think(data.thinking_mode, data.focus_area, data.thought_process)
     mode_msg = f" ({data.thinking_mode})" if data.thinking_mode else ""
     return CognitiveToolResponse(message=f"Thinking process{mode_msg} recorded")
