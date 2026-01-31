@@ -4,11 +4,12 @@
 PACKAGE_NAME := toolregistry-hub
 DIST_DIR := dist
 DOCKER_IMAGE := oaklight/toolregistry-hub-server
-VERSION := $(shell grep '^version\s*=\s*"' pyproject.toml | cut -d'"' -f2 || echo "0.4.14")
+VERSION := $(shell grep -oE '__version__[[:space:]]*=[[:space:]]*"[^"]+"' src/toolregistry_hub/__init__.py | grep -oE '"[^"]+"' | tr -d '"' || echo "0.5.5")
 
 # Optional variables
 V ?= $(VERSION)
-MIRROR ?=
+PYPI_MIRROR ?=
+REGISTRY_MIRROR ?=
 
 # Build the Python package
 build-package: clean-package
@@ -34,25 +35,28 @@ clean-package:
 # Build Docker image
 build-docker:
 	@echo "Building Docker image $(DOCKER_IMAGE):$(V)..."
-	@# Check for local wheel file first
+	@BUILD_ARGS="--build-arg PYTHON_VERSION=3.10"; \
+	if [ -n "$(REGISTRY_MIRROR)" ]; then \
+		echo "🪞 Using registry mirror: $(REGISTRY_MIRROR)"; \
+		BUILD_ARGS="$$BUILD_ARGS --build-arg REGISTRY_MIRROR=$(REGISTRY_MIRROR)"; \
+	fi; \
 	@LOCAL_WHEEL=""; \
-	BUILD_ARGS=""; \
 	if [ -d "$(DIST_DIR)" ] && [ -n "$$(ls -A $(DIST_DIR)/*.whl 2>/dev/null)" ]; then \
 		LOCAL_WHEEL=$$(ls $(DIST_DIR)/*.whl | head -n 1 | xargs basename); \
 		echo "🎯 Found local wheel: $$LOCAL_WHEEL"; \
-		BUILD_ARGS="--build-arg LOCAL_WHEEL=$$LOCAL_WHEEL"; \
+		BUILD_ARGS="$$BUILD_ARGS --build-arg LOCAL_WHEEL=$$LOCAL_WHEEL"; \
 	elif [ -n "$(V)" ]; then \
 		echo "📦 Using specified version: $(V)"; \
-		BUILD_ARGS="--build-arg PACKAGE_VERSION=$(V)"; \
+		BUILD_ARGS="$$BUILD_ARGS --build-arg PACKAGE_VERSION=$(V)"; \
 	elif [ -n "$(VERSION)" ]; then \
 		echo "📦 Using pyproject.toml version: $(VERSION)"; \
-		BUILD_ARGS="--build-arg PACKAGE_VERSION=$(VERSION)"; \
+		BUILD_ARGS="$$BUILD_ARGS --build-arg PACKAGE_VERSION=$(VERSION)"; \
 	else \
 		echo "📦 No local wheel or version specified, will install latest from PyPI"; \
 	fi; \
-	if [ -n "$(MIRROR)" ]; then \
-		echo "🌐 Using PyPI mirror: $(MIRROR)"; \
-		BUILD_ARGS="$$BUILD_ARGS --build-arg PYPI_MIRROR=$(MIRROR)"; \
+	if [ -n "$(PYPI_MIRROR)" ]; then \
+		echo "🌐 Using PyPI mirror: $(PYPI_MIRROR)"; \
+		BUILD_ARGS="$$BUILD_ARGS --build-arg PYPI_MIRROR=$(PYPI_MIRROR)"; \
 	fi; \
 	echo "🐳 Building with args: $$BUILD_ARGS"; \
 	IMG_TAG=$$([ -n "$(V)" ] && echo "$(V)" || echo "latest"); \
@@ -99,11 +103,16 @@ help:
 	@echo "Usage examples:"
 	@echo "  make build-docker                                       # Build with auto-detected version"
 	@echo "  make build-docker V=1.0.0                              # Build with specific version"
-	@echo "  make build-docker MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple"
-	@echo "  make build-docker V=1.0.0 MIRROR=https://mirrors.cernet.edu.cn/pypi/web/simple"
+	@echo "  make build-docker PYPI_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple"
+	@echo "  make build-docker V=1.0.0 PYPI_MIRROR=https://mirrors.cernet.edu.cn/pypi/web/simple"
+	@echo "  make build-docker REGISTRY_MIRROR=docker.1ms.run        # Use custom registry mirror"
+	@echo "  make build-docker REGISTRY_MIRROR=docker.1ms.run PYPI_MIRROR=https://mirrors.cernet.edu.cn/pypi/web/simple"
+	@echo "  make push-docker REGISTRY_MIRROR=docker.1ms.run         # Push to custom registry"
 	@echo ""
 	@echo "Variables:"
-	@echo "  V=<version>    - Specify version (default: auto-detected)"
-	@echo "  MIRROR=<url>   - Specify PyPI mirror URL"
+	@echo "  V=<version>           - Specify version (default: auto-detected)"
+	@echo "  PYPI_MIRROR=<url>     - Specify PyPI mirror URL for pip install"
+	@echo "  REGISTRY_MIRROR=<url> - Specify Docker registry mirror (affects base image)"
+	@echo "  MIRROR=<url>          - Alias for PYPI_MIRROR (backward compatibility)"
 
 .PHONY: build-package push-package clean-package build-docker push-docker clean-docker test help

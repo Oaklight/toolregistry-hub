@@ -7,7 +7,9 @@
 # Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
 
 ARG PYTHON_VERSION=3.10
-FROM python:${PYTHON_VERSION}-slim AS base
+# Accept registry mirror as build argument
+ARG REGISTRY_MIRROR
+FROM ${REGISTRY_MIRROR:-docker.io}/python:${PYTHON_VERSION}-slim AS base
 
 # Accept PyPI mirror as optional build argument
 ARG PYPI_MIRROR
