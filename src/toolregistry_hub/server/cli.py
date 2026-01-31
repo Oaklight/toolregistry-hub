@@ -20,15 +20,21 @@ def main():
     )
     parser.add_argument(
         "--mode",
-        choices=["openapi", "mcp"],
+        choices=["openapi", "mcp", "selector"],
         default="openapi",
-        help="Server mode: openapi or mcp. Default is openapi.",
+        help="Server mode: openapi, mcp, or selector. Default is openapi.",
     )
     parser.add_argument(
         "--mcp-transport",
         choices=["streamable-http", "sse", "stdio"],
         default="streamable-http",
         help="MCP transport mode for mcp mode. Default is streamable-http.",
+    )
+    parser.add_argument(
+        "--main-server-url",
+        type=str,
+        default="http://localhost:8000",
+        help="Main server URL for selector mode. Default is http://localhost:8000.",
     )
     args = parser.parse_args()
 
@@ -73,6 +79,31 @@ def main():
             mcp_app.run()  # Run MCP in stdio mode; assumes FastMCP supports this method
         else:
             mcp_app.run(transport=args.mcp_transport, host=args.host, port=args.port)
+    elif args.mode == "selector":
+        try:
+            import uvicorn
+            
+            from .selector.app import create_selector_app
+        except ImportError as e:
+            logger.error(f"Selector server dependencies not installed: {e}")
+            logger.info("Installation options:")
+            logger.info(
+                "  OpenAPI only: pip install toolregistry-hub[server_openapi] (requires Python 3.8+)"
+            )
+            logger.info(
+                "  All server modes: pip install toolregistry-hub[server] (requires Python 3.10+)"
+            )
+            sys.exit(1)
+
+        # Create selector app
+        selector_app = create_selector_app(main_server_url=args.main_server_url)
+        
+        # Set server info
+        logger.info("Server mode: Selector")
+        logger.info(f"Main server URL: {args.main_server_url}")
+        logger.info(f"Selector server starting on {args.host}:{args.port}")
+        
+        uvicorn.run(selector_app, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工具选择器 - ToolRegistry-Hub</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🛠️ ToolRegistry-Hub 工具选择器</h1>
+            <div class="controls">
+                <button id="reload-btn" class="btn btn-primary">🔄 重新加载服务器</button>
+                <button id="refresh-btn" class="btn btn-secondary">🔍 刷新工具列表</button>
+            </div>
+        </header>
+
+        <main>
+            <div class="status-bar">
+                <div class="status-info">
+                    <span id="status-text">正在加载...</span>
+                    <span class="separator">|</span>
+                    <span id="tools-count">工具数: 0</span>
+                    <span class="separator">|</span>
+                    <span id="enabled-count">已启用: 0</span>
+                </div>
+                <div class="server-status">
+                    <span>服务器状态:</span>
+                    <span id="server-status" class="status-indicator offline">●</span>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="tools-table" class="tools-table">
+                    <thead>
+                        <tr>
+                            <th>工具名称</th>
+                            <th>API 前缀</th>
+                            <th>标签</th>
+                            <th>端点数</th>
+                            <th>模块</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tools-tbody">
+                        <tr class="loading-row">
+                            <td colspan="7" class="loading-cell">
+                                <div class="loading-spinner"></div>
+                                <span>正在加载工具列表...</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="empty-state" id="empty-state" style="display: none;">
+                <div class="empty-icon">📭</div>
+                <h3>未发现任何工具</h3>
+                <p>请检查服务器配置或点击"重新加载服务器"按钮</p>
+            </div>
+        </main>
+
+        <footer>
+            <div class="footer-info">
+                <span>ToolRegistry-Hub Selector v1.0.0</span>
+                <span class="separator">|</span>
+                <span>最后更新: <span id="last-update">--</span></span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Toast notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,143 @@
+{
+  "tools": {
+    "calc_b58abfaf": {
+      "id": "calc_b58abfaf",
+      "name": "Calculator",
+      "prefix": "/calc",
+      "enabled": true,
+      "description": "Get help with calculator functions.",
+      "tags": [
+        "calculator"
+      ],
+      "endpoints": [
+        {
+          "path": "/calc/help",
+          "methods": [
+            "POST"
+          ],
+          "name": "calc_help",
+          "summary": "Get help with particular calculator function",
+          "operation_id": "calc-help"
+        },
+        {
+          "path": "/calc/allowed_fns",
+          "methods": [
+            "POST"
+          ],
+          "name": "calc_list_allowed_fns",
+          "summary": "Get allowed functions for `evaluate`",
+          "operation_id": "calc-list_allowed_fns"
+        },
+        {
+          "path": "/calc/evaluate",
+          "methods": [
+            "POST"
+          ],
+          "name": "calc_evaluate",
+          "summary": "Evaluate a mathematical expression",
+          "operation_id": "calc-evaluate"
+        }
+      ],
+      "module_name": "toolregistry_hub.server.routes.calculator"
+    },
+    "time_7d01a95c": {
+      "id": "time_7d01a95c",
+      "name": "Datetime",
+      "prefix": "/time",
+      "enabled": false,
+      "description": "Get current time in ISO 8601 format.",
+      "tags": [
+        "datetime"
+      ],
+      "endpoints": [
+        {
+          "path": "/time/now",
+          "methods": [
+            "POST"
+          ],
+          "name": "time_now",
+          "summary": "Get current time in ISO 8601 format",
+          "operation_id": "time-now"
+        },
+        {
+          "path": "/time/convert",
+          "methods": [
+            "POST"
+          ],
+          "name": "convert_timezone",
+          "summary": "Convert time between timezones",
+          "operation_id": "time-convert-timezone"
+        }
+      ],
+      "module_name": "toolregistry_hub.server.routes.datetime_tools"
+    },
+    "fetch_2c1aacea": {
+      "id": "fetch_2c1aacea",
+      "name": "Fetch",
+      "prefix": "/",
+      "enabled": true,
+      "description": "Extract content from a webpage.",
+      "tags": [
+        "fetch"
+      ],
+      "endpoints": [
+        {
+          "path": "/fetch_webpage",
+          "methods": [
+            "POST"
+          ],
+          "name": "fetch_webpage",
+          "summary": "Extract content from a webpage",
+          "operation_id": "web-fetch_webpage"
+        }
+      ],
+      "module_name": "toolregistry_hub.server.routes.fetch"
+    },
+    "think_ec80ae99": {
+      "id": "think_ec80ae99",
+      "name": "Think",
+      "prefix": "/",
+      "enabled": true,
+      "description": "Think about something.",
+      "tags": [
+        "think"
+      ],
+      "endpoints": [
+        {
+          "path": "/think",
+          "methods": [
+            "POST"
+          ],
+          "name": "think",
+          "summary": "Think about something",
+          "operation_id": "think"
+        }
+      ],
+      "module_name": "toolregistry_hub.server.routes.think"
+    },
+    "web_5ac1a31f": {
+      "id": "web_5ac1a31f",
+      "name": "Websearch",
+      "prefix": "/web",
+      "enabled": true,
+      "description": "Search Bing for a query.",
+      "tags": [
+        "websearch"
+      ],
+      "endpoints": [
+        {
+          "path": "/web/search_bing",
+          "methods": [
+            "POST"
+          ],
+          "name": "search_bing",
+          "summary": "Search Bing for a query",
+          "operation_id": "search_bing"
+        }
+      ],
+      "module_name": "toolregistry_hub.server.routes.websearch.bing"
+    }
+  },
+  "last_updated": "2025-11-30 12:04:45.617930",
+  "version": "1.0.0"
+}
