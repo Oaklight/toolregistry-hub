@@ -8,17 +8,17 @@ author: Oaklight
 
 # Web Fetch Tool
 
-The Web Fetch tool provides intelligent webpage content extraction from URLs. It uses a combination of BeautifulSoup parsing and Jina Reader API to extract clean, readable content from webpages while handling various website structures and formats.
+The Web Fetch tool provides intelligent webpage content extraction from URLs. It uses a three-stage strategy chain — Cloudflare Content Negotiation, BeautifulSoup parsing, and Jina Reader API — to extract clean, readable content from webpages while handling various website structures and formats.
 
 ## 🎯 Overview
 
 The Fetch class offers robust webpage content extraction:
 
-- **Dual Extraction Methods**: BeautifulSoup parsing + Jina Reader API
-- **Intelligent Fallback**: Automatically switches methods if one fails
+- **Three-Stage Strategy Chain**: Cloudflare Content Negotiation → BeautifulSoup parsing → Jina Reader API
+- **Intelligent Fallback**: Automatically tries the next strategy if the current one fails
 - **Content Cleaning**: Removes navigation, ads, and unnecessary elements
 - **User Agent Rotation**: Uses realistic browser user agents
-- **Timeout Handling**: Configurable timeouts and proxy support
+- **Timeout Handling**: Configurable timeouts (default: 30s) and proxy support
 - **Error Resilience**: Graceful handling of network errors and inaccessible content
 
 ## 🚀 Quick Start
@@ -44,14 +44,14 @@ content = Fetch.fetch_content(
 
 ## 🔧 API Reference
 
-### `fetch_content(url: str, timeout: float = 10.0, proxy: Optional[str] = None) -> str`
+### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None) -> str`
 
 Extract content from a given URL using available methods.
 
 **Parameters:**
 
 - `url` (str): The URL to fetch content from
-- `timeout` (float): Request timeout in seconds (default: 10.0)
+- `timeout` (float): Request timeout in seconds (default: 30.0)
 - `proxy` (Optional[str]): Proxy server URL (e.g., "http://proxy.example.com:8080")
 
 **Returns:**
@@ -64,25 +64,47 @@ Extract content from a given URL using available methods.
 
 ## 🛠️ How It Works
 
-### Dual Extraction Strategy
+### Three-Stage Strategy Chain
 
-The Web Fetch tool uses a two-stage extraction approach:
+The Web Fetch tool uses a three-stage extraction approach, trying each strategy in order until one succeeds:
 
-1. **Primary Method**: BeautifulSoup with intelligent parsing
-2. **Fallback Method**: Jina Reader API for complex websites
+1. **Cloudflare Content Negotiation**: Zero-cost attempt to get markdown directly from the origin server
+2. **BeautifulSoup Direct Parsing**: Intelligent HTML parsing with content cleaning
+3. **Jina Reader (Fallback)**: External API for complex or hard-to-parse websites
 
 ### Extraction Process
 
 ```mermaid
 graph TD
-    A[URL Input] --> B[BeautifulSoup Method]
-    B --> C{Extraction Success?}
+    A[URL Input] --> B[Cloudflare Content Negotiation]
+    B --> C{Markdown Returned?}
     C -->|Yes| D[Return Clean Content]
-    C -->|No| E[Jina Reader Fallback]
-    E --> F{Fallback Success?}
+    C -->|No| E[BeautifulSoup Method]
+    E --> F{Extraction Success?}
     F -->|Yes| D
-    F -->|No| G[Return Error Message]
+    F -->|No| G[Jina Reader Fallback]
+    G --> H{Fallback Success?}
+    H -->|Yes| D
+    H -->|No| I[Return Error Message]
 ```
+
+### Cloudflare Content Negotiation
+
+The first strategy leverages [Cloudflare's "Markdown for Agents"](https://blog.cloudflare.com/markdown-for-agents/) feature. It sends a standard HTTP GET request with the `Accept: text/markdown` header. If the origin server (or Cloudflare's edge) supports content negotiation and can serve markdown, the response will contain high-quality, pre-formatted markdown content — ideal for LLM consumption.
+
+**How it works:**
+
+- The tool sends a request with `Accept: text/markdown` in the HTTP headers
+- If the server responds with `Content-Type: text/markdown`, the markdown content is used directly
+- If the server does not support this content type, the response is discarded and the next strategy is tried
+- This is a **zero-cost** attempt: no external API calls, no additional processing — just a standard HTTP request with a different `Accept` header
+
+**Benefits:**
+
+- High-quality, structured markdown output when supported
+- No dependency on third-party services
+- Preserves the original document structure (headings, lists, code blocks, etc.)
+- Cloudflare also provides an `x-markdown-tokens` header indicating the token count of the markdown content
 
 ### Content Cleaning Process
 
@@ -324,7 +346,7 @@ if is_valid:
 
 ### Performance Tips
 
-- **Timeouts**: Use appropriate timeouts (10-30 seconds typical)
+- **Timeouts**: Use appropriate timeouts (default is 30 seconds)
 - **Proxies**: Use proxies for blocked or rate-limited sites
 - **User agents**: Tool automatically rotates user agents
 - **Caching**: Consider caching results for frequently accessed content
