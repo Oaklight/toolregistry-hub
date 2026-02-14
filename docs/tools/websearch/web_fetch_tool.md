@@ -8,17 +8,17 @@ author: Oaklight
 
 # 网页获取工具
 
-网页获取工具提供从URL智能提取网页内容的功能。它结合使用BeautifulSoup解析和Jina Reader API，从网页中提取干净、可读的内容，同时处理各种网站结构和格式。
+网页获取工具提供从URL智能提取网页内容的功能。它采用三级策略链 — Cloudflare 内容协商、BeautifulSoup 解析和 Jina Reader API — 从网页中提取干净、可读的内容，同时处理各种网站结构和格式。
 
 ## 🎯 概览
 
 Fetch类提供强大的网页内容提取功能：
 
-- **双重提取方法**：BeautifulSoup解析 + Jina Reader API
-- **智能回退**：如果一种方法失败，自动切换到另一种方法
+- **三级策略链**：Cloudflare 内容协商 → BeautifulSoup 解析 → Jina Reader API
+- **智能回退**：当前策略失败时自动尝试下一个策略
 - **内容清理**：移除导航、广告和不必要的元素
 - **用户代理轮换**：使用真实的浏览器用户代理
-- **超时处理**：可配置的超时和代理支持
+- **超时处理**：可配置的超时（默认 30 秒）和代理支持
 - **错误恢复**：优雅处理网络错误和不可访问的内容
 
 ## 🚀 快速开始
@@ -44,14 +44,14 @@ content = Fetch.fetch_content(
 
 ## 🔧 API 参考
 
-### `fetch_content(url: str, timeout: float = 10.0, proxy: Optional[str] = None) -> str`
+### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None) -> str`
 
 从给定 URL 使用可用方法提取内容。
 
 **参数：**
 
 - `url` (str): 要获取内容的 URL
-- `timeout` (float): 请求超时时间（秒）（默认：10.0）
+- `timeout` (float): 请求超时时间（秒）（默认：30.0）
 - `proxy` (Optional[str]): 代理服务器 URL（例如："http://proxy.example.com:8080"）
 
 **返回值：**
@@ -64,25 +64,47 @@ content = Fetch.fetch_content(
 
 ## 🛠️ 工作原理
 
-### 双重提取策略
+### 三级策略链
 
-网页获取工具使用两阶段提取方法：
+网页获取工具使用三阶段提取方法，按顺序尝试每个策略直到成功：
 
-1. **主要方法**：BeautifulSoup 智能解析
-2. **回退方法**：Jina Reader API 用于复杂网站
+1. **Cloudflare 内容协商**：零成本尝试，直接从源站获取 markdown 内容
+2. **BeautifulSoup 直接解析**：智能 HTML 解析与内容清理
+3. **Jina Reader（降级方案）**：外部 API，用于复杂或难以解析的网站
 
 ### 提取过程
 
 ```mermaid
 graph TD
-    A[URL 输入] --> B[BeautifulSoup 方法]
-    B --> C{提取成功？}
+    A[URL 输入] --> B[Cloudflare 内容协商]
+    B --> C{返回 Markdown？}
     C -->|是| D[返回干净内容]
-    C -->|否| E[Jina Reader 回退]
-    E --> F{回退成功？}
+    C -->|否| E[BeautifulSoup 方法]
+    E --> F{提取成功？}
     F -->|是| D
-    F -->|否| G[返回错误消息]
+    F -->|否| G[Jina Reader 回退]
+    G --> H{回退成功？}
+    H -->|是| D
+    H -->|否| I[返回错误消息]
 ```
+
+### Cloudflare 内容协商
+
+第一个策略利用了 [Cloudflare 的 "Markdown for Agents"](https://blog.cloudflare.com/markdown-for-agents/) 功能。它发送一个带有 `Accept: text/markdown` 头的标准 HTTP GET 请求。如果源站（或 Cloudflare 边缘节点）支持内容协商并能提供 markdown 格式，响应将包含高质量、预格式化的 markdown 内容 — 非常适合 LLM 消费。
+
+**工作机制：**
+
+- 工具在 HTTP 请求头中发送 `Accept: text/markdown`
+- 如果服务器以 `Content-Type: text/markdown` 响应，则直接使用该 markdown 内容
+- 如果服务器不支持此内容类型，则丢弃响应并尝试下一个策略
+- 这是一次**零成本**尝试：无需外部 API 调用，无需额外处理 — 只是一个使用不同 `Accept` 头的标准 HTTP 请求
+
+**优势：**
+
+- 在支持的站点上获得高质量、结构化的 markdown 输出
+- 不依赖第三方服务
+- 保留原始文档结构（标题、列表、代码块等）
+- Cloudflare 还会提供 `x-markdown-tokens` 响应头，指示 markdown 内容的 token 数量
 
 ### 内容清理过程
 
@@ -324,7 +346,7 @@ if is_valid:
 
 ### 性能提示
 
-- **超时**：使用适当的超时（通常 10-30 秒）
+- **超时**：使用适当的超时（默认 30 秒）
 - **代理**：对阻止或速率限制的网站使用代理
 - **用户代理**：工具自动轮换用户代理
 - **缓存**：考虑缓存频繁访问的内容的结果
