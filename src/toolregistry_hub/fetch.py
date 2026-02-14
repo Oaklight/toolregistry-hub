@@ -8,7 +8,7 @@ import ua_generator
 from bs4 import BeautifulSoup
 from loguru import logger
 
-TIMEOUT_DEFAULT = 10.0
+TIMEOUT_DEFAULT = 30.0
 
 
 def _get_lynx_useragent():
@@ -79,22 +79,34 @@ def _extract(
     """
     Extract content from a given URL using available methods.
 
+    Strategies are tried in order:
+    1. Cloudflare Content Negotiation (zero-cost markdown attempt)
+    2. BeautifulSoup direct parsing
+    3. Jina Reader (fallback)
+
     Args:
         url (str): The URL to extract content from.
-        timeout (float, optional): Request timeout in seconds. Defaults to TIMEOUT_DEFAULT (10). Usually not needed.
+        timeout (float, optional): Request timeout in seconds. Defaults to TIMEOUT_DEFAULT (30). Usually not needed.
         proxy (str, optional): Proxy to use for the request. Defaults to None.
 
     Returns:
         str: Extracted content from the URL, or empty string if extraction fails.
     """
-    # First try BeautifulSoup method
-    content = _get_content_with_bs4(
+    # First try Cloudflare Content Negotiation (zero-cost, high quality if supported)
+    content = _get_content_with_markdown_negotiation(
         url,
         timeout=timeout,
         proxy=proxy,
     )
     if not content:
-        # Fallback to Jina Reader if BeautifulSoup fails
+        # Then try BeautifulSoup method
+        content = _get_content_with_bs4(
+            url,
+            timeout=timeout,
+            proxy=proxy,
+        )
+    if not content:
+        # Fallback to Jina Reader if previous methods fail
         content = _get_content_with_jina_reader(
             url,
             timeout=timeout,
@@ -105,9 +117,63 @@ def _extract(
     return formatted_content
 
 
+def _get_content_with_markdown_negotiation(
+    url: str,
+    timeout: float = TIMEOUT_DEFAULT,
+    proxy: Optional[str] = None,
+) -> str:
+    """
+    Attempt to fetch markdown content via Cloudflare Content Negotiation.
+
+    Sends a standard HTTP GET request with ``Accept: text/markdown`` header.
+    If the origin server (or Cloudflare) supports content negotiation and
+    returns markdown, the content is used directly. Otherwise, returns an
+    empty string so that subsequent strategies can handle the URL.
+
+    Args:
+        url (str): The URL to fetch content from.
+        timeout (float, optional): Timeout for the HTTP request. Defaults to TIMEOUT_DEFAULT.
+        proxy (str, optional): Proxy to use for the HTTP request. Defaults to None.
+
+    Returns:
+        str: Markdown content if the server supports it, otherwise empty string.
+    """
+    try:
+        ua = ua_generator.generate(browser=["chrome", "edge"])  # type: ignore
+        ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
+        headers = ua.headers.get()
+        headers["Accept"] = "text/markdown"
+        response = httpx.get(
+            url,
+            headers=headers,
+            timeout=timeout,
+            follow_redirects=True,
+            proxy=proxy,
+        )
+        response.raise_for_status()
+
+        content_type = response.headers.get("content-type", "")
+        if "text/markdown" not in content_type:
+            logger.debug(
+                f"Markdown negotiation not supported for {url} "
+                f"(Content-Type: {content_type})"
+            )
+            return ""
+
+        # Log markdown token count if provided by Cloudflare
+        md_tokens = response.headers.get("x-markdown-tokens")
+        if md_tokens:
+            logger.debug(f"Markdown tokens for {url}: {md_tokens}")
+
+        return response.text
+    except Exception as e:
+        logger.debug(f"Markdown negotiation failed for {url}: {e}")
+        return ""
+
+
 def _get_content_with_jina_reader(
     url: str,
-    return_format: Literal["markdown", "text", "html"] = "text",
+    return_format: Literal["markdown", "text", "html"] = "markdown",
     timeout: float = TIMEOUT_DEFAULT,
     proxy: Optional[str] = None,
 ) -> str:
