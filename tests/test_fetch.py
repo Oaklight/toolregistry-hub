@@ -1,0 +1,393 @@
+"""Tests for the fetch module."""
+
+from unittest.mock import MagicMock, patch
+
+import httpx
+import pytest
+
+from toolregistry_hub.fetch import (
+    _MIN_CONTENT_LENGTH,
+    _SPA_SHELL_INDICATORS,
+    _extract,
+    _format_text,
+    _get_content_with_bs4,
+    _get_content_with_jina_reader,
+    _get_content_with_markdown_negotiation,
+    _is_content_sufficient,
+)
+
+
+# ============================================================
+# _is_content_sufficient tests
+# ============================================================
+
+
+class TestIsContentSufficient:
+    """Tests for the _is_content_sufficient function."""
+
+    def test_empty_string(self):
+        assert _is_content_sufficient("") is False
+
+    def test_short_content(self):
+        assert _is_content_sufficient("Hello world") is False
+
+    def test_exactly_min_length(self):
+        text = "a" * _MIN_CONTENT_LENGTH
+        assert _is_content_sufficient(text) is True
+
+    def test_below_min_length(self):
+        text = "a" * (_MIN_CONTENT_LENGTH - 1)
+        assert _is_content_sufficient(text) is False
+
+    def test_sufficient_content(self):
+        text = "This is a meaningful article about technology. " * 10
+        assert _is_content_sufficient(text) is True
+
+    @pytest.mark.parametrize("indicator", _SPA_SHELL_INDICATORS)
+    def test_spa_shell_indicators(self, indicator):
+        # Content long enough but contains SPA indicator
+        text = f"Some prefix text. {indicator} Some suffix text." + "x" * 200
+        assert _is_content_sufficient(text) is False
+
+    def test_spa_indicator_case_insensitive(self):
+        text = "Some text. PLEASE ENABLE JAVASCRIPT to continue." + "x" * 200
+        assert _is_content_sufficient(text) is False
+
+    def test_normal_content_with_no_indicators(self):
+        text = (
+            "Angular is a web framework that empowers developers to build "
+            "fast, reliable applications that users love. Maintained by a "
+            "dedicated team at Google, Angular provides a broad suite of "
+            "tools, APIs, and libraries to simplify your development workflow."
+        )
+        assert _is_content_sufficient(text) is True
+
+
+# ============================================================
+# _format_text tests
+# ============================================================
+
+
+class TestFormatText:
+    """Tests for the _format_text function."""
+
+    def test_normalize_whitespace(self):
+        assert _format_text("hello   world") == "hello world"
+
+    def test_normalize_newlines(self):
+        assert _format_text("hello\n\n\nworld") == "hello\nworld"
+
+    def test_strip_whitespace(self):
+        assert _format_text("  hello world  ") == "hello world"
+
+    def test_unicode_normalization(self):
+        # NFKC normalization: ﬁ -> fi
+        assert _format_text("ﬁnd") == "find"
+
+    def test_preserve_single_newlines(self):
+        assert _format_text("line1\nline2") == "line1\nline2"
+
+
+# ============================================================
+# _get_content_with_markdown_negotiation tests
+# ============================================================
+
+
+class TestMarkdownNegotiation:
+    """Tests for the _get_content_with_markdown_negotiation function."""
+
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_success_with_markdown_content_type(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.headers = {
+            "content-type": "text/markdown; charset=utf-8",
+            "x-markdown-tokens": "500",
+        }
+        mock_response.text = "# Hello\nThis is markdown."
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = _get_content_with_markdown_negotiation("https://example.com")
+        assert result == "# Hello\nThis is markdown."
+
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_not_supported_returns_empty(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.headers = {"content-type": "text/html; charset=utf-8"}
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = _get_content_with_markdown_negotiation("https://example.com")
+        assert result == ""
+
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_http_error_returns_empty(self, mock_get):
+        mock_get.side_effect = httpx.ConnectError("Connection refused")
+
+        result = _get_content_with_markdown_negotiation("https://example.com")
+        assert result == ""
+
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_accept_header_is_text_markdown(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.headers = {"content-type": "text/html"}
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        _get_content_with_markdown_negotiation("https://example.com")
+
+        call_kwargs = mock_get.call_args
+        headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
+        assert headers["Accept"] == "text/markdown"
+
+
+# ============================================================
+# _get_content_with_jina_reader tests
+# ============================================================
+
+
+class TestJinaReader:
+    """Tests for the _get_content_with_jina_reader function."""
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_success_returns_content(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "code": 200,
+            "data": {
+                "content": "# Article Title\nSome article content here.",
+                "title": "Article Title",
+            },
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        result = _get_content_with_jina_reader("https://example.com")
+        assert result == "# Article Title\nSome article content here."
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_empty_content_returns_empty(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"code": 200, "data": {"content": ""}}
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        result = _get_content_with_jina_reader("https://example.com")
+        assert result == ""
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_http_error_returns_empty(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Bad Request",
+            request=MagicMock(),
+            response=mock_response,
+        )
+        mock_post.return_value = mock_response
+
+        result = _get_content_with_jina_reader("https://example.com")
+        assert result == ""
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_uses_post_method(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"code": 200, "data": {"content": "test"}}
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        _get_content_with_jina_reader("https://example.com")
+        mock_post.assert_called_once()
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_headers_include_browser_engine(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"code": 200, "data": {"content": "test"}}
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        _get_content_with_jina_reader("https://example.com")
+
+        call_kwargs = mock_post.call_args
+        headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
+        assert headers["X-Engine"] == "browser"
+        assert headers["Accept"] == "application/json"
+        assert "X-Timeout" in headers
+        assert headers["X-Remove-Selector"] == "header, footer, nav, aside"
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_sends_url_in_json_body(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"code": 200, "data": {"content": "test"}}
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        _get_content_with_jina_reader("https://example.com/page")
+
+        call_kwargs = mock_post.call_args
+        json_body = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
+        assert json_body == {"url": "https://example.com/page"}
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_timeout_error_returns_empty(self, mock_post):
+        mock_post.side_effect = httpx.ReadTimeout("Read timed out")
+
+        result = _get_content_with_jina_reader("https://example.com")
+        assert result == ""
+
+
+# ============================================================
+# _get_content_with_bs4 tests
+# ============================================================
+
+
+class TestBS4:
+    """Tests for the _get_content_with_bs4 function."""
+
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_extracts_main_content(self, mock_get):
+        html = """
+        <html><body>
+            <nav>Navigation</nav>
+            <main><p>Main content here with enough text to be meaningful.</p></main>
+            <footer>Footer</footer>
+        </body></html>
+        """
+        mock_response = MagicMock()
+        mock_response.text = html
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = _get_content_with_bs4("https://example.com")
+        assert "Main content" in result
+        assert "Navigation" not in result
+
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_extracts_article_content(self, mock_get):
+        html = """
+        <html><body>
+            <article><p>Article content here.</p></article>
+        </body></html>
+        """
+        mock_response = MagicMock()
+        mock_response.text = html
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = _get_content_with_bs4("https://example.com")
+        assert "Article content" in result
+
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_http_error_returns_empty(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Forbidden",
+            request=MagicMock(),
+            response=mock_response,
+        )
+        mock_get.return_value = mock_response
+
+        result = _get_content_with_bs4("https://example.com")
+        assert result == ""
+
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_no_body_returns_empty(self, mock_get):
+        html = "<html></html>"
+        mock_response = MagicMock()
+        mock_response.text = html
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = _get_content_with_bs4("https://example.com")
+        assert result == ""
+
+
+# ============================================================
+# _extract integration tests
+# ============================================================
+
+
+class TestExtract:
+    """Integration tests for the _extract function."""
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._get_content_with_bs4")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_markdown_negotiation_success(self, mock_md, mock_bs4, mock_jina):
+        mock_md.return_value = "# Markdown Content\nSome text here."
+        result = _extract("https://example.com")
+        assert "Markdown Content" in result
+        mock_bs4.assert_not_called()
+        mock_jina.assert_not_called()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._get_content_with_bs4")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_bs4_sufficient_content(self, mock_md, mock_bs4, mock_jina):
+        mock_md.return_value = ""
+        mock_bs4.return_value = "This is a long enough article. " * 10
+        result = _extract("https://example.com")
+        assert "long enough article" in result
+        mock_jina.assert_not_called()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._get_content_with_bs4")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_bs4_spa_shell_triggers_jina(self, mock_md, mock_bs4, mock_jina):
+        mock_md.return_value = ""
+        mock_bs4.return_value = (
+            "Loading... Please enable JavaScript to continue." + "x" * 200
+        )
+        mock_jina.return_value = "# Real Content\nActual article text here. " * 10
+
+        result = _extract("https://example.com")
+        assert "Real Content" in result
+        mock_jina.assert_called_once()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._get_content_with_bs4")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_bs4_short_content_triggers_jina(self, mock_md, mock_bs4, mock_jina):
+        mock_md.return_value = ""
+        mock_bs4.return_value = "Short"
+        mock_jina.return_value = "# Full Content\nComplete article. " * 10
+
+        result = _extract("https://example.com")
+        assert "Full Content" in result
+        mock_jina.assert_called_once()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._get_content_with_bs4")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_bs4_no_content_triggers_jina(self, mock_md, mock_bs4, mock_jina):
+        mock_md.return_value = ""
+        mock_bs4.return_value = ""
+        mock_jina.return_value = "# Jina Content\nFetched via Jina. " * 10
+
+        result = _extract("https://example.com")
+        assert "Jina Content" in result
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._get_content_with_bs4")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_jina_failure_falls_back_to_bs4_low_quality(
+        self, mock_md, mock_bs4, mock_jina
+    ):
+        mock_md.return_value = ""
+        mock_bs4.return_value = "Short low quality"
+        mock_jina.return_value = ""
+
+        result = _extract("https://example.com")
+        assert "Short low quality" in result
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._get_content_with_bs4")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_all_strategies_fail(self, mock_md, mock_bs4, mock_jina):
+        mock_md.return_value = ""
+        mock_bs4.return_value = ""
+        mock_jina.return_value = ""
+
+        result = _extract("https://example.com")
+        assert result == "Unable to fetch content"
