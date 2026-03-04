@@ -8,16 +8,17 @@ author: Oaklight
 
 # 网页获取工具
 
-网页获取工具提供从URL智能提取网页内容的功能。它采用三级策略链 — Cloudflare 内容协商、BeautifulSoup 解析和 Jina Reader API — 从网页中提取干净、可读的内容，同时处理各种网站结构和格式。
+网页获取工具提供从 URL 智能提取网页内容的功能。它采用三级策略链 — Cloudflare 内容协商、BeautifulSoup 解析和 Jina Reader API — 并结合**内容质量评估**和**智能回退**机制，从网页中提取干净、可读的内容，同时处理各种网站结构和格式，包括 JavaScript 密集型的单页应用（SPA）。
 
 ## 🎯 概览
 
-Fetch类提供强大的网页内容提取功能：
+Fetch 类提供强大的网页内容提取功能：
 
 - **三级策略链**：Cloudflare 内容协商 → BeautifulSoup 解析 → Jina Reader API
-- **智能回退**：当前策略失败时自动尝试下一个策略
+- **内容质量评估**：检测 SPA 空壳页面和内容不足的情况，自动触发回退
+- **智能回退与低质量恢复**：如果 Jina Reader 也失败，返回 BS4 低质量内容作为最后手段（有总比没有好）
 - **内容清理**：移除导航、广告和不必要的元素
-- **用户代理轮换**：使用真实的浏览器用户代理
+- **用户代理轮换**：通过 `ua-generator` 使用真实的浏览器用户代理
 - **超时处理**：可配置的超时（默认 30 秒）和代理支持
 - **错误恢复**：优雅处理网络错误和不可访问的内容
 
@@ -66,27 +67,56 @@ content = Fetch.fetch_content(
 
 ### 三级策略链
 
-网页获取工具使用三阶段提取方法，按顺序尝试每个策略直到成功：
+网页获取工具使用三阶段提取方法，每一步都进行**内容质量评估**：
 
 1. **Cloudflare 内容协商**：零成本尝试，直接从源站获取 markdown 内容
-2. **BeautifulSoup 直接解析**：智能 HTML 解析与内容清理
-3. **Jina Reader（降级方案）**：外部 API，用于复杂或难以解析的网站
+2. **BeautifulSoup 直接解析**：智能 HTML 解析与内容清理 + 质量检查
+3. **Jina Reader（降级方案）**：外部 API，使用 `browser` 引擎进行 JavaScript 渲染（SPA 支持）
 
 ### 提取过程
 
 ```mermaid
-graph TD
+flowchart TD
     A[URL 输入] --> B[Cloudflare 内容协商]
-    B --> C{返回 Markdown？}
-    C -->|是| D[返回干净内容]
-    C -->|否| E[BeautifulSoup 方法]
-    E --> F{提取成功？}
-    F -->|是| D
-    F -->|否| G[Jina Reader 回退]
-    G --> H{回退成功？}
-    H -->|是| D
-    H -->|否| I[返回错误消息]
+    B -->|返回 Markdown| Z[返回干净内容]
+    B -->|不支持| C[BeautifulSoup 解析]
+    C -->|有内容| D{内容质量检查}
+    D -->|质量充足| Z
+    C -->|HTTP 错误 / 无内容| F
+    D -->|太短或 SPA 空壳| F[Jina Reader - browser 引擎]
+    F -->|内容良好| Z
+    F -->|失败或质量低| G{BS4 有内容？}
+    G -->|是| H[返回 BS4 低质量回退]
+    G -->|否| I[返回错误消息]
 ```
+
+### 内容质量评估
+
+BeautifulSoup 提取后，工具使用 `_is_content_sufficient()` 评估内容质量，决定是接受结果还是回退到 Jina Reader：
+
+**最小长度检查：**
+
+- 内容短于 **100 个字符**被视为不足，触发 Jina Reader 回退
+
+**SPA 空壳检测：**
+
+工具检测单页应用空壳页面的常见标志。如果提取的文本中出现以下任何短语，则内容被视为 JavaScript 应用空壳：
+
+- `"please enable javascript"`
+- `"you need to enable javascript"`
+- `"this app requires javascript"`
+- `"loading..."`
+- `"noscript"`
+- `"we're sorry but"`
+- `"doesn't work properly without javascript"`
+- `"requires a modern browser"`
+- `"enable cookies"`
+
+当检测到 SPA 空壳内容时，Jina Reader 会自动使用其 `browser` 引擎来渲染 JavaScript 并提取实际内容。
+
+**低质量回退：**
+
+如果 Jina Reader 也无法产生足够质量的内容，工具会回退到 BS4 的低质量结果（如果有的话）— 因为部分内容总比没有内容好。
 
 ### Cloudflare 内容协商
 
@@ -105,6 +135,19 @@ graph TD
 - 不依赖第三方服务
 - 保留原始文档结构（标题、列表、代码块等）
 - Cloudflare 还会提供 `x-markdown-tokens` 响应头，指示 markdown 内容的 token 数量
+
+### Jina Reader API
+
+Jina Reader 作为 BeautifulSoup 无法良好处理的页面（如 JavaScript 密集型 SPA）的降级策略。实现使用：
+
+- **POST 方法**，JSON 请求体（`{"url": "..."}`）进行结构化请求
+- **`Accept: application/json`** 头部，接收结构化 JSON 响应
+- **`X-Engine: browser`** 头部，通过 Jina 的浏览器引擎启用 JavaScript 渲染
+- **`X-Timeout`** 头部，传递配置的超时时间
+- **`X-Remove-Selector: header, footer, nav, aside`** 在服务端移除非内容元素
+- **`X-Return-Format: markdown`**（默认），输出 LLM 友好的格式
+
+JSON 响应被解析以提取 `data.content` 字段，其中包含渲染后的页面内容。
 
 ### 内容清理过程
 
@@ -339,10 +382,11 @@ if is_valid:
 
 ### 技术限制
 
-- **JavaScript 密集型网站**：可能无法完全渲染动态内容
+- **JavaScript 密集型网站**：通过 Jina Reader 的 `browser` 引擎回退处理，但某些复杂 SPA 可能仍无法完全渲染
 - **认证**：无法访问密码保护的内容
 - **大文件**：非常大的页面可能超时或被截断
 - **复杂布局**：某些网站可能需要自定义解析
+- **Jina Reader 可用性**：Jina Reader API 是免费的外部服务，不保证可用性
 
 ### 性能提示
 
