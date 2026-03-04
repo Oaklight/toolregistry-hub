@@ -10,6 +10,25 @@ from loguru import logger
 
 TIMEOUT_DEFAULT = 30.0
 
+# Minimum content length (in characters) to consider BS4 extraction sufficient.
+# Content shorter than this triggers Jina Reader fallback.
+_MIN_CONTENT_LENGTH = 100
+
+# Common indicators of SPA shell pages that lack real content.
+# If any of these appear in the extracted text, the content is considered
+# insufficient and Jina Reader (with browser engine) will be tried.
+_SPA_SHELL_INDICATORS = [
+    "please enable javascript",
+    "you need to enable javascript",
+    "this app requires javascript",
+    "loading...",
+    "noscript",
+    "we're sorry but",
+    "doesn't work properly without javascript",
+    "requires a modern browser",
+    "enable cookies",
+]
+
 
 def _get_lynx_useragent():
     """
@@ -71,6 +90,29 @@ class Fetch:
             return "Unable to fetch content"
 
 
+def _is_content_sufficient(text: str) -> bool:
+    """Evaluate whether extracted content has sufficient quality.
+
+    Checks for minimum length and SPA shell indicators to determine
+    if the content is meaningful or just a JavaScript app shell.
+
+    Args:
+        text: The extracted text content to evaluate.
+
+    Returns:
+        True if content appears sufficient, False otherwise.
+    """
+    if len(text) < _MIN_CONTENT_LENGTH:
+        return False
+
+    text_lower = text.lower()
+    for indicator in _SPA_SHELL_INDICATORS:
+        if indicator in text_lower:
+            return False
+
+    return True
+
+
 def _extract(
     url: str,
     timeout: float = TIMEOUT_DEFAULT,
@@ -81,8 +123,12 @@ def _extract(
 
     Strategies are tried in order:
     1. Cloudflare Content Negotiation (zero-cost markdown attempt)
-    2. BeautifulSoup direct parsing
-    3. Jina Reader (fallback)
+    2. BeautifulSoup direct parsing (with content quality check)
+    3. Jina Reader (fallback for SPA shells or BS4 failures)
+
+    If BS4 returns low-quality content (too short or SPA shell), Jina Reader
+    is attempted. If Jina also fails, the BS4 result is returned as a
+    low-quality fallback (better than nothing).
 
     Args:
         url (str): The URL to extract content from.
@@ -90,43 +136,59 @@ def _extract(
         proxy (str, optional): Proxy to use for the request. Defaults to None.
 
     Returns:
-        str: Extracted content from the URL, or empty string if extraction fails.
+        str: Extracted content from the URL, or "Unable to fetch content" if all strategies fail.
     """
-    strategy = ""
-
-    # First try Cloudflare Content Negotiation (zero-cost, high quality if supported)
+    # 1. Try Cloudflare Content Negotiation (zero-cost, high quality if supported)
     content = _get_content_with_markdown_negotiation(
         url,
         timeout=timeout,
         proxy=proxy,
     )
     if content:
-        strategy = "markdown_negotiation"
-    else:
-        # Then try BeautifulSoup method
-        content = _get_content_with_bs4(
-            url,
-            timeout=timeout,
-            proxy=proxy,
-        )
-        if content:
-            strategy = "beautifulsoup"
-        else:
-            # Fallback to Jina Reader if previous methods fail
-            content = _get_content_with_jina_reader(
-                url,
-                timeout=timeout,
-                proxy=proxy,
-            )
-            if content:
-                strategy = "jina_reader"
-
-    if content:
-        logger.info(f"Successfully fetched {url} using strategy: {strategy}")
+        logger.info(f"Successfully fetched {url} using strategy: markdown_negotiation")
         return _format_text(content)
-    else:
-        logger.warning(f"All extraction strategies failed for {url}")
-        return "Unable to fetch content"
+
+    # 2. Try BeautifulSoup direct parsing
+    bs4_content = _get_content_with_bs4(
+        url,
+        timeout=timeout,
+        proxy=proxy,
+    )
+
+    if bs4_content and _is_content_sufficient(bs4_content):
+        logger.info(f"Successfully fetched {url} using strategy: beautifulsoup")
+        return _format_text(bs4_content)
+
+    # 3. BS4 failed or content quality insufficient — try Jina Reader
+    reason = "low_quality_content" if bs4_content else "no_content"
+    logger.debug(
+        f"BS4 insufficient for {url} (reason: {reason}, "
+        f"length: {len(bs4_content) if bs4_content else 0}), trying Jina Reader"
+    )
+
+    jina_content = _get_content_with_jina_reader(
+        url,
+        timeout=timeout,
+        proxy=proxy,
+    )
+
+    if jina_content and _is_content_sufficient(jina_content):
+        logger.info(
+            f"Successfully fetched {url} using strategy: jina_reader "
+            f"(bs4 reason: {reason})"
+        )
+        return _format_text(jina_content)
+
+    # 4. Jina also failed — fall back to BS4 low-quality result if available
+    if bs4_content:
+        logger.info(
+            f"Successfully fetched {url} using strategy: beautifulsoup "
+            f"(low_quality_fallback, length: {len(bs4_content)})"
+        )
+        return _format_text(bs4_content)
+
+    logger.warning(f"All extraction strategies failed for {url}")
+    return "Unable to fetch content"
 
 
 def _get_content_with_markdown_negotiation(
@@ -190,37 +252,52 @@ def _get_content_with_jina_reader(
     proxy: Optional[str] = None,
 ) -> str:
     """
-    Fetch parsed content from Jina AI for a given URL.
+    Fetch parsed content from Jina AI Reader for a given URL.
+
+    Uses the Jina Reader API with the ``browser`` engine for JavaScript
+    rendering support. Sends a POST request with JSON body and parses
+    the structured JSON response.
 
     Args:
         url (str): The URL to fetch content from.
-        return_format (Literal["markdown", "text", "html"], optional): The format of the returned content. Defaults to "text".
+        return_format (Literal["markdown", "text", "html"], optional): The format of the returned content. Defaults to "markdown".
         timeout (float, optional): Timeout for the HTTP request. Defaults to TIMEOUT_DEFAULT.
         proxy (str, optional): Proxy to use for the HTTP request. Defaults to None.
 
     Returns:
-        str: Parsed content from Jina AI.
+        str: Parsed content from Jina AI, or empty string on failure.
     """
     try:
         headers = {
+            "Accept": "application/json",
             "X-Return-Format": return_format,
-            "X-Remove-Selector": "header, .class, #id",
-            "X-Target-Selector": "body, .class, #id",
+            "X-Engine": "browser",
+            "X-Timeout": str(int(timeout)),
+            "X-Remove-Selector": "header, footer, nav, aside",
         }
         jina_reader_url = "https://r.jina.ai/"
-        response = httpx.get(
-            jina_reader_url + url,
+        logger.debug(f"Jina Reader request for {url} (engine: browser)")
+        response = httpx.post(
+            jina_reader_url,
+            json={"url": url},
             headers=headers,
             timeout=timeout,
             proxy=proxy,
         )
         response.raise_for_status()
-        return response.text
+
+        data = response.json()
+        content = data.get("data", {}).get("content", "")
+        if content:
+            logger.debug(f"Jina Reader returned {len(content)} chars for {url}")
+        else:
+            logger.debug(f"Jina Reader returned empty content for {url}")
+        return content
     except httpx.HTTPStatusError as e:
-        logger.debug(f"HTTP Error [{e.response.status_code}]: {e}")
+        logger.debug(f"Jina Reader HTTP Error [{e.response.status_code}]: {e}")
         return ""
     except Exception as e:
-        logger.debug(f"Other error: {e}")
+        logger.debug(f"Jina Reader error: {e}")
         return ""
 
 
