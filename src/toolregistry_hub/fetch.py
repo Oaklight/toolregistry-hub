@@ -92,29 +92,41 @@ def _extract(
     Returns:
         str: Extracted content from the URL, or empty string if extraction fails.
     """
+    strategy = ""
+
     # First try Cloudflare Content Negotiation (zero-cost, high quality if supported)
     content = _get_content_with_markdown_negotiation(
         url,
         timeout=timeout,
         proxy=proxy,
     )
-    if not content:
+    if content:
+        strategy = "markdown_negotiation"
+    else:
         # Then try BeautifulSoup method
         content = _get_content_with_bs4(
             url,
             timeout=timeout,
             proxy=proxy,
         )
-    if not content:
-        # Fallback to Jina Reader if previous methods fail
-        content = _get_content_with_jina_reader(
-            url,
-            timeout=timeout,
-            proxy=proxy,
-        )
+        if content:
+            strategy = "beautifulsoup"
+        else:
+            # Fallback to Jina Reader if previous methods fail
+            content = _get_content_with_jina_reader(
+                url,
+                timeout=timeout,
+                proxy=proxy,
+            )
+            if content:
+                strategy = "jina_reader"
 
-    formatted_content = _format_text(content) if content else "Unable to fetch content"
-    return formatted_content
+    if content:
+        logger.info(f"Successfully fetched {url} using strategy: {strategy}")
+        return _format_text(content)
+    else:
+        logger.warning(f"All extraction strategies failed for {url}")
+        return "Unable to fetch content"
 
 
 def _get_content_with_markdown_negotiation(
