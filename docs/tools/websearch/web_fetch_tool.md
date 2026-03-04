@@ -8,16 +8,17 @@ author: Oaklight
 
 # Web Fetch Tool
 
-The Web Fetch tool provides intelligent webpage content extraction from URLs. It uses a three-stage strategy chain — Cloudflare Content Negotiation, BeautifulSoup parsing, and Jina Reader API — to extract clean, readable content from webpages while handling various website structures and formats.
+The Web Fetch tool provides intelligent webpage content extraction from URLs. It uses a three-stage strategy chain — Cloudflare Content Negotiation, BeautifulSoup parsing, and Jina Reader API — with **content quality evaluation** and **smart fallback** to extract clean, readable content from webpages while handling various website structures and formats, including JavaScript-heavy Single Page Applications (SPAs).
 
 ## 🎯 Overview
 
 The Fetch class offers robust webpage content extraction:
 
 - **Three-Stage Strategy Chain**: Cloudflare Content Negotiation → BeautifulSoup parsing → Jina Reader API
-- **Intelligent Fallback**: Automatically tries the next strategy if the current one fails
+- **Content Quality Evaluation**: Detects SPA shell pages and insufficient content, triggering automatic fallback
+- **Smart Fallback with Low-Quality Recovery**: If Jina Reader also fails, returns BS4 low-quality content as a last resort (better than nothing)
 - **Content Cleaning**: Removes navigation, ads, and unnecessary elements
-- **User Agent Rotation**: Uses realistic browser user agents
+- **User Agent Rotation**: Uses realistic browser user agents via `ua-generator`
 - **Timeout Handling**: Configurable timeouts (default: 30s) and proxy support
 - **Error Resilience**: Graceful handling of network errors and inaccessible content
 
@@ -66,27 +67,56 @@ Extract content from a given URL using available methods.
 
 ### Three-Stage Strategy Chain
 
-The Web Fetch tool uses a three-stage extraction approach, trying each strategy in order until one succeeds:
+The Web Fetch tool uses a three-stage extraction approach with **content quality evaluation** at each step:
 
 1. **Cloudflare Content Negotiation**: Zero-cost attempt to get markdown directly from the origin server
-2. **BeautifulSoup Direct Parsing**: Intelligent HTML parsing with content cleaning
-3. **Jina Reader (Fallback)**: External API for complex or hard-to-parse websites
+2. **BeautifulSoup Direct Parsing**: Intelligent HTML parsing with content cleaning + quality check
+3. **Jina Reader (Fallback)**: External API with `browser` engine for JavaScript rendering (SPA support)
 
 ### Extraction Process
 
 ```mermaid
-graph TD
+flowchart TD
     A[URL Input] --> B[Cloudflare Content Negotiation]
-    B --> C{Markdown Returned?}
-    C -->|Yes| D[Return Clean Content]
-    C -->|No| E[BeautifulSoup Method]
-    E --> F{Extraction Success?}
-    F -->|Yes| D
-    F -->|No| G[Jina Reader Fallback]
-    G --> H{Fallback Success?}
-    H -->|Yes| D
-    H -->|No| I[Return Error Message]
+    B -->|Markdown returned| Z[Return Clean Content]
+    B -->|Not supported| C[BeautifulSoup Parsing]
+    C -->|Has content| D{Content Quality Check}
+    D -->|Sufficient| Z
+    C -->|HTTP error / no content| F
+    D -->|Too short or SPA shell| F[Jina Reader - browser engine]
+    F -->|Good content| Z
+    F -->|Failed or low quality| G{BS4 had content?}
+    G -->|Yes| H[Return BS4 low-quality fallback]
+    G -->|No| I[Return error message]
 ```
+
+### Content Quality Evaluation
+
+After BeautifulSoup extraction, the tool evaluates content quality using `_is_content_sufficient()` before deciding whether to accept the result or fall back to Jina Reader:
+
+**Minimum Length Check:**
+
+- Content shorter than **100 characters** is considered insufficient and triggers Jina Reader fallback
+
+**SPA Shell Detection:**
+
+The tool detects common indicators of Single Page Application shell pages that lack real content. If any of the following phrases appear in the extracted text, the content is considered a JavaScript app shell:
+
+- `"please enable javascript"`
+- `"you need to enable javascript"`
+- `"this app requires javascript"`
+- `"loading..."`
+- `"noscript"`
+- `"we're sorry but"`
+- `"doesn't work properly without javascript"`
+- `"requires a modern browser"`
+- `"enable cookies"`
+
+When SPA shell content is detected, Jina Reader is automatically triggered with its `browser` engine to render the JavaScript and extract the actual content.
+
+**Low-Quality Fallback:**
+
+If Jina Reader also fails to produce sufficient content, the tool falls back to the BS4 low-quality result (if available) — because partial content is better than no content at all.
 
 ### Cloudflare Content Negotiation
 
@@ -105,6 +135,19 @@ The first strategy leverages [Cloudflare's "Markdown for Agents"](https://blog.c
 - No dependency on third-party services
 - Preserves the original document structure (headings, lists, code blocks, etc.)
 - Cloudflare also provides an `x-markdown-tokens` header indicating the token count of the markdown content
+
+### Jina Reader API
+
+The Jina Reader serves as the fallback strategy for pages that BeautifulSoup cannot handle well (e.g., JavaScript-heavy SPAs). The implementation uses:
+
+- **POST method** with JSON body (`{"url": "..."}`) for structured requests
+- **`Accept: application/json`** header to receive structured JSON responses
+- **`X-Engine: browser`** header to enable JavaScript rendering via Jina's browser engine
+- **`X-Timeout`** header to pass through the configured timeout
+- **`X-Remove-Selector: header, footer, nav, aside`** to strip non-content elements server-side
+- **`X-Return-Format: markdown`** (default) for LLM-friendly output
+
+The JSON response is parsed to extract the `data.content` field, which contains the rendered page content.
 
 ### Content Cleaning Process
 
@@ -339,10 +382,11 @@ if is_valid:
 
 ### Technical Limitations
 
-- **JavaScript-heavy sites**: May not fully render dynamic content
+- **JavaScript-heavy sites**: Handled via Jina Reader's `browser` engine fallback, but some complex SPAs may still not render fully
 - **Authentication**: Cannot access password-protected content
 - **Large files**: Very large pages may timeout or be truncated
 - **Complex layouts**: Some sites may require custom parsing
+- **Jina Reader availability**: The Jina Reader API is a free external service; availability is not guaranteed
 
 ### Performance Tips
 
