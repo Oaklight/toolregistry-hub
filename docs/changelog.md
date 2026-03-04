@@ -10,6 +10,19 @@ author: Oaklight
 
 本页面记录了 toolregistry-hub 项目从首个正式发布版本 0.4.14 以来的所有重要变更。
 
+## [0.5.6] - 2026-03-05
+
+### ✨ 新功能
+
+- **网页抓取改进**
+	- 添加 Cloudflare 内容协商策略用于 Markdown 提取，增加默认超时时间
+	- 为 `_extract()` 添加策略追踪日志，提升可观测性和调试能力
+	- 改进 Jina Reader 回退机制：修复请求头（移除占位选择器，添加 `X-Engine: browser`、`X-Timeout`），使用 POST 方式发送 JSON 请求体并解析结构化 JSON 响应
+	- 添加 `_is_content_sufficient()` 方法评估 BeautifulSoup 内容质量（最小长度阈值 + SPA 空壳页面检测）
+	- 改进 `_extract()` 回退逻辑：BS4 低质量内容触发 Jina Reader；若 Jina 也失败，则回退到 BS4 结果
+	- 增强日志记录，包含策略选择原因和内容质量指标
+	- 添加全面的单元测试（43 个测试用例）
+
 ## [0.5.5] - 2026-01-31
 
 ### 🔄 重构
