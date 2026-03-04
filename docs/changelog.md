@@ -10,6 +10,19 @@ author: Oaklight
 
 This page documents all notable changes to the toolregistry-hub project since the first official release version 0.4.14.
 
+## [0.5.6] - 2026-03-05
+
+### ✨ New Features
+
+- **Web Fetch Improvements**
+	- Add Cloudflare content negotiation strategy for markdown extraction, increasing default timeout
+	- Add strategy tracking logs to `_extract()` for better observability and debugging
+	- Improve Jina Reader fallback: fix headers (remove placeholder selectors, add `X-Engine: browser`, `X-Timeout`), use POST with JSON body and structured JSON response parsing
+	- Add `_is_content_sufficient()` to evaluate BeautifulSoup content quality (minimum length threshold + SPA shell indicator detection)
+	- Improve `_extract()` fallback logic: low-quality BS4 content triggers Jina Reader; if Jina also fails, fall back to BS4 result
+	- Enhance logging with strategy reasons and content quality metrics
+	- Add comprehensive unit tests (43 test cases)
+
 ## [0.5.5] - 2026-01-31
 
 ### 🔄 Refactoring
