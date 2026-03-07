@@ -143,12 +143,8 @@ def main():
         except ImportError as e:
             logger.error(f"OpenAPI server dependencies not installed: {e}")
             logger.info("Installation options:")
-            logger.info(
-                "  OpenAPI only: pip install toolregistry-hub[server_openapi] (requires Python 3.8+)"
-            )
-            logger.info(
-                "  All server modes: pip install toolregistry-hub[server] (requires Python 3.10+)"
-            )
+            logger.info("  OpenAPI only: pip install toolregistry-hub[server_openapi]")
+            logger.info("  Full server:  pip install toolregistry-hub[server]")
             sys.exit(1)
 
         # Set server info
@@ -161,10 +157,10 @@ def main():
             logger.error(f"MCP server dependencies not installed: {e}")
             logger.info("Installation options:")
             logger.info(
-                "  MCP only: pip install toolregistry-hub[server_mcp] (requires Python 3.10+)"
+                "  MCP only:    pip install toolregistry-hub[server_mcp] (requires Python 3.10+)"
             )
             logger.info(
-                "  All server modes: pip install toolregistry-hub[server] (requires Python 3.10+)"
+                "  Full server: pip install toolregistry-hub[server] (requires Python 3.10+)"
             )
             sys.exit(1)
 
