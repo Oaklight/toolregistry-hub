@@ -1022,9 +1022,9 @@ Files: `src/toolregistry/tool.py`, `src/toolregistry/types/anthropic/`, `src/too
 
 | File | Change | Phase |
 |------|--------|-------|
-| `pyproject.toml` | Remove `hub` optional dep; add `admin` optional extra (Phase 6) | 1, 6 |
-| `src/toolregistry/tool.py` | Add `namespace`, `method_name` fields | 2a |
-| `src/toolregistry/native/integration.py` | Populate `namespace` and `method_name` on Tool; fix inherited static method registration | 2a, 2b |
+| `pyproject.toml` | Remove `hub` optional dep; add `admin` optional extra (Phase 6) | 1 ✅, 6 |
+| `src/toolregistry/tool.py` | Add `namespace`, `method_name` fields | 2a ✅ |
+| `src/toolregistry/native/integration.py` | Populate `namespace` and `method_name` on Tool; fix inherited static method registration | 2a ✅, 2b ✅ |
 | `src/toolregistry/tool_registry.py` | Add `disable()`, `enable()`, `is_enabled()`, `get_disable_reason()`, `list_all_tools()`; update `get_tools_json()` and `list_tools()` to filter disabled; fix `_update_sub_registries()` | 2a ✅, 3 ✅ |
 | `src/toolregistry/executor.py` | Check `is_enabled()` before execution; add execution logging | 3 ✅, 6a |
 | `src/toolregistry/mcp/client.py` | New: single-file stable MCP client adapter | Independent ✅ |
@@ -1039,14 +1039,14 @@ Files: `src/toolregistry/tool.py`, `src/toolregistry/types/anthropic/`, `src/too
 
 | File | Change | Phase |
 |------|--------|-------|
-| `pyproject.toml` | Add `toolregistry` to server extras; consolidate `server_openapi` into `server` | 1 |
-| `src/.../utils/requirements.py` | New: `requires_env` decorator (pure metadata) | 4a |
-| `src/.../utils/configurable.py` | New: `Configurable` Protocol with `is_configured()` | 4c |
-| `src/.../utils/api_key_parser.py` | Defer validation: don't raise in `__init__` on missing keys | 4b |
-| `src/.../websearch/base.py` | Add `is_configured()` default implementation | 4c |
-| `src/.../websearch/websearch_searxng.py` | Override `is_configured()` for URL-based config | 4c |
-| `src/.../websearch/*.py` | Add `@requires_env(...)` to each search engine class | 4a |
-| `src/.../server/registry.py` | New: `build_registry(tool_kwargs)` + `get_registry()` with `Configurable` check | 4d |
+| `pyproject.toml` | Add `toolregistry` to server extras; consolidate `server_openapi` into `server` | 1 ✅ |
+| `src/.../utils/requirements.py` | New: `requires_env` decorator (pure metadata) | 4a ✅ |
+| `src/.../utils/configurable.py` | New: `Configurable` Protocol with `is_configured()` | 4c ✅ |
+| `src/.../utils/api_key_parser.py` | Defer validation: don't raise in `__init__` on missing keys | 4b ✅ |
+| `src/.../websearch/base.py` | Add `is_configured()` default implementation | 4c ✅ |
+| `src/.../websearch/websearch_searxng.py` | Override `is_configured()` for URL-based config | 4c ✅ |
+| `src/.../websearch/*.py` | Add `@requires_env(...)` to each search engine class | 4a ✅ |
+| `src/.../server/registry.py` | New: `build_registry(tool_kwargs)` + `get_registry()` with `Configurable` check | 4d ✅ |
 | `src/.../server/autoroute.py` | New: `registry_to_router()` + `_schema_to_pydantic()` | 5b, 5c |
 | `src/.../server/server_core.py` | Add registry-driven routing alongside legacy routes | 5e |
 | `src/.../server/mcp_compat.py` | New: 集中 FastMCP/DebugTokenVerifier 导入，为 v2 迁移做准备 | Independent |
