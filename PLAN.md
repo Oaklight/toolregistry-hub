@@ -282,9 +282,11 @@ Files: `src/toolregistry/tool_registry.py`, `src/toolregistry/executor.py`
 
 ---
 
-## Phase 4 — Hub: Tool Environment Requirements
+## Phase 4 — Hub: Tool Environment Requirements ✅
 
-> **Issues:** [Oaklight/toolregistry-hub#30](https://github.com/Oaklight/toolregistry-hub/issues/30)
+> **Issues:** [Oaklight/toolregistry-hub#30](https://github.com/Oaklight/toolregistry-hub/issues/30) ✅
+>
+> **PR:** [Oaklight/toolregistry-hub#35](https://github.com/Oaklight/toolregistry-hub/pull/35) ✅ (merged)
 
 ### Design Considerations: Library vs. Server Usage
 
@@ -1064,7 +1066,7 @@ Phase 2  — Tool.namespace + Tool.method_name + inherited static methods fix  �
 Phase 3  — Enable/disable with reason + update list_tools/get_tools_json/execute  ✅
   │         (foundation for requires_env auto-disable)
   │
-Phase 4  — requires_env decorator + Configurable protocol + graceful websearch init + build_registry()
+Phase 4  — requires_env decorator + Configurable protocol + graceful websearch init + build_registry()  ✅
   │         (hub-side, depends on Phase 2+3 in toolregistry)
   │
 Phase 5  — Auto-route generator + backward-compatible migration
