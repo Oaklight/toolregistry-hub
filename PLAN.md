@@ -139,9 +139,11 @@ toolregistry-hub      (tool implementations, zero toolregistry dep in core)
 
 ---
 
-## Phase 2 — ToolRegistry Core: Tool Model & Name Consistency
+## Phase 2 — ToolRegistry Core: Tool Model & Name Consistency ✅
 
-> **Issues:** [Oaklight/ToolRegistry#51](https://github.com/Oaklight/ToolRegistry/issues/51) (2a) | [Oaklight/ToolRegistry#52](https://github.com/Oaklight/ToolRegistry/issues/52) (2b)
+> **Issues:** [Oaklight/ToolRegistry#51](https://github.com/Oaklight/ToolRegistry/issues/51) ✅ | [Oaklight/ToolRegistry#52](https://github.com/Oaklight/ToolRegistry/issues/52) ✅
+>
+> **PR:** [Oaklight/ToolRegistry#57](https://github.com/Oaklight/ToolRegistry/pull/57) ✅ (merged)
 
 These changes belong in `toolregistry` and benefit all consumers.
 
@@ -159,11 +161,11 @@ class Tool(BaseModel):
     ...
 ```
 
-**Where to populate:** `Tool.from_function()` already receives `namespace` — store it. The original function name is available as `func.__name__` before normalization — store it as `method_name`.
+- [x] **Where to populate:** `Tool.from_function()` already receives `namespace` — store it. The original function name is available as `func.__name__` before normalization — store it as `method_name`.
 
-In `native/integration.py`, `_register_static_methods` and `_register_instance_methods` pass `namespace` to `registry.register()`, which passes it to `Tool.from_function()`. The chain already exists; we just need to persist the values.
+- [x] In `native/integration.py`, `_register_static_methods` and `_register_instance_methods` pass `namespace` to `registry.register()`, which passes it to `Tool.from_function()`. The chain already exists; we just need to persist the values.
 
-**`_update_sub_registries()` fix:** Rewrite to collect `tool.namespace` values directly:
+- [x] **`_update_sub_registries()` fix:** Rewrite to collect `tool.namespace` values directly:
 
 ```python
 def _update_sub_registries(self) -> None:
@@ -179,7 +181,7 @@ Files: `src/toolregistry/tool.py`, `src/toolregistry/native/integration.py`, `sr
 
 **Problem:** `_register_static_methods` iterates `cls.__dict__` only, missing inherited static methods. For `Calculator(BaseCalculator)`, only `Calculator`'s own methods (`evaluate`, `list_allowed_fns`, `help`) get registered — not `BaseCalculator`'s (`add`, `subtract`, `multiply`, etc.).
 
-**Solution:** Use `inspect.getmembers(cls, predicate=lambda m: isinstance(m, staticmethod))` or iterate the MRO:
+**Solution:** Added `traverse_mro` parameter (default `True`) to `_is_all_static_methods` and `_register_static_methods` to iterate the MRO:
 
 ```python
 def _register_static_methods(self, cls: Type, namespace: Optional[str]) -> None:
@@ -193,7 +195,9 @@ def _register_static_methods(self, cls: Type, namespace: Optional[str]) -> None:
                     registered.add(name)
 ```
 
-> **Verification needed:** Test whether `Calculator` currently registers all expected methods. If it does (because `_is_all_static_methods` returns `False` for `Calculator` and it falls through to instance method registration), document the actual behavior and decide if MRO traversal is needed.
+- [x] `_is_all_static_methods` now traverses MRO by default (`traverse_mro=True`), correctly detecting inherited static methods
+- [x] `_register_static_methods` now traverses MRO by default (`traverse_mro=True`), registering inherited static methods from parent classes
+- [x] `Calculator(BaseCalculator)` now correctly registers all methods including inherited ones (`add`, `subtract`, `multiply`, etc.)
 
 Files: `src/toolregistry/native/integration.py`
 
@@ -748,7 +752,7 @@ Files: `src/toolregistry/tool.py`, `src/toolregistry/types/anthropic/`, `src/too
 ```
 Phase 1  — Dependency restructuring (unblocks everything)
   │
-Phase 2  — Tool.namespace + Tool.method_name + inherited static methods fix
+Phase 2  — Tool.namespace + Tool.method_name + inherited static methods fix  ✅
   │         (foundation for auto-route and is_enabled)
   │
 Phase 3  — Enable/disable with reason + update list_tools/get_tools_json/execute
