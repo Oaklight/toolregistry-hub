@@ -10,9 +10,29 @@ author: Oaklight
 
 本页面记录了 toolregistry-hub 项目从首个正式发布版本 0.4.14 以来的所有重要变更。
 
+## [Unreleased]
+
+### 新功能
+
+- **工具环境需求声明与中央注册表** ([#30](https://github.com/Oaklight/toolregistry-hub/issues/30), [#35](https://github.com/Oaklight/toolregistry-hub/pull/35))
+	- 添加 `@requires_env` 装饰器，用于声明工具类所需的环境变量
+	- 添加 `Configurable` 协议，提供 `is_configured()` 方法用于实例状态就绪检查（结构化子类型）
+	- 添加 `build_registry()` / `get_registry()` 中央注册表，自动禁用未配置的工具
+	- 将 `APIKeyParser` 和 `SearXNGSearch` 验证延迟到调用时，允许在无环境变量时正常初始化
+
+### 重构
+
+- **移除 BingSearch** ([#34](https://github.com/Oaklight/toolregistry-hub/pull/34))
+	- 移除已弃用的 `BingSearch` 类、服务器路由及相关测试
+	- 重写和现代化剩余搜索引擎的测试套件
+
+- **重构服务器可选依赖** ([#29](https://github.com/Oaklight/toolregistry-hub/issues/29), [#33](https://github.com/Oaklight/toolregistry-hub/pull/33))
+	- 在 `server_openapi` 和 `server_mcp` extras 中添加 `toolregistry>=0.4.14`
+	- 重构 `server` extra 使用自引用组合
+
 ## [0.5.6] - 2026-03-05
 
-### ✨ 新功能
+### 新功能
 
 - **网页抓取改进**
 	- 添加 Cloudflare 内容协商策略用于 Markdown 提取，增加默认超时时间
@@ -25,13 +45,13 @@ author: Oaklight
 
 ## [0.5.5] - 2026-01-31
 
-### 🔄 重构
+### 重构
 
 - **Think 工具增强**
 	- 统一 reason 和 think 端点为单一的 think 端点
 	- 重新排序参数并简化思考模式
 
-### 🔧 维护
+### 维护
 
 - **Docker 改进**
 	- Dockerfile 添加 `REGISTRY_MIRROR` 构建参数，支持自定义镜像仓库
@@ -39,7 +59,7 @@ author: Oaklight
 
 ## [0.5.4.post1] - 2026-01-13
 
-### 🐛 修复
+### 修复
 
 - **版本端点可见性**
 	- 使用 `include_in_schema=False` 从 OpenAPI 文档中隐藏版本端点（`/version/` 和 `/version/check`）
@@ -48,7 +68,7 @@ author: Oaklight
 
 ## [0.5.4] - 2026-01-13
 
-### 🔄 重构
+### 重构
 
 - **认知工具统一架构**
 	- 将 reason 和 think 端点合并为单一的 think 端点，整合结构化推理与探索性思考功能
@@ -58,7 +78,7 @@ author: Oaklight
 	- 重构测试套件，覆盖所有思考模式和参数组合
 	- 更新文档，反映 "recall + think" 的双工具认知架构
 
-### ✨ 新功能
+### 新功能
 
 - **PyPI 版本检查与更新通知**
 	- 添加完整的 PyPI 版本检查系统，参考 argo-proxy 实现
@@ -75,7 +95,7 @@ author: Oaklight
 	- 实现居中对齐和一致的边框样式（80字符宽度）
 	- 在 CLI 启动时显示横幅，可通过 show_banner=False 参数禁用
 
-### 📝 文档改进
+### 文档改进
 
 - **网页搜索时间敏感查询指导**
 	- 在所有网页搜索类 docstring 中添加重要提示
@@ -88,7 +108,7 @@ author: Oaklight
 	- 扩展参数文档，包含时区格式示例
 	- 路由描述直接引用方法 docstrings，提升一致性
 
-### 🔧 维护
+### 维护
 
 - **版本属性修复**
 	- 更新 pyproject.toml 使用 __version__ 属性替代 version
@@ -97,7 +117,7 @@ author: Oaklight
 
 ## [0.5.3] - 2025-12-13
 
-### 🔧 重构
+### 重构
 
 - **多API密钥管理系统**
 	- 将分散的API密钥实现整合为统一的APIKeyParser工具
@@ -120,7 +140,7 @@ author: Oaklight
 	- 通过在`__init__.py`中设置单一版本来源来集中版本管理
 	- 通过setuptools动态版本支持改进构建流程
 
-### 🐛 修复
+### 修复
 
 - **Docker 构建流程**
 	- 修复Dockerfile中包含服务器扩展包(fastapi, uvicorn, fastmcp)的包安装
@@ -133,7 +153,7 @@ author: Oaklight
 	- 修复server_core.py和websearch模块中的类型提示
 	- 改进测试兼容性和类型安全
 
-### 📝 文档
+### 文档
 
 - **Docker 文档**
 	- 添加全面的Docker文档和迁移指南
@@ -142,7 +162,7 @@ author: Oaklight
 
 ## [0.5.2] - 2025-12-12
 
-### ✨ 新功能
+### 新功能
 
 - **单位转换器 API 路由**
 	- 添加单位转换器 API 路由
@@ -156,11 +176,11 @@ author: Oaklight
 	- 添加 Bright Data 引擎测试（Bing 和 Yandex）
 	- 为 Bing 搜索添加环境变量支持
 
-### ⚠️ 弃用
+### 弃用
 
 - **Bing 搜索**：由于机器人检测问题，标记 BingSearch 为已弃用
 
-### 📝 文档改进
+### 文档改进
 
 - 更新 README 中的徽章样式
 - 添加 DeepWiki 徽章到文档
@@ -169,7 +189,7 @@ author: Oaklight
 
 ## [0.5.1] - 2025-12-05
 
-### 🔐 安全与认证
+### 安全与认证
 
 - **MCP 服务器认证** (#15)
 	- 为 MCP 服务器添加 Bearer Token 认证支持
@@ -179,7 +199,7 @@ author: Oaklight
 	- 将 Token 验证移至 FastAPI 全局依赖项
 	- 重构认证架构，解耦路由和认证关注点
 
-### 📋 任务管理增强
+### 任务管理
 
 - **Todo List 工具增强** (#15)
 	- 添加 Todo List 工具，支持灵活的输入格式
@@ -190,7 +210,7 @@ author: Oaklight
 	- 添加 Markdown 表格生成 API 端点
 	- 改进文档和类型注解
 
-### 🌐 服务器功能
+### 服务器
 
 - **架构重构**
 	- 创建 `server_core.py` 模块提供基础 FastAPI 应用
@@ -199,7 +219,7 @@ author: Oaklight
 	- 改进路由发现日志逻辑
 	- 优化服务器架构，提升可维护性
 
-### 🕐 日期时间功能
+### 日期时间
 
 - **API 增强**
 	- 为 `time_now` 端点添加 `TimeNowRequest` 模型
@@ -207,7 +227,7 @@ author: Oaklight
 	- 保持与现有时区名称功能的向后兼容性
 	- 改进 API 文档结构
 
-### 📝 文档改进
+### 文档
 
 - **项目文档**
 	- 更新项目描述和 README 文件
@@ -217,7 +237,7 @@ author: Oaklight
 
 ## [0.5.0] - 2025-11-11
 
-### 🔐 安全与认证
+### 安全与认证
 
 - **多 Bearer Token 认证** (#11)
 	- 支持通过环境变量或文件配置多个 Bearer Token
@@ -227,7 +247,7 @@ author: Oaklight
 	- 增强认证日志和调试功能
 	- 新增独立的多 Token 认证测试套件
 
-### 🌐 服务器功能 (#9)
+### 服务器 (#9)
 
 - **REST API 服务器**
 	- 新增 `toolregistry-server` CLI 命令行工具
@@ -241,7 +261,7 @@ author: Oaklight
 	- 自动路由发现和注册机制
 	- 递归路由发现支持嵌套模块
 
-### 🐳 Docker 支持
+### Docker
 
 - **完整的容器化部署方案**
 	- 添加 Dockerfile 用于构建容器镜像
@@ -251,7 +271,7 @@ author: Oaklight
 	- 添加构建和推送自动化 Makefile
 	- 优化 `.dockerignore` 减少镜像大小
 
-### 🔍 现代化网络搜索 (#8)
+### 网络搜索 (#8)
 
 - **新搜索引擎支持**
 
@@ -285,7 +305,7 @@ author: Oaklight
 	- 旧版搜索实现移至 `websearch_legacy/` 目录
 	- 清理过时的 Google 搜索模块
 
-### 🕐 时区功能增强 (#5)
+### 时区功能增强 (#5)
 
 - **时区支持**
 
@@ -300,7 +320,7 @@ author: Oaklight
 	- 统一时区解析逻辑
 	- 改进错误处理和异常信息
 
-### 📚 文档重构 (#10)
+### 文档 (#10)
 
 - **文档结构优化**
 	- 重构文档结构，提升可读性
@@ -309,7 +329,7 @@ author: Oaklight
 	- 网络搜索引擎使用文档
 	- API 端点和配置说明
 
-### 🧪 测试改进 (#12)
+### 测试 (#12)
 
 - **测试覆盖增强**
 	- 添加 0.4.16a0 版本测试
@@ -317,38 +337,38 @@ author: Oaklight
 	- 时区功能单元测试
 	- 网络搜索引擎测试
 
-### 🔄 重构
+### 重构
 
 - **think_tool**: 简化 think 方法返回类型
 	- 将返回类型从 `Dict[str, str]` 改为 `None`
 	- 移除未使用的 typing 导入
 	- 移除思考日志返回值，因为它未被使用
 
-### 📚 文档
+### 文档
 
 - **文档托管**: 迁移文档到 ReadTheDocs 托管平台
 
 ## [0.4.15] - 2025-08-11
 
-### ✨ 新功能
+### 新功能
 
 - **DateTime 工具**: 添加用于获取当前时间的 DateTime 实用工具
 - **ThinkTool**: 新增推理和头脑风暴工具，为 AI 工具集成提供认知处理空间
 
-### 📝 文档改进
+### 文档
 
 - 增强工具描述和使用示例
 - 更新独立性声明和包上下文
 - 改进 README 文档结构
 
-### 🔧 维护
+### 维护
 
 - 版本号提升至 0.4.15
 - 依赖项更新和优化
 
 ## [0.4.14] - 首个正式发布版本
 
-### 🎉 初始发布
+### 初始发布
 
 - 基础工具集合
 - 核心功能实现
@@ -369,17 +389,17 @@ author: Oaklight
 
 ### 变更类型图例
 
-- 🎉 **新功能** - 新增功能或特性
-- 🔄 **重构** - 代码重构，不影响功能
-- 🐛 **修复** - 错误修复
-- 📚 **文档** - 文档更新
-- 🔐 **安全** - 安全相关改进
-- 🌐 **服务器** - 服务器功能
-- 🐳 **Docker** - 容器化相关
-- 🔍 **搜索** - 搜索功能相关
-- 🕐 **时区** - 时区功能相关
-- 🧪 **测试** - 测试相关改进
-- 🔧 **维护** - 维护性更新
+- **新功能** - 新增功能或特性
+- **重构** - 代码重构，不影响功能
+- **修复** - 错误修复
+- **文档** - 文档更新
+- **安全** - 安全相关改进
+- **服务器** - 服务器功能
+- **Docker** - 容器化相关
+- **搜索** - 搜索功能相关
+- **时区** - 时区功能相关
+- **测试** - 测试相关改进
+- **维护** - 维护性更新
 
 ### 获取更新
 
