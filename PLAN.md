@@ -91,20 +91,23 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-server = [
+server_openapi = [
     "toolregistry>=0.4.14",
     "fastapi>=0.119.0",
     "uvicorn[standard]>=0.24.0",
-    "fastmcp>=2.12.4; python_version >= '3.10'",
 ]
 server_mcp = [
     "toolregistry>=0.4.14",
     "fastapi>=0.119.0",
     "fastmcp>=2.12.4; python_version >= '3.10'",
 ]
+server = [
+    "toolregistry-hub[server_openapi]",
+    "toolregistry-hub[server_mcp]",
+]
 ```
 
-> **Note:** The current `server_openapi` extra is merged into `server`. The `server` extra now includes `fastmcp` (matching current behavior where `server` = openapi + mcp). `server_mcp` is kept for MCP-only installs without `uvicorn`.
+> **Note:** Three separate extras are retained: `server_openapi` (FastAPI + uvicorn), `server_mcp` (FastAPI + fastmcp), and `server` (self-referencing combo that pulls in both). This allows users to install only the transport they need.
 
 Final dependency graph — strictly unidirectional, no cycles:
 
@@ -117,24 +120,28 @@ toolregistry-hub      (tool implementations, zero toolregistry dep in core)
 
 ---
 
-## Phase 1 — Dependency Restructuring
+## Phase 1 — Dependency Restructuring ✅
+
+> **Issues:** [Oaklight/ToolRegistry#50](https://github.com/Oaklight/ToolRegistry/issues/50) ✅ | [Oaklight/toolregistry-hub#29](https://github.com/Oaklight/toolregistry-hub/issues/29) ✅
 
 **In `toolregistry`:**
 
-- [ ] Remove `hub = ["toolregistry-hub>=..."]` from `[project.optional-dependencies]` in `pyproject.toml`
-- [ ] Keep `hub/__init__.py` shim as-is (runtime re-export still works)
-- [ ] Update README/docs: hub is now a standalone install (`pip install toolregistry-hub`)
+- [x] Remove `hub = ["toolregistry-hub>=..."]` from `[project.optional-dependencies]` in `pyproject.toml`
+- [x] Keep `hub/__init__.py` shim as-is (runtime re-export still works)
+- [x] Update README/docs: hub is now a standalone install (`pip install toolregistry-hub`)
 
 **In `toolregistry-hub`:**
 
-- [ ] Add `toolregistry>=0.4.14` to `server` and `server_mcp` optional extras
-- [ ] Merge `server_openapi` into `server` (drop `server_openapi` as separate extra)
-- [ ] Add `fastmcp` to `server` extra (matching current `server` behavior)
-- [ ] Update `cli.py` error messages to reflect new extra names
+- [x] Add `toolregistry>=0.4.14` to `server_openapi`, `server_mcp`, and `server` optional extras
+- [x] Retain three separate extras: `server_openapi`, `server_mcp`, and `server` (self-referencing combo)
+- [x] Add `fastmcp` to `server_mcp` extra
+- [x] Update `cli.py` error messages to reflect new extra names
 
 ---
 
 ## Phase 2 — ToolRegistry Core: Tool Model & Name Consistency
+
+> **Issues:** [Oaklight/ToolRegistry#51](https://github.com/Oaklight/ToolRegistry/issues/51) (2a) | [Oaklight/ToolRegistry#52](https://github.com/Oaklight/ToolRegistry/issues/52) (2b)
 
 These changes belong in `toolregistry` and benefit all consumers.
 
@@ -193,6 +200,8 @@ Files: `src/toolregistry/native/integration.py`
 ---
 
 ## Phase 3 — ToolRegistry Core: Enable/Disable with Reason
+
+> **Issues:** [Oaklight/ToolRegistry#53](https://github.com/Oaklight/ToolRegistry/issues/53)
 
 ### 3a. Two-Level Enable/Disable
 
@@ -268,6 +277,8 @@ Files: `src/toolregistry/tool_registry.py`, `src/toolregistry/executor.py`
 ---
 
 ## Phase 4 — Hub: Tool Environment Requirements
+
+> **Issues:** [Oaklight/toolregistry-hub#30](https://github.com/Oaklight/toolregistry-hub/issues/30)
 
 ### 4a. `requires_env` Decorator
 
@@ -407,6 +418,8 @@ def get_registry() -> ToolRegistry:
 ---
 
 ## Phase 5 — Auto-Route Generation
+
+> **Issues:** [Oaklight/toolregistry-hub#31](https://github.com/Oaklight/toolregistry-hub/issues/31)
 
 The server layer stops hand-writing route files and instead generates FastAPI routes directly from `ToolRegistry`.
 
@@ -567,6 +580,8 @@ def create_core_app(dependencies=None) -> FastAPI:
 
 ## Phase 6 — Admin Panel (Deferred to Post-MVP)
 
+> **Issues:** [Oaklight/ToolRegistry#54](https://github.com/Oaklight/ToolRegistry/issues/54)
+
 > **Decision:** The admin panel (Phase 2e + Phase 5 in the original plan) is a significant feature with its own frontend. It is deferred to a follow-up iteration after the core auto-route system is validated. The enable/disable API (Phase 3) provides the foundation; the admin panel is a UI layer on top.
 
 ### 6a. Execution Logging (Foundation)
@@ -650,6 +665,8 @@ def create_core_app(...) -> FastAPI:
 
 ## Phase 7 — Cleanup and Migration
 
+> **Issues:** [Oaklight/toolregistry-hub#32](https://github.com/Oaklight/toolregistry-hub/issues/32)
+
 Once auto-route is validated end-to-end (at least one release cycle after Phase 5):
 
 - [ ] Remove hand-written route files: `calculator.py`, `fetch.py`, `datetime_tools.py`, `unit_converter.py`, `think.py`, `todo_list.py`
@@ -668,6 +685,8 @@ Once auto-route is validated end-to-end (at least one release cycle after Phase 
 These are independent of the main refactoring and can be done in any order:
 
 ### Anthropic and Gemini Schema Formats
+
+> **Issues:** [Oaklight/ToolRegistry#55](https://github.com/Oaklight/ToolRegistry/issues/55)
 
 `Tool.get_json_schema()` currently raises `NotImplementedError` for `anthropic` and `gemini`.
 
