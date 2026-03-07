@@ -1,0 +1,762 @@
+# Refactoring Plan: Hub Server Integration with ToolRegistry
+
+## Background
+
+`toolregistry-hub` was originally split out from `toolregistry` as an independent collection of tool implementations. The hub's server layer (`server/routes/`) currently has no awareness of `toolregistry` — each route file manually defines Request/Response Pydantic models and FastAPI endpoints that wrap the tool logic by hand.
+
+This plan refactors the server layer to be driven by `ToolRegistry` instead of hand-written boilerplate. The result is:
+
+- Auto-generated FastAPI endpoints from `ToolRegistry` tool schemas
+- Runtime enable/disable of tools (two-level: group + method) with reason tracking
+- Tool self-declaration of environment requirements
+- No manual Request/Response model writing for new tools
+- An admin web panel usable from both hub and standalone `toolregistry` contexts
+
+---
+
+## Current State Analysis
+
+### Dependency Graph (as-is)
+
+```
+toolregistry                    (agent SDK)
+  ├── hub extra → toolregistry-hub   (optional, for convenience import)
+  └── no other knowledge of hub
+
+toolregistry-hub                (tool implementations + server)
+  ├── core: no toolregistry dependency
+  └── server extras: fastapi, uvicorn, fastmcp (no toolregistry)
+```
+
+### Key Code Facts (verified against source)
+
+1. **`normalize_tool_name()`** converts `-` to `_` (along with CamelCase → snake_case). So `"calculator-add"` normalizes to `"calculator_add"`.
+
+2. **`update_namespace()`** uses `-` as separator: `"calculator"` + `"add"` → `"calculator-add"`. The tool name stored in `_tools` retains the hyphen.
+
+3. **Ambiguity problem**: For `file_ops-replace_lines`, the hyphen correctly separates namespace from method. But if any code path normalizes it → `file_ops_replace_lines`, the boundary is lost because `_` appears in both parts.
+
+4. **`_update_sub_registries()`** splits on `"."` to find sub-registries, but `update_namespace()` uses `"-"`. Calling `_update_sub_registries()` after registration clears the set to empty. This is a latent bug.
+
+5. **`get_tools_json()`** iterates `self._tools.values()` directly — does NOT go through `list_tools()`.
+
+6. **`execute_tool_calls()`** uses `self.get_tool()` which reads from `self._tools` directly — does NOT go through `list_tools()`.
+
+7. **Websearch classes** (`BraveSearch`, `TavilySearch`, etc.) inherit from `BaseSearch(ABC)`, have `__init__` with optional params, and expose a `search()` instance method. They are NOT static-method classes.
+
+8. **`APIKeyParser.__init__`** raises `ValueError` if no API key is found in params or environment. This means websearch class instantiation fails when env vars are missing.
+
+9. **`register_from_class()`** for non-static classes: attempts `cls()` (no-arg instantiation), then registers all public callable methods from the instance.
+
+10. **Name collision**: If multiple classes are registered with the same namespace and they have methods with the same name (e.g., all websearch classes have `search`), later registrations overwrite earlier ones silently.
+
+11. **Hub's current server extras**: `server_openapi` (fastapi+uvicorn), `server_mcp` (fastapi+fastmcp), `server` (all three). None include `toolregistry`.
+
+12. **`Calculator`** inherits from `BaseCalculator`. `Calculator.__dict__` contains `evaluate`, `list_allowed_fns`, `help`, `_allowed_functions`. The inherited methods (`add`, `subtract`, etc.) are in `BaseCalculator.__dict__`. `_is_all_static_methods(Calculator)` checks `Calculator.__dict__` only, but `register_from_class` with `_register_static_methods` also only iterates `cls.__dict__`. The inherited static methods from `BaseCalculator` would NOT be registered. However, `register_from_class` currently works because `_is_all_static_methods` returns `True` for `Calculator` (its own `__dict__` only has static methods), and `_register_static_methods` iterates `cls.__dict__` — so only `Calculator`'s own methods get registered, not `BaseCalculator`'s. This needs verification and may need fixing.
+
+---
+
+## Dependency Design
+
+### Problem: Circular Dependency
+
+Currently `toolregistry` declares an optional dependency on `toolregistry-hub`:
+
+```toml
+# toolregistry/pyproject.toml
+[project.optional-dependencies]
+hub = ["toolregistry-hub>=0.4.14"]
+```
+
+If `toolregistry-hub` were to depend on `toolregistry`, a package-level circular dependency would form, rejected by pip/uv at resolve time.
+
+**Solution:** Remove the `hub` extra from `toolregistry`'s pyproject.toml. The `toolregistry/src/toolregistry/hub/__init__.py` shim already re-exports gracefully at runtime (raises `ImportError` with instructions if hub not installed). The `from toolregistry.hub import Calculator` import path continues to work for any user who has both packages installed. The only change is `pip install toolregistry[hub]` is dropped in favor of `pip install toolregistry-hub`.
+
+### Hub Core vs. Hub Server
+
+Hub's core tool classes (Calculator, BraveSearch, etc.) are pure Python — they don't need `toolregistry`. Only the server layer needs it. Therefore:
+
+- **Hub core** (`toolregistry_hub` package): no `toolregistry` dependency
+- **Hub server** (`toolregistry_hub[server]` extra): depends on `toolregistry` + `fastapi` + `uvicorn`
+
+```toml
+# toolregistry-hub/pyproject.toml
+[project]
+dependencies = [
+    # no toolregistry here — already the case today
+    "pydantic>=2.7.2,<3.0.0",
+    "loguru>=0.7.3",
+    "httpx>=0.28.1",
+    ...
+]
+
+[project.optional-dependencies]
+server = [
+    "toolregistry>=0.4.14",
+    "fastapi>=0.119.0",
+    "uvicorn[standard]>=0.24.0",
+    "fastmcp>=2.12.4; python_version >= '3.10'",
+]
+server_mcp = [
+    "toolregistry>=0.4.14",
+    "fastapi>=0.119.0",
+    "fastmcp>=2.12.4; python_version >= '3.10'",
+]
+```
+
+> **Note:** The current `server_openapi` extra is merged into `server`. The `server` extra now includes `fastmcp` (matching current behavior where `server` = openapi + mcp). `server_mcp` is kept for MCP-only installs without `uvicorn`.
+
+Final dependency graph — strictly unidirectional, no cycles:
+
+```
+toolregistry          (agent SDK, no hub knowledge)
+      ^
+      |  [server] extra only
+toolregistry-hub      (tool implementations, zero toolregistry dep in core)
+```
+
+---
+
+## Phase 1 — Dependency Restructuring
+
+**In `toolregistry`:**
+
+- [ ] Remove `hub = ["toolregistry-hub>=..."]` from `[project.optional-dependencies]` in `pyproject.toml`
+- [ ] Keep `hub/__init__.py` shim as-is (runtime re-export still works)
+- [ ] Update README/docs: hub is now a standalone install (`pip install toolregistry-hub`)
+
+**In `toolregistry-hub`:**
+
+- [ ] Add `toolregistry>=0.4.14` to `server` and `server_mcp` optional extras
+- [ ] Merge `server_openapi` into `server` (drop `server_openapi` as separate extra)
+- [ ] Add `fastmcp` to `server` extra (matching current `server` behavior)
+- [ ] Update `cli.py` error messages to reflect new extra names
+
+---
+
+## Phase 2 — ToolRegistry Core: Tool Model & Name Consistency
+
+These changes belong in `toolregistry` and benefit all consumers.
+
+### 2a. Explicit `namespace` and `method_name` Fields on `Tool`
+
+**Problem:** Tool names encode namespace+method in a single string with `-` separator, but `normalize_tool_name()` converts `-` to `_`. This creates ambiguity (see Current State Analysis #3) and makes URL path construction fragile.
+
+**Solution:** Add two fields to `Tool`:
+
+```python
+class Tool(BaseModel):
+    name: str                    # existing: full name, e.g. "calculator-add"
+    namespace: Optional[str] = None  # new: e.g. "calculator"
+    method_name: Optional[str] = None  # new: original function name, e.g. "add"
+    ...
+```
+
+**Where to populate:** `Tool.from_function()` already receives `namespace` — store it. The original function name is available as `func.__name__` before normalization — store it as `method_name`.
+
+In `native/integration.py`, `_register_static_methods` and `_register_instance_methods` pass `namespace` to `registry.register()`, which passes it to `Tool.from_function()`. The chain already exists; we just need to persist the values.
+
+**`_update_sub_registries()` fix:** Rewrite to collect `tool.namespace` values directly:
+
+```python
+def _update_sub_registries(self) -> None:
+    self._sub_registries = {
+        tool.namespace for tool in self._tools.values()
+        if tool.namespace is not None
+    }
+```
+
+Files: `src/toolregistry/tool.py`, `src/toolregistry/native/integration.py`, `src/toolregistry/tool_registry.py`
+
+### 2b. Fix `register_from_class` for Inherited Static Methods
+
+**Problem:** `_register_static_methods` iterates `cls.__dict__` only, missing inherited static methods. For `Calculator(BaseCalculator)`, only `Calculator`'s own methods (`evaluate`, `list_allowed_fns`, `help`) get registered — not `BaseCalculator`'s (`add`, `subtract`, `multiply`, etc.).
+
+**Solution:** Use `inspect.getmembers(cls, predicate=lambda m: isinstance(m, staticmethod))` or iterate the MRO:
+
+```python
+def _register_static_methods(self, cls: Type, namespace: Optional[str]) -> None:
+    for klass in cls.__mro__:
+        if klass is object:
+            continue
+        for name, member in klass.__dict__.items():
+            if not name.startswith("_") and isinstance(member, staticmethod):
+                if name not in registered:  # avoid duplicates from MRO
+                    self.registry.register(member.__func__, namespace=namespace)
+                    registered.add(name)
+```
+
+> **Verification needed:** Test whether `Calculator` currently registers all expected methods. If it does (because `_is_all_static_methods` returns `False` for `Calculator` and it falls through to instance method registration), document the actual behavior and decide if MRO traversal is needed.
+
+Files: `src/toolregistry/native/integration.py`
+
+---
+
+## Phase 3 — ToolRegistry Core: Enable/Disable with Reason
+
+### 3a. Two-Level Enable/Disable
+
+Add enable/disable management to `ToolRegistry`. Pure Python, no new dependencies.
+
+**Two levels:**
+- **Group level**: disable/enable an entire namespace (e.g., `"brave_search"`)
+- **Method level**: disable/enable a single tool by its full name (e.g., `"calculator-divide"`)
+
+```python
+def __init__(self, name=None):
+    ...
+    self._disabled: Dict[str, str] = {}  # name or namespace → reason
+
+def disable(self, name: str, reason: str = "") -> None:
+    """Disable a tool or namespace. Uses raw name (not normalized)."""
+    self._disabled[name] = reason
+
+def enable(self, name: str) -> None:
+    """Re-enable a tool or namespace."""
+    self._disabled.pop(name, None)
+
+def is_enabled(self, tool_name: str) -> bool:
+    """Check if a tool is enabled (not disabled at method or group level)."""
+    if tool_name in self._disabled:
+        return False
+    tool = self._tools.get(tool_name)
+    if tool and tool.namespace and tool.namespace in self._disabled:
+        return False
+    return True
+
+def get_disable_reason(self, tool_name: str) -> Optional[str]:
+    if tool_name in self._disabled:
+        return self._disabled[tool_name]
+    tool = self._tools.get(tool_name)
+    if tool and tool.namespace:
+        return self._disabled.get(tool.namespace)
+    return None
+```
+
+> **Key decision:** `disable()`/`enable()` use the raw tool name (as stored in `_tools` keys), NOT `normalize_tool_name()`. This avoids the `-` vs `_` mismatch between `_disabled` keys and `_tools` keys.
+
+### 3b. Update `list_tools`, `get_tools_json`, `execute_tool_calls`
+
+These methods must respect `is_enabled()`:
+
+```python
+def list_tools(self) -> List[str]:
+    """List enabled tools only."""
+    return [n for n in self._tools if self.is_enabled(n)]
+
+def list_all_tools(self) -> List[str]:
+    """List all tools including disabled (for admin panel)."""
+    return list(self._tools.keys())
+
+def get_tools_json(self, tool_name=None, *, api_format="openai") -> List[Dict]:
+    if tool_name:
+        target_tool = self.get_tool(tool_name)
+        tools = [target_tool] if target_tool else []
+    else:
+        # Only return enabled tools
+        tools = [t for t in self._tools.values() if self.is_enabled(t.name)]
+    return [tool.get_json_schema(api_format) for tool in tools]
+
+def execute_tool_calls(self, tool_calls, execution_mode=None) -> Dict[str, str]:
+    # In executor, check is_enabled before executing:
+    # if not is_enabled(function_name): return error message
+    ...
+```
+
+Files: `src/toolregistry/tool_registry.py`, `src/toolregistry/executor.py`
+
+---
+
+## Phase 4 — Hub: Tool Environment Requirements
+
+### 4a. `requires_env` Decorator
+
+This decorator is hub-specific metadata — lives in `toolregistry_hub`, not in `toolregistry`. Zero dependencies:
+
+```python
+# toolregistry_hub/utils/requirements.py
+
+def requires_env(*envs: str):
+    """Declare required environment variables for a tool class."""
+    def decorator(cls):
+        cls._required_envs = list(envs)
+        return cls
+    return decorator
+```
+
+Apply to websearch classes:
+
+```python
+@requires_env("BRAVE_API_KEY")
+class BraveSearch(BaseSearch):
+    ...
+
+@requires_env("TAVILY_API_KEY")
+class TavilySearch(BaseSearch):
+    ...
+
+@requires_env("SEARXNG_BASE_URL")
+class SearXNGSearch(BaseSearch):
+    ...
+```
+
+### 4b. Graceful Websearch Instantiation
+
+**Problem:** `APIKeyParser.__init__` raises `ValueError` when env vars are missing. This means `BraveSearch()` fails before we can register its methods.
+
+**Solution:** Modify websearch `__init__` to defer validation. The `APIKeyParser` should not raise on missing keys at construction time; instead, `get_next_api_key()` should raise at call time. This is a minimal change:
+
+```python
+# In APIKeyParser.__init__:
+# Change: raise ValueError("API keys are required...")
+# To: self.api_keys = []  # empty, will fail at get_next_api_key() time
+
+# In APIKeyParser.get_next_api_key():
+if not self.api_keys:
+    raise ValueError("No API keys available. Set the environment variable.")
+```
+
+This allows websearch classes to be instantiated (and their methods registered) even without API keys. The `requires_env` decorator + `build_registry()` will mark them as disabled, and actual API calls will fail with a clear error at runtime.
+
+Files: `src/toolregistry_hub/utils/api_key_parser.py`, `src/toolregistry_hub/websearch/*.py`
+
+### 4c. Central Registry with Auto-Disable
+
+Create `toolregistry_hub/server/registry.py`:
+
+```python
+# server/registry.py
+import os
+from typing import Optional
+
+from loguru import logger
+from toolregistry import ToolRegistry
+
+from ..utils.fn_namespace import _is_all_static_methods
+from ..calculator import Calculator
+from ..datetime_utils import DateTime
+from ..fetch import Fetch
+from ..filesystem import FileSystem
+from ..file_ops import FileOps
+from ..think_tool import ThinkTool
+from ..todo_list import TodoList
+from ..unit_converter import UnitConverter
+from ..websearch import (
+    BraveSearch, TavilySearch, SearXNGSearch, BrightDataSearch, ScrapelessSearch
+)
+
+ALL_TOOLS = [
+    # Static-method tool classes
+    (Calculator,       "calculator"),
+    (DateTime,         "datetime"),
+    (Fetch,            "fetch"),
+    (FileSystem,       "filesystem"),
+    (FileOps,          "file_ops"),
+    (ThinkTool,        "think"),
+    (TodoList,         "todolist"),
+    (UnitConverter,    "unit_converter"),
+    # Instance-method tool classes (websearch engines)
+    # Each gets its own namespace to avoid `search` method name collisions.
+    # All websearch classes expose a `search()` method — if they shared a
+    # namespace like "websearch", only the last-registered one would survive.
+    (BraveSearch,      "brave_search"),
+    (TavilySearch,     "tavily_search"),
+    (SearXNGSearch,    "searxng_search"),
+    (BrightDataSearch, "brightdata_search"),
+    (ScrapelessSearch, "scrapeless_search"),
+]
+
+
+def build_registry() -> ToolRegistry:
+    """Build the hub tool registry with all tools registered and auto-disabled
+    based on environment requirements."""
+    registry = ToolRegistry(name="hub")
+
+    for cls, namespace in ALL_TOOLS:
+        if _is_all_static_methods(cls):
+            registry.register_from_class(cls, with_namespace=namespace)
+        else:
+            # Instance-method classes: instantiate first.
+            # After Phase 4b, __init__ no longer raises on missing env vars.
+            instance = cls()
+            registry.register_from_class(instance, with_namespace=namespace)
+
+        # Check environment requirements and auto-disable
+        required_envs = getattr(cls, "_required_envs", [])
+        missing = [e for e in required_envs if not os.getenv(e)]
+        if missing:
+            reason = f"Missing env: {', '.join(missing)}"
+            for tool_name, tool in registry._tools.items():
+                if tool.namespace == namespace:
+                    registry.disable(tool_name, reason=reason)
+            logger.info(f"Disabled {namespace}: {reason}")
+
+    return registry
+
+
+_registry: Optional[ToolRegistry] = None
+
+
+def get_registry() -> ToolRegistry:
+    global _registry
+    if _registry is None:
+        _registry = build_registry()
+    return _registry
+```
+
+---
+
+## Phase 5 — Auto-Route Generation
+
+The server layer stops hand-writing route files and instead generates FastAPI routes directly from `ToolRegistry`.
+
+### 5a. URL Path Construction
+
+Paths are derived from `Tool.namespace` and `Tool.method_name` (Phase 2a fields), never from splitting the `name` string:
+
+```
+namespace="calculator",       method_name="add"           →  POST /tools/calculator/add
+namespace="brave_search",     method_name="search"        →  POST /tools/brave_search/search
+namespace="tavily_search",    method_name="search"        →  POST /tools/tavily_search/search
+namespace="file_ops",         method_name="replace_lines" →  POST /tools/file_ops/replace_lines
+```
+
+No ambiguity from `-` or `_` in names. Each websearch engine gets its own namespace.
+
+### 5b. `_schema_to_pydantic` Implementation
+
+Convert a JSON Schema dict (from `tool.parameters`) into a Pydantic model at runtime:
+
+```python
+from typing import Any, Dict, List, Optional, Type
+from pydantic import BaseModel, Field, create_model
+
+# JSON Schema type → Python type mapping
+_TYPE_MAP = {
+    "string": str,
+    "integer": int,
+    "number": float,
+    "boolean": bool,
+    "array": list,
+    "object": dict,
+}
+
+def _schema_to_pydantic(name: str, schema: Dict[str, Any]) -> Type[BaseModel]:
+    """Convert a JSON Schema to a Pydantic model using create_model.
+
+    Handles basic types, required/optional fields, defaults, and descriptions.
+    For nested objects, creates nested Pydantic models recursively.
+    """
+    if not schema or "properties" not in schema:
+        # No parameters — return empty model
+        return create_model(name)
+
+    properties = schema.get("properties", {})
+    required = set(schema.get("required", []))
+    fields = {}
+
+    for field_name, field_schema in properties.items():
+        python_type = _resolve_type(field_schema)
+        default = field_schema.get("default", ... if field_name in required else None)
+        description = field_schema.get("description", "")
+        fields[field_name] = (python_type, Field(default=default, description=description))
+
+    return create_model(name, **fields)
+```
+
+> **Scope limitation:** The initial implementation handles flat schemas (basic types, `List[T]`, optional fields). Deeply nested `$ref` schemas are not expected from `_generate_parameters_model` output. If encountered, fall back to `Dict[str, Any]`.
+
+### 5c. Auto-Route Generator
+
+Create `toolregistry_hub/server/autoroute.py`:
+
+```python
+# server/autoroute.py
+from fastapi import APIRouter
+from toolregistry import ToolRegistry
+from toolregistry.tool import Tool
+
+
+def registry_to_router(registry: ToolRegistry, prefix: str = "/tools") -> APIRouter:
+    """Generate a FastAPI APIRouter from all enabled tools in a ToolRegistry."""
+    router = APIRouter(prefix=prefix)
+    for tool in registry._tools.values():
+        if registry.is_enabled(tool.name):
+            _add_route(router, tool)
+    return router
+
+
+def _add_route(router: APIRouter, tool: Tool):
+    RequestModel = _schema_to_pydantic(f"{tool.name}_Request", tool.parameters)
+    path = f"/{tool.namespace}/{tool.method_name}"
+
+    # Use closure to capture tool reference correctly in loop
+    if tool.is_async:
+        async def make_async_endpoint(t=tool, M=RequestModel):
+            async def endpoint(data: M):
+                result = await t.arun(data.model_dump())
+                return {"result": result}
+            return endpoint
+        router.post(
+            path, operation_id=tool.name,
+            summary=(tool.description or "")[:120],
+            tags=[tool.namespace],
+        )(make_async_endpoint())
+    else:
+        def make_sync_endpoint(t=tool, M=RequestModel):
+            def endpoint(data: M):
+                result = t.run(data.model_dump())
+                return {"result": result}
+            return endpoint
+        router.post(
+            path, operation_id=tool.name,
+            summary=(tool.description or "")[:120],
+            tags=[tool.namespace],
+        )(make_sync_endpoint())
+```
+
+### 5d. Backward-Compatible Route Migration
+
+**Problem:** Current API paths like `POST /calc/evaluate`, `POST /web/search_brave` will change to `POST /tools/calculator/evaluate`, `POST /tools/brave_search/search`. This is a breaking change for existing clients.
+
+**Strategy:** Two-phase migration:
+
+1. **Phase 5 (this phase):** Add auto-generated routes at `/tools/...` alongside existing hand-written routes. Both work simultaneously. Log deprecation warnings on old paths.
+2. **Phase 7 (cleanup):** Remove hand-written routes after a release cycle.
+
+In `server_core.py`:
+
+```python
+def create_core_app(dependencies=None) -> FastAPI:
+    ...
+    # New: registry-driven routes
+    registry = get_registry()
+    router = registry_to_router(registry, prefix="/tools")
+    app.include_router(router)
+
+    # Legacy: keep existing hand-written routes during migration
+    legacy_routers = get_all_routers()
+    for router in legacy_routers:
+        app.include_router(router)
+    ...
+```
+
+### 5e. Update `server_core.py`
+
+```python
+# server_core.py
+from .registry import get_registry
+from .autoroute import registry_to_router
+from .routes import get_all_routers  # keep during migration
+
+def create_core_app(dependencies=None) -> FastAPI:
+    ...
+    registry = get_registry()
+
+    # Auto-generated routes (new paths)
+    auto_router = registry_to_router(registry, prefix="/tools")
+    app.include_router(auto_router)
+
+    # Legacy hand-written routes (old paths, removed in Phase 7)
+    for router in get_all_routers():
+        app.include_router(router)
+    ...
+```
+
+---
+
+## Phase 6 — Admin Panel (Deferred to Post-MVP)
+
+> **Decision:** The admin panel (Phase 2e + Phase 5 in the original plan) is a significant feature with its own frontend. It is deferred to a follow-up iteration after the core auto-route system is validated. The enable/disable API (Phase 3) provides the foundation; the admin panel is a UI layer on top.
+
+### 6a. Execution Logging (Foundation)
+
+Add lightweight per-call logging to `Executor`. Uses `loguru` already present.
+
+```python
+@dataclass
+class ExecutionLogEntry:
+    tool_name: str
+    parameters: str  # truncated JSON
+    result: str      # truncated
+    duration_ms: float
+    success: bool
+    timestamp: float
+
+# In ToolRegistry:
+def get_execution_log(self) -> List[ExecutionLogEntry]: ...
+def clear_execution_log(self) -> None: ...
+```
+
+### 6b. Admin Panel as `toolregistry[admin]` Optional Extra
+
+The admin panel backend is a FastAPI mini-app that wraps any `ToolRegistry` instance. It belongs in `toolregistry` as a reusable optional extra.
+
+```toml
+# toolregistry/pyproject.toml
+[project.optional-dependencies]
+admin = ["fastapi>=0.119.0", "uvicorn[standard]>=0.24.0"]
+```
+
+Exposes:
+
+```
+GET  /admin/                          → serve admin HTML panel
+GET  /admin/tools                     → list all tools with status
+POST /admin/tools/{name}/enable       → enable a tool or namespace
+POST /admin/tools/{name}/disable      → disable with optional reason
+GET  /admin/namespaces                → list namespaces with counts
+GET  /admin/log                       → recent execution log
+GET  /admin/state                     → export enable/disable state
+POST /admin/state                     → restore state
+```
+
+### 6c. Admin Panel Frontend
+
+Static HTML at `GET /admin/` — pure HTML + vanilla JS, no build toolchain.
+
+```
+[brave_search]      ●──────  (1/1 enabled)
+  └── search          ✓  enabled
+
+[tavily_search]     ●──────  (1/1 enabled)
+  └── search          ✓  enabled
+
+[brightdata_search] ○──────  (0/1 enabled)
+  └── search          ✗  Missing env: BRIGHTDATA_API_KEY
+
+[calculator]        ●──────  (all enabled)
+  ├── add             ✓
+  ├── subtract        ✓
+  ├── multiply        ✓
+  └── divide          ✓
+```
+
+> **Note:** Websearch engines each have their own namespace because they all expose a `search` method. A future `category` field on `Tool` could enable visual grouping (e.g., all `*_search` under "websearch"), but this is not required initially.
+
+Hub mounts the admin app:
+
+```python
+# server_core.py
+from toolregistry.admin import create_admin_app
+
+def create_core_app(...) -> FastAPI:
+    ...
+    admin_app = create_admin_app(registry)
+    app.mount("/admin", admin_app)
+```
+
+---
+
+## Phase 7 — Cleanup and Migration
+
+Once auto-route is validated end-to-end (at least one release cycle after Phase 5):
+
+- [ ] Remove hand-written route files: `calculator.py`, `fetch.py`, `datetime_tools.py`, `unit_converter.py`, `think.py`, `todo_list.py`
+- [ ] Remove `routes/websearch/` hand-written files
+- [ ] Keep `routes/version.py` (server metadata, not a tool)
+- [ ] Remove `discover_routers()` mechanism from `routes/__init__.py`
+- [ ] Remove legacy router inclusion from `server_core.py`
+- [ ] Update `server/__init__.py` and `cli.py`
+- [ ] Update integration tests to target new `/tools/{namespace}/{method}` paths
+- [ ] Update documentation with new API paths
+
+---
+
+## Independent Enhancements (Any Time)
+
+These are independent of the main refactoring and can be done in any order:
+
+### Anthropic and Gemini Schema Formats
+
+`Tool.get_json_schema()` currently raises `NotImplementedError` for `anthropic` and `gemini`.
+
+**Anthropic:**
+```python
+{
+    "name": "tool_name",
+    "description": "...",
+    "input_schema": { ...json_schema... }
+}
+```
+
+**Gemini:**
+```python
+{
+    "name": "tool_name",
+    "description": "...",
+    "parameters": { ...json_schema... }
+}
+```
+
+Files: `src/toolregistry/tool.py`, `src/toolregistry/types/anthropic/`, `src/toolregistry/types/gemini/`
+
+---
+
+## Summary of Changes by Repository
+
+### `toolregistry`
+
+| File | Change | Phase |
+|------|--------|-------|
+| `pyproject.toml` | Remove `hub` optional dep; add `admin` optional extra (Phase 6) | 1, 6 |
+| `src/toolregistry/tool.py` | Add `namespace`, `method_name` fields | 2a |
+| `src/toolregistry/native/integration.py` | Populate `namespace` and `method_name` on Tool; fix inherited static method registration | 2a, 2b |
+| `src/toolregistry/tool_registry.py` | Add `disable()`, `enable()`, `is_enabled()`, `get_disable_reason()`, `list_all_tools()`; update `get_tools_json()` and `list_tools()` to filter disabled; fix `_update_sub_registries()` | 2a, 3 |
+| `src/toolregistry/executor.py` | Check `is_enabled()` before execution; add execution logging | 3, 6a |
+| `src/toolregistry/types/anthropic/` | Anthropic schema helpers | Independent |
+| `src/toolregistry/types/gemini/` | Gemini schema helpers | Independent |
+| `src/toolregistry/admin/` | New package: admin panel (deferred) | 6 |
+
+### `toolregistry-hub`
+
+| File | Change | Phase |
+|------|--------|-------|
+| `pyproject.toml` | Add `toolregistry` to server extras; consolidate `server_openapi` into `server` | 1 |
+| `src/.../utils/requirements.py` | New: `requires_env` decorator | 4a |
+| `src/.../utils/api_key_parser.py` | Defer validation: don't raise in `__init__` on missing keys | 4b |
+| `src/.../websearch/*.py` | Add `@requires_env(...)` to each search engine class | 4a |
+| `src/.../server/registry.py` | New: `build_registry()` + `get_registry()` | 4c |
+| `src/.../server/autoroute.py` | New: `registry_to_router()` + `_schema_to_pydantic()` | 5b, 5c |
+| `src/.../server/server_core.py` | Add registry-driven routing alongside legacy routes | 5e |
+| `src/.../server/routes/*.py` | Removed in Phase 7 | 7 |
+| `src/.../server/routes/__init__.py` | Remove `discover_routers()` in Phase 7 | 7 |
+
+---
+
+## Implementation Order
+
+```
+Phase 1  — Dependency restructuring (unblocks everything)
+  │
+Phase 2  — Tool.namespace + Tool.method_name + inherited static methods fix
+  │         (foundation for auto-route and is_enabled)
+  │
+Phase 3  — Enable/disable with reason + update list_tools/get_tools_json/execute
+  │         (foundation for requires_env auto-disable)
+  │
+Phase 4  — requires_env decorator + graceful websearch init + build_registry()
+  │         (hub-side, depends on Phase 2+3 in toolregistry)
+  │
+Phase 5  — Auto-route generator + backward-compatible migration
+  │         (hub-side, depends on Phase 4)
+  │
+Phase 6  — Admin panel (deferred, can be done after Phase 5 is stable)
+  │         6a: execution logging
+  │         6b: admin backend
+  │         6c: admin frontend
+  │
+Phase 7  — Cleanup: remove hand-written routes (after migration period)
+
+Independent: Anthropic/Gemini schema formats (any time)
+```
+
+### Risk Mitigation
+
+| Risk | Mitigation |
+|------|------------|
+| API path breaking change | Phase 5d: dual-route period with legacy + new paths |
+| Websearch instantiation failure | Phase 4b: defer `APIKeyParser` validation to call time |
+| `_schema_to_pydantic` complexity | Phase 5b: limit scope to flat schemas; fallback to `Dict[str, Any]` |
+| `Calculator` inherited methods | Phase 2b: verify and fix MRO traversal in `_register_static_methods` |
+| `normalize_tool_name` inconsistency in disable/enable | Phase 3a: use raw names, not normalized |
