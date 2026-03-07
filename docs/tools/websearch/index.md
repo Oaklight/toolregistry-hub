@@ -2,8 +2,8 @@
 
 网络搜索工具提供了通过各种搜索引擎进行网络搜索的功能。该模块支持多种搜索引擎，包括 Brave、SearXNG、Tavily 和 Google（通过 BrightData/Scrapeless）。
 
-!!! note "Bing 搜索已废弃"
-    Bing 搜索因频繁遇到机器人检测问题已被废弃。请使用其他搜索提供商。
+!!! note "Bing 搜索已移除"
+    Bing 搜索因频繁遇到机器人检测问题已被移除。请使用其他搜索提供商。
 
 ## 免费额度汇总
 
@@ -40,7 +40,7 @@
 - [SearXNG 搜索](searxng.md) - 使用 SearXNG 元搜索引擎（注重隐私）
 - [BrightData 搜索](brightdata.md) - 使用 BrightData 获取 Google 搜索结果
 - [Scrapeless 搜索](scrapeless.md) - 使用 Scrapeless Universal API，支持多个搜索引擎
-- [Bing 搜索](bing.md) - ⚠️ **已废弃** - 使用 Bing 搜索引擎（不推荐）
+- [Bing 搜索](bing.md) - ❌ **已移除** - 曾使用 Bing 搜索引擎（v0.6.0 中移除）
 
 ## 基本使用
 
@@ -116,5 +116,5 @@ for result in results:
 - [SearXNG 搜索](searxng.md) - SearXNG 搜索引擎的实现
 - [BrightData 搜索](brightdata.md) - BrightData 获取 Google 搜索结果的实现
 - [Scrapeless 搜索](scrapeless.md) - Scrapeless DeepSERP API 的实现
-- [Bing 搜索](bing.md) - ⚠️ **已废弃** Bing 搜索引擎的实现
+- [Bing 搜索](bing.md) - ❌ **已移除** Bing 搜索引擎的实现（v0.6.0 中移除）
 - [旧版网络搜索](legacy.md) - 旧版网络搜索模块的文档
