@@ -51,11 +51,12 @@ class TestBrightDataSearch:
         search = BrightDataSearch()
         assert search.zone == "env_zone"
 
-    def test_init_without_token_raises_error(self):
-        """Test that initialization without token raises ValueError."""
+    def test_init_without_token_creates_unconfigured_instance(self):
+        """Test that initialization without token creates an unconfigured instance."""
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(ValueError, match="API keys are required"):
-                BrightDataSearch()
+            search = BrightDataSearch()
+            assert search.api_key_parser.key_count == 0
+            assert not search.is_configured()
 
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"

@@ -31,10 +31,12 @@ import httpx
 from loguru import logger
 
 from ..utils.api_key_parser import APIKeyParser
+from ..utils.requirements import requires_env
 from .base import TIMEOUT_DEFAULT, BaseSearch
 from .search_result import SearchResult
 
 
+@requires_env("BRAVE_API_KEY")
 class BraveSearch(BaseSearch):
     """Simple Brave Search API client for web search functionality."""
 

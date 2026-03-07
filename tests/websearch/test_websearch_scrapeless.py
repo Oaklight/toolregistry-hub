@@ -32,11 +32,12 @@ class TestScrapelessSearch:
         search = ScrapelessSearch()
         assert search.api_key_parser.api_keys[0] == "env_key"
 
-    def test_init_without_key_raises_error(self):
-        """Test that initialization without API key raises ValueError."""
+    def test_init_without_key_creates_unconfigured_instance(self):
+        """Test that initialization without API key creates an unconfigured instance."""
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(ValueError, match="API keys are required"):
-                ScrapelessSearch()
+            search = ScrapelessSearch()
+            assert search.api_key_parser.key_count == 0
+            assert not search.is_configured()
 
     def test_headers_property(self):
         """Test headers property."""

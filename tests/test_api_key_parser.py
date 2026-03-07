@@ -51,10 +51,17 @@ class TestAPIKeyParser(unittest.TestCase):
             self.assertEqual(parser.key_count, 2)
             self.assertEqual(parser.get_next_api_key(), "param-key1")
 
-    def test_init_no_keys_raises_error(self):
-        """Test that initialization without keys raises ValueError."""
+    def test_init_no_keys_creates_empty_parser(self):
+        """Test that initialization without keys creates an empty parser."""
+        parser = APIKeyParser()
+        self.assertEqual(parser.key_count, 0)
+        self.assertEqual(len(parser), 0)
+
+    def test_empty_parser_get_next_key_raises_error(self):
+        """Test that get_next_api_key raises ValueError on empty parser."""
+        parser = APIKeyParser()
         with self.assertRaises(ValueError):
-            APIKeyParser()
+            parser.get_next_api_key()
 
     def test_init_invalid_keys_filtered(self):
         """Test that invalid keys are filtered out."""

@@ -41,15 +41,11 @@ class APIKeyParser:
             api_keys_str = self._read_keys_from_file(api_tokens_file)
 
         if not api_keys_str:
-            raise ValueError(
-                f"API keys are required. Set {env_var_name} environment variable, "
-                "pass api_keys parameter (comma-separated), or provide api_tokens_file."
-            )
-
-        # Parse and validate API keys
-        self.api_keys = self._parse_api_keys(api_keys_str, key_separator)
-        if not self.api_keys:
-            raise ValueError("No valid API keys provided")
+            # Deferred validation: allow empty initialization
+            self.api_keys: List[str] = []
+        else:
+            # Parse and validate API keys
+            self.api_keys = self._parse_api_keys(api_keys_str, key_separator)
 
         self._current_key_index = 0
         self.rate_limit_delay = rate_limit_delay

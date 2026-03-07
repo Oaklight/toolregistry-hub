@@ -39,11 +39,12 @@ class TestSearXNGSearch:
 
         assert searcher.base_url == "http://env-searxng:8080"
 
-    def test_init_without_url_raises_error(self):
-        """Test that initialization without URL raises ValueError."""
+    def test_init_without_url_creates_unconfigured_instance(self):
+        """Test that initialization without URL creates an unconfigured instance."""
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(ValueError, match="SearXNG URL is required"):
-                SearXNGSearch()
+            searcher = SearXNGSearch()
+            assert searcher.search_url is None
+            assert not searcher.is_configured()
 
     def test_headers_property(self):
         """Test headers property."""
