@@ -16,14 +16,14 @@ Both modes automatically expose all available tools as API endpoints, facilitati
 Install the appropriate server dependencies based on your needs:
 
 ```bash
-# Install OpenAPI server only (Python 3.8+)
+# Install full server - OpenAPI + MCP (Python 3.10+)
+pip install toolregistry-hub[server]
+
+# Install OpenAPI server only
 pip install toolregistry-hub[server_openapi]
 
 # Install MCP server only (Python 3.10+)
 pip install toolregistry-hub[server_mcp]
-
-# Install all server modes (Python 3.10+)
-pip install toolregistry-hub[server]
 ```
 
 ## Starting the Server
