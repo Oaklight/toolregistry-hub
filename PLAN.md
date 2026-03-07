@@ -286,15 +286,43 @@ Files: `src/toolregistry/tool_registry.py`, `src/toolregistry/executor.py`
 
 > **Issues:** [Oaklight/toolregistry-hub#30](https://github.com/Oaklight/toolregistry-hub/issues/30)
 
+### Design Considerations: Library vs. Server Usage
+
+`toolregistry-hub` serves two usage patterns:
+
+1. **Library mode** — Users instantiate tool classes directly, passing API keys via constructor parameters:
+   ```python
+   search = BraveSearch(api_keys="my-key-here")
+   results = search.search("query")
+   ```
+
+2. **Server mode** — The hub server uses `build_registry()` to auto-register all tools, relying on environment variables for configuration:
+   ```python
+   registry = build_registry()  # reads env vars, auto-disables unconfigured tools
+   ```
+
+The design must support both patterns without forcing one over the other. Key principles:
+
+- `requires_env` is **pure metadata** — it does not block instantiation or method calls
+- `build_registry()` uses **instance state** (not just env vars) to determine if a tool should be disabled
+- `build_registry()` accepts optional `tool_kwargs` for passing constructor arguments (supporting non-env-var configuration)
+- A `Configurable` Protocol provides a generic `is_configured()` check, extensible beyond websearch classes
+
 ### 4a. `requires_env` Decorator
 
-This decorator is hub-specific metadata — lives in `toolregistry_hub`, not in `toolregistry`. Zero dependencies:
+This decorator is hub-specific metadata — lives in `toolregistry_hub`, not in `toolregistry`. Zero dependencies. It does **not** enforce anything at runtime — it only attaches metadata for `build_registry()` and documentation purposes:
 
 ```python
 # toolregistry_hub/utils/requirements.py
 
 def requires_env(*envs: str):
-    """Declare required environment variables for a tool class."""
+    """Declare required environment variables for a tool class.
+    
+    This is pure metadata — it does NOT block instantiation or method calls.
+    Users can always pass API keys directly via constructor parameters.
+    The metadata is used by build_registry() for auto-disable decisions
+    and by documentation/admin panel for displaying requirements.
+    """
     def decorator(cls):
         cls._required_envs = list(envs)
         return cls
@@ -312,7 +340,7 @@ class BraveSearch(BaseSearch):
 class TavilySearch(BaseSearch):
     ...
 
-@requires_env("SEARXNG_BASE_URL")
+@requires_env("SEARXNG_URL")
 class SearXNGSearch(BaseSearch):
     ...
 ```
@@ -337,18 +365,84 @@ This allows websearch classes to be instantiated (and their methods registered) 
 
 Files: `src/toolregistry_hub/utils/api_key_parser.py`, `src/toolregistry_hub/websearch/*.py`
 
-### 4c. Central Registry with Auto-Disable
+### 4c. `Configurable` Protocol
 
-Create `toolregistry_hub/server/registry.py`:
+Define a `Configurable` protocol for generic configuration readiness checks. This is a structural type (duck typing) — any class with an `is_configured()` method automatically satisfies it, no inheritance required:
+
+```python
+# toolregistry_hub/utils/configurable.py
+
+from typing import Protocol, runtime_checkable
+
+
+@runtime_checkable
+class Configurable(Protocol):
+    """Protocol for classes that can report their configuration readiness.
+    
+    Any class implementing is_configured() automatically satisfies this protocol.
+    Used by build_registry() to determine whether to auto-disable a tool.
+    """
+
+    def is_configured(self) -> bool:
+        """Check if the instance has valid configuration to operate.
+        
+        Returns:
+            True if the instance is properly configured, False otherwise.
+        """
+        ...
+```
+
+Implement in `BaseSearch`:
+
+```python
+# websearch/base.py
+
+class BaseSearch(ABC):
+    ...
+    
+    def is_configured(self) -> bool:
+        """Check if the search engine has valid configuration.
+        
+        Default implementation checks if api_key_parser has keys.
+        Subclasses should override for custom configuration checks.
+        """
+        if hasattr(self, 'api_key_parser'):
+            return bool(self.api_key_parser.api_keys)
+        return True
+```
+
+Override in `SearXNGSearch`:
+
+```python
+# websearch/websearch_searxng.py
+
+class SearXNGSearch(BaseSearch):
+    ...
+    
+    def is_configured(self) -> bool:
+        """Check if SearXNG URL is configured."""
+        return self.search_url is not None
+```
+
+Files: `src/toolregistry_hub/utils/configurable.py` (new), `src/toolregistry_hub/websearch/base.py`, `src/toolregistry_hub/websearch/websearch_searxng.py`
+
+### 4d. Central Registry with Auto-Disable
+
+Create `toolregistry_hub/server/registry.py`. Key changes from the original design:
+
+1. **Instance-state based disable** — uses `Configurable.is_configured()` instead of only checking env vars
+2. **`tool_kwargs` parameter** — allows passing constructor arguments for non-env-var configuration
+3. **`_required_envs` for error messages** — the decorator metadata is still used for generating human-readable disable reasons
 
 ```python
 # server/registry.py
 import os
-from typing import Optional
+from typing import Dict, List, Optional, Tuple, Type
 
 from loguru import logger
 from toolregistry import ToolRegistry
 
+from ..utils.configurable import Configurable
 from ..utils.fn_namespace import _is_all_static_methods
 from ..calculator import Calculator
 from ..datetime_utils import DateTime
@@ -362,7 +456,7 @@ from ..websearch import (
     BraveSearch, TavilySearch, SearXNGSearch, BrightDataSearch, ScrapelessSearch
 )
 
-ALL_TOOLS = [
+ALL_TOOLS: List[Tuple[Type, str]] = [
     # Static-method tool classes
     (Calculator,       "calculator"),
     (DateTime,         "datetime"),
@@ -373,9 +467,6 @@ ALL_TOOLS = [
     (TodoList,         "todolist"),
     (UnitConverter,    "unit_converter"),
     # Instance-method tool classes (websearch engines)
-    # Each gets its own namespace to avoid `search` method name collisions.
-    # All websearch classes expose a `search()` method — if they shared a
-    # namespace like "websearch", only the last-registered one would survive.
     (BraveSearch,      "brave_search"),
     (TavilySearch,     "tavily_search"),
     (SearXNGSearch,    "searxng_search"),
@@ -384,29 +475,40 @@ ALL_TOOLS = [
 ]
 
 
-def build_registry() -> ToolRegistry:
+def build_registry(
+    tool_kwargs: Optional[Dict[str, dict]] = None,
+) -> ToolRegistry:
     """Build the hub tool registry with all tools registered and auto-disabled
-    based on environment requirements."""
+    based on instance configuration state.
+    
+    Args:
+        tool_kwargs: Optional mapping of namespace -> constructor kwargs.
+            Allows passing API keys or other config without env vars.
+            Example: {"brave_search": {"api_keys": "my-key"}}
+    """
     registry = ToolRegistry(name="hub")
 
     for cls, namespace in ALL_TOOLS:
+        kwargs = (tool_kwargs or {}).get(namespace, {})
+        
         if _is_all_static_methods(cls):
             registry.register_from_class(cls, with_namespace=namespace)
         else:
-            # Instance-method classes: instantiate first.
-            # After Phase 4b, __init__ no longer raises on missing env vars.
-            instance = cls()
+            instance = cls(**kwargs)
             registry.register_from_class(instance, with_namespace=namespace)
 
-        # Check environment requirements and auto-disable
-        required_envs = getattr(cls, "_required_envs", [])
-        missing = [e for e in required_envs if not os.getenv(e)]
-        if missing:
-            reason = f"Missing env: {', '.join(missing)}"
-            for tool_name, tool in registry._tools.items():
-                if tool.namespace == namespace:
-                    registry.disable(tool_name, reason=reason)
-            logger.info(f"Disabled {namespace}: {reason}")
+            # Check instance readiness via Configurable protocol
+            if isinstance(instance, Configurable) and not instance.is_configured():
+                required_envs: List[str] = getattr(cls, "_required_envs", [])
+                reason = (
+                    f"Missing env: {', '.join(required_envs)}"
+                    if required_envs
+                    else "Not configured"
+                )
+                for tool_name, tool in registry._tools.items():
+                    if tool.namespace == namespace:
+                        registry.disable(tool_name, reason=reason)
+                logger.info(f"Disabled {namespace}: {reason}")
 
     return registry
 
@@ -415,10 +517,34 @@ _registry: Optional[ToolRegistry] = None
 
 
 def get_registry() -> ToolRegistry:
+    """Get or create the singleton hub tool registry."""
     global _registry
     if _registry is None:
         _registry = build_registry()
     return _registry
+```
+
+**Usage scenarios:**
+
+```python
+# Scenario A: Server mode — relies on env vars (default behavior)
+registry = build_registry()
+
+# Scenario B: Library mode — direct instantiation (unaffected by requires_env)
+search = BraveSearch(api_keys="my-key")
+results = search.search("query")
+
+# Scenario C: Custom registry with direct API keys
+registry = build_registry(tool_kwargs={
+    "brave_search": {"api_keys": "my-key"},
+    "tavily_search": {"api_keys": "another-key"},
+})
+
+# Scenario D: Mixed — some env vars, some direct params
+os.environ["BRAVE_API_KEY"] = "env-key"
+registry = build_registry(tool_kwargs={
+    "tavily_search": {"api_keys": "direct-key"},
+})
 ```
 
 ---
@@ -912,10 +1038,13 @@ Files: `src/toolregistry/tool.py`, `src/toolregistry/types/anthropic/`, `src/too
 | File | Change | Phase |
 |------|--------|-------|
 | `pyproject.toml` | Add `toolregistry` to server extras; consolidate `server_openapi` into `server` | 1 |
-| `src/.../utils/requirements.py` | New: `requires_env` decorator | 4a |
+| `src/.../utils/requirements.py` | New: `requires_env` decorator (pure metadata) | 4a |
+| `src/.../utils/configurable.py` | New: `Configurable` Protocol with `is_configured()` | 4c |
 | `src/.../utils/api_key_parser.py` | Defer validation: don't raise in `__init__` on missing keys | 4b |
+| `src/.../websearch/base.py` | Add `is_configured()` default implementation | 4c |
+| `src/.../websearch/websearch_searxng.py` | Override `is_configured()` for URL-based config | 4c |
 | `src/.../websearch/*.py` | Add `@requires_env(...)` to each search engine class | 4a |
-| `src/.../server/registry.py` | New: `build_registry()` + `get_registry()` | 4c |
+| `src/.../server/registry.py` | New: `build_registry(tool_kwargs)` + `get_registry()` with `Configurable` check | 4d |
 | `src/.../server/autoroute.py` | New: `registry_to_router()` + `_schema_to_pydantic()` | 5b, 5c |
 | `src/.../server/server_core.py` | Add registry-driven routing alongside legacy routes | 5e |
 | `src/.../server/mcp_compat.py` | New: 集中 FastMCP/DebugTokenVerifier 导入，为 v2 迁移做准备 | Independent |
@@ -935,7 +1064,7 @@ Phase 2  — Tool.namespace + Tool.method_name + inherited static methods fix  �
 Phase 3  — Enable/disable with reason + update list_tools/get_tools_json/execute  ✅
   │         (foundation for requires_env auto-disable)
   │
-Phase 4  — requires_env decorator + graceful websearch init + build_registry()
+Phase 4  — requires_env decorator + Configurable protocol + graceful websearch init + build_registry()
   │         (hub-side, depends on Phase 2+3 in toolregistry)
   │
 Phase 5  — Auto-route generator + backward-compatible migration
