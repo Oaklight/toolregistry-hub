@@ -16,14 +16,14 @@ ToolRegistry Hub 提供了服务器模式，允许您通过 REST API 或 MCP (Mo
 根据您的需求安装相应的服务器依赖：
 
 ```bash
-# 仅安装 OpenAPI 服务器 (Python 3.8+)
+# 安装完整服务器 - OpenAPI + MCP (Python 3.10+)
+pip install toolregistry-hub[server]
+
+# 仅安装 OpenAPI 服务器
 pip install toolregistry-hub[server_openapi]
 
 # 仅安装 MCP 服务器 (Python 3.10+)
 pip install toolregistry-hub[server_mcp]
-
-# 安装所有服务器模式 (Python 3.10+)
-pip install toolregistry-hub[server]
 ```
 
 ## 启动服务器
