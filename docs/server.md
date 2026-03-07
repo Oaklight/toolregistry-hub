@@ -251,9 +251,20 @@ print(f"搜索结果: {json.dumps(search_results, indent=2)}")
 - `API_BEARER_TOKEN` - Bearer Token，用于 API 认证（支持单个令牌或逗号分隔的多个令牌）
 - `API_BEARER_TOKENS_FILE` - 令牌文件路径，文件中每行一个令牌
 
-### 其他配置
+### 工具环境变量
 
-- 其他工具特定的环境变量（如搜索 API 密钥等）
+以下环境变量由特定工具使用。缺少所需环境变量的工具在启动时会被自动禁用。
+
+| 环境变量 | 使用者 | 描述 |
+|---------|--------|------|
+| `BRAVE_API_KEY` | Brave 搜索 | Brave Search API 密钥（[获取](https://api.search.brave.com/)） |
+| `TAVILY_API_KEY` | Tavily 搜索 | Tavily Search API 密钥（[获取](https://tavily.com/)） |
+| `SEARXNG_URL` | SearXNG 搜索 | SearXNG 实例 URL（如 `http://localhost:8080`） |
+| `BRIGHTDATA_API_KEY` | BrightData 搜索 | Bright Data API 密钥（[获取](https://brightdata.com/)） |
+| `SCRAPELESS_API_KEY` | Scrapeless 搜索 | Scrapeless API 密钥（[获取](https://scrapeless.com/)） |
+
+!!! note "自动禁用行为"
+    服务器启动时会检查每个工具所需的环境变量。缺少变量的工具会被自动注册但禁用，不会出现在返回给客户端的工具列表中。您可以通过设置所需的环境变量并重启服务器来启用它们。
 
 ## 故障排除
 

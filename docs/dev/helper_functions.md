@@ -259,6 +259,110 @@ if __name__ == '__main__':
     unittest.main()
 ```
 
+## 环境需求装饰器
+
+### `requires_env(*envs: str)`
+
+声明工具类所需环境变量的装饰器。中央注册表使用此装饰器在所需环境变量未设置时自动禁用工具。
+
+**参数：**
+
+- `*envs` (str): 工具类所需的一个或多个环境变量名称
+
+**示例：**
+
+```python
+from toolregistry_hub.utils import requires_env
+
+@requires_env("MY_API_KEY")
+class MySearchTool:
+    """需要 API 密钥的搜索工具。"""
+    
+    def search(self, query: str) -> list:
+        # API 密钥将在运行时检查
+        ...
+```
+
+**工作原理：**
+
+装饰器在类上设置 `_required_envs` 属性：
+
+```python
+@requires_env("BRAVE_API_KEY")
+class BraveSearch(BaseSearch):
+    ...
+
+# 装饰后：
+print(BraveSearch._required_envs)  # ["BRAVE_API_KEY"]
+```
+
+中央注册表（`build_registry()`）在启动时检查这些属性，并自动禁用缺少所需环境变量的工具。
+
+### 已应用的装饰器
+
+以下网络搜索类使用了 `@requires_env`：
+
+| 类 | 所需环境变量 |
+|----|-------------|
+| `BraveSearch` | `BRAVE_API_KEY` |
+| `TavilySearch` | `TAVILY_API_KEY` |
+| `SearXNGSearch` | `SEARXNG_URL` |
+| `BrightDataSearch` | `BRIGHTDATA_API_KEY` |
+| `ScrapelessSearch` | `SCRAPELESS_API_KEY` |
+
+## 中央注册表
+
+### `build_registry() -> ToolRegistry`
+
+构建 Hub 工具注册表，注册所有工具并根据环境需求自动禁用。
+
+此函数：
+
+1. 创建名为 "hub" 的新 `ToolRegistry` 实例
+2. 注册所有工具类（静态方法和实例方法）
+3. 检查每个类的 `_required_envs` 并禁用缺少环境变量的工具
+
+**示例：**
+
+```python
+from toolregistry_hub.server.registry import build_registry
+
+registry = build_registry()
+
+# 列出所有已注册的工具
+for tool_name in registry.list_all_tools():
+    enabled = registry.is_enabled(tool_name)
+    print(f"{tool_name}: {'已启用' if enabled else '已禁用'}")
+```
+
+### `get_registry() -> ToolRegistry`
+
+获取单例注册表实例。首次调用时创建。
+
+```python
+from toolregistry_hub.server.registry import get_registry
+
+registry = get_registry()
+```
+
+### 已注册的工具
+
+| 工具类 | 命名空间 | 类型 |
+|--------|---------|------|
+| `Calculator` | `calculator` | 静态方法 |
+| `DateTime` | `datetime` | 静态方法 |
+| `Fetch` | `fetch` | 静态方法 |
+| `FileSystem` | `filesystem` | 静态方法 |
+| `FileOps` | `file_ops` | 静态方法 |
+| `ThinkTool` | `think` | 静态方法 |
+| `TodoList` | `todolist` | 静态方法 |
+| `UnitConverter` | `unit_converter` | 静态方法 |
+| `BraveSearch` | `brave_search` | 实例方法 |
+| `TavilySearch` | `tavily_search` | 实例方法 |
+| `SearXNGSearch` | `searxng_search` | 实例方法 |
+| `BrightDataSearch` | `brightdata_search` | 实例方法 |
+| `ScrapelessSearch` | `scrapeless_search` | 实例方法 |
+
 ## 贡献者最佳实践
 
 1. **使用辅助函数**：始终使用这些实用程序验证您的工具
