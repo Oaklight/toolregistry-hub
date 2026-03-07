@@ -18,12 +18,12 @@ class TestCompareVersions:
         assert compare_versions("1.0.0", "1.0.1") is True
         assert compare_versions("1.0.0", "1.1.0") is True
         assert compare_versions("1.0.0", "2.0.0") is True
-        
+
         # Test older version
         assert compare_versions("1.0.1", "1.0.0") is False
         assert compare_versions("1.1.0", "1.0.0") is False
         assert compare_versions("2.0.0", "1.0.0") is False
-        
+
         # Test same version
         assert compare_versions("1.0.0", "1.0.0") is False
 
@@ -33,7 +33,7 @@ class TestCompareVersions:
         assert compare_versions("1.0.0a1", "1.0.0") is True
         assert compare_versions("1.0.0b1", "1.0.0") is True
         assert compare_versions("1.0.0rc1", "1.0.0") is True
-        
+
         # Pre-release ordering
         assert compare_versions("1.0.0a1", "1.0.0b1") is True
         assert compare_versions("1.0.0b1", "1.0.0rc1") is True
@@ -52,7 +52,7 @@ class TestCompareVersions:
         result1 = compare_versions("invalid", "1.0.0")
         result2 = compare_versions("1.0.0", "invalid")
         result3 = compare_versions("", "")
-        
+
         # These should not crash, results may vary based on implementation
         assert isinstance(result1, bool)
         assert isinstance(result2, bool)
@@ -63,7 +63,7 @@ class TestCompareVersions:
         # Test with different number of version parts
         assert compare_versions("1.0", "1.0.1") is True
         assert compare_versions("1.0.0", "1.0") is False
-        
+
         # Test with leading zeros - our implementation treats "01" as 1
         # so "1.0.01" is treated as "1.0.1" which is > "1.0.0"
         assert compare_versions("1.0.0", "1.0.01") is True
@@ -78,26 +78,28 @@ class TestGetVersionCheckSync:
         mock_result = {
             "latest_version": "1.1.0",
             "update_available": True,
-            "install_command": "pip install --upgrade test-package"
+            "install_command": "pip install --upgrade test-package",
         }
-        
+
         with patch("toolregistry_hub.version_check.__version__", "1.0.0"):
-            with patch("asyncio.get_running_loop", side_effect=RuntimeError("No running loop")):
+            with patch(
+                "asyncio.get_running_loop", side_effect=RuntimeError("No running loop")
+            ):
                 with patch("asyncio.new_event_loop") as mock_new_loop:
                     with patch("asyncio.set_event_loop"):
                         mock_loop = MagicMock()
                         mock_new_loop.return_value = mock_loop
                         mock_loop.run_until_complete.return_value = mock_result
-                        
+
                         result = get_version_check_sync("test-package")
-                        
+
                         expected = "1.0.0\nNew version available: 1.1.0\nUpdate with `pip install --upgrade test-package`"
                         assert result == expected
 
     def test_sync_version_check_with_running_loop(self):
         """Test sync version check when event loop is already running."""
         mock_loop = MagicMock()
-        
+
         with patch("toolregistry_hub.version_check.__version__", "1.0.0"):
             with patch("asyncio.get_running_loop", return_value=mock_loop):
                 result = get_version_check_sync("test-package")
@@ -106,8 +108,13 @@ class TestGetVersionCheckSync:
     def test_sync_version_check_error_handling(self):
         """Test sync version check error handling."""
         with patch("toolregistry_hub.version_check.__version__", "1.0.0"):
-            with patch("asyncio.get_running_loop", side_effect=RuntimeError("No running loop")):
-                with patch("asyncio.new_event_loop", side_effect=Exception("Loop creation failed")):
+            with patch(
+                "asyncio.get_running_loop", side_effect=RuntimeError("No running loop")
+            ):
+                with patch(
+                    "asyncio.new_event_loop",
+                    side_effect=Exception("Loop creation failed"),
+                ):
                     result = get_version_check_sync("test-package")
                     assert result == "1.0.0"
 
@@ -122,37 +129,37 @@ class TestVersionCheckIntegration:
             ("1.0.0", "1.0.1", True),
             ("1.0.1", "1.0.0", False),
             ("1.0.0", "1.0.0", False),
-            
             # Major/minor version changes
             ("1.0.0", "1.1.0", True),
             ("1.0.0", "2.0.0", True),
             ("2.0.0", "1.9.9", False),
-            
             # Pre-release versions
             ("1.0.0a1", "1.0.0", True),
             ("1.0.0b1", "1.0.0", True),
             ("1.0.0rc1", "1.0.0", True),
             ("1.0.0a1", "1.0.0b1", True),
             ("1.0.0b1", "1.0.0rc1", True),
-            
             # Different version part counts
             ("1.0", "1.0.1", True),
             ("1.0.0", "1.0", False),
-            
             # Real-world examples
             ("0.5.3", "0.6.0", True),
             ("2.1.0", "2.0.9", False),
         ]
-        
+
         for current, latest, expected in test_cases:
             result = compare_versions(current, latest)
-            assert result == expected, f"Failed: compare_versions('{current}', '{latest}') expected {expected}, got {result}"
+            assert result == expected, (
+                f"Failed: compare_versions('{current}', '{latest}') expected {expected}, got {result}"
+            )
 
     def test_mock_update_check(self):
         """Test update checking with mocked PyPI response."""
         with patch("toolregistry_hub.version_check.__version__", "1.0.0"):
             # Test when update is available
-            with patch("asyncio.get_running_loop", side_effect=RuntimeError("No running loop")):
+            with patch(
+                "asyncio.get_running_loop", side_effect=RuntimeError("No running loop")
+            ):
                 with patch("asyncio.new_event_loop") as mock_new_loop:
                     with patch("asyncio.set_event_loop"):
                         mock_loop = MagicMock()
@@ -160,9 +167,9 @@ class TestVersionCheckIntegration:
                         mock_loop.run_until_complete.return_value = {
                             "latest_version": "1.1.0",
                             "update_available": True,
-                            "install_command": "pip install --upgrade toolregistry-hub"
+                            "install_command": "pip install --upgrade toolregistry-hub",
                         }
-                        
+
                         result = get_version_check_sync()
                         assert "1.0.0" in result
                         assert "1.1.0" in result

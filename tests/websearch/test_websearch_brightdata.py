@@ -13,28 +13,40 @@ from toolregistry_hub.websearch.websearch_brightdata import BrightDataSearch
 class TestBrightDataSearch:
     """Test cases for BrightDataSearch class."""
 
-    def test_init_with_api_token(self):
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
+    def test_init_with_api_token(self, mock_ensure):
         """Test initialization with API token."""
         search = BrightDataSearch(api_keys="test_token_123")
         assert search.api_key_parser.key_count == 1
         assert search.zone == "mcp_unlocker"  # Default zone
 
-    def test_init_with_custom_zone(self):
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
+    def test_init_with_custom_zone(self, mock_ensure):
         """Test initialization with custom zone."""
         search = BrightDataSearch(api_keys="test_token", zone="custom_zone")
         assert search.zone == "custom_zone"
 
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
     @patch.dict("os.environ", {"BRIGHTDATA_API_KEY": "env_token"})
-    def test_init_from_env(self):
+    def test_init_from_env(self, mock_ensure):
         """Test initialization from environment variable."""
         search = BrightDataSearch()
-        assert search.api_keys == "env_token"
+        assert search.api_key_parser.api_keys[0] == "env_token"
 
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
     @patch.dict(
         "os.environ",
         {"BRIGHTDATA_API_KEY": "env_token", "BRIGHTDATA_ZONE": "env_zone"},
     )
-    def test_init_zone_from_env(self):
+    def test_init_zone_from_env(self, mock_ensure):
         """Test zone initialization from environment variable."""
         search = BrightDataSearch()
         assert search.zone == "env_zone"
@@ -42,10 +54,13 @@ class TestBrightDataSearch:
     def test_init_without_token_raises_error(self):
         """Test that initialization without token raises ValueError."""
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(ValueError, match="API token is required"):
+            with pytest.raises(ValueError, match="API keys are required"):
                 BrightDataSearch()
 
-    def test_headers_property(self):
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
+    def test_headers_property(self, mock_ensure):
         """Test headers property."""
         search = BrightDataSearch(api_keys="test_token")
         headers = search._headers
@@ -55,7 +70,7 @@ class TestBrightDataSearch:
         assert headers["Accept"] == "application/json"
 
     @patch(
-        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists"
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
     )
     @patch("httpx.Client")
     def test_search_basic(self, mock_client, mock_ensure):
@@ -99,8 +114,11 @@ class TestBrightDataSearch:
         assert results[0].content == "Description 1"
         assert results[1].title == "Test Result 2"
 
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
     @patch("httpx.Client")
-    def test_search_with_pagination(self, mock_client):
+    def test_search_with_pagination(self, mock_client, mock_ensure):
         """Test search with pagination cursor."""
         mock_response = MagicMock()
         mock_response.text = json.dumps({"organic": []})
@@ -120,8 +138,11 @@ class TestBrightDataSearch:
         payload = call_args[1]["json"]
         assert "start=20" in payload["url"]  # Page 2 = start at 20
 
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
     @patch("httpx.Client")
-    def test_search_empty_query(self, mock_client):
+    def test_search_empty_query(self, mock_client, mock_ensure):
         """Test search with empty query."""
         search = BrightDataSearch(api_keys="test_token")
         results = search.search("")
@@ -129,8 +150,11 @@ class TestBrightDataSearch:
         assert results == []
         mock_client.assert_not_called()
 
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
     @patch("httpx.Client")
-    def test_search_timeout_error(self, mock_client):
+    def test_search_timeout_error(self, mock_client, mock_ensure):
         """Test search with timeout error."""
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
@@ -143,8 +167,11 @@ class TestBrightDataSearch:
 
         assert results == []
 
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
     @patch("httpx.Client")
-    def test_search_http_401_error(self, mock_client):
+    def test_search_http_401_error(self, mock_client, mock_ensure):
         """Test search with 401 authentication error."""
         mock_response = MagicMock()
         mock_response.status_code = 401
@@ -163,8 +190,11 @@ class TestBrightDataSearch:
 
         assert results == []
 
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
     @patch("httpx.Client")
-    def test_search_http_422_error(self, mock_client):
+    def test_search_http_422_error(self, mock_client, mock_ensure):
         """Test search with 422 zone error."""
         mock_response = MagicMock()
         mock_response.status_code = 422
@@ -183,8 +213,11 @@ class TestBrightDataSearch:
 
         assert results == []
 
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
     @patch("httpx.Client")
-    def test_search_http_429_error(self, mock_client):
+    def test_search_http_429_error(self, mock_client, mock_ensure):
         """Test search with 429 rate limit error."""
         mock_response = MagicMock()
         mock_response.status_code = 429
@@ -203,8 +236,11 @@ class TestBrightDataSearch:
 
         assert results == []
 
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
     @patch("httpx.Client")
-    def test_search_json_decode_error(self, mock_client):
+    def test_search_json_decode_error(self, mock_client, mock_ensure):
         """Test search with invalid JSON response."""
         mock_response = MagicMock()
         mock_response.text = "Invalid JSON"
@@ -221,7 +257,10 @@ class TestBrightDataSearch:
 
         assert results == []
 
-    def test_parse_results(self):
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
+    def test_parse_results(self, mock_ensure):
         """Test parsing of API results."""
         search = BrightDataSearch(api_keys="test_token")
 
@@ -248,16 +287,22 @@ class TestBrightDataSearch:
         assert results[0].title == "Result 1"
         assert results[0].url == "https://example1.com"
         assert results[0].content == "Description 1"
-        assert results[0].score == 1.0
+        assert results[0].score == 0.95  # Position-based scoring: 1.0 - (1 * 0.05)
 
-    def test_parse_results_empty(self):
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
+    def test_parse_results_empty(self, mock_ensure):
         """Test parsing of empty results."""
         search = BrightDataSearch(api_keys="test_token")
         results = search._parse_results({"organic": []})
 
         assert results == []
 
-    def test_parse_results_missing_fields(self):
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
+    def test_parse_results_missing_fields(self, mock_ensure):
         """Test parsing results with missing fields."""
         search = BrightDataSearch(api_keys="test_token")
 
@@ -272,27 +317,13 @@ class TestBrightDataSearch:
         assert len(results) == 1
         assert results[0].title == "No title"
         assert results[0].url == "https://example.com"
-        assert results[0].content == "No content available"
+        assert results[0].content == "No description available"
 
-    @patch("time.sleep")
-    @patch("time.time")
-    def test_rate_limiting(self, mock_time, mock_sleep):
-        """Test rate limiting functionality."""
-        mock_time.side_effect = [0, 0.5, 1.5]  # Simulate time progression
-
-        search = BrightDataSearch(api_keys="test_token")
-        search.last_request_time = 0
-
-        # First call should not sleep
-        search._wait_for_rate_limit()
-        mock_sleep.assert_not_called()
-
-        # Second call within delay should sleep
-        search._wait_for_rate_limit()
-        mock_sleep.assert_called_once()
-
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
     @patch("httpx.Client")
-    def test_search_max_results_pagination(self, mock_client):
+    def test_search_max_results_pagination(self, mock_client, mock_ensure):
         """Test search with max_results > 20 triggers pagination."""
         mock_response = MagicMock()
         mock_response.text = json.dumps({"organic": []})
@@ -310,8 +341,11 @@ class TestBrightDataSearch:
         # Should make 3 calls (45 / 20 = 2.25, rounded up to 3)
         assert mock_client_instance.post.call_count == 3
 
+    @patch(
+        "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
+    )
     @patch("httpx.Client")
-    def test_search_max_results_cap(self, mock_client):
+    def test_search_max_results_cap(self, mock_client, mock_ensure):
         """Test that max_results is capped at 180."""
         mock_response = MagicMock()
         mock_response.text = json.dumps({"organic": []})

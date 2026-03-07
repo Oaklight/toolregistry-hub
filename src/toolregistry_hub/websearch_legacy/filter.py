@@ -210,4 +210,3 @@ def filter_search_results(
 
     logger.debug("Filtered from {} to {} results", len(results), len(filtered_results))
     return filtered_results
-

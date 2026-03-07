@@ -36,7 +36,11 @@ def run_all_tests(verbose=False, coverage=False):
 
     if coverage:
         cmd.extend(
-            ["--cov=../src/toolregistry_hub", "--cov-report=html", "--cov-report=term-missing"]
+            [
+                "--cov=../src/toolregistry_hub",
+                "--cov-report=html",
+                "--cov-report=term-missing",
+            ]
         )
 
     return run_command(cmd, "Running all tests")

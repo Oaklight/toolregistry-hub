@@ -27,7 +27,6 @@ from .think_tool import ThinkTool
 from .todo_list import TodoList
 from .unit_converter import UnitConverter
 from .websearch import (
-    BingSearch,  # Deprecated: use alternatives instead
     BraveSearch,
     SearchResult,
     SearXNGSearch,
@@ -51,7 +50,6 @@ __all__ = [
     # WebSearch related tools
     "Fetch",
     # ------- WebSearch tools -------
-    "BingSearch",  # Deprecated: frequent bot detection issues
     "SearchResult",
     "BraveSearch",
     "SearXNGSearch",
