@@ -35,10 +35,12 @@ from typing import Dict, List, Optional
 import httpx
 from loguru import logger
 
+from ..utils.requirements import requires_env
 from .base import TIMEOUT_DEFAULT, BaseSearch
 from .search_result import SearchResult
 
 
+@requires_env("SEARXNG_URL")
 class SearXNGSearch(BaseSearch):
     """Simple SearXNG API client for web search functionality."""
 
@@ -50,18 +52,20 @@ class SearXNGSearch(BaseSearch):
         """
         self.base_url = base_url or os.getenv("SEARXNG_URL")
         if not self.base_url:
-            raise ValueError(
-                "SearXNG URL is required. Set SEARXNG_URL environment variable "
-                "Such as https://searxng.url, `json` response format should be set in SearXNG configuration"
-            )
-
-        self.base_url = self.base_url.rstrip("/")
-
-        # Ensure we have the search endpoint
-        if not self.base_url.endswith("/search"):
-            self.search_url = f"{self.base_url}/search"
+            # Deferred validation: allow empty initialization
+            self.search_url = None
         else:
-            self.search_url = self.base_url
+            self.base_url = self.base_url.rstrip("/")
+
+            # Ensure we have the search endpoint
+            if not self.base_url.endswith("/search"):
+                self.search_url = f"{self.base_url}/search"
+            else:
+                self.search_url = self.base_url
+
+    def is_configured(self) -> bool:
+        """Check if SearXNG URL is configured."""
+        return self.search_url is not None
 
     @property
     def _headers(self) -> dict:
@@ -96,6 +100,13 @@ class SearXNGSearch(BaseSearch):
         Returns:
             List of search results with title, url, content, excerpt and score
         """
+        if not self.search_url:
+            raise ValueError(
+                "SearXNG URL is required. Set SEARXNG_URL environment variable. "
+                "Such as https://searxng.url, `json` response format should be "
+                "set in SearXNG configuration"
+            )
+
         if not query.strip():
             logger.warning("Empty query provided")
             return []

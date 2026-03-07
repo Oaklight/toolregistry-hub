@@ -35,11 +35,13 @@ import httpx
 from loguru import logger
 
 from ..utils.api_key_parser import APIKeyParser
+from ..utils.requirements import requires_env
 from .base import TIMEOUT_DEFAULT, BaseSearch
 from .google_parser import BRIGHTDATA_CONFIG, GoogleResultParser
 from .search_result import SearchResult
 
 
+@requires_env("BRIGHTDATA_API_KEY")
 class BrightDataSearch(BaseSearch):
     """Bright Data Google Search API client for web search functionality."""
 

@@ -31,10 +31,12 @@ import httpx
 from loguru import logger
 
 from ..utils.api_key_parser import APIKeyParser
+from ..utils.requirements import requires_env
 from .base import TIMEOUT_DEFAULT, BaseSearch
 from .search_result import SearchResult
 
 
+@requires_env("TAVILY_API_KEY")
 class TavilySearch(BaseSearch):
     """Simple Tavily Search API client for web search functionality."""
 
