@@ -1,121 +1,39 @@
-# Bing Search
+# Bing Search (Removed)
 
-!!! warning "Deprecated"
-    **Bing Search is deprecated as of version 0.5.2** due to frequent bot detection issues.
-    
+!!! danger "Removed"
+    **Bing Search has been removed as of version 0.6.0.**
+
+    It was previously deprecated in version 0.5.2 due to frequent bot detection issues and has now been fully removed from the codebase.
+
     **Recommended alternatives:**
-    
+
     - [Brave Search](brave.md) - For general web search
     - [Tavily Search](tavily.md) - For AI-optimized search
     - [SearXNG Search](searxng.md) - For privacy-focused search
     - [BrightData Search](brightdata.md) or [Scrapeless Search](scrapeless.md) - For Google results
 
-Bing search provides functionality to perform web searches using the Microsoft Bing search engine.
+## Migration Guide
 
-## Class Overview
+If you were using `BingSearch`, please migrate to one of the recommended alternatives above.
 
-- `BingSearch` - A class that provides Bing search functionality
-
-## Detailed API
-
-### BingSearch Class
-
-`BingSearch` is a class that provides Bing search functionality, inheriting from `BaseSearch`.
-
-#### Initialization Parameters
-
-- `rate_limit_delay: float = 1.0` - Delay time between requests (seconds)
-- `timeout: Optional[float] = None` - Request timeout time (seconds)
-- `max_retries: int = 3` - Maximum number of retries
-- `proxy: Optional[str] = None` - Proxy server URL
-
-#### Methods
-
-- `search(query: str, number_results: int = 5, timeout: Optional[float] = None, **kwargs) -> List[SearchResult]`: Execute search and return results
-- `_search_impl(query: str, **kwargs) -> List[SearchResult]`: Implement specific search logic
-- `_parse_results(raw_results: Dict) -> List[SearchResult]`: Parse raw search results
-- `_extract_real_url(bing_url: str) -> str`: Extract real URL from Bing redirect URL
-- `_wait_for_rate_limit()`: Wait for rate limit
-
-## Usage Examples
-
-### Basic Usage
+### Before (Deprecated)
 
 ```python
 from toolregistry_hub.websearch import BingSearch
 
-# Create Bing search instance
-bing_search = BingSearch()
-
-# Execute search
-results = bing_search.search("Python programming", number_results=5)
-
-# Process search results
-for result in results:
-    print(f"Title: {result.title}")
-    print(f"URL: {result.url}")
-    print(f"Excerpt: {result.excerpt}")
-    print("-" * 50)
+search = BingSearch()
+results = search.search("query", max_results=5)
 ```
 
-### Using Proxy
+### After (Recommended)
 
 ```python
-from toolregistry_hub.websearch import BingSearch
+from toolregistry_hub.websearch import BraveSearch
 
-# Create Bing search instance using proxy
-bing_search = BingSearch(proxy="http://your-proxy-server:port")
-
-# Execute search
-results = bing_search.search("machine learning tutorial", number_results=3)
-
-# Process search results
-for result in results:
-    print(f"Title: {result.title}")
-    print(f"URL: {result.url}")
-    print(f"Excerpt: {result.excerpt}")
-    print("-" * 50)
-```
-
-### Custom Timeout and Retries
-
-```python
-from toolregistry_hub.websearch import BingSearch
-
-# Create Bing search instance with custom timeout and retries
-bing_search = BingSearch(timeout=5.0, max_retries=2)
-
-# Execute search
-results = bing_search.search("deep learning frameworks", number_results=5, timeout=10.0)
-
-# Process search results
-for result in results:
-    print(f"Title: {result.title}")
-    print(f"URL: {result.url}")
-    print(f"Excerpt: {result.excerpt}")
-    print("-" * 50)
-```
-
-### Fetching Web Page Content
-
-```python
-from toolregistry_hub.websearch import BingSearch
-from toolregistry_hub.websearch.base import BaseSearch
-
-# Create Bing search instance
-bing_search = BingSearch()
-
-# Execute search
-results = bing_search.search("Python tutorial", number_results=1)
-
-if results:
-    # Get full web page content of the first result
-    url = results[0].url
-    content = BaseSearch._fetch_webpage_content(url)
-    print(f"Web page content length: {len(content)} characters")
-    print(f"Web page content preview: {content[:200]}...")
+search = BraveSearch()  # Requires BRAVE_API_KEY env var
+results = search.search("query", max_results=5)
 ```
 
 ## Legacy Bing Search
 
-Legacy Bing search functionality is provided in the `websearch_legacy` module using the `WebSearchBing` class. For more information, please refer to the [Legacy Web Search](legacy.md) documentation.
+Legacy Bing search functionality is still available in the `websearch_legacy` module using the `WebSearchBing` class. For more information, please refer to the [Legacy Web Search](legacy.md) documentation.

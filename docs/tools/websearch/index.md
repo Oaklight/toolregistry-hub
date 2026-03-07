@@ -2,8 +2,8 @@
 
 The web search tools provide functionality to perform web searches through various search engines. This module supports multiple search engines, including Brave, SearXNG, Tavily, and Google (via BrightData/Scrapeless).
 
-!!! note "Bing Search Deprecated"
-    Bing Search has been deprecated due to frequent bot detection issues. Please use alternative search providers.
+!!! note "Bing Search Removed"
+    Bing Search has been removed due to frequent bot detection issues. Please use alternative search providers.
 
 ## Free Tier Summary
 
@@ -41,7 +41,7 @@ Currently supported search engines include:
 - [SearXNG Search](searxng.md) - Using SearXNG meta search engine (Privacy-focused)
 - [BrightData Search](brightdata.md) - Using BrightData for Google results
 - [Scrapeless Search](scrapeless.md) - Using Scrapeless Universal API with support for multiple search engines
-- [Bing Search](bing.md) - ⚠️ **DEPRECATED** - Using Bing search engine (not recommended)
+- [Bing Search](bing.md) - ❌ **REMOVED** - Previously used Bing search engine (removed in v0.6.0)
 
 ## Basic Usage
 
@@ -117,5 +117,5 @@ for result in results:
 - [SearXNG Search](searxng.md) - Implementation of SearXNG search engine
 - [BrightData Search](brightdata.md) - Implementation of BrightData for Google results
 - [Scrapeless Search](scrapeless.md) - Implementation of Scrapeless Universal API
-- [Bing Search](bing.md) - ⚠️ **DEPRECATED** Implementation of Bing search engine
+- [Bing Search](bing.md) - ❌ **REMOVED** Implementation of Bing search engine (removed in v0.6.0)
 - [Legacy Web Search](legacy.md) - Documentation of the legacy web search module
