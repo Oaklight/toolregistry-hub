@@ -10,9 +10,29 @@ author: Oaklight
 
 This page documents all notable changes to the toolregistry-hub project since the first official release version 0.4.14.
 
+## [Unreleased]
+
+### New Features
+
+- **Tool Environment Requirements and Central Registry** ([#30](https://github.com/Oaklight/toolregistry-hub/issues/30), [#35](https://github.com/Oaklight/toolregistry-hub/pull/35))
+	- Add `@requires_env` decorator to declare required environment variables on tool classes
+	- Add `Configurable` protocol with `is_configured()` for instance-state readiness checks (structural subtyping)
+	- Add `build_registry()` / `get_registry()` central registry that auto-disables unconfigured tools
+	- Defer `APIKeyParser` and `SearXNGSearch` validation to call time, allowing graceful initialization without env vars
+
+### Refactoring
+
+- **Remove BingSearch** ([#34](https://github.com/Oaklight/toolregistry-hub/pull/34))
+	- Remove deprecated `BingSearch` class, server route, and related tests
+	- Rewrite and modernize websearch test suite for remaining engines
+
+- **Restructure Server Optional Dependencies** ([#29](https://github.com/Oaklight/toolregistry-hub/issues/29), [#33](https://github.com/Oaklight/toolregistry-hub/pull/33))
+	- Add `toolregistry>=0.4.14` to `server_openapi` and `server_mcp` extras
+	- Refactor `server` extra to use self-referencing composition
+
 ## [0.5.6] - 2026-03-05
 
-### ✨ New Features
+### New Features
 
 - **Web Fetch Improvements**
 	- Add Cloudflare content negotiation strategy for markdown extraction, increasing default timeout
@@ -25,13 +45,13 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ## [0.5.5] - 2026-01-31
 
-### 🔄 Refactoring
+### Refactoring
 
 - **Think Tool Enhancement**
 	- Unify reason and think endpoints into single think endpoint
 	- Reorder parameters and simplify thinking modes
 
-### 🔧 Maintenance
+### Maintenance
 
 - **Docker Improvements**
 	- Add `REGISTRY_MIRROR` build argument to Dockerfile for custom registry support
@@ -39,7 +59,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ## [0.5.4.post1] - 2026-01-13
 
-### 🐛 Bug Fixes
+### Bug Fixes
 
 - **Version Endpoint Visibility**
 	- Hide version endpoints (`/version/` and `/version/check`) from OpenAPI documentation using `include_in_schema=False`
@@ -48,7 +68,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ## [0.5.4] - 2026-01-13
 
-### 🔄 Refactoring
+### Refactoring
 
 - **Unified Cognitive Tools Architecture**
 	- Consolidate reason and think endpoints into single think endpoint, combining structured reasoning and exploratory thinking
@@ -58,7 +78,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Refactor test suite with comprehensive coverage of all thinking modes and parameter combinations
 	- Update documentation to reflect "recall + think" dual-tool cognitive architecture
 
-### ✨ New Features
+### New Features
 
 - **PyPI Version Check & Update Notifications**
 	- Add comprehensive PyPI version checking system, inspired by argo-proxy implementation
@@ -75,7 +95,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Implement centered alignment and consistent border styling (80-char width)
 	- Display banner on CLI startup with show_banner=False parameter to disable
 
-### 📝 Documentation Improvements
+### Documentation
 
 - **Time-Sensitive Query Guidance for Web Search**
 	- Add IMPORTANT note in all websearch class docstrings
@@ -88,7 +108,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Expand parameter documentation with timezone format examples
 	- Route descriptions directly reference method docstrings for better consistency
 
-### 🔧 Maintenance
+### Maintenance
 
 - **Version Attribute Fix**
 	- Update pyproject.toml to use __version__ attribute instead of version
@@ -97,7 +117,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ## [0.5.3] - 2025-12-13
 
-### 🔧 Refactoring
+### Refactoring
 
 - **Multi-API Key Management System**
 	- Consolidate scattered API key implementations into centralized APIKeyParser utility
@@ -120,7 +140,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Centralize version management with single source of truth in `__init__.py`
 	- Improve build process with setuptools dynamic version support
 
-### 🐛 Bug Fixes
+### Bug Fixes
 
 - **Docker Build Process**
 	- Fix Dockerfile package installation with server extras (fastapi, uvicorn, fastmcp)
@@ -133,7 +153,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Fix type hints in server_core.py and websearch modules
 	- Improve test compatibility and type safety
 
-### 📝 Documentation
+### Documentation
 
 - **Docker Documentation**
 	- Add comprehensive Docker documentation and migration guide
@@ -142,7 +162,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ## [0.5.2] - 2025-12-12
 
-### ✨ New Features
+### New Features
 
 - **Unit Converter API Routes**
 	- Add unit converter API routes
@@ -156,11 +176,11 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Add Bright Data engines test for Bing and Yandex
 	- Add environment variable support for Bing search proxy
 
-### ⚠️ Deprecations
+### Deprecations
 
 - **Bing Search**: Mark BingSearch as deprecated due to bot detection issues
 
-### 📝 Documentation Improvements
+### Documentation
 
 - Update badge styles in README
 - Add DeepWiki badge to documentation
@@ -169,7 +189,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ## [0.5.1] - 2025-12-05
 
-### 🔐 Security & Authentication
+### Security & Authentication
 
 - **MCP Server Authentication** (#15)
 	- Add Bearer Token authentication support for MCP server
@@ -179,7 +199,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Move token verification to FastAPI global dependencies
 	- Refactor authentication architecture, decoupling routes and authentication concerns
 
-### 📋 Task Management Enhancements
+### Task Management
 
 - **Todo List Tool Enhancements** (#15)
 	- Add Todo List tool with flexible input format support
@@ -190,7 +210,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Add Markdown table generation API endpoint
 	- Improve documentation and type annotations
 
-### 🌐 Server Features
+### Server
 
 - **Architecture Refactoring**
 	- Create `server_core.py` module providing base FastAPI application
@@ -199,7 +219,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Improve router discovery logging logic
 	- Optimize server architecture for better maintainability
 
-### 🕐 Date and Time Features
+### Date and Time
 
 - **API Enhancements**
 	- Add `TimeNowRequest` model for `time_now` endpoint
@@ -207,7 +227,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Maintain backward compatibility with existing timezone name functionality
 	- Improve API documentation structure
 
-### 📝 Documentation Improvements
+### Documentation
 
 - **Project Documentation**
 	- Update project description and README files
@@ -217,7 +237,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ## [0.5.0] - 2025-11-11
 
-### 🔐 Security & Authentication
+### Security & Authentication
 
 - **Multi Bearer Token Authentication** (#11)
 	- Support multiple Bearer tokens via environment variables or file configuration
@@ -227,7 +247,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Enhanced authentication logging and debugging features
 	- New standalone multi-token authentication test suite
 
-### 🌐 Server Features (#9)
+### Server (#9)
 
 - **REST API Server**
 	- New `toolregistry-server` CLI command-line tool
@@ -241,7 +261,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Automatic router discovery and registration mechanism
 	- Recursive router discovery for nested modules
 
-### 🐳 Docker Support
+### Docker
 
 - **Complete Containerized Deployment Solution**
 	- Add Dockerfile for building container images
@@ -251,7 +271,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Add automated build and push Makefile
 	- Optimize `.dockerignore` to reduce image size
 
-### 🔍 Modern Web Search (#8)
+### Web Search (#8)
 
 - **New Search Engine Support**
 
@@ -285,7 +305,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Move legacy search implementations to `websearch_legacy/` directory
 	- Clean up outdated Google search modules
 
-### 🕐 Timezone Enhancements (#5)
+### Timezone Enhancements (#5)
 
 - **Timezone Support**
 
@@ -300,7 +320,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Unified timezone parsing logic
 	- Improved error handling and exception messages
 
-### 📚 Documentation Refactoring (#10)
+### Documentation (#10)
 
 - **Documentation Structure Optimization**
 	- Refactor documentation structure for improved readability
@@ -309,7 +329,7 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Web search engine usage documentation
 	- API endpoint and configuration instructions
 
-### 🧪 Testing Improvements (#12)
+### Testing (#12)
 
 - **Enhanced Test Coverage**
 	- Add 0.4.16a0 version testing
@@ -317,38 +337,38 @@ This page documents all notable changes to the toolregistry-hub project since th
 	- Timezone functionality unit tests
 	- Web search engine testing
 
-### 🔄 Refactoring
+### Refactoring
 
 - **think_tool**: Simplify think method return type
 	- Change return type from `Dict[str, str]` to `None`
 	- Remove unused typing import for Dict
 	- Remove thought logging return value since it's not used
 
-### 📚 Documentation
+### Documentation
 
 - **Documentation hosting**: Migrate documentation to ReadTheDocs hosting
 
 ## [0.4.15] - 2025-08-11
 
-### ✨ New Features
+### New Features
 
 - **DateTime Tool**: Add DateTime utility for current time retrieval
 - **ThinkTool**: Add reasoning and brainstorming tool providing cognitive processing space for AI tool integration
 
-### 📝 Documentation Improvements
+### Documentation
 
 - Enhance tool descriptions and usage examples
 - Update independence notice and package context
 - Improve README documentation structure
 
-### 🔧 Maintenance
+### Maintenance
 
 - Bump version to 0.4.15
 - Update and optimize dependencies
 
 ## [0.4.14] - First Official Release
 
-### 🎉 Initial Release
+### Initial Release
 
 - Basic tool collection
 - Core functionality implementation
@@ -369,17 +389,17 @@ This project follows [Semantic Versioning](https://semver.org/) specification:
 
 ### Change Type Legend
 
-- 🎉 **New Features** - New functionality or features
-- 🔄 **Refactoring** - Code refactoring without functional changes
-- 🐛 **Bug Fixes** - Error corrections
-- 📚 **Documentation** - Documentation updates
-- 🔐 **Security** - Security-related improvements
-- 🌐 **Server** - Server functionality
-- 🐳 **Docker** - Containerization related
-- 🔍 **Search** - Search functionality related
-- 🕐 **Timezone** - Timezone functionality related
-- 🧪 **Testing** - Testing-related improvements
-- 🔧 **Maintenance** - Maintenance updates
+- **New Features** - New functionality or features
+- **Refactoring** - Code refactoring without functional changes
+- **Bug Fixes** - Error corrections
+- **Documentation** - Documentation updates
+- **Security** - Security-related improvements
+- **Server** - Server functionality
+- **Docker** - Containerization related
+- **Search** - Search functionality related
+- **Timezone** - Timezone functionality related
+- **Testing** - Testing-related improvements
+- **Maintenance** - Maintenance updates
 
 ### Getting Updates
 
