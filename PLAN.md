@@ -203,11 +203,13 @@ Files: `src/toolregistry/native/integration.py`
 
 ---
 
-## Phase 3 — ToolRegistry Core: Enable/Disable with Reason
+## Phase 3 — ToolRegistry Core: Enable/Disable with Reason ✅
 
 > **Issues:** [Oaklight/ToolRegistry#53](https://github.com/Oaklight/ToolRegistry/issues/53)
+>
+> **PR:** [Oaklight/ToolRegistry#58](https://github.com/Oaklight/ToolRegistry/pull/58) ✅ (merged)
 
-### 3a. Two-Level Enable/Disable
+### 3a. Two-Level Enable/Disable ✅
 
 Add enable/disable management to `ToolRegistry`. Pure Python, no new dependencies.
 
@@ -248,7 +250,7 @@ def get_disable_reason(self, tool_name: str) -> Optional[str]:
 
 > **Key decision:** `disable()`/`enable()` use the raw tool name (as stored in `_tools` keys), NOT `normalize_tool_name()`. This avoids the `-` vs `_` mismatch between `_disabled` keys and `_tools` keys.
 
-### 3b. Update `list_tools`, `get_tools_json`, `execute_tool_calls`
+### 3b. Update `list_tools`, `get_tools_json`, `execute_tool_calls` ✅
 
 These methods must respect `is_enabled()`:
 
