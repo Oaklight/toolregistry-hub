@@ -844,6 +844,18 @@ mcp = ["mcp>=1.0.0"]   # official SDK only; fastmcp removed from [mcp] extra
 
 `toolregistry-hub`'s `server_mcp.py` uses `FastMCP.from_fastapi()` — there is no equivalent in the official SDK. This **cannot be replaced in this step**. After Phase 5 (auto-route), all hub tools live in `ToolRegistry` and the MCP server can be generated from the registry directly, eliminating the need for `from_fastapi()`. At that point, fastmcp can be removed from hub's server extras entirely.
 
+#### Known Limitations & Follow-up
+
+The decoupled `MCPClient` only accepts `Union[str, dict, Path]` as source. Two transport types previously supported via fastmcp are no longer available:
+
+1. **`FastMCP` instance (in-process transport)**: fastmcp's `infer_transport` would wrap a `FastMCP` instance in a `FastMCPTransport` for in-process communication without network. This is useful for testing and same-process integration. The official `mcp` SDK provides `create_connected_server_and_client_session()` for this purpose, but it requires a low-level `Server` instance, not a `FastMCP` instance.
+
+2. **`headers` parameter exposure**: `MCPClient` supports a `headers` parameter for HTTP authentication, but `register_from_mcp()` does not expose it in its public API. Users needing custom headers (e.g., `Authorization: Bearer token`) must use `MCPClient` directly instead of the convenience method.
+
+These are intentional scope limitations for the initial decoupling. Follow-up work:
+- [ ] Evaluate adding in-process transport support to `MCPClient` (for testing scenarios)
+- [ ] Consider exposing `headers` parameter in `register_from_mcp()` / `register_from_mcp_async()`
+
 Files: `src/toolregistry/mcp/client.py` (new), `src/toolregistry/mcp/integration.py`, `src/toolregistry/mcp/utils.py` (simplified), `pyproject.toml`
 
 ---
