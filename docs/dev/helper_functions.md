@@ -268,6 +268,110 @@ if __name__ == '__main__':
     unittest.main()
 ```
 
+## Environment Requirements Decorator
+
+### `requires_env(*envs: str)`
+
+A decorator that declares required environment variables for a tool class. This is used by the central registry to automatically disable tools when their required environment variables are not set.
+
+**Parameters:**
+
+- `*envs` (str): One or more environment variable names required by the tool class
+
+**Example:**
+
+```python
+from toolregistry_hub.utils import requires_env
+
+@requires_env("MY_API_KEY")
+class MySearchTool:
+    """A search tool that requires an API key."""
+    
+    def search(self, query: str) -> list:
+        # API key will be checked at runtime
+        ...
+```
+
+**How it works:**
+
+The decorator sets a `_required_envs` attribute on the class:
+
+```python
+@requires_env("BRAVE_API_KEY")
+class BraveSearch(BaseSearch):
+    ...
+
+# After decoration:
+print(BraveSearch._required_envs)  # ["BRAVE_API_KEY"]
+```
+
+The central registry (`build_registry()`) checks these attributes during startup and automatically disables tools whose required environment variables are missing.
+
+### Applied Decorators
+
+The following websearch classes use `@requires_env`:
+
+| Class | Required Environment Variable |
+|-------|------------------------------|
+| `BraveSearch` | `BRAVE_API_KEY` |
+| `TavilySearch` | `TAVILY_API_KEY` |
+| `SearXNGSearch` | `SEARXNG_URL` |
+| `BrightDataSearch` | `BRIGHTDATA_API_KEY` |
+| `ScrapelessSearch` | `SCRAPELESS_API_KEY` |
+
+## Central Registry
+
+### `build_registry() -> ToolRegistry`
+
+Build the hub tool registry with all tools registered and auto-disabled based on environment requirements.
+
+This function:
+
+1. Creates a new `ToolRegistry` instance named "hub"
+2. Registers all tool classes (both static-method and instance-method based)
+3. Checks `_required_envs` on each class and disables tools with missing environment variables
+
+**Example:**
+
+```python
+from toolregistry_hub.server.registry import build_registry
+
+registry = build_registry()
+
+# List all registered tools
+for tool_name in registry.list_all_tools():
+    enabled = registry.is_enabled(tool_name)
+    print(f"{tool_name}: {'enabled' if enabled else 'disabled'}")
+```
+
+### `get_registry() -> ToolRegistry`
+
+Get the singleton registry instance. Creates it on first call.
+
+```python
+from toolregistry_hub.server.registry import get_registry
+
+registry = get_registry()
+```
+
+### Registered Tools
+
+| Tool Class | Namespace | Type |
+|-----------|-----------|------|
+| `Calculator` | `calculator` | Static methods |
+| `DateTime` | `datetime` | Static methods |
+| `Fetch` | `fetch` | Static methods |
+| `FileSystem` | `filesystem` | Static methods |
+| `FileOps` | `file_ops` | Static methods |
+| `ThinkTool` | `think` | Static methods |
+| `TodoList` | `todolist` | Static methods |
+| `UnitConverter` | `unit_converter` | Static methods |
+| `BraveSearch` | `brave_search` | Instance methods |
+| `TavilySearch` | `tavily_search` | Instance methods |
+| `SearXNGSearch` | `searxng_search` | Instance methods |
+| `BrightDataSearch` | `brightdata_search` | Instance methods |
+| `ScrapelessSearch` | `scrapeless_search` | Instance methods |
+
 ## Best Practices for Contributors
 
 1. **Use Helper Functions**: Always validate your tools using these utilities

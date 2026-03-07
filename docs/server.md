@@ -251,9 +251,20 @@ You can set the following environment variables to configure the server:
 - `API_BEARER_TOKEN` - Bearer Token for API authentication (supports single token or comma-separated multiple tokens)
 - `API_BEARER_TOKENS_FILE` - Path to token file, with one token per line
 
-### Other Configuration
+### Tool Environment Variables
 
-- Other tool-specific environment variables (such as search API keys, etc.)
+The following environment variables are used by specific tools. Tools with missing required environment variables are automatically disabled at startup.
+
+| Environment Variable | Required By | Description |
+|---------------------|-------------|-------------|
+| `BRAVE_API_KEY` | Brave Search | Brave Search API key ([get one](https://api.search.brave.com/)) |
+| `TAVILY_API_KEY` | Tavily Search | Tavily Search API key ([get one](https://tavily.com/)) |
+| `SEARXNG_URL` | SearXNG Search | SearXNG instance URL (e.g., `http://localhost:8080`) |
+| `BRIGHTDATA_API_KEY` | BrightData Search | Bright Data API key ([get one](https://brightdata.com/)) |
+| `SCRAPELESS_API_KEY` | Scrapeless Search | Scrapeless API key ([get one](https://scrapeless.com/)) |
+
+!!! note "Auto-Disable Behavior"
+    When the server starts, it checks each tool's required environment variables. Tools with missing variables are automatically registered but disabled. They will not appear in the tool list returned to clients. You can enable them later by setting the required environment variables and restarting the server.
 
 ## Troubleshooting
 
