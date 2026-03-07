@@ -690,6 +690,164 @@ Once auto-route is validated end-to-end (at least one release cycle after Phase 
 
 These are independent of the main refactoring and can be done in any order:
 
+### MCP Client Decoupling (`toolregistry[mcp]`) ✅
+
+> **Issues:** [Oaklight/ToolRegistry#64](https://github.com/Oaklight/ToolRegistry/issues/64) ✅
+>
+> **PR:** [Oaklight/ToolRegistry#65](https://github.com/Oaklight/ToolRegistry/pull/65) ✅ (merged)
+
+#### Problem
+
+`toolregistry[mcp]` currently depends on `fastmcp` for the **client side** (registering tools from an MCP server). fastmcp releases frequently and has broken the integration multiple times — `utils.py` already has a version-check workaround for the `2.3.5` API break. The official `mcp` SDK is the protocol reference implementation and is significantly more stable.
+
+Current fastmcp surface used in the client side:
+
+```python
+# integration.py
+from fastmcp.client import Client, ClientTransport
+async with Client(transport) as client:
+    tools = await client.list_tools()
+    result = await client.call_tool_mcp(name, params)
+
+# utils.py already uses official mcp SDK for the transport layer — the work is 90% done:
+from mcp import ClientSession
+from mcp.client.sse import sse_client
+from mcp.client.stdio import stdio_client
+from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.websocket import websocket_client
+```
+
+The only remaining fastmcp usage is the `Client` context manager in `integration.py`.
+
+#### Solution: Single-File Stable MCP Client Adapter ✅
+
+Created `src/toolregistry/mcp/client.py` — wraps `mcp.ClientSession` in a stable internal interface. All other files import only from this adapter, never from fastmcp or mcp directly. Future SDK changes require updating only this one file.
+
+```python
+# src/toolregistry/mcp/client.py
+"""
+Minimal MCP client adapter over the official `mcp` SDK.
+Supports stdio, SSE, streamable-http, and websocket transports.
+This is the sole point of contact with the `mcp` package.
+"""
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
+
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.sse import sse_client
+from mcp.client.stdio import stdio_client
+from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.websocket import websocket_client
+from mcp.types import Tool as ToolSpec
+
+
+class MCPClient:
+    """Thin async context manager around mcp.ClientSession.
+
+    Usage:
+        async with MCPClient("http://localhost:8000/mcp") as client:
+            tools = await client.list_tools()
+            result = await client.call_tool("tool_name", {"arg": "value"})
+    """
+
+    def __init__(self, source):
+        self._source = source
+        self._session: Optional[ClientSession] = None
+        self._stack_ctx = None
+
+    @asynccontextmanager
+    async def _open_streams(self):
+        src = self._source
+        if isinstance(src, str) and src.startswith(("http://", "https://")):
+            if urlparse(src).path.rstrip("/").endswith("/sse"):
+                async with sse_client(src) as (r, w):
+                    yield r, w
+            else:
+                async with streamablehttp_client(src) as (r, w, _):
+                    yield r, w
+        elif isinstance(src, str) and src.startswith(("ws://", "wss://")):
+            async with websocket_client(src) as (r, w):
+                yield r, w
+        else:
+            async with stdio_client(_to_stdio_params(src)) as (r, w):
+                yield r, w
+
+    async def __aenter__(self) -> "MCPClient":
+        self._stack_ctx = self._open_streams()
+        r, w = await self._stack_ctx.__aenter__()
+        self._session = ClientSession(r, w)
+        await self._session.__aenter__()
+        await self._session.initialize()
+        return self
+
+    async def __aexit__(self, *exc):
+        if self._session:
+            await self._session.__aexit__(*exc)
+        await self._stack_ctx.__aexit__(*exc)
+
+    async def list_tools(self) -> List[ToolSpec]:
+        return (await self._session.list_tools()).tools
+
+    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> Any:
+        return await self._session.call_tool(name, arguments)
+
+    @property
+    def server_info(self):
+        return getattr(self._session, "server_info", None)
+
+
+def _to_stdio_params(src) -> StdioServerParameters:
+    if isinstance(src, dict):
+        return StdioServerParameters(
+            command=src["command"], args=src.get("args", []), env=src.get("env")
+        )
+    path = Path(src)
+    if path.suffix == ".py":
+        return StdioServerParameters(command="python", args=[str(path)])
+    if path.suffix == ".js":
+        return StdioServerParameters(command="node", args=[str(path)])
+    return StdioServerParameters(command=str(path), args=[])
+```
+
+`integration.py` change — before/after:
+
+```python
+# Before:
+from fastmcp.client import Client
+async with Client(transport) as client:
+    tools = await client.list_tools()
+    result = await client.call_tool_mcp(name, params)
+
+# After:
+from .client import MCPClient
+async with MCPClient(transport) as client:
+    tools = await client.list_tools()
+    result = await client.call_tool(name, params)
+```
+
+#### Dependency Change ✅
+
+```toml
+# toolregistry/pyproject.toml
+# Before:
+mcp = ["fastmcp>=2.3.0"]
+
+# After:
+mcp = ["mcp>=1.0.0"]   # official SDK only; fastmcp removed from [mcp] extra
+```
+
+`mcp` is already a transitive dependency of fastmcp, so for existing users nothing new is pulled in. The `[mcp]` extra's footprint shrinks significantly. This change has been applied and merged.
+
+#### Hub Server Side (separate concern, cannot be done here)
+
+`toolregistry-hub`'s `server_mcp.py` uses `FastMCP.from_fastapi()` — there is no equivalent in the official SDK. This **cannot be replaced in this step**. After Phase 5 (auto-route), all hub tools live in `ToolRegistry` and the MCP server can be generated from the registry directly, eliminating the need for `from_fastapi()`. At that point, fastmcp can be removed from hub's server extras entirely.
+
+Files: `src/toolregistry/mcp/client.py` (new), `src/toolregistry/mcp/integration.py`, `src/toolregistry/mcp/utils.py` (simplified), `pyproject.toml`
+
+---
+
 ### Anthropic and Gemini Schema Formats
 
 > **Issues:** [Oaklight/ToolRegistry#55](https://github.com/Oaklight/ToolRegistry/issues/55)
@@ -727,8 +885,12 @@ Files: `src/toolregistry/tool.py`, `src/toolregistry/types/anthropic/`, `src/too
 | `pyproject.toml` | Remove `hub` optional dep; add `admin` optional extra (Phase 6) | 1, 6 |
 | `src/toolregistry/tool.py` | Add `namespace`, `method_name` fields | 2a |
 | `src/toolregistry/native/integration.py` | Populate `namespace` and `method_name` on Tool; fix inherited static method registration | 2a, 2b |
-| `src/toolregistry/tool_registry.py` | Add `disable()`, `enable()`, `is_enabled()`, `get_disable_reason()`, `list_all_tools()`; update `get_tools_json()` and `list_tools()` to filter disabled; fix `_update_sub_registries()` | 2a, 3 |
-| `src/toolregistry/executor.py` | Check `is_enabled()` before execution; add execution logging | 3, 6a |
+| `src/toolregistry/tool_registry.py` | Add `disable()`, `enable()`, `is_enabled()`, `get_disable_reason()`, `list_all_tools()`; update `get_tools_json()` and `list_tools()` to filter disabled; fix `_update_sub_registries()` | 2a ✅, 3 ✅ |
+| `src/toolregistry/executor.py` | Check `is_enabled()` before execution; add execution logging | 3 ✅, 6a |
+| `src/toolregistry/mcp/client.py` | New: single-file stable MCP client adapter | Independent ✅ |
+| `src/toolregistry/mcp/compat.py` | New: v1/v2 兼容层（集中导入 + camelCase↔snake_case 辅助） | Independent |
+| `src/toolregistry/mcp/integration.py` | Switch from fastmcp.client to MCPClient; camelCase 属性改为双重兼容 | Independent ✅ |
+| `src/toolregistry/mcp/utils.py` | Deleted: all functionality migrated to MCPClient | Independent ✅ |
 | `src/toolregistry/types/anthropic/` | Anthropic schema helpers | Independent |
 | `src/toolregistry/types/gemini/` | Gemini schema helpers | Independent |
 | `src/toolregistry/admin/` | New package: admin panel (deferred) | 6 |
@@ -744,6 +906,7 @@ Files: `src/toolregistry/tool.py`, `src/toolregistry/types/anthropic/`, `src/too
 | `src/.../server/registry.py` | New: `build_registry()` + `get_registry()` | 4c |
 | `src/.../server/autoroute.py` | New: `registry_to_router()` + `_schema_to_pydantic()` | 5b, 5c |
 | `src/.../server/server_core.py` | Add registry-driven routing alongside legacy routes | 5e |
+| `src/.../server/mcp_compat.py` | New: 集中 FastMCP/DebugTokenVerifier 导入，为 v2 迁移做准备 | Independent |
 | `src/.../server/routes/*.py` | Removed in Phase 7 | 7 |
 | `src/.../server/routes/__init__.py` | Remove `discover_routers()` in Phase 7 | 7 |
 
@@ -757,7 +920,7 @@ Phase 1  — Dependency restructuring (unblocks everything)
 Phase 2  — Tool.namespace + Tool.method_name + inherited static methods fix  ✅
   │         (foundation for auto-route and is_enabled)
   │
-Phase 3  — Enable/disable with reason + update list_tools/get_tools_json/execute
+Phase 3  — Enable/disable with reason + update list_tools/get_tools_json/execute  ✅
   │         (foundation for requires_env auto-disable)
   │
 Phase 4  — requires_env decorator + graceful websearch init + build_registry()
@@ -774,6 +937,9 @@ Phase 6  — Admin panel (deferred, can be done after Phase 5 is stable)
 Phase 7  — Cleanup: remove hand-written routes (after migration period)
 
 Independent: Anthropic/Gemini schema formats (any time)
+Independent: MCP client decoupling — toolregistry[mcp] (any time, no phase dependency) ✅
+Independent: MCP SDK v2 迁移准备 — compat 层 + 版本上界 (any time, zero risk)
+Independent: Hub MCP server migration — remove FastMCP.from_fastapi() (after Phase 5)
 ```
 
 ### Risk Mitigation
@@ -785,3 +951,6 @@ Independent: Anthropic/Gemini schema formats (any time)
 | `_schema_to_pydantic` complexity | Phase 5b: limit scope to flat schemas; fallback to `Dict[str, Any]` |
 | `Calculator` inherited methods | Phase 2b: verify and fix MRO traversal in `_register_static_methods` |
 | `normalize_tool_name` inconsistency in disable/enable | Phase 3a: use raw names, not normalized |
+| fastmcp client API instability | Independent: single-file adapter in `mcp/client.py` isolates changes |
+| fastmcp server API instability | After Phase 5: replace `from_fastapi()` with ToolRegistry-driven MCP server |
+| MCP SDK v2 breaking changes | Independent: compat 层 + `<3.0.0` 版本上界 + camelCase↔snake_case 双重兼容 |
