@@ -85,37 +85,65 @@ mcp_app.run()
 
 #### 计算器工具
 
-- `POST /calc/help` - 获取特定计算器函数的帮助信息
-- `POST /calc/allowed_fns` - 获取允许的计算器函数列表
-- `POST /calc/evaluate` - 计算数学表达式
+- `POST /tools/calculator/help` - 获取特定计算器函数的帮助信息
+- `POST /tools/calculator/list_allowed_fns` - 获取允许的计算器函数列表
+- `POST /tools/calculator/evaluate` - 计算数学表达式
 
 #### 思考工具
 
-- `POST /think` - 处理思考请求
+- `POST /tools/think/think` - 处理思考请求
 
 #### 网络工具
 
-- `POST /web/fetch_webpage` - 提取网页内容
-- `POST /web/search_brave` - 使用 Brave 进行网络搜索
-- `POST /web/search_searxng` - 使用 SearXNG 进行网络搜索
-- `POST /web/search_tavily` - 使用 Tavily 进行网络搜索
-- `POST /web/search_scrapeless` - 使用 Scrapeless 进行网络搜索
-- `POST /web/search_brightdata` - 使用 BrightData 进行网络搜索
+- `POST /tools/web/fetch/fetch_content` - 提取网页内容
+- `POST /tools/web/brave_search/search` - 使用 Brave 进行网络搜索
+- `POST /tools/web/searxng_search/search` - 使用 SearXNG 进行网络搜索
+- `POST /tools/web/tavily_search/search` - 使用 Tavily 进行网络搜索
+- `POST /tools/web/scrapeless_search/search` - 使用 Scrapeless 进行网络搜索
+- `POST /tools/web/brightdata_search/search` - 使用 BrightData 进行网络搜索
 
 #### 日期时间工具
 
-- `POST /time/now` - 获取当前时间
-- `POST /time/convert` - 时区转换
+- `POST /tools/datetime/now` - 获取当前时间
+- `POST /tools/datetime/convert_timezone` - 时区转换
 
 #### 待办事项工具
 
-- `POST /todolist/update` - 更新待办事项列表
+- `POST /tools/todolist/update` - 更新待办事项列表
 
 #### 单位转换工具
 
-- `POST /unit/help` - 获取单位转换帮助信息
-- `POST /unit/list_conversions` - 列出可用的单位转换
-- `POST /unit/convert` - 执行单位转换
+- `POST /tools/unit_converter/help` - 获取单位转换帮助信息
+- `POST /tools/unit_converter/list_conversions` - 列出可用的单位转换
+- `POST /tools/unit_converter/convert` - 执行单位转换
+
+#### 文件系统工具
+
+- `POST /tools/filesystem/exists` - 检查路径是否存在
+- `POST /tools/filesystem/is_file` - 检查路径是否为文件
+- `POST /tools/filesystem/is_dir` - 检查路径是否为目录
+- `POST /tools/filesystem/list_dir` - 列出目录内容
+- `POST /tools/filesystem/create_file` - 创建文件
+- `POST /tools/filesystem/create_dir` - 创建目录
+- `POST /tools/filesystem/copy` - 复制文件或目录
+- `POST /tools/filesystem/move` - 移动文件或目录
+- `POST /tools/filesystem/delete` - 删除文件或目录
+- `POST /tools/filesystem/get_size` - 获取文件或目录大小
+- `POST /tools/filesystem/get_last_modified_time` - 获取最后修改时间
+- `POST /tools/filesystem/join_paths` - 拼接路径组件
+- `POST /tools/filesystem/get_absolute_path` - 获取绝对路径
+
+#### 文件操作工具
+
+- `POST /tools/file_ops/read_file` - 读取文件内容
+- `POST /tools/file_ops/write_file` - 写入文件内容
+- `POST /tools/file_ops/append_file` - 追加文件内容
+- `POST /tools/file_ops/search_files` - 搜索匹配模式的文件
+- `POST /tools/file_ops/replace_by_diff` - 使用 diff 替换内容
+- `POST /tools/file_ops/replace_by_git` - 使用 git 冲突标记替换内容
+- `POST /tools/file_ops/make_diff` - 生成内容差异
+- `POST /tools/file_ops/make_git_conflict` - 生成 git 冲突标记
+- `POST /tools/file_ops/validate_path` - 验证文件路径
 
 ## 认证
 
@@ -165,9 +193,9 @@ Authorization: Bearer your-valid-token
 
 ```bash
 # 为不同用户配置不同令牌
-curl -H "Authorization: Bearer token1" http://localhost:8000/calc/evaluate
-curl -H "Authorization: Bearer token2" http://localhost:8000/calc/evaluate
-curl -H "Authorization: Bearer token3" http://localhost:8000/calc/evaluate
+curl -H "Authorization: Bearer token1" http://localhost:8000/tools/calculator/evaluate
+curl -H "Authorization: Bearer token2" http://localhost:8000/tools/calculator/evaluate
+curl -H "Authorization: Bearer token3" http://localhost:8000/tools/calculator/evaluate
 ```
 
 ## 示例
@@ -176,17 +204,17 @@ curl -H "Authorization: Bearer token3" http://localhost:8000/calc/evaluate
 
 ```bash
 # 计算数学表达式
-curl -X POST "http://localhost:8000/calc/evaluate" \
+curl -X POST "http://localhost:8000/tools/calculator/evaluate" \
   -H "Content-Type: application/json" \
   -d '{"expression": "2 + 2 * 3"}'
 
 # 获取当前时间
-curl -X POST "http://localhost:8000/time/now" \
+curl -X POST "http://localhost:8000/tools/datetime/now" \
   -H "Content-Type: application/json" \
   -d '{}'
 
 # 使用 Brave 搜索
-curl -X POST "http://localhost:8000/web/search_brave" \
+curl -X POST "http://localhost:8000/tools/web/brave_search/search" \
   -H "Content-Type: application/json" \
   -d '{"query": "python programming", "max_results": 5}'
 ```
@@ -202,7 +230,7 @@ base_url = "http://localhost:8000"
 
 # 计算数学表达式
 response = requests.post(
-    f"{base_url}/calc/evaluate",
+    f"{base_url}/tools/calculator/evaluate",
     json={"expression": "2 + 2 * 3"}
 )
 result = response.json()
@@ -210,15 +238,15 @@ print(f"计算结果: {result['result']}")
 
 # 获取当前时间
 response = requests.post(
-    f"{base_url}/time/now",
+    f"{base_url}/tools/datetime/now",
     json={}
 )
 current_time = response.json()
 print(f"当前时间: {current_time['current_time']}")
 
-# 使用 Bing 搜索
+# 使用 Brave 搜索
 response = requests.post(
-    f"{base_url}/web/search_bing",
+    f"{base_url}/tools/web/brave_search/search",
     json={"query": "python programming", "max_results": 5}
 )
 search_results = response.json()
@@ -241,6 +269,77 @@ print(f"搜索结果: {json.dumps(search_results, indent=2)}")
   "detail": "错误描述信息"
 }
 ```
+
+## 工具配置
+
+服务器支持 JSONC（带注释的 JSON）配置文件，用于控制启动时加载哪些工具以及它们的行为。
+
+### 配置文件
+
+在工作目录中创建 `tools.jsonc` 文件，或指定自定义路径：
+
+```bash
+# 从工作目录自动发现
+cp tools.jsonc.example tools.jsonc
+
+# 或通过 CLI 选项指定
+toolregistry-server --tools-config path/to/tools.jsonc
+
+# 或通过环境变量指定
+TOOLS_CONFIG=path/to/tools.jsonc toolregistry-server
+```
+
+### 配置字段
+
+#### 模式与过滤
+
+`mode`、`disabled` 和 `enabled` 字段控制哪些已注册的工具处于活动状态：
+
+```jsonc
+{
+  // "denylist"（默认）：启用所有工具，除了 "disabled" 中列出的
+  // "allowlist"：仅启用 "enabled" 中列出的工具
+  "mode": "denylist",
+
+  // 拒绝列表模式 — 按命名空间禁用特定工具
+  "disabled": [
+    "filesystem",
+    "file_ops"
+  ]
+
+  // 允许列表模式 — 仅启用特定工具
+  // "enabled": ["calculator", "datetime", "unit_converter"]
+}
+```
+
+- **`mode`**：`"denylist"`（默认）或 `"allowlist"`
+- **`disabled`**：要禁用的工具命名空间列表（在 denylist 模式下使用）
+- **`enabled`**：要启用的工具命名空间列表（在 allowlist 模式下使用）
+
+#### 自定义工具注册列表
+
+`tools` 字段允许你自定义启动时注册哪些工具类。每个条目指定一个 Python 类的导入路径和命名空间：
+
+```jsonc
+{
+  "tools": [
+    {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
+    {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"},
+    // ... 根据需要添加或删除工具
+  ],
+  "mode": "denylist",
+  "disabled": ["filesystem", "file_ops"]
+}
+```
+
+- **`class`**：Python 类的完整导入路径（例如 `toolregistry_hub.calculator.Calculator`）
+- **`namespace`**：工具在注册表中的命名空间（例如 `calculator`、`web/brave_search`）
+
+如果省略 `tools` 字段，服务器将使用内置的默认工具列表（所有可用工具）。此字段适用于以下场景：
+
+- 添加自定义工具类而无需修改源代码
+- 移除不需要的工具以减少攻击面
+- 为特定用例重新排列工具顺序
 
 ## 环境变量
 
@@ -347,7 +446,7 @@ from toolregistry_hub.server.server_openapi import app
 client = TestClient(app)
 
 def test_calc_evaluate():
-    response = client.post("/calc/evaluate", json={"expression": "2 + 2"})
+    response = client.post("/tools/calculator/evaluate", json={"expression": "2 + 2"})
     assert response.status_code == 200
     assert response.json()["result"] == 4
 ```
