@@ -669,7 +669,7 @@ def _add_route(router: APIRouter, tool: Tool):
 **Strategy:** Two-phase migration:
 
 1. **Phase 5 (this phase):** Add auto-generated routes at `/tools/...` alongside existing hand-written routes. Both work simultaneously. Log deprecation warnings on old paths.
-2. **Phase 7 (cleanup):** Remove hand-written routes after a release cycle.
+2. **Phase 8 (cleanup):** Remove hand-written routes after a release cycle.
 
 In `server_core.py`:
 
@@ -704,21 +704,516 @@ def create_core_app(dependencies=None) -> FastAPI:
     auto_router = registry_to_router(registry, prefix="/tools")
     app.include_router(auto_router)
 
-    # Legacy hand-written routes (old paths, removed in Phase 7)
+    # Legacy hand-written routes (old paths, removed in Phase 8)
     for router in get_all_routers():
         app.include_router(router)
     ...
 ```
 
+
 ---
 
-## Phase 6 — Admin Panel (Deferred to Post-MVP)
+## Phase 6 — MCP Server Migration
+
+> **Predecessor:** Phase 5 (auto-route generation must be in place so all tools live in `ToolRegistry`)
+
+Replace the current FastMCP-based MCP server with a direct implementation using the official `mcp` SDK. This eliminates the static OpenAPI snapshot problem and removes the `fastmcp` dependency from hub server.
+
+#### Problem Statement
+
+`FastMCP.from_fastapi()` creates an `OpenAPIProvider` that takes a **static snapshot** of the OpenAPI spec at creation time:
+
+```python
+# Inside FastMCP.from_fastapi() — called once at startup
+provider = OpenAPIProvider(
+    openapi_spec=app.openapi(),  # snapshot!
+    client=httpx.AsyncClient(transport=httpx.ASGITransport(app=app)),
+)
+```
+
+This creates three synchronization issues:
+
+1. **Initially disabled tools are invisible to MCP**: `setup_dynamic_openapi()` filters disabled tools from `app.openapi()`. When `from_fastapi()` calls `app.openapi()`, disabled tools are already filtered out — they can never be re-enabled.
+2. **Runtime disable is inconsistent**: MCP `tools/list` still shows disabled tools (static snapshot), but calling them returns HTTP 503.
+3. **Runtime enable is invisible**: Newly enabled tools never appear in MCP because they were not in the snapshot.
+
+#### Root Cause Analysis
+
+The fundamental issue is the **unnecessary indirection** through OpenAPI:
+
+```
+Current:  ToolRegistry → FastAPI routes → OpenAPI spec → FastMCP parses spec → MCP tools
+```
+
+FastMCP's `from_fastapi()` does three things:
+1. Parses `app.openapi()` into `HTTPRoute` objects (~400 lines in `parse_openapi_to_http_routes`)
+2. Converts routes to `OpenAPITool` instances with HTTP request construction (~260 lines in `OpenAPITool.run()`)
+3. Wraps the official `mcp.server.lowlevel.Server` for transport
+
+Since we already have `ToolRegistry` with all tool metadata (name, description, parameters JSON Schema), we can **bypass the OpenAPI round-trip entirely** and register tools directly with the official MCP SDK.
+
+#### Recommended Approach: Direct ToolRegistry → MCP via Official SDK
+
+```
+Proposed: ToolRegistry → MCP tools directly (via official mcp SDK)
+                          ↓ tool calls go through HTTP to FastAPI (preserves auth/middleware)
+```
+
+```mermaid
+flowchart TD
+    subgraph Startup
+        A[build_registry] --> B[ToolRegistry with all tools + disable state]
+        B --> C1[OpenAPI mode: create_core_app with dynamic_openapi=true]
+        B --> C2[MCP mode: create_core_app + create_mcp_server]
+        C2 --> D[Register list_tools handler - reads from ToolRegistry dynamically]
+        C2 --> E[Register call_tool handler - executes via HTTP to FastAPI]
+    end
+
+    subgraph Runtime - list_tools
+        F[MCP Client requests tools/list] --> G[list_tools handler]
+        G --> H[Filter registry._tools by is_enabled]
+        H --> I[Return mcp.types.Tool list]
+    end
+
+    subgraph Runtime - call_tool
+        J[MCP Client calls tool] --> K[call_tool handler]
+        K --> L[HTTP POST /tools/namespace/method via ASGITransport]
+        L --> M[FastAPI endpoint - auth + is_enabled check + tool.run]
+        M --> N[Return result to MCP client]
+    end
+
+    subgraph Runtime - Enable/Disable
+        O[Admin calls registry.disable] --> P[Observer fires]
+        P --> Q[send_tools_list_changed notification]
+        Q --> R[MCP clients refresh tool list]
+    end
+```
+
+#### Why This Approach
+
+| Aspect | FastMCP approach | Official SDK approach |
+|--------|-----------------|----------------------|
+| Lines of code | ~1000+ (FastMCP internals) | ~150 (our code) |
+| Dependencies | `fastmcp` + `openapi-pydantic` | `mcp` (already a dep of toolregistry) |
+| Tool listing | Static snapshot → sync problem | Dynamic from ToolRegistry per request |
+| Tool execution | HTTP via ASGITransport | HTTP via ASGITransport (same) |
+| Enable/disable | Need FastMCP 3.0+ visibility API | Native — filter in `list_tools` handler |
+| Auth | `DebugTokenVerifier` (FastMCP-specific) | Starlette middleware or MCP SDK auth |
+| Transport | FastMCP wraps official SDK | Official SDK directly |
+| Maintenance | Tied to FastMCP releases (frequent breaks) | Tied to stable MCP SDK |
+
+Key advantages:
+- **No static snapshot problem** — `list_tools` reads from ToolRegistry on every call
+- **No name mapping complexity** — we control tool names directly
+- **No FastMCP version dependency** — eliminates the `fastmcp` dependency from hub server entirely
+- **Simpler architecture** — removes an entire layer of indirection
+
+#### Implementation Design
+
+### 6a. Observer Pattern on ToolRegistry (upstream change)
+
+Add a lightweight callback mechanism to `ToolRegistry.enable()` and `ToolRegistry.disable()`. This is a general-purpose enhancement — not MCP-specific. Can also be used for OpenAPI spec cache invalidation and `tools/list_changed` notifications.
+
+```python
+# In toolregistry/tool_registry.py
+
+class ToolRegistry:
+    def __init__(self, name=None):
+        ...
+        self._on_change_callbacks: List[Callable[[str, str, Optional[str]], None]] = []
+
+    def on_change(self, callback: Callable[[str, str, Optional[str]], None]) -> None:
+        """Register a callback for enable/disable state changes.
+
+        The callback receives (event_type, name, reason):
+        - event_type: 'enable' or 'disable'
+        - name: tool name or namespace that changed
+        - reason: disable reason (None for enable events)
+        """
+        self._on_change_callbacks.append(callback)
+
+    def remove_on_change(self, callback: Callable) -> None:
+        """Remove a previously registered callback."""
+        self._on_change_callbacks = [
+            cb for cb in self._on_change_callbacks if cb is not callback
+        ]
+
+    def disable(self, name: str, reason: str = "") -> None:
+        self._disabled[name] = reason
+        for cb in self._on_change_callbacks:
+            cb("disable", name, reason)
+
+    def enable(self, name: str) -> None:
+        self._disabled.pop(name, None)
+        for cb in self._on_change_callbacks:
+            cb("enable", name, None)
+```
+
+Files: `src/toolregistry/tool_registry.py`
+
+### 6b. MCP Server Core Rewrite (hub `server_mcp.py`)
+
+Replace the current `server_mcp.py` (which uses `FastMCP.from_fastapi()`) with a direct implementation using the official `mcp` SDK:
+
+- Use official `mcp` SDK (`mcp.server.lowlevel.Server`)
+- Implement `_slugify()` + name map for ToolRegistry → MCP name conversion
+- Implement dynamic `list_tools` handler (reads from ToolRegistry on every request)
+- Implement `call_tool` handler (executes via HTTP to FastAPI, preserving auth/middleware)
+
+```python
+# server/server_mcp.py
+"""MCP server implementation using official mcp SDK.
+
+Registers tools directly from ToolRegistry, executes via HTTP
+to the FastAPI app (preserving auth and middleware).
+"""
+
+import json
+import re
+from typing import Any, Optional, Sequence
+
+import httpx
+from loguru import logger
+from mcp.server.lowlevel import Server as MCPServer
+from mcp.types import (
+    CallToolResult,
+    TextContent,
+    Tool as MCPTool,
+)
+
+from toolregistry import ToolRegistry
+
+from .registry import get_registry
+from .server_core import create_core_app
+
+
+def _slugify(name: str) -> str:
+    """Convert a ToolRegistry tool name to an MCP-compatible name.
+
+    Replaces hyphens/dots/spaces with underscores, removes special chars,
+    collapses multiple underscores, truncates to 56 chars.
+    """
+    slug = re.sub(r"[\s\-\.]+", "_", name)
+    slug = re.sub(r"[^a-zA-Z0-9_]", "", slug)
+    slug = re.sub(r"_+", "_", slug)
+    slug = slug.strip("_")
+    return slug[:56]
+
+
+def _build_mcp_name_map(registry: ToolRegistry) -> dict[str, str]:
+    """Build bidirectional mapping: mcp_name → registry_tool_name."""
+    return {
+        _slugify(tool.name): tool.name
+        for tool in registry._tools.values()
+    }
+
+
+def create_mcp_server(
+    registry: Optional[ToolRegistry] = None,
+) -> tuple[MCPServer, httpx.AsyncClient]:
+    """Create an MCP server backed by ToolRegistry.
+
+    Returns:
+        Tuple of (MCP Server, httpx AsyncClient for cleanup)
+    """
+    if registry is None:
+        registry = get_registry()
+
+    # Create FastAPI app for HTTP backend (tool execution goes through HTTP)
+    fastapi_app = create_core_app()
+
+    # In-process HTTP client (no network, same process)
+    client = httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=fastapi_app),
+        base_url="http://localhost",
+    )
+
+    server = MCPServer(name="ToolRegistry-Hub MCP Server")
+
+    # --- list_tools handler ---
+    @server.list_tools()
+    async def list_tools() -> list[MCPTool]:
+        tools = []
+        for tool in registry._tools.values():
+            if not registry.is_enabled(tool.name):
+                continue
+            tools.append(MCPTool(
+                name=_slugify(tool.name),
+                description=tool.description or "",
+                inputSchema=tool.parameters or {"type": "object", "properties": {}},
+            ))
+        return tools
+
+    # --- call_tool handler ---
+    @server.call_tool()
+    async def call_tool(
+        name: str, arguments: dict[str, Any]
+    ) -> Sequence[TextContent]:
+        # Resolve MCP name → ToolRegistry name
+        name_map = _build_mcp_name_map(registry)
+        registry_name = name_map.get(name)
+
+        if registry_name is None:
+            return [TextContent(
+                type="text",
+                text=f"Unknown tool: {name}",
+            )]
+
+        tool = registry.get_tool(registry_name)
+        if tool is None:
+            return [TextContent(
+                type="text",
+                text=f"Tool not found: {registry_name}",
+            )]
+
+        if not registry.is_enabled(registry_name):
+            reason = registry.get_disable_reason(registry_name) or "disabled"
+            return [TextContent(
+                type="text",
+                text=f"Tool is disabled: {reason}",
+            )]
+
+        # Execute via HTTP to FastAPI (preserves auth, middleware)
+        path = f"/tools/{tool.namespace}/{tool.method_name}"
+        try:
+            response = await client.post(path, json=arguments)
+            if response.status_code == 503:
+                return [TextContent(
+                    type="text",
+                    text=f"Tool is disabled (HTTP 503)",
+                )]
+            response.raise_for_status()
+            result = response.json()
+            return [TextContent(
+                type="text",
+                text=json.dumps(result, ensure_ascii=False, indent=2),
+            )]
+        except httpx.HTTPStatusError as e:
+            return [TextContent(
+                type="text",
+                text=f"HTTP error {e.response.status_code}: {e.response.text}",
+            )]
+        except Exception as e:
+            return [TextContent(
+                type="text",
+                text=f"Error executing tool: {e}",
+            )]
+
+    # --- Register observer for tools/list_changed notifications ---
+    def _on_registry_change(
+        event_type: str, name: str, reason: Optional[str]
+    ) -> None:
+        # The official MCP SDK sends tools/list_changed via:
+        # server.request_context.session.send_tools_list_changed()
+        # This requires an active session context, which is only
+        # available during request handling. For now, the dynamic
+        # list_tools handler ensures clients always get the current
+        # state on their next tools/list call.
+        logger.debug(
+            f"Registry change: {event_type} {name}"
+            f"{f' reason={reason}' if reason else ''}"
+        )
+
+    registry.on_change(_on_registry_change)
+
+    return server, client
+```
+
+Files: `src/toolregistry_hub/server/server_mcp.py`
+
+### 6c. CLI + Transport Update (hub `cli.py`)
+
+Update MCP mode startup to use the new `create_mcp_server()`:
+
+```python
+# In cli.py — MCP mode
+
+from .server_mcp import create_mcp_server
+
+def run_mcp():
+    server, client = create_mcp_server()
+
+    # Use streamable-http transport (mounted on Starlette/ASGI)
+    # Or stdio for local usage
+    import anyio
+    from mcp.server.stdio import stdio_server
+
+    async def main():
+        async with stdio_server() as (read, write):
+            await server.run(read, write, server.create_initialization_options())
+
+    anyio.run(main)
+```
+
+For HTTP-based transport (streamable-http), the MCP server can be mounted as an ASGI app alongside the FastAPI app.
+
+Files: `src/toolregistry_hub/server/cli.py`
+
+### 6d. Auth Adaptation (hub `server/auth.py`)
+
+Migrate from FastMCP's `DebugTokenVerifier` to Starlette middleware:
+
+- **Tool execution auth**: Preserved — tool calls go through HTTP to FastAPI, which has its own auth middleware
+- **MCP transport auth**: For streamable-http, use Starlette middleware at the ASGI level. For stdio, auth is not applicable (local process)
+- **Token validation**: Reuse existing `auth.py` logic at the Starlette/ASGI layer
+
+Files: `src/toolregistry_hub/server/auth.py`
+
+### 6e. Dependency Changes + Testing
+
+#### Dependency Change
+
+```toml
+# hub/pyproject.toml — BEFORE
+server_mcp = [
+    "toolregistry>=0.4.14",
+    "fastapi>=0.119.0",
+    "fastmcp>=2.12.4; python_version >= '3.10'",
+]
+
+# hub/pyproject.toml — AFTER
+server_mcp = [
+    "toolregistry>=0.4.14",
+    "fastapi>=0.119.0",
+    "mcp>=1.8.0; python_version >= '3.10'",
+    "httpx>=0.28.1",
+]
+```
+
+`fastmcp` is completely removed from hub server dependencies. The `mcp` SDK is already a dependency of `toolregistry[mcp]`.
+
+#### Impact on Existing Code
+
+| File | Change | Scope |
+|------|--------|-------|
+| `toolregistry/tool_registry.py` | Add `on_change()`, `remove_on_change()`, fire callbacks in `enable()`/`disable()` | Upstream (toolregistry) |
+| `hub/server/server_mcp.py` | **Complete rewrite**: replace FastMCP with official `mcp` SDK | Hub |
+| `hub/server/cli.py` | Update MCP mode startup to use new `create_mcp_server()` | Hub |
+| `hub/pyproject.toml` | Replace `fastmcp` with `mcp` in `server_mcp` extra | Hub |
+| `hub/server/server_core.py` | No change needed (MCP mode no longer calls `create_core_app` differently) | None |
+| `hub/server/server_openapi.py` | No change | None |
+| `hub/server/mcp_sync.py` | **Not needed** — sync is built into the `list_tools` handler | Removed |
+
+#### Testing Strategy
+
+1. **Unit test**: Verify `_slugify()` produces correct MCP names for all tool names in the registry
+2. **Unit test**: Verify `list_tools` handler returns only enabled tools
+3. **Unit test**: Verify `call_tool` handler correctly routes to FastAPI endpoints
+4. **Unit test**: Verify observer callback fires on `registry.enable()`/`disable()`
+5. **Integration test**: Start MCP server (stdio), list tools, call a tool, verify result
+6. **Integration test**: Disable a tool, verify it disappears from `tools/list`
+
+#### Data Flow Diagram
+
+```mermaid
+sequenceDiagram
+    participant Client as MCP Client
+    participant MCP as MCP Server - official SDK
+    participant Registry as ToolRegistry
+    participant HTTP as httpx ASGITransport
+    participant FastAPI as FastAPI App
+
+    Note over Client, FastAPI: tools/list - Dynamic
+    Client->>MCP: tools/list
+    MCP->>Registry: iterate _tools, filter by is_enabled
+    Registry-->>MCP: enabled tools with metadata
+    MCP-->>Client: list of MCP Tool objects
+
+    Note over Client, FastAPI: call_tool - Via HTTP
+    Client->>MCP: call_tool name=calculator_add args=...
+    MCP->>MCP: resolve MCP name to registry name
+    MCP->>HTTP: POST /tools/calculator/add
+    HTTP->>FastAPI: ASGI in-process request
+    FastAPI->>FastAPI: auth check + is_enabled check
+    FastAPI->>FastAPI: tool.run with arguments
+    FastAPI-->>HTTP: JSON response
+    HTTP-->>MCP: response
+    MCP-->>Client: TextContent with result
+
+    Note over Client, FastAPI: Enable/Disable
+    Note right of Registry: Admin calls registry.disable
+    Registry->>Registry: _disabled[name] = reason
+    Registry->>MCP: observer callback fires
+    Note right of MCP: Next tools/list call returns updated list
+```
+
+#### Edge Cases and Considerations
+
+1. **Tool name collision**: `_slugify()` could map different tool names to the same MCP name. **Mitigation**: `_build_mcp_name_map()` would overwrite — add collision detection with warning log.
+
+2. **`tools/list_changed` notification**: The official MCP SDK supports `send_tools_list_changed()` but requires an active session context. The observer callback fires outside of a request context. **Mitigation**: For the initial implementation, rely on the dynamic `list_tools` handler — clients get the current state on every `tools/list` call. Push notifications can be added as a follow-up using the session-tracking pattern below.
+
+**Future `tools/list_changed` implementation path** (learned from `scitara-cto/dynamic-tool-mcp-server`):
+
+The scitara implementation demonstrates a clean pattern: track all active transports and send notifications directly:
+
+```javascript
+// scitara pattern (JS) — iterate all connected transports
+for (const transport of Object.values(transports)) {
+    await transport.send({
+        jsonrpc: "2.0",
+        method: "notifications/tools/list_changed",
+        params: {},
+    });
+}
+```
+
+Python adaptation for our design:
+
+```python
+# Track active sessions (populated when clients connect)
+_active_sessions: list = []
+
+def _on_registry_change(event_type, name, reason):
+    for session in _active_sessions:
+        asyncio.create_task(session.send_tools_list_changed())
+```
+
+The challenge: in the Python `mcp` SDK, `Server.run()` creates `ServerSession` internally. We'd need to either subclass `Server` to capture sessions, or use a post-connect hook. This is deferred to a follow-up enhancement.
+
+3. **HTTP round-trip overhead**: Tool calls go through in-process HTTP (ASGITransport). This adds minimal overhead (~1ms) but ensures consistent behavior with OpenAPI mode (same auth, middleware, error handling).
+
+4. **Auth for MCP transport**: `DebugTokenVerifier` is FastMCP-specific. Need to implement auth at the Starlette/ASGI level for streamable-http transport. For stdio transport, auth is not needed.
+
+5. **Structured content**: The official MCP SDK supports `structuredContent` in `CallToolResult`. The initial implementation returns `TextContent` with JSON. Structured content support can be added later.
+
+6. **Thread safety**: Same as before — `ToolRegistry._on_change_callbacks` is a plain list. Single-threaded access assumed.
+
+7. **Backward compatibility**: MCP tool names will change from FastMCP's slugification to our `_slugify()`. Since we control both, and the slugification logic is identical (copied from FastMCP), names should be the same. But this is a one-time migration — existing MCP clients may need to refresh their tool lists.
+
+#### Industry Validation
+
+Research into existing dynamic MCP tool management implementations validates our approach:
+
+**GitHub MCP Server** (`github/github-mcp-server`) — the most mature reference:
+- Uses `--dynamic-toolsets` flag to enable runtime tool discovery
+- Provides 3 meta-tools: `list_available_toolsets`, `get_toolset_tools`, `enable_toolset`
+- `enable_toolset` implementation: validates → sets `toolset.Enabled = true` → calls `server.AddTools()` to register with MCP server
+- **`tools/list_changed` notification is commented out** in their codebase (lines 52-55 of `dynamic_tools.go`), confirming this is still experimental even for GitHub
+- No `disable_toolset` tool exists — only enable is supported
+- Source: [`pkg/github/dynamic_tools.go`](https://github.com/github/github-mcp-server/blob/c38802ac/pkg/github/dynamic_tools.go)
+
+**scitara-cto/dynamic-tool-mcp-server** — simple test implementation:
+- Built-in `add_tool` meta-tool for runtime tool registration
+- After adding a tool, sends `tools/list_changed` notification
+- Clients respond by requesting updated tool list
+- Demonstrates the pattern works with SSE transport
+
+**Key takeaways that validate our design:**
+1. **Dynamic `list_tools` is the standard approach** — both implementations read current state on each call
+2. **`tools/list_changed` is optional** — even GitHub has it commented out; our deferred approach is correct
+3. **Direct tool registration** (not via OpenAPI) is the norm — GitHub uses `server.AddTools()`, we use `@server.list_tools()` handler
+4. **Our approach goes further** — we support both enable AND disable, while GitHub only supports enable
+
+---
+
+## Phase 7 — Admin Panel (Deferred)
 
 > **Issues:** [Oaklight/ToolRegistry#54](https://github.com/Oaklight/ToolRegistry/issues/54)
 
 > **Decision:** The admin panel (Phase 2e + Phase 5 in the original plan) is a significant feature with its own frontend. It is deferred to a follow-up iteration after the core auto-route system is validated. The enable/disable API (Phase 3) provides the foundation; the admin panel is a UI layer on top.
 
-### 6a. Execution Logging (Foundation)
+### 7a. Execution Logging (Foundation)
 
 Add lightweight per-call logging to `Executor`. Uses `loguru` already present.
 
@@ -737,7 +1232,7 @@ def get_execution_log(self) -> List[ExecutionLogEntry]: ...
 def clear_execution_log(self) -> None: ...
 ```
 
-### 6b. Admin Panel as `toolregistry[admin]` Optional Extra
+### 7b. Admin Panel as `toolregistry[admin]` Optional Extra
 
 The admin panel backend is a FastAPI mini-app that wraps any `ToolRegistry` instance. It belongs in `toolregistry` as a reusable optional extra.
 
@@ -760,7 +1255,7 @@ GET  /admin/state                     → export enable/disable state
 POST /admin/state                     → restore state
 ```
 
-### 6c. Admin Panel Frontend
+### 7c. Admin Panel Frontend
 
 Static HTML at `GET /admin/` — pure HTML + vanilla JS, no build toolchain.
 
@@ -795,9 +1290,49 @@ def create_core_app(...) -> FastAPI:
     app.mount("/admin", admin_app)
 ```
 
+### 7d. OpenAPI ETag Support
+
+Add ETag-based change detection to the `/openapi.json` endpoint, enabling clients to efficiently detect tool list changes.
+
+**Implementation:**
+
+1. **ETag header on `/openapi.json`**: Compute ETag from the hash of the OpenAPI spec content. Return it in the response `ETag` header.
+
+2. **Conditional request support**: Handle `If-None-Match` request header. If the client's ETag matches the current spec, return `304 Not Modified` (empty body, saving bandwidth).
+
+3. **`info.version` reflects tool list version**: Each `enable()`/`disable()` call increments a patch version counter (e.g., `0.1.0` → `0.1.1` → `0.1.2`). This version is embedded in the OpenAPI spec's `info.version` field, providing a second mechanism for clients to detect changes.
+
+```python
+# In server_openapi.py or server_core.py
+
+import hashlib
+
+def _compute_etag(spec: dict) -> str:
+    """Compute ETag from OpenAPI spec content."""
+    content = json.dumps(spec, sort_keys=True).encode()
+    return f'"{hashlib.sha256(content).hexdigest()[:16]}"'
+
+@app.get("/openapi.json")
+async def openapi_endpoint(request: Request):
+    spec = app.openapi()
+    etag = _compute_etag(spec)
+
+    # Conditional request: return 304 if unchanged
+    if_none_match = request.headers.get("if-none-match")
+    if if_none_match and if_none_match == etag:
+        return Response(status_code=304, headers={"ETag": etag})
+
+    return JSONResponse(content=spec, headers={"ETag": etag})
+```
+
+**Use cases:**
+- `toolregistry` client-side `refresh_from_openapi()` can use ETag to avoid re-parsing unchanged specs
+- MCP clients can poll `info.version` to detect changes without full spec download
+- Admin panel can use ETag for efficient state polling
+
 ---
 
-## Phase 7 — Cleanup and Migration
+## Phase 8 — Cleanup and Migration
 
 > **Issues:** [Oaklight/toolregistry-hub#32](https://github.com/Oaklight/toolregistry-hub/issues/32)
 
@@ -970,7 +1505,7 @@ mcp = ["mcp>=1.0.0"]   # official SDK only; fastmcp removed from [mcp] extra
 
 #### Hub Server Side (separate concern, cannot be done here)
 
-`toolregistry-hub`'s `server_mcp.py` uses `FastMCP.from_fastapi()` — there is no equivalent in the official SDK. This **cannot be replaced in this step**. After Phase 5 (auto-route), all hub tools live in `ToolRegistry` and the MCP server can be generated from the registry directly, eliminating the need for `from_fastapi()`. At that point, fastmcp can be removed from hub's server extras entirely.
+`toolregistry-hub`'s `server_mcp.py` uses `FastMCP.from_fastapi()` — there is no equivalent in the official SDK. This **cannot be replaced in this step**. After Phase 5 (auto-route), all hub tools live in `ToolRegistry` and the MCP server can be generated from the registry directly, eliminating the need for `from_fastapi()`. At that point, fastmcp can be removed from hub's server extras entirely (see Phase 6).
 
 #### Known Limitations & Follow-up
 
@@ -1016,24 +1551,144 @@ Files: `src/toolregistry/tool.py`, `src/toolregistry/types/anthropic/`, `src/too
 
 ---
 
+### Progressive Disclosure for MCP
+
+> **Note:** This is a separate feature from Phase 6 (MCP Server Migration). Enable/disable (Phase 6) is an **admin/permission concern** — "is this tool available?". Progressive disclosure is an **agent attention management concern** — "does the agent need to see this tool right now?". These are orthogonal.
+
+When a ToolRegistry has 30+ tools, exposing all of them in `tools/list` overwhelms the LLM's context window. Progressive disclosure lets the agent **explore tool groups on demand** instead of seeing everything at once.
+
+**How it works:**
+
+1. `tools/list` initially returns only two meta-tools: `list_tool_groups` and `inspect_tool_group`
+2. Agent calls `list_tool_groups()` → gets namespace summaries (name, description, tool count)
+3. Agent calls `inspect_tool_group("calculator")` → gets full tool definitions for that group
+4. After inspection, those tools appear in subsequent `tools/list` calls
+5. Agent can "release" a group to reduce its visible tool set
+
+**Implementation sketch (upstream ToolRegistry):**
+
+```python
+class ToolRegistry:
+    def __init__(self):
+        self._disclosed: Set[str] = set()  # namespaces agent has inspected
+        self._progressive_disclosure: bool = False  # opt-in flag
+
+    def list_tool_groups(self) -> List[dict]:
+        """List available tool groups with summary info."""
+        ...
+
+    def disclose_group(self, namespace: str) -> List[Tool]:
+        """Make a tool group visible in list_tools()."""
+        self._disclosed.add(namespace)
+        return [t for t in self._tools.values()
+                if t.namespace == namespace and self.is_enabled(t.name)]
+
+    def list_tools(self) -> List[str]:
+        if self._progressive_disclosure:
+            return [n for n, t in self._tools.items()
+                    if self.is_enabled(n) and t.namespace in self._disclosed]
+        return [n for n in self._tools if self.is_enabled(n)]
+```
+
+**Key distinction from GitHub's `enable_toolset`:**
+
+| Aspect | GitHub enable_toolset | Progressive Disclosure |
+|--------|----------------------|----------------------|
+| Semantics | Turn on this feature | Show me this group |
+| Agent role | Controller | Explorer |
+| Admin control | Mixed with agent | Orthogonal - enable/disable is admin-only |
+| Naming | enable/disable | discover/inspect/disclose |
+
+This feature requires upstream changes to `ToolRegistry` and is planned as a future independent enhancement.
+
+---
+
+### Remote Tool Source Refresh
+
+Client-side methods in `toolregistry` for detecting and refreshing tool definitions from remote sources (OpenAPI or MCP servers).
+
+**Key methods:**
+
+- `refresh_from_openapi(url)` — re-fetch OpenAPI spec and update registered tools
+- `refresh_from_mcp(source)` — re-list MCP tools and update registered tools
+- Support ETag conditional requests to avoid unnecessary re-parsing (depends on Phase 7d for Hub-side ETag support)
+- Optional background polling with configurable interval
+
+**Implementation sketch:**
+
+```python
+class ToolRegistry:
+    def refresh_from_openapi(self, url: str, *, headers: dict = None) -> bool:
+        """Re-fetch OpenAPI spec and update tools. Returns True if changed."""
+        response = httpx.get(url, headers={
+            "If-None-Match": self._openapi_etag or "",
+            **(headers or {}),
+        })
+        if response.status_code == 304:
+            return False  # unchanged
+        self._openapi_etag = response.headers.get("etag")
+        # Re-register tools from new spec...
+        return True
+
+    async def refresh_from_mcp(self, source) -> bool:
+        """Re-list MCP tools and update. Returns True if changed."""
+        async with MCPClient(source) as client:
+            new_tools = await client.list_tools()
+            # Compare with current tools, update if changed...
+            return True
+```
+
+**Dependencies:** Phase 7d (Hub-side ETag support) for efficient OpenAPI refresh.
+
+---
+
+### Connection Pooling Optimization
+
+Low-priority performance optimization for persistent connections to remote tool sources.
+
+**OpenAPI:** Hold a long-lived `httpx.Client` instance for connection pool reuse when making repeated requests to the same OpenAPI server.
+
+**MCP:** Maintain a background async event loop with a persistent MCP session (`PersistentMCPSession`) to avoid reconnection overhead on each tool call.
+
+```python
+class PersistentMCPSession:
+    """Maintains a long-lived MCP session for connection reuse."""
+    def __init__(self, source):
+        self._source = source
+        self._client: Optional[MCPClient] = None
+
+    async def ensure_connected(self):
+        if self._client is None:
+            self._client = MCPClient(self._source)
+            await self._client.__aenter__()
+
+    async def call_tool(self, name, arguments):
+        await self.ensure_connected()
+        return await self._client.call_tool(name, arguments)
+```
+
+This is a low-priority optimization — the current per-call connection pattern works correctly, just with slightly higher latency for remote sources.
+
+---
+
 ## Summary of Changes by Repository
 
 ### `toolregistry`
 
 | File | Change | Phase |
 |------|--------|-------|
-| `pyproject.toml` | Remove `hub` optional dep; add `admin` optional extra (Phase 6) | 1 ✅, 6 |
+| `pyproject.toml` | Remove `hub` optional dep; add `admin` optional extra (Phase 7) | 1 ✅, 7 |
 | `src/toolregistry/tool.py` | Add `namespace`, `method_name` fields | 2a ✅ |
 | `src/toolregistry/native/integration.py` | Populate `namespace` and `method_name` on Tool; fix inherited static method registration | 2a ✅, 2b ✅ |
-| `src/toolregistry/tool_registry.py` | Add `disable()`, `enable()`, `is_enabled()`, `get_disable_reason()`, `list_all_tools()`; update `get_tools_json()` and `list_tools()` to filter disabled; fix `_update_sub_registries()` | 2a ✅, 3 ✅ |
-| `src/toolregistry/executor.py` | Check `is_enabled()` before execution; add execution logging | 3 ✅, 6a |
+| `src/toolregistry/tool_registry.py` | Add `disable()`, `enable()`, `is_enabled()`, `get_disable_reason()`, `list_all_tools()`; update `get_tools_json()` and `list_tools()` to filter disabled; fix `_update_sub_registries()`; add `on_change()`/`remove_on_change()` observer | 2a ✅, 3 ✅, 6a |
+| `src/toolregistry/executor.py` | Check `is_enabled()` before execution; add execution logging | 3 ✅, 7a |
 | `src/toolregistry/mcp/client.py` | New: single-file stable MCP client adapter | Independent ✅ |
 | `src/toolregistry/mcp/compat.py` | New: v1/v2 兼容层（集中导入 + camelCase↔snake_case 辅助） | Independent |
 | `src/toolregistry/mcp/integration.py` | Switch from fastmcp.client to MCPClient; camelCase 属性改为双重兼容 | Independent ✅ |
 | `src/toolregistry/mcp/utils.py` | Deleted: all functionality migrated to MCPClient | Independent ✅ |
 | `src/toolregistry/types/anthropic/` | Anthropic schema helpers | Independent |
 | `src/toolregistry/types/gemini/` | Gemini schema helpers | Independent |
-| `src/toolregistry/admin/` | New package: admin panel (deferred) | 6 |
+| `src/toolregistry/admin/` | New package: admin panel (deferred) | 7 |
 
 ### `toolregistry-hub`
 
@@ -1049,16 +1704,19 @@ Files: `src/toolregistry/tool.py`, `src/toolregistry/types/anthropic/`, `src/too
 | `src/.../server/registry.py` | New: `build_registry(tool_kwargs)` + `get_registry()` with `Configurable` check | 4d ✅ |
 | `src/.../server/autoroute.py` | New: `registry_to_router()` + `_schema_to_pydantic()` | 5b, 5c |
 | `src/.../server/server_core.py` | Add registry-driven routing alongside legacy routes | 5e |
+| `src/.../server/server_mcp.py` | Complete rewrite: replace FastMCP with official `mcp` SDK, direct ToolRegistry → MCP | 6b |
+| `src/.../server/cli.py` | Update MCP mode startup to use new `create_mcp_server()` | 6c |
+| `src/.../server/auth.py` | Migrate from FastMCP `DebugTokenVerifier` to Starlette middleware | 6d |
 | `src/.../server/mcp_compat.py` | New: 集中 FastMCP/DebugTokenVerifier 导入，为 v2 迁移做准备 | Independent |
-| `src/.../server/routes/*.py` | Removed in Phase 7 | 7 |
-| `src/.../server/routes/__init__.py` | Remove `discover_routers()` in Phase 7 | 7 |
+| `src/.../server/routes/*.py` | Removed in Phase 8 | 8 |
+| `src/.../server/routes/__init__.py` | Remove `discover_routers()` in Phase 8 | 8 |
 
 ---
 
 ## Implementation Order
 
 ```
-Phase 1  — Dependency restructuring (unblocks everything)
+Phase 1  — Dependency restructuring (unblocks everything)  ✅
   │
 Phase 2  — Tool.namespace + Tool.method_name + inherited static methods fix  ✅
   │         (foundation for auto-route and is_enabled)
@@ -1071,18 +1729,29 @@ Phase 4  — requires_env decorator + Configurable protocol + graceful websearch
   │
 Phase 5  — Auto-route generator + backward-compatible migration
   │         (hub-side, depends on Phase 4)
+  │         5a-5e: URL paths, schema conversion, route generation, migration
   │
-Phase 6  — Admin panel (deferred, can be done after Phase 5 is stable)
-  │         6a: execution logging
-  │         6b: admin backend
-  │         6c: admin frontend
+Phase 6  — MCP Server Migration (depends on Phase 5 + upstream observer)
+  │         6a: observer pattern on ToolRegistry (upstream)
+  │         6b: MCP server core rewrite (hub server_mcp.py)
+  │         6c: CLI + transport update (hub cli.py)
+  │         6d: auth adaptation (hub auth.py)
+  │         6e: dependency changes + testing
   │
-Phase 7  — Cleanup: remove hand-written routes (after migration period)
+Phase 7  — Admin panel (deferred, can be done after Phase 5 is stable)
+  │         7a: execution logging
+  │         7b: admin backend
+  │         7c: admin frontend
+  │         7d: OpenAPI ETag support
+  │
+Phase 8  — Cleanup: remove hand-written routes (after migration period)
 
 Independent: Anthropic/Gemini schema formats (any time)
 Independent: MCP client decoupling — toolregistry[mcp] (any time, no phase dependency) ✅
 Independent: MCP SDK v2 迁移准备 — compat 层 + 版本上界 (any time, zero risk)
-Independent: Hub MCP server migration — remove FastMCP.from_fastapi() (after Phase 5)
+Independent: Progressive Disclosure for MCP (upstream ToolRegistry, after Phase 6)
+Independent: Remote Tool Source Refresh (depends on Phase 7d for ETag support)
+Independent: Connection Pooling Optimization (low priority, any time)
 ```
 
 ### Risk Mitigation
@@ -1095,5 +1764,8 @@ Independent: Hub MCP server migration — remove FastMCP.from_fastapi() (after P
 | `Calculator` inherited methods | Phase 2b: verify and fix MRO traversal in `_register_static_methods` |
 | `normalize_tool_name` inconsistency in disable/enable | Phase 3a: use raw names, not normalized |
 | fastmcp client API instability | Independent: single-file adapter in `mcp/client.py` isolates changes |
-| fastmcp server API instability | After Phase 5: replace `from_fastapi()` with ToolRegistry-driven MCP server |
+| fastmcp server API instability | Phase 6: replace `from_fastapi()` with ToolRegistry-driven MCP server |
+| MCP tool name slugification mismatch | Phase 6b: `_slugify()` is simple and under our control; integration tests verify |
+| MCP enable/disable state drift | Phase 6b: dynamic `list_tools` handler reads from ToolRegistry on every call — no drift possible |
+| FastMCP dependency instability | Phase 6e: eliminate `fastmcp` from hub server entirely; use official `mcp` SDK |
 | MCP SDK v2 breaking changes | Independent: compat 层 + `<3.0.0` 版本上界 + camelCase↔snake_case 双重兼容 |
