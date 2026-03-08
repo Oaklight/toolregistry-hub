@@ -131,14 +131,14 @@ timeout=30.0
 
 ```
 
-POST /web/search_brightdata_google
+POST /tools/web/brightdata_search/search
 
 ````
 
 #### Request Example
 
 ```bash
-curl -X POST "http://localhost:8000/web/search_brightdata_google" \
+curl -X POST "http://localhost:8000/tools/web/brightdata_search/search" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your_auth_token" \
   -d '{

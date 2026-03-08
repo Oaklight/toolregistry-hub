@@ -85,37 +85,65 @@ In OpenAPI mode, all tools are provided as REST API endpoints. After starting th
 
 #### Calculator Tools
 
-- `POST /calc/help` - Get help information for specific calculator functions
-- `POST /calc/allowed_fns` - Get list of allowed calculator functions
-- `POST /calc/evaluate` - Evaluate mathematical expressions
+- `POST /tools/calculator/help` - Get help information for specific calculator functions
+- `POST /tools/calculator/list_allowed_fns` - Get list of allowed calculator functions
+- `POST /tools/calculator/evaluate` - Evaluate mathematical expressions
 
 #### Think Tool
 
-- `POST /think` - Process thinking requests
+- `POST /tools/think/think` - Process thinking requests
 
 #### Web Tools
 
-- `POST /web/fetch_webpage` - Extract content from webpages
-- `POST /web/search_brave` - Search the web using Brave
-- `POST /web/search_searxng` - Search the web using SearXNG
-- `POST /web/search_tavily` - Search the web using Tavily
-- `POST /web/search_scrapeless` - Search the web using Scrapeless
-- `POST /web/search_brightdata` - Search the web using BrightData
+- `POST /tools/web/fetch/fetch_content` - Extract content from webpages
+- `POST /tools/web/brave_search/search` - Search the web using Brave
+- `POST /tools/web/searxng_search/search` - Search the web using SearXNG
+- `POST /tools/web/tavily_search/search` - Search the web using Tavily
+- `POST /tools/web/scrapeless_search/search` - Search the web using Scrapeless
+- `POST /tools/web/brightdata_search/search` - Search the web using BrightData
 
 #### Date Time Tools
 
-- `POST /time/now` - Get current time
-- `POST /time/convert` - Convert time zones
+- `POST /tools/datetime/now` - Get current time
+- `POST /tools/datetime/convert_timezone` - Convert time zones
 
 #### Todo List Tool
 
-- `POST /todolist/update` - Update todo list
+- `POST /tools/todolist/update` - Update todo list
 
 #### Unit Converter Tool
 
-- `POST /unit/help` - Get unit conversion help information
-- `POST /unit/list_conversions` - List available unit conversions
-- `POST /unit/convert` - Perform unit conversion
+- `POST /tools/unit_converter/help` - Get unit conversion help information
+- `POST /tools/unit_converter/list_conversions` - List available unit conversions
+- `POST /tools/unit_converter/convert` - Perform unit conversion
+
+#### Filesystem Tools
+
+- `POST /tools/filesystem/exists` - Check if a path exists
+- `POST /tools/filesystem/is_file` - Check if a path is a file
+- `POST /tools/filesystem/is_dir` - Check if a path is a directory
+- `POST /tools/filesystem/list_dir` - List directory contents
+- `POST /tools/filesystem/create_file` - Create a file
+- `POST /tools/filesystem/create_dir` - Create a directory
+- `POST /tools/filesystem/copy` - Copy a file or directory
+- `POST /tools/filesystem/move` - Move a file or directory
+- `POST /tools/filesystem/delete` - Delete a file or directory
+- `POST /tools/filesystem/get_size` - Get file or directory size
+- `POST /tools/filesystem/get_last_modified_time` - Get last modified time
+- `POST /tools/filesystem/join_paths` - Join path components
+- `POST /tools/filesystem/get_absolute_path` - Get absolute path
+
+#### File Operations Tools
+
+- `POST /tools/file_ops/read_file` - Read file content
+- `POST /tools/file_ops/write_file` - Write content to a file
+- `POST /tools/file_ops/append_file` - Append content to a file
+- `POST /tools/file_ops/search_files` - Search for files matching a pattern
+- `POST /tools/file_ops/replace_by_diff` - Replace content using diff
+- `POST /tools/file_ops/replace_by_git` - Replace content using git conflict markers
+- `POST /tools/file_ops/make_diff` - Generate a diff between contents
+- `POST /tools/file_ops/make_git_conflict` - Generate git conflict markers
+- `POST /tools/file_ops/validate_path` - Validate a file path
 
 ## Authentication
 
@@ -165,9 +193,9 @@ Multiple token configuration is particularly suitable for multi-user scenarios, 
 
 ```bash
 # Different users using different tokens
-curl -H "Authorization: Bearer token1" http://localhost:8000/calc/evaluate
-curl -H "Authorization: Bearer token2" http://localhost:8000/calc/evaluate
-curl -H "Authorization: Bearer token3" http://localhost:8000/calc/evaluate
+curl -H "Authorization: Bearer token1" http://localhost:8000/tools/calculator/evaluate
+curl -H "Authorization: Bearer token2" http://localhost:8000/tools/calculator/evaluate
+curl -H "Authorization: Bearer token3" http://localhost:8000/tools/calculator/evaluate
 ```
 
 ## Examples
@@ -176,17 +204,17 @@ curl -H "Authorization: Bearer token3" http://localhost:8000/calc/evaluate
 
 ```bash
 # Calculate mathematical expression
-curl -X POST "http://localhost:8000/calc/evaluate" \
+curl -X POST "http://localhost:8000/tools/calculator/evaluate" \
   -H "Content-Type: application/json" \
   -d '{"expression": "2 + 2 * 3"}'
 
 # Get current time
-curl -X POST "http://localhost:8000/time/now" \
+curl -X POST "http://localhost:8000/tools/datetime/now" \
   -H "Content-Type: application/json" \
   -d '{}'
 
 # Search using Brave
-curl -X POST "http://localhost:8000/web/search_brave" \
+curl -X POST "http://localhost:8000/tools/web/brave_search/search" \
   -H "Content-Type: application/json" \
   -d '{"query": "python programming", "max_results": 5}'
 ```
@@ -202,7 +230,7 @@ base_url = "http://localhost:8000"
 
 # Calculate mathematical expression
 response = requests.post(
-    f"{base_url}/calc/evaluate",
+    f"{base_url}/tools/calculator/evaluate",
     json={"expression": "2 + 2 * 3"}
 )
 result = response.json()
@@ -210,7 +238,7 @@ print(f"Calculation result: {result['result']}")
 
 # Get current time
 response = requests.post(
-    f"{base_url}/time/now",
+    f"{base_url}/tools/datetime/now",
     json={}
 )
 current_time = response.json()
@@ -218,7 +246,7 @@ print(f"Current time: {current_time['current_time']}")
 
 # Search using Brave
 response = requests.post(
-    f"{base_url}/web/search_brave",
+    f"{base_url}/tools/web/brave_search/search",
     json={"query": "python programming", "max_results": 5}
 )
 search_results = response.json()
@@ -241,6 +269,77 @@ Error response format is as follows:
   "detail": "Error description message"
 }
 ```
+
+## Tool Configuration
+
+The server supports a JSONC (JSON with Comments) configuration file to control which tools are loaded and how they behave at startup.
+
+### Configuration File
+
+Create a `tools.jsonc` file in the working directory, or specify a custom path:
+
+```bash
+# Auto-discovered from working directory
+cp tools.jsonc.example tools.jsonc
+
+# Or specify via CLI option
+toolregistry-server --tools-config path/to/tools.jsonc
+
+# Or specify via environment variable
+TOOLS_CONFIG=path/to/tools.jsonc toolregistry-server
+```
+
+### Configuration Fields
+
+#### Mode and Filtering
+
+The `mode`, `disabled`, and `enabled` fields control which registered tools are active:
+
+```jsonc
+{
+  // "denylist" (default): all tools enabled except those in "disabled"
+  // "allowlist": only tools in "enabled" are active
+  "mode": "denylist",
+
+  // Denylist mode — disable specific tools by namespace
+  "disabled": [
+    "filesystem",
+    "file_ops"
+  ]
+
+  // Allowlist mode — enable only specific tools
+  // "enabled": ["calculator", "datetime", "unit_converter"]
+}
+```
+
+- **`mode`**: Either `"denylist"` (default) or `"allowlist"`
+- **`disabled`**: List of tool namespaces to disable (used in denylist mode)
+- **`enabled`**: List of tool namespaces to enable (used in allowlist mode)
+
+#### Custom Tool Registration List
+
+The `tools` field allows you to customize which tool classes are registered at startup. Each entry specifies a Python class import path and a namespace:
+
+```jsonc
+{
+  "tools": [
+    {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
+    {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"},
+    // ... add or remove tools as needed
+  ],
+  "mode": "denylist",
+  "disabled": ["filesystem", "file_ops"]
+}
+```
+
+- **`class`**: Fully qualified Python class path (e.g., `toolregistry_hub.calculator.Calculator`)
+- **`namespace`**: Namespace for the tool in the registry (e.g., `calculator`, `web/brave_search`)
+
+If the `tools` field is omitted, the server uses the built-in default tool list (all available tools). This field is useful when you want to:
+
+- Add custom tool classes without modifying source code
+- Remove tools you don't need to reduce the attack surface
+- Reorder tools for specific use cases
 
 ## Environment Variables
 
@@ -347,7 +446,7 @@ from toolregistry_hub.server.server_openapi import app
 client = TestClient(app)
 
 def test_calc_evaluate():
-    response = client.post("/calc/evaluate", json={"expression": "2 + 2"})
+    response = client.post("/tools/calculator/evaluate", json={"expression": "2 + 2"})
     assert response.status_code == 200
     assert response.json()["result"] == 4
 ```
