@@ -1365,7 +1365,7 @@ Once auto-route is validated end-to-end (at least one release cycle after Phase 
 - `build_registry()` uses `rsplit("/", 1)[-1]` for `tool_kwargs` lookup, so users can still pass `{"brave_search": {"api_keys": "..."}}` without the `web/` prefix
 - All 418 tests pass
 
-**Note on `ALL_TOOLS` manual registration:** The `ALL_TOOLS` list in `registry.py` still requires manual addition of new tool classes. A future enhancement could auto-discover tool classes via entry points, decorators, or package scanning to eliminate this manual step.
+**Note on `ALL_TOOLS` manual registration:** ~~The `ALL_TOOLS` list in `registry.py` still requires manual addition of new tool classes.~~ This has been resolved by the "Externalize ALL_TOOLS to JSONC Configuration" enhancement — tool classes can now be added/removed via the `tools.jsonc` config file without modifying Python source code. See the Independent Enhancements section for details.
 
 ---
 
@@ -1789,14 +1789,14 @@ Runtime override:  Admin API can enable/disable at any time
 | `src/.../websearch/base.py` | Add `is_configured()` default implementation | 4c ✅ |
 | `src/.../websearch/websearch_searxng.py` | Override `is_configured()` for URL-based config | 4c ✅ |
 | `src/.../websearch/*.py` | Add `@requires_env(...)` to each search engine class | 4a ✅ |
-| `src/.../server/registry.py` | New: `build_registry(tool_kwargs)` + `get_registry()` with `Configurable` check | 4d ✅ |
+| `src/.../server/registry.py` | New: `build_registry(tool_kwargs)` + `get_registry()` with `Configurable` check; externalized `ALL_TOOLS` to `_DEFAULT_TOOLS` with dynamic import | 4d ✅, Independent ✅ |
 | `src/.../server/autoroute.py` | New: `registry_to_router()` + `_schema_to_pydantic()` | 5b, 5c |
 | `src/.../server/server_core.py` | Add registry-driven routing alongside legacy routes | 5e |
 | `src/.../server/server_mcp.py` | Complete rewrite: replace FastMCP with official `mcp` SDK, direct ToolRegistry → MCP | 6b |
 | `src/.../server/cli.py` | Update MCP mode startup to use new `create_mcp_server()` | 6c |
 | `src/.../server/auth.py` | Migrate from FastMCP `DebugTokenVerifier` to Starlette middleware | 6d |
 | `src/.../server/mcp_compat.py` | New: 集中 FastMCP/DebugTokenVerifier 导入，为 v2 迁移做准备 | Independent |
-| `src/.../server/tool_config.py` | New: JSONC parser, `ToolConfig` dataclass, `load_tool_config()`, `apply_tool_config()` | Independent |
+| `src/.../server/tool_config.py` | New: JSONC parser, `ToolConfig`/`ToolEntry` dataclasses, `load_tool_config()`, `apply_tool_config()` | Independent ✅ |
 | `src/.../server/routes/*.py` | Removed in Phase 8 | 8 ✅ |
 | `src/.../server/routes/__init__.py` | Remove `discover_routers()` in Phase 8 | 8 ✅ |
 
@@ -1841,7 +1841,8 @@ Independent: MCP SDK v2 迁移准备 — compat 层 + 版本上界 (any time, ze
 Independent: Progressive Disclosure for MCP (upstream ToolRegistry, after Phase 6)
 Independent: Remote Tool Source Refresh (depends on Phase 7d for ETag support)
 Independent: Connection Pooling Optimization (low priority, any time)
-Independent: Startup Tool Configuration (JSONC) — depends on Phase 4 only
+Independent: Startup Tool Configuration (JSONC) — depends on Phase 4 only ✅
+Independent: Externalize ALL_TOOLS to JSONC Configuration — depends on Startup Tool Configuration ✅
 ```
 
 ### Risk Mitigation
@@ -1860,9 +1861,11 @@ Independent: Startup Tool Configuration (JSONC) — depends on Phase 4 only
 | FastMCP dependency instability | Phase 6e: eliminate `fastmcp` from hub server entirely; use official `mcp` SDK |
 | MCP SDK v2 breaking changes | Independent: compat 层 + `<3.0.0` 版本上界 + camelCase↔snake_case 双重兼容 |
 
-### Externalize ALL_TOOLS to JSONC Configuration
+### Externalize ALL_TOOLS to JSONC Configuration ✅
 
-> **Issues:** [Oaklight/toolregistry-hub#41](https://github.com/Oaklight/toolregistry-hub/issues/41)
+> **Issues:** [Oaklight/toolregistry-hub#41](https://github.com/Oaklight/toolregistry-hub/issues/41) ✅
+>
+> **PR:** [Oaklight/toolregistry-hub#42](https://github.com/Oaklight/toolregistry-hub/pull/42) ✅ (merged)
 
 Externalize the hardcoded `ALL_TOOLS` list in `registry.py` to the existing `tools.jsonc` configuration file. This allows adding/removing tools by editing a config file instead of modifying Python source code.
 
@@ -1925,3 +1928,15 @@ def _import_class(class_path: str) -> Type:
 | `tools.jsonc.example` | Update with `tools` field example |
 | `tests/test_tool_config.py` | Add tests for `tools` field parsing |
 | `tests/test_registry.py` | Add tests for dynamic import and config-driven registration |
+
+**Completion notes:**
+
+- Replaced hardcoded `ALL_TOOLS: List[Tuple[Type, str]]` with `_DEFAULT_TOOLS: List[Dict[str, str]]` in `registry.py`, using `{"class": "dotted.path", "namespace": "ns"}` dict format
+- Added `_import_class()` function for dynamic class import from dotted path strings
+- Added `ToolEntry` dataclass to `tool_config.py` with `class_path` and `namespace` fields
+- Extended `ToolConfig` dataclass with optional `tools: Optional[List[ToolEntry]]` field
+- `load_tool_config()` now parses the `tools` field from JSONC, with validation and graceful handling of invalid entries (warnings logged, entries skipped)
+- `build_registry()` loads config early and uses `config.tools` if present, otherwise falls back to `_DEFAULT_TOOLS`
+- Updated `tools.jsonc.example` with full `tools` field listing all default tools
+- Added tests in `test_tool_config.py`: `tools` field parsing, absent field, non-list field, invalid entries, empty list
+- Added tests in `test_registry.py`: `TestImportClass` (known class, nested class, nonexistent module/class), `TestBuildRegistryWithToolsConfig` (config-driven list, absent tools uses defaults, invalid class skipped gracefully)
