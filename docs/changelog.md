@@ -14,21 +14,35 @@ author: Oaklight
 
 ### 新功能
 
+- **启动工具配置文件（JSONC）** ([#37](https://github.com/Oaklight/toolregistry-hub/issues/37), [#38](https://github.com/Oaklight/toolregistry-hub/pull/38))
+    - 支持 JSONC（带注释的 JSON）配置文件，用于声明式指定服务器启动时加载的工具
+    - 新增 `tool_config.py` 模块，包含 JSONC 解析器和工具配置加载器
+    - 添加 `--tools-config` CLI 选项，用于指定配置文件路径
+    - 提供 `tools.jsonc.example` 作为带文档说明的示例配置
+    - 优雅降级：未指定配置文件时加载所有工具
+
+- **从 ToolRegistry 自动生成路由** ([#31](https://github.com/Oaklight/toolregistry-hub/issues/31), [#36](https://github.com/Oaklight/toolregistry-hub/pull/36))
+    - 新增 `autoroute.py` 模块，从 ToolRegistry 中注册的工具自动生成 FastAPI 路由
+    - 内省 ToolRegistry 中注册的工具，自动生成端点处理器
+    - 消除手写路由样板代码的需要
+    - 将自动路由集成到服务器启动流程，支持回退到手动路由
+    - 添加自动路由功能的全面测试
+
 - **工具环境需求声明与中央注册表** ([#30](https://github.com/Oaklight/toolregistry-hub/issues/30), [#35](https://github.com/Oaklight/toolregistry-hub/pull/35))
-	- 添加 `@requires_env` 装饰器，用于声明工具类所需的环境变量
-	- 添加 `Configurable` 协议，提供 `is_configured()` 方法用于实例状态就绪检查（结构化子类型）
-	- 添加 `build_registry()` / `get_registry()` 中央注册表，自动禁用未配置的工具
-	- 将 `APIKeyParser` 和 `SearXNGSearch` 验证延迟到调用时，允许在无环境变量时正常初始化
+    - 添加 `@requires_env` 装饰器，用于声明工具类所需的环境变量
+    - 添加 `Configurable` 协议，提供 `is_configured()` 方法用于实例状态就绪检查（结构化子类型）
+    - 添加 `build_registry()` / `get_registry()` 中央注册表，自动禁用未配置的工具
+    - 将 `APIKeyParser` 和 `SearXNGSearch` 验证延迟到调用时，允许在无环境变量时正常初始化
 
 ### 重构
 
 - **移除 BingSearch** ([#34](https://github.com/Oaklight/toolregistry-hub/pull/34))
-	- 移除已弃用的 `BingSearch` 类、服务器路由及相关测试
-	- 重写和现代化剩余搜索引擎的测试套件
+    - 移除已弃用的 `BingSearch` 类、服务器路由及相关测试
+    - 重写和现代化剩余搜索引擎的测试套件
 
 - **重构服务器可选依赖** ([#29](https://github.com/Oaklight/toolregistry-hub/issues/29), [#33](https://github.com/Oaklight/toolregistry-hub/pull/33))
-	- 在 `server_openapi` 和 `server_mcp` extras 中添加 `toolregistry>=0.4.14`
-	- 重构 `server` extra 使用自引用组合
+    - 在 `server_openapi` 和 `server_mcp` extras 中添加 `toolregistry>=0.4.14`
+    - 重构 `server` extra 使用自引用组合
 
 ## [0.5.6] - 2026-03-05
 
