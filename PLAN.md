@@ -1859,3 +1859,69 @@ Independent: Startup Tool Configuration (JSONC) — depends on Phase 4 only
 | MCP enable/disable state drift | Phase 6b: dynamic `list_tools` handler reads from ToolRegistry on every call — no drift possible |
 | FastMCP dependency instability | Phase 6e: eliminate `fastmcp` from hub server entirely; use official `mcp` SDK |
 | MCP SDK v2 breaking changes | Independent: compat 层 + `<3.0.0` 版本上界 + camelCase↔snake_case 双重兼容 |
+
+### Externalize ALL_TOOLS to JSONC Configuration
+
+> **Issues:** [Oaklight/toolregistry-hub#41](https://github.com/Oaklight/toolregistry-hub/issues/41)
+
+Externalize the hardcoded `ALL_TOOLS` list in `registry.py` to the existing `tools.jsonc` configuration file. This allows adding/removing tools by editing a config file instead of modifying Python source code.
+
+**Dependencies:** Startup Tool Configuration (JSONC) must be in place (already merged).
+
+#### Configuration Format
+
+Extend `tools.jsonc` with an optional `tools` field:
+
+```jsonc
+{
+  // Tool registration list (optional — if absent, uses built-in defaults)
+  "tools": [
+    {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
+    {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"},
+    {"class": "toolregistry_hub.fetch.Fetch", "namespace": "fetch"},
+    {"class": "toolregistry_hub.filesystem.FileSystem", "namespace": "filesystem"},
+    {"class": "toolregistry_hub.file_ops.FileOps", "namespace": "file_ops"},
+    {"class": "toolregistry_hub.think_tool.ThinkTool", "namespace": "think"},
+    {"class": "toolregistry_hub.todo_list.TodoList", "namespace": "todolist"},
+    {"class": "toolregistry_hub.unit_converter.UnitConverter", "namespace": "unit_converter"},
+    {"class": "toolregistry_hub.websearch.websearch_brave.BraveSearch", "namespace": "web/brave_search"},
+    {"class": "toolregistry_hub.websearch.websearch_tavily.TavilySearch", "namespace": "web/tavily_search"},
+    {"class": "toolregistry_hub.websearch.websearch_searxng.SearXNGSearch", "namespace": "web/searxng_search"},
+    {"class": "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch", "namespace": "web/brightdata_search"},
+    {"class": "toolregistry_hub.websearch.websearch_scrapeless.ScrapelessSearch", "namespace": "web/scrapeless_search"}
+  ],
+
+  "mode": "denylist",
+  "disabled": ["filesystem", "file_ops"]
+
+  // Phase 2 (future): MCP Server and OpenAPI Spec tool sources
+  // {"type": "mcp", "command": "npx", "args": ["-y", "@anthropic/mcp-server-filesystem"], "namespace": "mcp/filesystem"}
+  // {"type": "openapi", "spec_url": "https://api.example.com/openapi.json", "namespace": "api/example"}
+}
+```
+
+#### Backward Compatibility
+
+- If `tools` field is absent → fall back to built-in `_DEFAULT_TOOLS` list (identical to current `ALL_TOOLS`)
+- If `tools` field is present → use it as the tool registration list
+- All other fields (`mode`, `disabled`, `enabled`) work as before
+
+#### Dynamic Import Mechanism
+
+```python
+def _import_class(class_path: str) -> Type:
+    """Dynamically import a class from a dotted path string."""
+    module_path, class_name = class_path.rsplit(".", 1)
+    module = importlib.import_module(module_path)
+    return getattr(module, class_name)
+```
+
+#### Implementation
+
+| File | Change |
+|------|--------|
+| `src/.../server/tool_config.py` | Add `ToolEntry` dataclass, add `tools` field to `ToolConfig`, parse `tools` from JSONC |
+| `src/.../server/registry.py` | Replace `ALL_TOOLS` with `_DEFAULT_TOOLS` (list of dicts), add `_import_class()`, update `build_registry()` to read tools from config |
+| `tools.jsonc.example` | Update with `tools` field example |
+| `tests/test_tool_config.py` | Add tests for `tools` field parsing |
+| `tests/test_registry.py` | Add tests for dynamic import and config-driven registration |
