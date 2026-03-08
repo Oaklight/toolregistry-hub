@@ -1675,7 +1675,7 @@ This is a low-priority optimization — the current per-call connection pattern 
 
 ---
 
-### Startup Tool Configuration (JSONC)
+### Startup Tool Configuration (JSONC) ✅
 
 > **Issues:** [Oaklight/toolregistry-hub#37](https://github.com/Oaklight/toolregistry-hub/issues/37)
 
