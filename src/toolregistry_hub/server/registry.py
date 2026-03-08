@@ -44,12 +44,15 @@ ALL_TOOLS: List[Tuple[Type, str]] = [
     (ThinkTool, "think"),
     (TodoList, "todolist"),
     (UnitConverter, "unit_converter"),
-    (BraveSearch, "brave_search"),
-    (TavilySearch, "tavily_search"),
-    (SearXNGSearch, "searxng_search"),
-    (BrightDataSearch, "brightdata_search"),
-    (ScrapelessSearch, "scrapeless_search"),
+    (BraveSearch, "web/brave_search"),
+    (TavilySearch, "web/tavily_search"),
+    (SearXNGSearch, "web/searxng_search"),
+    (BrightDataSearch, "web/brightdata_search"),
+    (ScrapelessSearch, "web/scrapeless_search"),
 ]
+
+# Methods to exclude from route generation (internal/protocol methods)
+_HIDDEN_METHODS: set[str] = {"is_configured"}
 
 
 def build_registry(
@@ -79,7 +82,9 @@ def build_registry(
     registry = ToolRegistry(name="hub")
 
     for cls, namespace in ALL_TOOLS:
-        kwargs = (tool_kwargs or {}).get(namespace, {})
+        # For tool_kwargs lookup, use the leaf namespace (after last '/')
+        kwargs_key = namespace.rsplit("/", 1)[-1]
+        kwargs = (tool_kwargs or {}).get(kwargs_key, {})
 
         if _is_all_static_methods(cls):
             registry.register_from_class(cls, with_namespace=namespace)
@@ -99,6 +104,17 @@ def build_registry(
                     if tool.namespace == namespace:
                         registry.disable(tool_name, reason=reason)
                 logger.info(f"Disabled {namespace}: {reason}")
+
+    # Remove hidden methods (e.g. is_configured) from the registry
+    to_remove = [
+        name
+        for name, tool in registry._tools.items()
+        if tool.method_name in _HIDDEN_METHODS
+    ]
+    for name in to_remove:
+        del registry._tools[name]
+        registry._disabled.pop(name, None)
+        logger.debug(f"Removed hidden method from registry: {name}")
 
     # Apply startup tool configuration (highest priority)
     config = load_tool_config(tools_config_path)

@@ -18,8 +18,8 @@
   // Available namespaces:
   //   calculator, datetime, fetch, filesystem, file_ops,
   //   think, todolist, unit_converter,
-  //   brave_search, tavily_search, searxng_search,
-  //   brightdata_search, scrapeless_search
+  //   web/brave_search, web/tavily_search, web/searxng_search,
+  //   web/brightdata_search, web/scrapeless_search
   "disabled": [
     "filesystem", // filesystem operations — security sensitive
     "file_ops" // file editing — security sensitive
