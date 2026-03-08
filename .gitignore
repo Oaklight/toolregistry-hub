@@ -207,6 +207,9 @@ marimo/_lsp/
 __marimo__/
 github_refs
 
+# Tool configuration (user-local)
+tools.jsonc
+
 references/
 .kilocode/
 .cline/

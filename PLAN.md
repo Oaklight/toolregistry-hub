@@ -1675,6 +1675,72 @@ This is a low-priority optimization — the current per-call connection pattern 
 
 ---
 
+### Startup Tool Configuration (JSONC)
+
+> **Issues:** [Oaklight/toolregistry-hub#37](https://github.com/Oaklight/toolregistry-hub/issues/37)
+
+Add a startup-time configuration file (`tools.jsonc`) that controls which tool namespaces are enabled or disabled when the server starts. This complements the existing `Configurable` auto-disable (Phase 4) and runtime enable/disable (Phase 3) mechanisms.
+
+**Motivation:** Even when a tool is properly configured (has API keys, etc.), an operator may want to restrict which tools are exposed at startup for security or policy reasons (e.g., disabling `filesystem` and `file_ops` in production). The configuration file provides a declarative way to do this without modifying code.
+
+**Dependencies:** Phase 4 (`build_registry()` must exist). Independent of Phase 5+ — works with both legacy and auto-generated routes since it operates at the `ToolRegistry.disable()` level.
+
+#### Format: JSONC (JSON with Comments)
+
+Uses standard library `json` with a lightweight comment-stripping preprocessor (~15 lines of regex). Zero external dependencies across all Python versions.
+
+```jsonc
+{
+    // Startup tool configuration for ToolRegistry Hub.
+    // Mode: "denylist" (default) or "allowlist"
+    "mode": "denylist",
+
+    // Denylist mode: tools to disable at startup
+    "disabled": [
+        "filesystem",      // filesystem operations — security sensitive
+        "file_ops",        // file editing — security sensitive
+        "fetch"            // HTTP requests — may be abused
+    ]
+
+    // Allowlist mode: only enable listed tools
+    // "mode": "allowlist",
+    // "enabled": ["calculator", "datetime", "unit_converter"]
+}
+```
+
+#### Discovery Order
+
+1. CLI argument: `--tools-config path/to/tools.jsonc`
+2. Environment variable: `TOOLS_CONFIG=path/to/tools.jsonc`
+3. Working directory: `./tools.jsonc`
+4. No file found → all tools enabled (backward compatible)
+
+#### Priority Model
+
+```
+Highest priority:  Startup config file (tools.jsonc)
+                   ↓ even if tool is configured, config file can disable it
+Medium priority:   Configurable auto-disable (missing API keys)
+                   ↓ tools without required env vars are auto-disabled
+Lowest priority:   Default state (all enabled)
+
+Runtime override:  Admin API can enable/disable at any time
+                   Server restart re-applies config file state
+```
+
+#### Implementation
+
+| File | Change |
+|------|--------|
+| `src/.../server/tool_config.py` | New: JSONC parser, `ToolConfig` dataclass, `load_tool_config()`, `apply_tool_config()` |
+| `src/.../server/registry.py` | Call `apply_tool_config()` at end of `build_registry()` |
+| `src/.../server/cli.py` | Add `--tools-config` CLI argument |
+| `tools.jsonc.example` | Example configuration file |
+| `.gitignore` | Add `tools.jsonc` (user-local config) |
+| `tests/test_tool_config.py` | Unit tests for denylist/allowlist/discovery/error handling |
+
+---
+
 ## Summary of Changes by Repository
 
 ### `toolregistry`
@@ -1712,6 +1778,7 @@ This is a low-priority optimization — the current per-call connection pattern 
 | `src/.../server/cli.py` | Update MCP mode startup to use new `create_mcp_server()` | 6c |
 | `src/.../server/auth.py` | Migrate from FastMCP `DebugTokenVerifier` to Starlette middleware | 6d |
 | `src/.../server/mcp_compat.py` | New: 集中 FastMCP/DebugTokenVerifier 导入，为 v2 迁移做准备 | Independent |
+| `src/.../server/tool_config.py` | New: JSONC parser, `ToolConfig` dataclass, `load_tool_config()`, `apply_tool_config()` | Independent |
 | `src/.../server/routes/*.py` | Removed in Phase 8 | 8 |
 | `src/.../server/routes/__init__.py` | Remove `discover_routers()` in Phase 8 | 8 |
 
@@ -1756,6 +1823,7 @@ Independent: MCP SDK v2 迁移准备 — compat 层 + 版本上界 (any time, ze
 Independent: Progressive Disclosure for MCP (upstream ToolRegistry, after Phase 6)
 Independent: Remote Tool Source Refresh (depends on Phase 7d for ETag support)
 Independent: Connection Pooling Optimization (low priority, any time)
+Independent: Startup Tool Configuration (JSONC) — depends on Phase 4 only
 ```
 
 ### Risk Mitigation
