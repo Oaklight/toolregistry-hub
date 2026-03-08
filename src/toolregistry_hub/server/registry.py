@@ -12,47 +12,70 @@ The registry supports two usage patterns:
    provide API keys or other config directly, without environment variables.
 """
 
-from typing import Dict, List, Optional, Tuple, Type
+import importlib
+from typing import Dict, List, Optional, Type
 
 from loguru import logger
 from toolregistry import ToolRegistry
 
-from ..calculator import Calculator
-from ..datetime_utils import DateTime
-from ..fetch import Fetch
-from ..file_ops import FileOps
-from ..filesystem import FileSystem
-from ..think_tool import ThinkTool
-from ..todo_list import TodoList
-from ..unit_converter import UnitConverter
 from ..utils.configurable import Configurable
 from ..utils.fn_namespace import _is_all_static_methods
-from ..websearch import (
-    BraveSearch,
-    BrightDataSearch,
-    ScrapelessSearch,
-    SearXNGSearch,
-    TavilySearch,
-)
 
-ALL_TOOLS: List[Tuple[Type, str]] = [
-    (Calculator, "calculator"),
-    (DateTime, "datetime"),
-    (Fetch, "fetch"),
-    (FileSystem, "filesystem"),
-    (FileOps, "file_ops"),
-    (ThinkTool, "think"),
-    (TodoList, "todolist"),
-    (UnitConverter, "unit_converter"),
-    (BraveSearch, "web/brave_search"),
-    (TavilySearch, "web/tavily_search"),
-    (SearXNGSearch, "web/searxng_search"),
-    (BrightDataSearch, "web/brightdata_search"),
-    (ScrapelessSearch, "web/scrapeless_search"),
+_DEFAULT_TOOLS: List[Dict[str, str]] = [
+    {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
+    {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"},
+    {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web/fetch"},
+    {"class": "toolregistry_hub.filesystem.FileSystem", "namespace": "filesystem"},
+    {"class": "toolregistry_hub.file_ops.FileOps", "namespace": "file_ops"},
+    {"class": "toolregistry_hub.think_tool.ThinkTool", "namespace": "think"},
+    {"class": "toolregistry_hub.todo_list.TodoList", "namespace": "todolist"},
+    {
+        "class": "toolregistry_hub.unit_converter.UnitConverter",
+        "namespace": "unit_converter",
+    },
+    {
+        "class": "toolregistry_hub.websearch.websearch_brave.BraveSearch",
+        "namespace": "web/brave_search",
+    },
+    {
+        "class": "toolregistry_hub.websearch.websearch_tavily.TavilySearch",
+        "namespace": "web/tavily_search",
+    },
+    {
+        "class": "toolregistry_hub.websearch.websearch_searxng.SearXNGSearch",
+        "namespace": "web/searxng_search",
+    },
+    {
+        "class": "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch",
+        "namespace": "web/brightdata_search",
+    },
+    {
+        "class": "toolregistry_hub.websearch.websearch_scrapeless.ScrapelessSearch",
+        "namespace": "web/scrapeless_search",
+    },
 ]
 
 # Methods to exclude from route generation (internal/protocol methods)
 _HIDDEN_METHODS: set[str] = {"is_configured"}
+
+
+def _import_class(class_path: str) -> Type:
+    """Dynamically import a class from a dotted path string.
+
+    Args:
+        class_path: Fully qualified class path,
+            e.g. ``"toolregistry_hub.calculator.Calculator"``.
+
+    Returns:
+        The imported class object.
+
+    Raises:
+        ImportError: If the module cannot be imported.
+        AttributeError: If the class is not found in the module.
+    """
+    module_path, class_name = class_path.rsplit(".", 1)
+    module = importlib.import_module(module_path)
+    return getattr(module, class_name)
 
 
 def build_registry(
@@ -79,9 +102,30 @@ def build_registry(
     """
     from .tool_config import apply_tool_config, load_tool_config
 
+    # Load config early so we can read the tools list from it
+    config = load_tool_config(tools_config_path)
+
+    # Determine tool list: config file > default
+    tool_entries = config.tools if (config and config.tools is not None) else None
+    if tool_entries is not None:
+        tools_to_register = [
+            {"class": e.class_path, "namespace": e.namespace} for e in tool_entries
+        ]
+    else:
+        tools_to_register = _DEFAULT_TOOLS
+
     registry = ToolRegistry(name="hub")
 
-    for cls, namespace in ALL_TOOLS:
+    for tool_def in tools_to_register:
+        class_path = tool_def["class"]
+        namespace = tool_def["namespace"]
+
+        try:
+            cls = _import_class(class_path)
+        except (ImportError, AttributeError) as e:
+            logger.error(f"Failed to import tool class '{class_path}': {e}")
+            continue
+
         # For tool_kwargs lookup, use the leaf namespace (after last '/')
         kwargs_key = namespace.rsplit("/", 1)[-1]
         kwargs = (tool_kwargs or {}).get(kwargs_key, {})
@@ -117,7 +161,6 @@ def build_registry(
         logger.debug(f"Removed hidden method from registry: {name}")
 
     # Apply startup tool configuration (highest priority)
-    config = load_tool_config(tools_config_path)
     if config is not None:
         apply_tool_config(registry, config)
 

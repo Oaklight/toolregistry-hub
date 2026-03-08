@@ -2,13 +2,18 @@
 
 import os
 import sys
+import textwrap
 import unittest
 from unittest.mock import patch
 
 # Add the src directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from toolregistry_hub.server.registry import build_registry, get_registry
+from toolregistry_hub.server.registry import (
+    _import_class,
+    build_registry,
+    get_registry,
+)
 from toolregistry_hub.server import registry as registry_module
 
 
@@ -174,6 +179,120 @@ class TestBuildRegistry(unittest.TestCase):
                 reg.is_enabled(tool_name),
                 f"Core tool {tool_name} should always be enabled",
             )
+
+
+class TestImportClass(unittest.TestCase):
+    """Test cases for _import_class dynamic import function."""
+
+    def test_import_known_class(self):
+        """Test importing a known class succeeds."""
+        cls = _import_class("toolregistry_hub.calculator.Calculator")
+        from toolregistry_hub.calculator import Calculator
+
+        self.assertIs(cls, Calculator)
+
+    def test_import_nested_class(self):
+        """Test importing a class from a nested module."""
+        cls = _import_class("toolregistry_hub.websearch.websearch_brave.BraveSearch")
+        from toolregistry_hub.websearch.websearch_brave import BraveSearch
+
+        self.assertIs(cls, BraveSearch)
+
+    def test_import_nonexistent_module(self):
+        """Test importing from a nonexistent module raises ImportError."""
+        with self.assertRaises(ImportError):
+            _import_class("nonexistent.module.ClassName")
+
+    def test_import_nonexistent_class(self):
+        """Test importing a nonexistent class raises AttributeError."""
+        with self.assertRaises(AttributeError):
+            _import_class("toolregistry_hub.calculator.NonExistentClass")
+
+
+class TestBuildRegistryWithToolsConfig(unittest.TestCase):
+    """Test cases for build_registry with tools field in config."""
+
+    def test_config_driven_tool_list(self):
+        """Test that build_registry uses tools from config file."""
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonc", delete=False) as f:
+            f.write(
+                textwrap.dedent("""\
+                {
+                    "tools": [
+                        {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
+                        {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"}
+                    ]
+                }""")
+            )
+            f.flush()
+            config_path = f.name
+
+        try:
+            reg = build_registry(tools_config_path=config_path)
+            # Should have calculator and datetime tools
+            namespaces = {
+                tool.namespace for tool in reg._tools.values() if tool.namespace
+            }
+            self.assertIn("calculator", namespaces)
+            self.assertIn("datetime", namespaces)
+            # Should NOT have other tools like web/fetch, filesystem, etc.
+            self.assertNotIn("web/fetch", namespaces)
+            self.assertNotIn("filesystem", namespaces)
+            self.assertNotIn("web/brave_search", namespaces)
+        finally:
+            os.unlink(config_path)
+
+    def test_config_without_tools_uses_defaults(self):
+        """Test that build_registry uses defaults when tools field is absent."""
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonc", delete=False) as f:
+            f.write('{"mode": "denylist", "disabled": []}')
+            f.flush()
+            config_path = f.name
+
+        try:
+            reg = build_registry(tools_config_path=config_path)
+            # Should have all default tools
+            namespaces = {
+                tool.namespace for tool in reg._tools.values() if tool.namespace
+            }
+            self.assertIn("calculator", namespaces)
+            self.assertIn("datetime", namespaces)
+            self.assertIn("web/fetch", namespaces)
+        finally:
+            os.unlink(config_path)
+
+    def test_config_with_invalid_class_skips_tool(self):
+        """Test that invalid class paths are skipped gracefully."""
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonc", delete=False) as f:
+            f.write(
+                textwrap.dedent("""\
+                {
+                    "tools": [
+                        {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
+                        {"class": "nonexistent.module.FakeClass", "namespace": "fake"}
+                    ]
+                }""")
+            )
+            f.flush()
+            config_path = f.name
+
+        try:
+            reg = build_registry(tools_config_path=config_path)
+            namespaces = {
+                tool.namespace for tool in reg._tools.values() if tool.namespace
+            }
+            # Calculator should be registered
+            self.assertIn("calculator", namespaces)
+            # Fake tool should be skipped
+            self.assertNotIn("fake", namespaces)
+        finally:
+            os.unlink(config_path)
 
 
 class TestGetRegistry(unittest.TestCase):

@@ -239,6 +239,76 @@ class TestLoadToolConfig:
         assert result.disabled == []
         assert result.enabled == []
 
+    def test_tools_field_parsed(self, tmp_path):
+        """Config with 'tools' field parses ToolEntry list."""
+        cfg = tmp_path / "config.jsonc"
+        cfg.write_text(
+            textwrap.dedent("""\
+            {
+                "tools": [
+                    {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
+                    {"class": "toolregistry_hub.fetch.Fetch", "namespace": "fetch"}
+                ]
+            }""")
+        )
+        result = load_tool_config(str(cfg))
+        assert result is not None
+        assert result.tools is not None
+        assert len(result.tools) == 2
+        assert result.tools[0].class_path == "toolregistry_hub.calculator.Calculator"
+        assert result.tools[0].namespace == "calculator"
+        assert result.tools[1].class_path == "toolregistry_hub.fetch.Fetch"
+        assert result.tools[1].namespace == "fetch"
+
+    def test_tools_field_absent_returns_none(self, tmp_path):
+        """Config without 'tools' field has tools=None."""
+        cfg = tmp_path / "config.jsonc"
+        cfg.write_text('{"mode": "denylist", "disabled": []}')
+        result = load_tool_config(str(cfg))
+        assert result is not None
+        assert result.tools is None
+
+    def test_tools_field_not_list_warns(self, tmp_path):
+        """Non-list 'tools' field logs warning and results in tools=None."""
+        cfg = tmp_path / "config.jsonc"
+        cfg.write_text('{"tools": "not_a_list"}')
+        result = load_tool_config(str(cfg))
+        assert result is not None
+        assert result.tools is None
+
+    def test_tools_field_invalid_entry_skipped(self, tmp_path):
+        """Invalid entries in 'tools' list are skipped with warning."""
+        cfg = tmp_path / "config.jsonc"
+        cfg.write_text(
+            textwrap.dedent("""\
+            {
+                "tools": [
+                    {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
+                    "not_a_dict",
+                    {"class": "toolregistry_hub.fetch.Fetch"},
+                    {"namespace": "missing_class"},
+                    {"class": "", "namespace": "empty_class"},
+                    {"class": "toolregistry_hub.fetch.Fetch", "namespace": "fetch"}
+                ]
+            }""")
+        )
+        result = load_tool_config(str(cfg))
+        assert result is not None
+        assert result.tools is not None
+        # Only the first and last valid entries should be parsed
+        assert len(result.tools) == 2
+        assert result.tools[0].namespace == "calculator"
+        assert result.tools[1].namespace == "fetch"
+
+    def test_tools_field_empty_list(self, tmp_path):
+        """Empty 'tools' list results in empty list (not None)."""
+        cfg = tmp_path / "config.jsonc"
+        cfg.write_text('{"tools": []}')
+        result = load_tool_config(str(cfg))
+        assert result is not None
+        assert result.tools is not None
+        assert result.tools == []
+
 
 # ---------------------------------------------------------------------------
 # apply_tool_config
