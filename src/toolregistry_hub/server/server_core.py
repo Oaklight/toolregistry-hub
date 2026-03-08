@@ -12,6 +12,8 @@ from fastapi import FastAPI
 from loguru import logger
 
 from ..__init__ import version
+from .autoroute import registry_to_router, setup_dynamic_openapi
+from .registry import get_registry
 from .routes import get_all_routers
 
 # Load environment variables
@@ -45,14 +47,26 @@ def create_core_app(dependencies: Optional[List[Any]] = None) -> FastAPI:
             version=version,
         )
 
-    # Automatically discover and include all routers
+    # New: registry-driven auto-generated routes (Phase 5)
+    registry = get_registry()
+    auto_router = registry_to_router(registry, prefix="/tools")
+    app.include_router(auto_router)
+    logger.info(
+        f"Included auto-generated router with {len(auto_router.routes)} routes at /tools"
+    )
+
+    # Legacy: keep existing hand-written routes during migration (removed in Phase 8)
     routers = get_all_routers()
-    # Include all routers from the routes module
     for router in routers:
         app.include_router(router)
-        logger.info(f"Included router with prefix: {router.prefix or '/'}")
+        logger.info(f"Included legacy router with prefix: {router.prefix or '/'}")
 
-    logger.info(f"Core FastAPI app initialized with {len(routers)} routers")
+    # Dynamic OpenAPI: hide disabled tools from /docs and /openapi.json
+    setup_dynamic_openapi(app, registry)
+
+    logger.info(
+        f"Core FastAPI app initialized with auto-routes + {len(routers)} legacy routers"
+    )
     return app
 
 
