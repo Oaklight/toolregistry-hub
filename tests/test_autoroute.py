@@ -379,17 +379,14 @@ class TestIntegration:
         tools_paths = [p for p in paths if p.startswith("/tools/")]
         assert len(tools_paths) > 0, f"Expected /tools/ routes, got paths: {paths}"
 
-    def test_core_app_has_legacy_routes(self):
-        """create_core_app() should still include legacy hand-written routes."""
+    def test_core_app_has_version_route(self):
+        """create_core_app() should include the version metadata route."""
         from toolregistry_hub.server.server_core import create_core_app
 
         app = create_core_app()
         paths = [route.path for route in app.routes]
-        # Legacy calculator route uses prefix /calc (not /calculator)
-        has_legacy = any(
-            p.startswith("/calc/") and not p.startswith("/tools/") for p in paths
-        )
-        assert has_legacy, f"Expected legacy /calc/ routes, got paths: {paths}"
+        has_version = any(p.startswith("/version") for p in paths)
+        assert has_version, f"Expected /version routes, got paths: {paths}"
 
     def test_calculator_auto_route_works(self):
         """POST /tools/calculator/evaluate should return the correct result."""

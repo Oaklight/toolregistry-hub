@@ -1334,22 +1334,38 @@ async def openapi_endpoint(request: Request):
 
 ---
 
-## Phase 8 — Cleanup and Migration
+## Phase 8 — Cleanup and Migration ✅
 
-> **Issues:** [Oaklight/toolregistry-hub#32](https://github.com/Oaklight/toolregistry-hub/issues/32)
+> **Issues:** [Oaklight/toolregistry-hub#32](https://github.com/Oaklight/toolregistry-hub/issues/32) ✅
 
 Once auto-route is validated end-to-end (at least one release cycle after Phase 5):
 
-> **Phase 5 compatibility note:** Phase 5 added `test_core_app_has_legacy_routes` in `tests/test_autoroute.py` to verify legacy routes exist during the migration period. This test must be removed (or inverted) when legacy routes are removed in this phase.
+> **Phase 5 compatibility note:** Phase 5 added `test_core_app_has_legacy_routes` in `tests/test_autoroute.py` to verify legacy routes exist during the migration period. This test has been removed as legacy routes are now deleted.
 
-- [ ] Remove hand-written route files: `calculator.py`, `fetch.py`, `datetime_tools.py`, `unit_converter.py`, `think.py`, `todo_list.py`
-- [ ] Remove `routes/websearch/` hand-written files
-- [ ] Keep `routes/version.py` (server metadata, not a tool)
-- [ ] Remove `discover_routers()` mechanism from `routes/__init__.py`
-- [ ] Remove legacy router inclusion from `server_core.py`
-- [ ] Update `server/__init__.py` and `cli.py`
-- [ ] Update integration tests to target new `/tools/{namespace}/{method}` paths
-- [ ] Update documentation with new API paths
+- [x] Remove hand-written route files: `calculator.py`, `fetch.py`, `datetime_tools.py`, `unit_converter.py`, `think.py`, `todo_list.py`
+- [x] Remove `routes/websearch/` hand-written files (entire `routes/websearch/` directory)
+- [x] Keep `routes/version.py` (server metadata, not a tool)
+- [x] Remove `discover_routers()` mechanism from `routes/__init__.py` — simplified to only export `version_router`
+- [x] Remove legacy router inclusion from `server_core.py` — retained only `version_router`
+- [x] Update `server/__init__.py` and `cli.py`
+- [x] Update integration tests to target new `/tools/{namespace}/{method}` paths
+- [x] Update documentation with new API paths
+- [x] Adopt nested namespace format for websearch tools (e.g., `web/brave_search` → URL `/tools/web/brave_search/search`)
+- [x] Hide internal methods (`is_configured`) from API endpoints via `_HIDDEN_METHODS` in `registry.py`
+- [x] Update `tool_config.py` to support hierarchical namespace prefix matching (`_ns_matches()`)
+
+**Completion notes:**
+
+- Deleted all legacy hand-written route files: `calculator.py`, `datetime_tools.py`, `fetch.py`, `think.py`, `todo_list.py`, `unit_converter.py`, and the entire `routes/websearch/` directory
+- Modified `server_core.py` to remove legacy router registration; only `version_router` is retained alongside auto-generated routes
+- Simplified `routes/__init__.py` to export only `version_router` (removed `discover_routers()` and all legacy router imports)
+- Websearch namespaces changed to nested format in `ALL_TOOLS` (e.g., `"web/brave_search"` instead of `"brave_search"`), producing URLs like `/tools/web/brave_search/search`. The top-level segment (`web`) is used as the OpenAPI tag for grouping.
+- Added `_HIDDEN_METHODS` set in `registry.py` to exclude internal/protocol methods (e.g., `is_configured`) from being registered as API endpoints. These methods are removed from the registry after class registration.
+- `tool_config.py` updated with `_ns_matches()` helper to support hierarchical namespace prefix matching — e.g., config entry `"web"` matches all `web/*` namespaces (`web/brave_search`, `web/tavily_search`, etc.)
+- `build_registry()` uses `rsplit("/", 1)[-1]` for `tool_kwargs` lookup, so users can still pass `{"brave_search": {"api_keys": "..."}}` without the `web/` prefix
+- All 418 tests pass
+
+**Note on `ALL_TOOLS` manual registration:** The `ALL_TOOLS` list in `registry.py` still requires manual addition of new tool classes. A future enhancement could auto-discover tool classes via entry points, decorators, or package scanning to eliminate this manual step.
 
 ---
 
@@ -1781,8 +1797,8 @@ Runtime override:  Admin API can enable/disable at any time
 | `src/.../server/auth.py` | Migrate from FastMCP `DebugTokenVerifier` to Starlette middleware | 6d |
 | `src/.../server/mcp_compat.py` | New: 集中 FastMCP/DebugTokenVerifier 导入，为 v2 迁移做准备 | Independent |
 | `src/.../server/tool_config.py` | New: JSONC parser, `ToolConfig` dataclass, `load_tool_config()`, `apply_tool_config()` | Independent |
-| `src/.../server/routes/*.py` | Removed in Phase 8 | 8 |
-| `src/.../server/routes/__init__.py` | Remove `discover_routers()` in Phase 8 | 8 |
+| `src/.../server/routes/*.py` | Removed in Phase 8 | 8 ✅ |
+| `src/.../server/routes/__init__.py` | Remove `discover_routers()` in Phase 8 | 8 ✅ |
 
 ---
 
@@ -1817,7 +1833,7 @@ Phase 7  — Admin panel (deferred, can be done after Phase 5 is stable)
   │         7c: admin frontend
   │         7d: OpenAPI ETag support
   │
-Phase 8  — Cleanup: remove hand-written routes (after migration period)
+Phase 8  — Cleanup: remove hand-written routes (after migration period)  ✅
 
 Independent: Anthropic/Gemini schema formats (any time)
 Independent: MCP client decoupling — toolregistry[mcp] (any time, no phase dependency) ✅

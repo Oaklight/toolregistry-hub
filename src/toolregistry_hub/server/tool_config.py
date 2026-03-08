@@ -213,18 +213,39 @@ def apply_tool_config(registry: ToolRegistry, config: ToolConfig) -> None:
     logger.info(f"Applied tool config from {config.source} (mode={config.mode})")
 
 
+def _ns_matches(tool_namespace: str, pattern: str) -> bool:
+    """Check if a tool namespace matches a config pattern.
+
+    Supports exact match and prefix match for hierarchical namespaces.
+    For example, pattern ``"web"`` matches ``"web/brave_search"``.
+
+    Args:
+        tool_namespace: The tool's namespace (e.g. ``"web/brave_search"``).
+        pattern: The config pattern (e.g. ``"web"`` or ``"web/brave_search"``).
+
+    Returns:
+        True if the namespace matches the pattern.
+    """
+    return tool_namespace == pattern or tool_namespace.startswith(pattern + "/")
+
+
 def _apply_denylist(
     registry: ToolRegistry,
     disabled_namespaces: List[str],
     known_namespaces: set,
 ) -> None:
-    """Disable tools belonging to the listed namespaces."""
+    """Disable tools belonging to the listed namespaces.
+
+    Supports hierarchical namespace matching: ``"web"`` disables all
+    ``web/*`` namespaces.
+    """
     for ns in disabled_namespaces:
-        if ns not in known_namespaces:
+        matched = any(_ns_matches(known, ns) for known in known_namespaces)
+        if not matched:
             logger.warning(f"Config denylist: unknown namespace '{ns}', skipping.")
             continue
         for tool_name, tool in registry._tools.items():
-            if tool.namespace == ns:
+            if tool.namespace and _ns_matches(tool.namespace, ns):
                 registry.disable(tool_name, reason="Disabled by config file")
         logger.info(f"Config denylist: disabled namespace '{ns}'")
 
@@ -234,15 +255,21 @@ def _apply_allowlist(
     enabled_namespaces: List[str],
     known_namespaces: set,
 ) -> None:
-    """Disable tools whose namespace is NOT in the allow list."""
+    """Disable tools whose namespace is NOT in the allow list.
+
+    Supports hierarchical namespace matching: ``"web"`` allows all
+    ``web/*`` namespaces.
+    """
     # Warn about unknown namespaces in the allow list
     for ns in enabled_namespaces:
-        if ns not in known_namespaces:
+        matched = any(_ns_matches(known, ns) for known in known_namespaces)
+        if not matched:
             logger.warning(f"Config allowlist: unknown namespace '{ns}', skipping.")
 
-    allowed = set(enabled_namespaces)
     for tool_name, tool in registry._tools.items():
-        if tool.namespace is not None and tool.namespace not in allowed:
+        if tool.namespace is not None and not any(
+            _ns_matches(tool.namespace, ns) for ns in enabled_namespaces
+        ):
             registry.disable(tool_name, reason="Not in allowlist")
             logger.debug(
                 f"Config allowlist: disabled '{tool_name}' (namespace '{tool.namespace}')"

@@ -66,7 +66,7 @@ class TestBuildRegistry(unittest.TestCase):
 
             # Find brave_search tools and check they are disabled
             brave_tools = [
-                t for t in reg._tools if reg._tools[t].namespace == "brave_search"
+                t for t in reg._tools if reg._tools[t].namespace == "web/brave_search"
             ]
             for tool_name in brave_tools:
                 self.assertFalse(
@@ -76,7 +76,7 @@ class TestBuildRegistry(unittest.TestCase):
 
             # Find searxng_search tools and check they are disabled
             searxng_tools = [
-                t for t in reg._tools if reg._tools[t].namespace == "searxng_search"
+                t for t in reg._tools if reg._tools[t].namespace == "web/searxng_search"
             ]
             for tool_name in searxng_tools:
                 self.assertFalse(
@@ -94,7 +94,7 @@ class TestBuildRegistry(unittest.TestCase):
 
             # Find brave_search tools and check they are enabled
             brave_tools = [
-                t for t in reg._tools if reg._tools[t].namespace == "brave_search"
+                t for t in reg._tools if reg._tools[t].namespace == "web/brave_search"
             ]
             self.assertGreater(
                 len(brave_tools), 0, "Brave search tools should be registered"
@@ -125,7 +125,7 @@ class TestBuildRegistry(unittest.TestCase):
 
             # Brave search tools should be enabled (configured via tool_kwargs)
             brave_tools = [
-                t for t in reg._tools if reg._tools[t].namespace == "brave_search"
+                t for t in reg._tools if reg._tools[t].namespace == "web/brave_search"
             ]
             self.assertGreater(len(brave_tools), 0)
             for tool_name in brave_tools:
@@ -136,7 +136,7 @@ class TestBuildRegistry(unittest.TestCase):
 
             # Tavily should still be disabled (no env var, no tool_kwargs)
             tavily_tools = [
-                t for t in reg._tools if reg._tools[t].namespace == "tavily_search"
+                t for t in reg._tools if reg._tools[t].namespace == "web/tavily_search"
             ]
             for tool_name in tavily_tools:
                 self.assertFalse(
@@ -150,13 +150,11 @@ class TestBuildRegistry(unittest.TestCase):
             os.environ.pop("SEARXNG_URL", None)
 
             reg = build_registry(
-                tool_kwargs={
-                    "searxng_search": {"base_url": "http://localhost:8080"}
-                }
+                tool_kwargs={"searxng_search": {"base_url": "http://localhost:8080"}}
             )
 
             searxng_tools = [
-                t for t in reg._tools if reg._tools[t].namespace == "searxng_search"
+                t for t in reg._tools if reg._tools[t].namespace == "web/searxng_search"
             ]
             self.assertGreater(len(searxng_tools), 0)
             for tool_name in searxng_tools:

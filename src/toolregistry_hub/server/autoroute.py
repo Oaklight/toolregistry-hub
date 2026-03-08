@@ -178,7 +178,13 @@ def _add_route(router: APIRouter, tool: Tool, registry: ToolRegistry) -> None:
         request_model = _schema_to_pydantic(model_name, tool.parameters)
 
     summary = (tool.description or "")[:120]
-    tags = [namespace] if namespace else []
+    # Use the top-level segment of the namespace as the tag for grouping
+    # e.g. "web/brave_search" → tag "web", "calculator" → tag "calculator"
+    if namespace:
+        tag = namespace.split("/")[0]
+        tags = [tag]
+    else:
+        tags = []
 
     # Capture tool_name as a string to avoid closure-over-loop-variable issues.
     tool_name = tool.name
