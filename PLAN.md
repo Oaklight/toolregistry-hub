@@ -1678,6 +1678,8 @@ This is a low-priority optimization — the current per-call connection pattern 
 ### Startup Tool Configuration (JSONC) ✅
 
 > **Issues:** [Oaklight/toolregistry-hub#37](https://github.com/Oaklight/toolregistry-hub/issues/37)
+> **PR:** [Oaklight/toolregistry-hub#38](https://github.com/Oaklight/toolregistry-hub/pull/38) ✅ (merged)
+
 
 Add a startup-time configuration file (`tools.jsonc`) that controls which tool namespaces are enabled or disabled when the server starts. This complements the existing `Configurable` auto-disable (Phase 4) and runtime enable/disable (Phase 3) mechanisms.
 
