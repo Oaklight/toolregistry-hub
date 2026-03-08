@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
+
 from loguru import logger
 from toolregistry import ToolRegistry
 
@@ -67,6 +68,21 @@ def _strip_json_comments(text: str) -> str:
 
 
 @dataclass
+class ToolEntry:
+    """A tool entry from the configuration file.
+
+    Attributes:
+        class_path: Fully qualified class path,
+            e.g. ``"toolregistry_hub.calculator.Calculator"``.
+        namespace: Namespace for the tool,
+            e.g. ``"calculator"`` or ``"web/brave_search"``.
+    """
+
+    class_path: str
+    namespace: str
+
+
+@dataclass
 class ToolConfig:
     """Parsed startup tool configuration.
 
@@ -75,12 +91,15 @@ class ToolConfig:
             ``"allowlist"`` (enable only listed namespaces).
         disabled: Namespaces to disable (used in denylist mode).
         enabled: Namespaces to enable (used in allowlist mode).
+        tools: Optional list of tool entries from the configuration file.
+            If ``None``, the built-in default tool list is used.
         source: Path of the configuration file that was loaded.
     """
 
     mode: str = "denylist"
     disabled: List[str] = field(default_factory=list)
     enabled: List[str] = field(default_factory=list)
+    tools: Optional[List[ToolEntry]] = None
     source: str = ""
 
 
@@ -138,10 +157,38 @@ def load_tool_config(config_path: Optional[str] = None) -> Optional[ToolConfig]:
     if not isinstance(enabled, list) or not all(isinstance(x, str) for x in enabled):
         raise ValueError(f"'enabled' in {path} must be a list of strings.")
 
+    # Parse optional 'tools' field
+    tools_list = data.get("tools")
+    tools = None
+    if tools_list is not None:
+        if not isinstance(tools_list, list):
+            logger.warning(
+                f"Invalid 'tools' field in {path}: "
+                f"expected list, got {type(tools_list).__name__}"
+            )
+        else:
+            tools = []
+            for i, entry in enumerate(tools_list):
+                if not isinstance(entry, dict):
+                    logger.warning(
+                        f"Invalid tool entry at index {i} in {path}: expected dict"
+                    )
+                    continue
+                class_path = entry.get("class")
+                namespace = entry.get("namespace")
+                if not class_path or not namespace:
+                    logger.warning(
+                        f"Tool entry at index {i} missing 'class' or "
+                        f"'namespace' in {path}"
+                    )
+                    continue
+                tools.append(ToolEntry(class_path=class_path, namespace=namespace))
+
     return ToolConfig(
         mode=mode,
         disabled=disabled,
         enabled=enabled,
+        tools=tools,
         source=str(path),
     )
 
