@@ -14,21 +14,35 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ### New Features
 
+- **Startup Tool Configuration via JSONC** ([#37](https://github.com/Oaklight/toolregistry-hub/issues/37), [#38](https://github.com/Oaklight/toolregistry-hub/pull/38))
+    - Add JSONC (JSON with Comments) configuration file support for declarative tool loading at server startup
+    - New `tool_config.py` module with JSONC parser and tool configuration loader
+    - Add `--tools-config` CLI option to specify configuration file path
+    - Provide `tools.jsonc.example` as a documented example configuration
+    - Graceful fallback: loads all tools if no config file is specified
+
+- **Auto-Route Generation from ToolRegistry** ([#31](https://github.com/Oaklight/toolregistry-hub/issues/31), [#36](https://github.com/Oaklight/toolregistry-hub/pull/36))
+    - Add `autoroute.py` module for automatic FastAPI route generation from registered tools in ToolRegistry
+    - Introspect tools registered in ToolRegistry and automatically generate endpoint handlers
+    - Eliminate the need for hand-written route boilerplate
+    - Integrate auto-route into server startup with fallback to manual routes
+    - Add comprehensive tests for autoroute functionality
+
 - **Tool Environment Requirements and Central Registry** ([#30](https://github.com/Oaklight/toolregistry-hub/issues/30), [#35](https://github.com/Oaklight/toolregistry-hub/pull/35))
-	- Add `@requires_env` decorator to declare required environment variables on tool classes
-	- Add `Configurable` protocol with `is_configured()` for instance-state readiness checks (structural subtyping)
-	- Add `build_registry()` / `get_registry()` central registry that auto-disables unconfigured tools
-	- Defer `APIKeyParser` and `SearXNGSearch` validation to call time, allowing graceful initialization without env vars
+    - Add `@requires_env` decorator to declare required environment variables on tool classes
+    - Add `Configurable` protocol with `is_configured()` for instance-state readiness checks (structural subtyping)
+    - Add `build_registry()` / `get_registry()` central registry that auto-disables unconfigured tools
+    - Defer `APIKeyParser` and `SearXNGSearch` validation to call time, allowing graceful initialization without env vars
 
 ### Refactoring
 
 - **Remove BingSearch** ([#34](https://github.com/Oaklight/toolregistry-hub/pull/34))
-	- Remove deprecated `BingSearch` class, server route, and related tests
-	- Rewrite and modernize websearch test suite for remaining engines
+    - Remove deprecated `BingSearch` class, server route, and related tests
+    - Rewrite and modernize websearch test suite for remaining engines
 
 - **Restructure Server Optional Dependencies** ([#29](https://github.com/Oaklight/toolregistry-hub/issues/29), [#33](https://github.com/Oaklight/toolregistry-hub/pull/33))
-	- Add `toolregistry>=0.4.14` to `server_openapi` and `server_mcp` extras
-	- Refactor `server` extra to use self-referencing composition
+    - Add `toolregistry>=0.4.14` to `server_openapi` and `server_mcp` extras
+    - Refactor `server` extra to use self-referencing composition
 
 ## [0.5.6] - 2026-03-05
 
