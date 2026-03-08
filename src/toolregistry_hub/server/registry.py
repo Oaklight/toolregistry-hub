@@ -54,6 +54,7 @@ ALL_TOOLS: List[Tuple[Type, str]] = [
 
 def build_registry(
     tool_kwargs: Optional[Dict[str, dict]] = None,
+    tools_config_path: Optional[str] = None,
 ) -> ToolRegistry:
     """Build the hub tool registry with all tools registered and auto-disabled
     based on instance configuration state.
@@ -62,13 +63,19 @@ def build_registry(
         tool_kwargs: Optional mapping of namespace to constructor kwargs.
             Allows passing API keys or other config without env vars.
             Example: ``{"brave_search": {"api_keys": "my-key"}}``
+        tools_config_path: Optional path to a JSONC tool configuration file.
+            If ``None``, the default discovery order is used (env var, then
+            ``./tools.jsonc``).
 
     Returns:
         A fully configured ToolRegistry instance with all tools registered.
         Tools whose configuration is incomplete (as reported by the
         :class:`~toolregistry_hub.utils.Configurable` protocol) will be
-        automatically disabled.
+        automatically disabled.  Additional disable/enable rules from the
+        tool configuration file are applied afterwards.
     """
+    from .tool_config import apply_tool_config, load_tool_config
+
     registry = ToolRegistry(name="hub")
 
     for cls, namespace in ALL_TOOLS:
@@ -92,6 +99,11 @@ def build_registry(
                     if tool.namespace == namespace:
                         registry.disable(tool_name, reason=reason)
                 logger.info(f"Disabled {namespace}: {reason}")
+
+    # Apply startup tool configuration (highest priority)
+    config = load_tool_config(tools_config_path)
+    if config is not None:
+        apply_tool_config(registry, config)
 
     return registry
 

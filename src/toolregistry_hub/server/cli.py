@@ -127,6 +127,13 @@ def main():
         help="MCP transport mode for mcp mode. Default is streamable-http.",
     )
     parser.add_argument(
+        "--tools-config",
+        type=str,
+        default=None,
+        help="Path to a JSONC tool configuration file (tools.jsonc). "
+        "Controls which tools are enabled/disabled at startup.",
+    )
+    parser.add_argument(
         "--version",
         "-V",
         action="version",
@@ -134,6 +141,15 @@ def main():
         help="Show the version and check for updates",
     )
     args = parser.parse_args()
+
+    # Apply tools config to the registry before starting the server
+    if args.tools_config is not None:
+        from .registry import build_registry
+
+        # Rebuild registry with the specified config path
+        import toolregistry_hub.server.registry as _reg_mod
+
+        _reg_mod._registry = build_registry(tools_config_path=args.tools_config)
 
     if args.mode == "openapi":
         try:

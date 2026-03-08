@@ -1,0 +1,35 @@
+{
+  // Startup tool configuration for ToolRegistry Hub.
+  //
+  // Copy this file to "tools.jsonc" and customize as needed.
+  // The server discovers this file automatically from the working directory,
+  // or you can specify a path via:
+  //   --tools-config path/to/tools.jsonc
+  //   TOOLS_CONFIG=path/to/tools.jsonc
+  //
+  // Mode: "denylist" (default) or "allowlist"
+  //   - denylist: all tools enabled except those listed in "disabled"
+  //   - allowlist: only tools listed in "enabled" are active
+
+  "mode": "denylist",
+
+  // --- Denylist mode ---
+  // List namespaces to disable at startup.
+  // Available namespaces:
+  //   calculator, datetime, fetch, filesystem, file_ops,
+  //   think, todolist, unit_converter,
+  //   brave_search, tavily_search, searxng_search,
+  //   brightdata_search, scrapeless_search
+  "disabled": [
+    "filesystem", // filesystem operations — security sensitive
+    "file_ops" // file editing — security sensitive
+  ]
+
+  // --- Allowlist mode ---
+  // Uncomment below and set mode to "allowlist" to enable only listed tools.
+  // "enabled": [
+  //     "calculator",
+  //     "datetime",
+  //     "unit_converter"
+  // ]
+}
