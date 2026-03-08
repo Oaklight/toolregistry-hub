@@ -1294,6 +1294,8 @@ def create_core_app(...) -> FastAPI:
 
 Add ETag-based change detection to the `/openapi.json` endpoint, enabling clients to efficiently detect tool list changes.
 
+> **Phase 5 compatibility note:** Phase 5's `setup_dynamic_openapi()` replaces `app.openapi` with a custom function that regenerates the schema on every call (no caching). Phase 7d should either extend `setup_dynamic_openapi()` to include ETag computation, or create an explicit `GET /openapi.json` route that wraps `app.openapi()` and adds ETag/`If-None-Match` headers. The latter approach is recommended since `app.openapi` replacement only controls schema content, not HTTP response headers. Consider using Phase 6a's observer callback to invalidate a cached schema (only regenerate on enable/disable state changes).
+
 **Implementation:**
 
 1. **ETag header on `/openapi.json`**: Compute ETag from the hash of the OpenAPI spec content. Return it in the response `ETag` header.
@@ -1337,6 +1339,8 @@ async def openapi_endpoint(request: Request):
 > **Issues:** [Oaklight/toolregistry-hub#32](https://github.com/Oaklight/toolregistry-hub/issues/32)
 
 Once auto-route is validated end-to-end (at least one release cycle after Phase 5):
+
+> **Phase 5 compatibility note:** Phase 5 added `test_core_app_has_legacy_routes` in `tests/test_autoroute.py` to verify legacy routes exist during the migration period. This test must be removed (or inverted) when legacy routes are removed in this phase.
 
 - [ ] Remove hand-written route files: `calculator.py`, `fetch.py`, `datetime_tools.py`, `unit_converter.py`, `think.py`, `todo_list.py`
 - [ ] Remove `routes/websearch/` hand-written files
