@@ -462,7 +462,7 @@ ALL_TOOLS: List[Tuple[Type, str]] = [
     # Static-method tool classes
     (Calculator,       "calculator"),
     (DateTime,         "datetime"),
-    (Fetch,            "fetch"),
+    (Fetch,            "web/fetch"),
     (FileSystem,       "filesystem"),
     (FileOps,          "file_ops"),
     (ThinkTool,        "think"),
@@ -1717,7 +1717,7 @@ Uses standard library `json` with a lightweight comment-stripping preprocessor (
     "disabled": [
         "filesystem",      // filesystem operations — security sensitive
         "file_ops",        // file editing — security sensitive
-        "fetch"            // HTTP requests — may be abused
+        "web/fetch"        // HTTP requests — may be abused
     ]
 
     // Allowlist mode: only enable listed tools
@@ -1878,7 +1878,7 @@ Extend `tools.jsonc` with an optional `tools` field:
   "tools": [
     {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
     {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"},
-    {"class": "toolregistry_hub.fetch.Fetch", "namespace": "fetch"},
+    {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web/fetch"},
     {"class": "toolregistry_hub.filesystem.FileSystem", "namespace": "filesystem"},
     {"class": "toolregistry_hub.file_ops.FileOps", "namespace": "file_ops"},
     {"class": "toolregistry_hub.think_tool.ThinkTool", "namespace": "think"},
