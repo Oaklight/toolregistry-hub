@@ -103,8 +103,8 @@ class TestSchemaToPydantic:
 
         # Instantiate with defaults
         instance = Model()
-        assert instance.count == 10
-        assert instance.label == "hello"
+        assert instance.count == 10  # ty: ignore[unresolved-attribute]
+        assert instance.label == "hello"  # ty: ignore[unresolved-attribute]
 
     def test_array_type(self):
         """Array with items should map to List[inner_type]."""
@@ -299,7 +299,7 @@ class TestRegistryToRouter:
         registry = _make_simple_registry()
         router = registry_to_router(registry, prefix="/tools")
 
-        paths = [route.path for route in router.routes]
+        paths = [route.path for route in router.routes]  # ty: ignore[unresolved-attribute]
         # The tool registered with namespace="test" and function name "greet"
         # should produce path /test/greet
         assert any("/test/greet" in p for p in paths)
@@ -330,7 +330,7 @@ class TestAddRoute:
         assert len(router.routes) == 1
         route = router.routes[0]
         # The endpoint should NOT be a coroutine function for sync tools
-        assert not asyncio.iscoroutinefunction(route.endpoint)
+        assert not asyncio.iscoroutinefunction(route.endpoint)  # ty: ignore[unresolved-attribute]
 
     def test_async_endpoint(self):
         """Async tool should generate an async endpoint."""
@@ -349,7 +349,7 @@ class TestAddRoute:
         assert len(router.routes) == 1
         route = router.routes[0]
         # The endpoint SHOULD be a coroutine function for async tools
-        assert asyncio.iscoroutinefunction(route.endpoint)
+        assert asyncio.iscoroutinefunction(route.endpoint)  # ty: ignore[unresolved-attribute]
 
 
 # =========================================================================
@@ -375,7 +375,7 @@ class TestIntegration:
         from toolregistry_hub.server.server_core import create_core_app
 
         app = create_core_app()
-        paths = [route.path for route in app.routes]
+        paths = [route.path for route in app.routes]  # ty: ignore[unresolved-attribute]
         tools_paths = [p for p in paths if p.startswith("/tools/")]
         assert len(tools_paths) > 0, f"Expected /tools/ routes, got paths: {paths}"
 
@@ -384,7 +384,7 @@ class TestIntegration:
         from toolregistry_hub.server.server_core import create_core_app
 
         app = create_core_app()
-        paths = [route.path for route in app.routes]
+        paths = [route.path for route in app.routes]  # ty: ignore[unresolved-attribute]
         has_version = any(p.startswith("/version") for p in paths)
         assert has_version, f"Expected /version routes, got paths: {paths}"
 

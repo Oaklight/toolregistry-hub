@@ -53,7 +53,7 @@ def _resolve_type(field_schema: Dict[str, Any]) -> Type:
         from typing import Literal  # noqa: UP035 – needed at runtime
 
         values = tuple(field_schema["enum"])
-        return Literal[values]  # type: ignore[valid-type]
+        return Literal[values]  # ty: ignore[invalid-type-form]
 
     json_type = field_schema.get("type")
 
@@ -61,7 +61,7 @@ def _resolve_type(field_schema: Dict[str, Any]) -> Type:
         items_schema = field_schema.get("items")
         if items_schema:
             inner = _resolve_type(items_schema)
-            return List[inner]  # type: ignore[valid-type]
+            return List[inner]  # ty: ignore[invalid-type-form]
         return list
 
     if json_type == "object" and "properties" in field_schema:
@@ -69,7 +69,7 @@ def _resolve_type(field_schema: Dict[str, Any]) -> Type:
         return _schema_to_pydantic("NestedModel", field_schema)
 
     if json_type is not None:
-        return _JSON_TYPE_MAP.get(json_type, Any)  # type: ignore[return-value]
+        return _JSON_TYPE_MAP.get(json_type, Any)
 
     # anyOf / oneOf patterns (e.g. Optional fields from toolregistry)
     any_of = field_schema.get("anyOf") or field_schema.get("oneOf")
@@ -78,7 +78,7 @@ def _resolve_type(field_schema: Dict[str, Any]) -> Type:
         if len(non_null) == 1:
             return _resolve_type(non_null[0])
 
-    return Any  # type: ignore[return-value]
+    return Any
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +101,7 @@ def _schema_to_pydantic(name: str, schema: Dict[str, Any]) -> Type[BaseModel]:
     properties: Dict[str, Any] = schema.get("properties", {})
     if not properties:
         # Return an empty model when there are no properties
-        return create_model(name)  # type: ignore[call-overload]
+        return create_model(name)
 
     required_fields: List[str] = schema.get("required", [])
     field_definitions: Dict[str, Tuple[Type, Any]] = {}
@@ -125,7 +125,7 @@ def _schema_to_pydantic(name: str, schema: Dict[str, Any]) -> Type[BaseModel]:
                 Field(default=default_value, **field_kwargs),
             )
 
-    return create_model(name, **field_definitions)  # type: ignore[call-overload]
+    return create_model(name, **field_definitions)  # ty: ignore[no-matching-overload]
 
 
 # ---------------------------------------------------------------------------
@@ -198,11 +198,11 @@ def _add_route(router: APIRouter, tool: Tool, registry: ToolRegistry) -> None:
 
         def _make_async_endpoint(
             t: Tool = tool,
-            M: Type[BaseModel] = request_model,  # type: ignore[assignment]
+            M: Type[BaseModel] = request_model,
             reg: ToolRegistry = registry,
             tname: str = tool_name,
         ):
-            async def _endpoint(data: M) -> Any:  # type: ignore[valid-type]
+            async def _endpoint(data: M) -> Any:  # ty: ignore[invalid-type-form]
                 if not reg.is_enabled(tname):
                     raise HTTPException(
                         status_code=503,
@@ -218,17 +218,17 @@ def _add_route(router: APIRouter, tool: Tool, registry: ToolRegistry) -> None:
             methods=["POST"],
             operation_id=tool.name,
             summary=summary,
-            tags=tags,
+            tags=tags,  # ty: ignore[invalid-argument-type]
         )
     else:
 
         def _make_sync_endpoint(
             t: Tool = tool,
-            M: Type[BaseModel] = request_model,  # type: ignore[assignment]
+            M: Type[BaseModel] = request_model,
             reg: ToolRegistry = registry,
             tname: str = tool_name,
         ):
-            def _endpoint(data: M) -> Any:  # type: ignore[valid-type]
+            def _endpoint(data: M) -> Any:  # ty: ignore[invalid-type-form]
                 if not reg.is_enabled(tname):
                     raise HTTPException(
                         status_code=503,
@@ -244,7 +244,7 @@ def _add_route(router: APIRouter, tool: Tool, registry: ToolRegistry) -> None:
             methods=["POST"],
             operation_id=tool.name,
             summary=summary,
-            tags=tags,
+            tags=tags,  # ty: ignore[invalid-argument-type]
         )
 
     logger.debug(f"Auto-route registered: POST {router.prefix}{path} → {tool.name}")
@@ -335,4 +335,4 @@ def setup_dynamic_openapi(app: FastAPI, registry: ToolRegistry) -> None:
         # is regenerated on every request, reflecting runtime changes.
         return openapi_schema
 
-    app.openapi = custom_openapi  # type: ignore[method-assign]
+    app.openapi = custom_openapi  # ty: ignore[invalid-assignment]

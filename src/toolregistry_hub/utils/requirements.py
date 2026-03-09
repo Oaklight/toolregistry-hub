@@ -30,7 +30,7 @@ def requires_env(*envs: str):
     """
 
     def decorator(cls: Type) -> Type:
-        cls._required_envs = list(envs)
+        setattr(cls, "_required_envs", list(envs))
         return cls
 
     return decorator

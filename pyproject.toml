@@ -29,8 +29,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "ty>=0.0.21",
     "python-dotenv>=1.0.1",
-    "pyright>=1.1.402",
     "build>=1.2.2.post1",
     "twine>=6.1.0",
     "pytest>=7.0.0",
@@ -67,3 +67,9 @@ version = { attr = "toolregistry_hub.__version__" }
 
 [project.scripts]
 toolregistry-server = "toolregistry_hub.server.cli:main"
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.src]
+include = ["src", "tests"]

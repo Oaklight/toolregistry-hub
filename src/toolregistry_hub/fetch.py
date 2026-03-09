@@ -213,7 +213,7 @@ def _get_content_with_markdown_negotiation(
         str: Markdown content if the server supports it, otherwise empty string.
     """
     try:
-        ua = ua_generator.generate(browser=["chrome", "edge"])  # type: ignore
+        ua = ua_generator.generate(browser=["chrome", "edge"])
         ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
         headers = ua.headers.get()
         headers["Accept"] = "text/markdown"
@@ -387,7 +387,7 @@ def _get_content_with_bs4(
         str: Parsed text content of the webpage.
     """
     try:
-        ua = ua_generator.generate(browser=["chrome", "edge"])  # type: ignore
+        ua = ua_generator.generate(browser=["chrome", "edge"])
         ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
         response = httpx.get(
             url,

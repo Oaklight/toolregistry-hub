@@ -163,6 +163,7 @@ class SearXNGSearch(BaseSearch):
                 params[param] = kwargs[param]
 
         timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
+        assert self.search_url is not None  # validated in search()
         try:
             with httpx.Client(timeout=timeout) as client:
                 response = client.get(

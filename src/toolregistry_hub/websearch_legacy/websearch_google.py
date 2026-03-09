@@ -134,7 +134,7 @@ class WebSearchGoogle(WebSearchGeneral):
         fetched_links: Set[str] = set()
 
         # Create a persistent client with connection pooling
-        ua = ua_generator.generate(device="mobile")  # type: ignore
+        ua = ua_generator.generate(device="mobile")
         ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
         with httpx.Client(
             proxy=proxy,

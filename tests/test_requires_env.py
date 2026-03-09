@@ -22,7 +22,7 @@ class TestRequiresEnv(unittest.TestCase):
             pass
 
         self.assertTrue(hasattr(MyTool, "_required_envs"))
-        self.assertEqual(MyTool._required_envs, ["MY_API_KEY"])
+        self.assertEqual(MyTool._required_envs, ["MY_API_KEY"])  # ty: ignore[unresolved-attribute]
 
     def test_decorator_multiple_envs(self):
         """Test that requires_env supports multiple environment variables."""
@@ -31,7 +31,7 @@ class TestRequiresEnv(unittest.TestCase):
         class MultiEnvTool:
             pass
 
-        self.assertEqual(MultiEnvTool._required_envs, ["KEY_A", "KEY_B", "KEY_C"])
+        self.assertEqual(MultiEnvTool._required_envs, ["KEY_A", "KEY_B", "KEY_C"])  # ty: ignore[unresolved-attribute]
 
     def test_undecorated_class_has_no_required_envs(self):
         """Test that undecorated classes do not have _required_envs attribute."""
@@ -77,11 +77,11 @@ class TestRequiresEnv(unittest.TestCase):
             TavilySearch,
         )
 
-        self.assertEqual(BraveSearch._required_envs, ["BRAVE_API_KEY"])
-        self.assertEqual(TavilySearch._required_envs, ["TAVILY_API_KEY"])
-        self.assertEqual(SearXNGSearch._required_envs, ["SEARXNG_URL"])
-        self.assertEqual(BrightDataSearch._required_envs, ["BRIGHTDATA_API_KEY"])
-        self.assertEqual(ScrapelessSearch._required_envs, ["SCRAPELESS_API_KEY"])
+        self.assertEqual(BraveSearch._required_envs, ["BRAVE_API_KEY"])  # ty: ignore[unresolved-attribute]
+        self.assertEqual(TavilySearch._required_envs, ["TAVILY_API_KEY"])  # ty: ignore[unresolved-attribute]
+        self.assertEqual(SearXNGSearch._required_envs, ["SEARXNG_URL"])  # ty: ignore[unresolved-attribute]
+        self.assertEqual(BrightDataSearch._required_envs, ["BRIGHTDATA_API_KEY"])  # ty: ignore[unresolved-attribute]
+        self.assertEqual(ScrapelessSearch._required_envs, ["SCRAPELESS_API_KEY"])  # ty: ignore[unresolved-attribute]
 
 
 class TestConfigurableProtocol(unittest.TestCase):
