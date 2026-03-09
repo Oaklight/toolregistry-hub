@@ -12,6 +12,8 @@ author: Oaklight
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-10
+
 ### 新功能
 
 - **启动工具配置文件（JSONC）** ([#37](https://github.com/Oaklight/toolregistry-hub/issues/37), [#38](https://github.com/Oaklight/toolregistry-hub/pull/38))
@@ -34,15 +36,40 @@ author: Oaklight
     - 添加 `build_registry()` / `get_registry()` 中央注册表，自动禁用未配置的工具
     - 将 `APIKeyParser` 和 `SearXNGSearch` 验证延迟到调用时，允许在无环境变量时正常初始化
 
+- **WebSearch 工具嵌套命名空间** ([#39](https://github.com/Oaklight/toolregistry-hub/issues/39), [#40](https://github.com/Oaklight/toolregistry-hub/pull/40))
+    - 支持嵌套命名空间如 `web/brave_search`，生成 `/tools/web/brave_search/search` 形式的 URL
+    - 通过 `_HIDDEN_METHODS` 从 API 端点中隐藏内部方法（`is_configured`）
+
+### 修复
+
+- **Jina Reader 多引擎重试** ([#43](https://github.com/Oaklight/toolregistry-hub/pull/43))
+    - 分离 httpx 传输超时与 Jina `X-Timeout`（增加 10 秒缓冲），防止竞态条件
+    - 添加 `X-Wait-For-Selector` 请求头，使用常见内容选择器等待动态内容
+    - 添加多引擎重试：先尝试 `browser`，失败后回退到 `cf-browser-rendering` 引擎
+    - 提取 `_jina_reader_request()` 作为底层单次请求函数
+
+- **Dockerfile 缺少服务器依赖**
+    - 本地 wheel 安装路径改为使用 `[server]` extra，替代硬编码依赖列表
+    - 确保所有依赖由 `pyproject.toml` 统一管理，防止 Docker 容器中出现 `ModuleNotFoundError`
+
 ### 重构
+
+- **移除旧版手写路由文件** ([#39](https://github.com/Oaklight/toolregistry-hub/issues/39), [#40](https://github.com/Oaklight/toolregistry-hub/pull/40))
+    - 移除 `calculator.py`、`datetime_tools.py`、`fetch.py`、`think.py`、`todo_list.py`、`unit_converter.py` 及 `routes/websearch/` 目录
+    - 替换为从 ToolRegistry 自动生成的路由
+    - 简化 `routes/__init__.py`，仅导出 `version_router`
+    - `server_core.py` 使用自动生成路由配合 `version_router`
 
 - **移除 BingSearch** ([#34](https://github.com/Oaklight/toolregistry-hub/pull/34))
     - 移除已弃用的 `BingSearch` 类、服务器路由及相关测试
     - 重写和现代化剩余搜索引擎的测试套件
 
 - **重构服务器可选依赖** ([#29](https://github.com/Oaklight/toolregistry-hub/issues/29), [#33](https://github.com/Oaklight/toolregistry-hub/pull/33))
-    - 在 `server_openapi` 和 `server_mcp` extras 中添加 `toolregistry>=0.4.14`
+    - 更新 `server_openapi` 和 `server_mcp` extras 要求 `toolregistry>=0.5.0`
     - 重构 `server` extra 使用自引用组合
+
+- 将 pyright 替换为 ty 进行类型检查
+- `APIKeyParser.__init__` 不再在缺少密钥时抛出异常，改为延迟到调用时验证
 
 ## [0.5.6] - 2026-03-05
 
