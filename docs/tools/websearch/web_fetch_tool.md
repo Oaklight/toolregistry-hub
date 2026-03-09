@@ -71,7 +71,7 @@ The Web Fetch tool uses a three-stage extraction approach with **content quality
 
 1. **Cloudflare Content Negotiation**: Zero-cost attempt to get markdown directly from the origin server
 2. **BeautifulSoup Direct Parsing**: Intelligent HTML parsing with content cleaning + quality check
-3. **Jina Reader (Fallback)**: External API with `browser` engine for JavaScript rendering (SPA support)
+3. **Jina Reader (Fallback)**: External API with multi-engine retry (`browser` → `cf-browser-rendering`) for JavaScript rendering (SPA support)
 
 ### Extraction Process
 
@@ -85,7 +85,9 @@ flowchart TD
     C -->|HTTP error / no content| F
     D -->|Too short or SPA shell| F[Jina Reader - browser engine]
     F -->|Good content| Z
-    F -->|Failed or low quality| G{BS4 had content?}
+    F -->|Insufficient content| F2[Jina Reader - cf-browser-rendering engine]
+    F2 -->|Good content| Z
+    F2 -->|Failed or low quality| G{BS4 had content?}
     G -->|Yes| H[Return BS4 low-quality fallback]
     G -->|No| I[Return error message]
 ```
@@ -112,7 +114,7 @@ The tool detects common indicators of Single Page Application shell pages that l
 - `"requires a modern browser"`
 - `"enable cookies"`
 
-When SPA shell content is detected, Jina Reader is automatically triggered with its `browser` engine to render the JavaScript and extract the actual content.
+When SPA shell content is detected, Jina Reader is automatically triggered with its `browser` engine to render the JavaScript and extract the actual content. If the `browser` engine still returns insufficient content, the tool retries with the `cf-browser-rendering` engine, which is specifically designed for JS-heavy websites.
 
 **Low-Quality Fallback:**
 
@@ -138,14 +140,24 @@ The first strategy leverages [Cloudflare's "Markdown for Agents"](https://blog.c
 
 ### Jina Reader API
 
-The Jina Reader serves as the fallback strategy for pages that BeautifulSoup cannot handle well (e.g., JavaScript-heavy SPAs). The implementation uses:
+The Jina Reader serves as the fallback strategy for pages that BeautifulSoup cannot handle well (e.g., JavaScript-heavy SPAs). The implementation uses a **multi-engine retry** approach:
+
+**Request Configuration:**
 
 - **POST method** with JSON body (`{"url": "..."}`) for structured requests
 - **`Accept: application/json`** header to receive structured JSON responses
-- **`X-Engine: browser`** header to enable JavaScript rendering via Jina's browser engine
-- **`X-Timeout`** header to pass through the configured timeout
-- **`X-Remove-Selector: header, footer, nav, aside`** to strip non-content elements server-side
 - **`X-Return-Format: markdown`** (default) for LLM-friendly output
+- **`X-Remove-Selector: header, footer, nav, aside`** to strip non-content elements server-side
+
+**SPA Rendering Parameters:**
+
+- **`X-Engine`**: Tries `browser` first, then falls back to `cf-browser-rendering` (optimised for JS-heavy websites) if content is insufficient
+- **`X-Wait-For-Selector`**: Waits for common content selectors (`main`, `article`, `.content`, `#content`, `.main-content`, `#main-content`, `[role='main']`) to appear before capturing the page, ensuring dynamically loaded content is fully rendered
+- **`X-Timeout`**: Sets the maximum time Jina should spend rendering the page (equal to the configured `timeout` parameter)
+
+**Timeout Separation:**
+
+The httpx transport timeout is set to `timeout + 10s` (buffer), while the Jina `X-Timeout` is set to `timeout`. This prevents the HTTP client from timing out before Jina finishes rendering the page — a common issue with SPA pages that require extra rendering time.
 
 The JSON response is parsed to extract the `data.content` field, which contains the rendered page content.
 
@@ -382,7 +394,7 @@ if is_valid:
 
 ### Technical Limitations
 
-- **JavaScript-heavy sites**: Handled via Jina Reader's `browser` engine fallback, but some complex SPAs may still not render fully
+- **JavaScript-heavy sites**: Handled via Jina Reader's multi-engine retry (`browser` → `cf-browser-rendering`) with `X-Wait-For-Selector` for dynamic content, but some complex SPAs may still not render fully
 - **Authentication**: Cannot access password-protected content
 - **Large files**: Very large pages may timeout or be truncated
 - **Complex layouts**: Some sites may require custom parsing
