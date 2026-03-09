@@ -216,14 +216,30 @@ def _resolve_config_path(config_path: Optional[str]) -> Optional[Path]:
     env_path = os.environ.get("TOOLS_CONFIG")
     if env_path:
         p = Path(env_path)
-        if p.is_file():
-            return p
+        try:
+            if p.is_file():
+                return p
+        except PermissionError:
+            logger.warning(
+                f"TOOLS_CONFIG={env_path} exists but is not accessible "
+                f"(permission denied), ignoring."
+            )
+            return None
         logger.warning(f"TOOLS_CONFIG={env_path} does not exist, ignoring.")
 
     # 3. Working directory default
     default = Path("tools.jsonc")
-    if default.is_file():
-        return default
+    try:
+        if default.is_file():
+            return default
+    except PermissionError:
+        logger.warning(
+            f"Found {default} but cannot access it (permission denied). "
+            f"Ensure the file and its parent directory are readable by the "
+            f"current user (e.g. chmod 755 on the directory, chmod 644 on "
+            f"the file). Skipping tool config."
+        )
+        return None
 
     # 4. No config found
     return None
