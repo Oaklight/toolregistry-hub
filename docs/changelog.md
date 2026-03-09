@@ -12,6 +12,8 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-10
+
 ### New Features
 
 - **Startup Tool Configuration via JSONC** ([#37](https://github.com/Oaklight/toolregistry-hub/issues/37), [#38](https://github.com/Oaklight/toolregistry-hub/pull/38))
@@ -34,15 +36,40 @@ This page documents all notable changes to the toolregistry-hub project since th
     - Add `build_registry()` / `get_registry()` central registry that auto-disables unconfigured tools
     - Defer `APIKeyParser` and `SearXNGSearch` validation to call time, allowing graceful initialization without env vars
 
+- **Nested Namespaces for WebSearch Tools** ([#39](https://github.com/Oaklight/toolregistry-hub/issues/39), [#40](https://github.com/Oaklight/toolregistry-hub/pull/40))
+    - Support nested namespaces like `web/brave_search`, producing URLs like `/tools/web/brave_search/search`
+    - Hide internal methods (`is_configured`) from API endpoints via `_HIDDEN_METHODS`
+
+### Bug Fixes
+
+- **Jina Reader Multi-Engine Retry** ([#43](https://github.com/Oaklight/toolregistry-hub/pull/43))
+    - Separate httpx transport timeout from Jina `X-Timeout` (add 10s buffer) to prevent race conditions
+    - Add `X-Wait-For-Selector` header with common content selectors for dynamic content
+    - Add multi-engine retry: try `browser` first, fall back to `cf-browser-rendering` engine for JS-heavy websites
+    - Extract `_jina_reader_request()` as low-level single-request function
+
+- **Dockerfile Missing Server Dependencies**
+    - Local wheel install path now uses `[server]` extra instead of hardcoded dependency list
+    - Ensures all dependencies are managed by `pyproject.toml`, preventing `ModuleNotFoundError` in Docker containers
+
 ### Refactoring
+
+- **Remove Legacy Hand-Written Route Files** ([#39](https://github.com/Oaklight/toolregistry-hub/issues/39), [#40](https://github.com/Oaklight/toolregistry-hub/pull/40))
+    - Remove `calculator.py`, `datetime_tools.py`, `fetch.py`, `think.py`, `todo_list.py`, `unit_converter.py`, and `routes/websearch/` directory
+    - Replace with auto-generated routes from ToolRegistry
+    - Simplify `routes/__init__.py` to export only `version_router`
+    - `server_core.py` uses auto-generated routes alongside `version_router`
 
 - **Remove BingSearch** ([#34](https://github.com/Oaklight/toolregistry-hub/pull/34))
     - Remove deprecated `BingSearch` class, server route, and related tests
     - Rewrite and modernize websearch test suite for remaining engines
 
 - **Restructure Server Optional Dependencies** ([#29](https://github.com/Oaklight/toolregistry-hub/issues/29), [#33](https://github.com/Oaklight/toolregistry-hub/pull/33))
-    - Add `toolregistry>=0.4.14` to `server_openapi` and `server_mcp` extras
+    - Update `server_openapi` and `server_mcp` extras to require `toolregistry>=0.5.0`
     - Refactor `server` extra to use self-referencing composition
+
+- Replace pyright with ty for type checking
+- `APIKeyParser.__init__` no longer raises on missing keys; defers validation to call time
 
 ## [0.5.6] - 2026-03-05
 
