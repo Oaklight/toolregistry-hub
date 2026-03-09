@@ -245,43 +245,108 @@ def _get_content_with_markdown_negotiation(
         return ""
 
 
+# Buffer (in seconds) added to the Jina X-Timeout to derive the httpx
+# transport timeout.  This ensures the HTTP client does not time out before
+# Jina finishes rendering the page.
+_JINA_TIMEOUT_BUFFER = 10.0
+
+# Jina Reader engines tried in order.  ``browser`` is the default; if it
+# returns insufficient content we retry with ``cf-browser-rendering`` which
+# is specifically designed for JS-heavy websites.
+_JINA_ENGINES: list[str] = ["browser", "cf-browser-rendering"]
+
+# Common CSS selectors for main content areas.  Used with the Jina
+# ``X-Wait-For-Selector`` header so the reader waits until at least one of
+# these elements is present before capturing the page.
+_JINA_WAIT_SELECTORS = (
+    "main, article, .content, #content, .main-content, #main-content, [role='main']"
+)
+
+
 def _get_content_with_jina_reader(
     url: str,
     return_format: Literal["markdown", "text", "html"] = "markdown",
     timeout: float = TIMEOUT_DEFAULT,
     proxy: Optional[str] = None,
 ) -> str:
-    """
-    Fetch parsed content from Jina AI Reader for a given URL.
+    """Fetch parsed content from Jina AI Reader for a given URL.
 
-    Uses the Jina Reader API with the ``browser`` engine for JavaScript
-    rendering support. Sends a POST request with JSON body and parses
-    the structured JSON response.
+    Tries the ``browser`` engine first.  If the result is empty or
+    insufficient, retries with the ``cf-browser-rendering`` engine which
+    is optimised for JS-heavy / SPA websites.
+
+    The Jina ``X-Timeout`` header is set to *timeout* while the httpx
+    transport timeout is set to ``timeout + _JINA_TIMEOUT_BUFFER`` so
+    that the HTTP client never races against the Jina rendering deadline.
 
     Args:
-        url (str): The URL to fetch content from.
-        return_format (Literal["markdown", "text", "html"], optional): The format of the returned content. Defaults to "markdown".
-        timeout (float, optional): Timeout for the HTTP request. Defaults to TIMEOUT_DEFAULT.
-        proxy (str, optional): Proxy to use for the HTTP request. Defaults to None.
+        url: The URL to fetch content from.
+        return_format: The format of the returned content.
+            Defaults to ``"markdown"``.
+        timeout: Maximum seconds Jina should spend rendering the page.
+            Defaults to TIMEOUT_DEFAULT.
+        proxy: Proxy to use for the HTTP request.  Defaults to ``None``.
 
     Returns:
-        str: Parsed content from Jina AI, or empty string on failure.
+        Parsed content from Jina AI, or empty string on failure.
+    """
+    for engine in _JINA_ENGINES:
+        content = _jina_reader_request(
+            url,
+            engine=engine,
+            return_format=return_format,
+            timeout=timeout,
+            proxy=proxy,
+        )
+        if content and _is_content_sufficient(content):
+            return content
+        if engine != _JINA_ENGINES[-1]:
+            logger.debug(
+                f"Jina Reader engine '{engine}' returned insufficient content "
+                f"for {url}, retrying with next engine"
+            )
+    return content  # may be empty or low-quality; caller decides
+
+
+def _jina_reader_request(
+    url: str,
+    engine: str = "browser",
+    return_format: Literal["markdown", "text", "html"] = "markdown",
+    timeout: float = TIMEOUT_DEFAULT,
+    proxy: Optional[str] = None,
+) -> str:
+    """Send a single request to the Jina Reader API.
+
+    Args:
+        url: The URL to fetch content from.
+        engine: Jina rendering engine (``"browser"``,
+            ``"cf-browser-rendering"``, or ``"direct"``).
+        return_format: Desired output format.
+        timeout: Maximum seconds Jina should spend rendering the page.
+        proxy: Optional HTTP proxy URL.
+
+    Returns:
+        Extracted content string, or empty string on failure.
     """
     try:
-        headers = {
+        headers: dict[str, str] = {
             "Accept": "application/json",
             "X-Return-Format": return_format,
-            "X-Engine": "browser",
+            "X-Engine": engine,
             "X-Timeout": str(int(timeout)),
             "X-Remove-Selector": "header, footer, nav, aside",
+            "X-Wait-For-Selector": _JINA_WAIT_SELECTORS,
         }
         jina_reader_url = "https://r.jina.ai/"
-        logger.debug(f"Jina Reader request for {url} (engine: browser)")
+        # httpx timeout must exceed Jina's rendering timeout so we don't
+        # abort the HTTP connection before Jina finishes.
+        transport_timeout = timeout + _JINA_TIMEOUT_BUFFER
+        logger.debug(f"Jina Reader request for {url} (engine: {engine})")
         response = httpx.post(
             jina_reader_url,
             json={"url": url},
             headers=headers,
-            timeout=timeout,
+            timeout=transport_timeout,
             proxy=proxy,
         )
         response.raise_for_status()
@@ -289,15 +354,19 @@ def _get_content_with_jina_reader(
         data = response.json()
         content = data.get("data", {}).get("content", "")
         if content:
-            logger.debug(f"Jina Reader returned {len(content)} chars for {url}")
+            logger.debug(
+                f"Jina Reader ({engine}) returned {len(content)} chars for {url}"
+            )
         else:
-            logger.debug(f"Jina Reader returned empty content for {url}")
+            logger.debug(f"Jina Reader ({engine}) returned empty content for {url}")
         return content
     except httpx.HTTPStatusError as e:
-        logger.debug(f"Jina Reader HTTP Error [{e.response.status_code}]: {e}")
+        logger.debug(
+            f"Jina Reader ({engine}) HTTP Error [{e.response.status_code}]: {e}"
+        )
         return ""
     except Exception as e:
-        logger.debug(f"Jina Reader error: {e}")
+        logger.debug(f"Jina Reader ({engine}) error: {e}")
         return ""
 
 

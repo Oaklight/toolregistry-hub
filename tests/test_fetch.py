@@ -6,6 +6,8 @@ import httpx
 import pytest
 
 from toolregistry_hub.fetch import (
+    _JINA_TIMEOUT_BUFFER,
+    _JINA_WAIT_SELECTORS,
     _MIN_CONTENT_LENGTH,
     _SPA_SHELL_INDICATORS,
     _extract,
@@ -14,6 +16,7 @@ from toolregistry_hub.fetch import (
     _get_content_with_jina_reader,
     _get_content_with_markdown_negotiation,
     _is_content_sufficient,
+    _jina_reader_request,
 )
 
 
@@ -146,8 +149,8 @@ class TestMarkdownNegotiation:
 # ============================================================
 
 
-class TestJinaReader:
-    """Tests for the _get_content_with_jina_reader function."""
+class TestJinaReaderRequest:
+    """Tests for the _jina_reader_request low-level function."""
 
     @patch("toolregistry_hub.fetch.httpx.post")
     def test_success_returns_content(self, mock_post):
@@ -162,7 +165,7 @@ class TestJinaReader:
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
-        result = _get_content_with_jina_reader("https://example.com")
+        result = _jina_reader_request("https://example.com")
         assert result == "# Article Title\nSome article content here."
 
     @patch("toolregistry_hub.fetch.httpx.post")
@@ -172,7 +175,7 @@ class TestJinaReader:
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
-        result = _get_content_with_jina_reader("https://example.com")
+        result = _jina_reader_request("https://example.com")
         assert result == ""
 
     @patch("toolregistry_hub.fetch.httpx.post")
@@ -186,7 +189,7 @@ class TestJinaReader:
         )
         mock_post.return_value = mock_response
 
-        result = _get_content_with_jina_reader("https://example.com")
+        result = _jina_reader_request("https://example.com")
         assert result == ""
 
     @patch("toolregistry_hub.fetch.httpx.post")
@@ -196,17 +199,17 @@ class TestJinaReader:
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
-        _get_content_with_jina_reader("https://example.com")
+        _jina_reader_request("https://example.com")
         mock_post.assert_called_once()
 
     @patch("toolregistry_hub.fetch.httpx.post")
-    def test_headers_include_browser_engine(self, mock_post):
+    def test_headers_include_expected_fields(self, mock_post):
         mock_response = MagicMock()
         mock_response.json.return_value = {"code": 200, "data": {"content": "test"}}
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
-        _get_content_with_jina_reader("https://example.com")
+        _jina_reader_request("https://example.com", engine="browser")
 
         call_kwargs = mock_post.call_args
         headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
@@ -214,6 +217,7 @@ class TestJinaReader:
         assert headers["Accept"] == "application/json"
         assert "X-Timeout" in headers
         assert headers["X-Remove-Selector"] == "header, footer, nav, aside"
+        assert headers["X-Wait-For-Selector"] == _JINA_WAIT_SELECTORS
 
     @patch("toolregistry_hub.fetch.httpx.post")
     def test_sends_url_in_json_body(self, mock_post):
@@ -222,7 +226,7 @@ class TestJinaReader:
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
-        _get_content_with_jina_reader("https://example.com/page")
+        _jina_reader_request("https://example.com/page")
 
         call_kwargs = mock_post.call_args
         json_body = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
@@ -232,8 +236,95 @@ class TestJinaReader:
     def test_timeout_error_returns_empty(self, mock_post):
         mock_post.side_effect = httpx.ReadTimeout("Read timed out")
 
+        result = _jina_reader_request("https://example.com")
+        assert result == ""
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_httpx_timeout_exceeds_jina_timeout(self, mock_post):
+        """httpx transport timeout must be larger than Jina X-Timeout."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"code": 200, "data": {"content": "ok"}}
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        custom_timeout = 20.0
+        _jina_reader_request("https://example.com", timeout=custom_timeout)
+
+        call_kwargs = mock_post.call_args
+        httpx_timeout = call_kwargs.kwargs.get("timeout")
+        headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
+        jina_timeout = int(headers["X-Timeout"])
+
+        assert httpx_timeout == custom_timeout + _JINA_TIMEOUT_BUFFER
+        assert jina_timeout == int(custom_timeout)
+        assert httpx_timeout > jina_timeout
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_custom_engine(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"code": 200, "data": {"content": "test"}}
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        _jina_reader_request("https://example.com", engine="cf-browser-rendering")
+
+        call_kwargs = mock_post.call_args
+        headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
+        assert headers["X-Engine"] == "cf-browser-rendering"
+
+
+class TestJinaReader:
+    """Tests for the _get_content_with_jina_reader orchestrator function."""
+
+    @patch("toolregistry_hub.fetch._jina_reader_request")
+    def test_success_on_first_engine(self, mock_request):
+        """Returns content from the first engine when sufficient."""
+        sufficient = "# Article Title\nSome article content here. " * 10
+        mock_request.return_value = sufficient
+
+        result = _get_content_with_jina_reader("https://example.com")
+        assert result == sufficient
+        # Only called once (browser engine)
+        assert mock_request.call_count == 1
+
+    @patch("toolregistry_hub.fetch._jina_reader_request")
+    def test_retries_with_cf_engine_on_insufficient(self, mock_request):
+        """Falls back to cf-browser-rendering when browser returns short content."""
+        sufficient = "# Full Content\nComplete article text here. " * 10
+        mock_request.side_effect = ["Short", sufficient]
+
+        result = _get_content_with_jina_reader("https://example.com")
+        assert result == sufficient
+        assert mock_request.call_count == 2
+        # Verify engine order
+        engines = [
+            call.kwargs.get("engine") or call.args[1]
+            for call in mock_request.call_args_list
+        ]
+        assert engines[0] == "browser"
+        assert engines[1] == "cf-browser-rendering"
+
+    @patch("toolregistry_hub.fetch._jina_reader_request")
+    def test_returns_last_result_when_all_engines_fail(self, mock_request):
+        """Returns the last engine's result (even empty) when all fail."""
+        mock_request.return_value = ""
+
         result = _get_content_with_jina_reader("https://example.com")
         assert result == ""
+        assert mock_request.call_count == 2
+
+    @patch("toolregistry_hub.fetch._jina_reader_request")
+    def test_passes_timeout_and_proxy(self, mock_request):
+        sufficient = "Enough content for testing purposes. " * 10
+        mock_request.return_value = sufficient
+
+        _get_content_with_jina_reader(
+            "https://example.com", timeout=45.0, proxy="http://proxy:8080"
+        )
+
+        call_kwargs = mock_request.call_args
+        assert call_kwargs.kwargs["timeout"] == 45.0
+        assert call_kwargs.kwargs["proxy"] == "http://proxy:8080"
 
 
 # ============================================================
