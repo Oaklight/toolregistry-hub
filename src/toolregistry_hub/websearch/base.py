@@ -28,7 +28,7 @@ class BaseSearch(ABC):
             True if the instance is properly configured, False otherwise.
         """
         if hasattr(self, "api_key_parser"):
-            return bool(self.api_key_parser.api_keys)
+            return bool(getattr(self, "api_key_parser").api_keys)
         return True
 
     @property

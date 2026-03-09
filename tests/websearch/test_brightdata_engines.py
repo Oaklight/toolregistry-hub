@@ -35,9 +35,7 @@ def build_search_url(engine: str, query: str, page: int = 0) -> str:
         return f"https://www.google.com/search?q={q}&start={start}"
 
 
-def run_engine_format(
-    engine: str, data_format: str, query: str = "python programming"
-):
+def run_engine_format(engine: str, data_format: str, query: str = "python programming"):
     """Run a specific engine with a specific data format (manual test helper)."""
     api_token = os.getenv("BRIGHTDATA_API_KEY")
     if not api_token:

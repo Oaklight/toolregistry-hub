@@ -141,7 +141,7 @@ class WebSearchSearXNG(WebSearchGeneral):
         """
         Perform a search using SearXNG and return the results.
         """
-        ua = ua_generator.generate(browser=["chrome", "edge"])  # type: ignore
+        ua = ua_generator.generate(browser=["chrome", "edge"])
         ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
         response = httpx.get(
             searxng_base_url,

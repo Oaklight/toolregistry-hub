@@ -93,7 +93,7 @@ def test_todolist_update_non_string_input():
     """Test update with non-string todo items."""
     todos = [123, "[task1] Task one (planned)"]
     with pytest.raises(TypeError, match="must be a string"):
-        TodoList.update(todos)
+        TodoList.update(todos)  # ty: ignore[invalid-argument-type]
 
 
 def test_escape_pipe_in_content():

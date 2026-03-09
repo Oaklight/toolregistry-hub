@@ -142,8 +142,8 @@ class TestDateTime:
         result = DateTime.convert_timezone("12:00", "UTC", "UTC")
 
         # Times should be identical (or very close due to processing time)
-        source_dt = datetime.fromisoformat(result["source_time"])
-        target_dt = datetime.fromisoformat(result["target_time"])
+        _ = datetime.fromisoformat(result["source_time"])
+        _ = datetime.fromisoformat(result["target_time"])
 
         # Time difference should be 0 hours
         assert (
