@@ -20,14 +20,14 @@ The project includes several Docker-related files in the `docker/` directory:
 - [`compose.dev.yaml`](../../docker/compose.dev.yaml) - Development Docker Compose configuration
 - [`.env.sample`](../../docker/.env.sample) - Sample environment variables file
 - [`Makefile`](../../docker/Makefile) - Build automation for Docker images
-- [`requirements.txt`](../../docker/requirements.txt) - Python dependencies for the container
 
 ## Quick Start
 
 The quickest way to get started is using the pre-built Docker image with Docker Compose:
 
 1. Create a `.env` file based on the sample
-2. Start the server using Docker Compose: `docker-compose up -d`
+2. (Optional) Create a `tools.jsonc` file to customize which tools are loaded (see [Tool Configuration](#tool-configuration) below)
+3. Start the server using Docker Compose: `docker-compose up -d`
 
 The server will be available at `http://localhost:8000`.
 
@@ -61,6 +61,50 @@ docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest toolregistry-ser
 ```bash
 docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest toolregistry-server --host=0.0.0.0 --port=8000 --mode=mcp --mcp-transport=sse
 ```
+
+## Tool Configuration
+
+You can customize which tools are loaded at startup using a `tools.jsonc` configuration file. The Docker Compose files mount `./tools.jsonc` into the container automatically.
+
+### Setup
+
+1. Copy the example configuration:
+
+    ```bash
+    cd docker/
+    cp ../tools.jsonc.example tools.jsonc
+    ```
+
+2. Edit `tools.jsonc` to customize your setup:
+
+    ```jsonc
+    {
+      // Denylist mode: all tools enabled except those listed
+      "mode": "denylist",
+      "disabled": [
+        "filesystem",  // security sensitive
+        "file_ops"     // security sensitive
+      ]
+    }
+    ```
+
+3. Restart the containers:
+
+    ```bash
+    docker compose restart
+    ```
+
+### Configuration Options
+
+- **`mode`**: `"denylist"` (default) or `"allowlist"`
+- **`disabled`**: Namespaces to disable (denylist mode)
+- **`enabled`**: Namespaces to enable (allowlist mode)
+- **`tools`**: Custom tool class list (optional, overrides built-in defaults)
+
+For full configuration details, see the [Server Mode - Tool Configuration](server.md#tool-configuration) documentation.
+
+!!! tip "No Configuration File"
+    If no `tools.jsonc` file is present, the server loads all available tools with default settings. The volume mount will simply be ignored if the file doesn't exist.
 
 ## Production Deployment Recommendations
 
