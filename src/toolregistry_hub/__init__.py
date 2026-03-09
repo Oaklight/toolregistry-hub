@@ -62,5 +62,5 @@ __all__ = [
     "TodoList",
 ]
 
-__version__ = "0.5.6"  # version convention
+__version__ = "0.6.0"  # version convention
 version = __version__  # I made mistake. But here kept for backward compatibility

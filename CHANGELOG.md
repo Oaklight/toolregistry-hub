@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.6.0] - 2026-03-10
 
 ### Added
 
@@ -13,6 +13,11 @@ All notable changes to this project will be documented in this file.
 - **Nested namespaces for websearch tools** — e.g. `web/brave_search`, producing URLs like `/tools/web/brave_search/search` ([#39](../../issues/39), [#40](../../pull/40))
 - **Hidden internal methods** — `is_configured` excluded from API endpoints via `_HIDDEN_METHODS` ([#39](../../issues/39), [#40](../../pull/40))
 - `--tools-config` CLI option for specifying tool configuration file path ([#37](../../issues/37), [#38](../../pull/38))
+
+### Fixed
+
+- **Jina Reader multi-engine retry** — separate httpx transport timeout from Jina `X-Timeout`, add `X-Wait-For-Selector` for dynamic content, retry with `cf-browser-rendering` engine on failure ([#43](../../pull/43))
+- **Dockerfile missing server dependencies** — local wheel install path now uses `[server]` extra instead of hardcoded dependency list, ensuring all dependencies are managed by `pyproject.toml`
 
 ### Removed
 
@@ -25,6 +30,7 @@ All notable changes to this project will be documented in this file.
 - `routes/__init__.py` simplified to export only `version_router` ([#40](../../pull/40))
 - `server_core.py` no longer registers legacy routers; uses auto-generated routes alongside `version_router` ([#40](../../pull/40))
 - `APIKeyParser.__init__` no longer raises on missing keys; defers validation to call time ([#35](../../pull/35))
+- Replace pyright with ty for type checking ([b5e3bef](../../commit/b5e3bef))
 
 ## [0.5.6] - 2026-03-05
 
@@ -69,7 +75,8 @@ All notable changes to this project will be documented in this file.
 
 - Version attribute reference in setuptools configuration ([3b5caa7](../../commit/3b5caa7))
 
-[Unreleased]: ../../compare/v0.5.6...HEAD
+[Unreleased]: ../../compare/v0.6.0...HEAD
+[0.6.0]: ../../compare/v0.5.6...v0.6.0
 [0.5.6]: ../../compare/v0.5.5...v0.5.6
 [0.5.5]: ../../compare/v0.5.4...v0.5.5
 [0.5.4]: ../../compare/v0.5.3...v0.5.4

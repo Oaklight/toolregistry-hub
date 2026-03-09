@@ -51,13 +51,14 @@ RUN if [ -d "/tmp/build/dist" ] && [ "$(ls -A /tmp/build/dist 2>/dev/null)" ]; t
 # Configure pip mirror based on geographic location
 # RUN pip config set global.index-url https://mirrors.cernet.edu.cn/pypi/web/simple;
 
-# Install the package with server extras - prioritize local wheel + deps, then specific version from PyPI, then latest
+# Install the package with server extras - prioritize local wheel, then specific version from PyPI, then latest
+# All three paths use [server] extra so dependencies are managed solely by pyproject.toml
 RUN if [ -n "$LOCAL_WHEEL" ] && [ -f "/tmp/dist/$LOCAL_WHEEL" ]; then \
-        echo "Installing from local wheel: $LOCAL_WHEEL + server deps"; \
+        echo "Installing from local wheel: $LOCAL_WHEEL[server]"; \
         if [ -n "$PYPI_MIRROR" ]; then \
-            pip install -i "$PYPI_MIRROR" --no-cache-dir "/tmp/dist/$LOCAL_WHEEL" "fastapi>=0.119.0" "uvicorn[standard]>=0.24.0" "fastmcp>=2.12.4"; \
+            pip install -i "$PYPI_MIRROR" --no-cache-dir "/tmp/dist/${LOCAL_WHEEL}[server]"; \
         else \
-            pip install --no-cache-dir "/tmp/dist/$LOCAL_WHEEL" "fastapi>=0.119.0" "uvicorn[standard]>=0.24.0" "fastmcp>=2.12.4"; \
+            pip install --no-cache-dir "/tmp/dist/${LOCAL_WHEEL}[server]"; \
         fi; \
     elif [ -n "$PACKAGE_VERSION" ]; then \
         echo "Installing toolregistry-hub[server] version: $PACKAGE_VERSION"; \
