@@ -76,6 +76,9 @@ docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest toolregistry-ser
 
     # 或直接从 GitHub 下载
     curl -o tools.jsonc https://raw.githubusercontent.com/Oaklight/toolregistry-hub/master/tools.jsonc.example
+
+    # 确保容器用户（appuser, uid=10001）可以读取该文件
+    chmod 644 tools.jsonc
     ```
 
 2. 编辑 `tools.jsonc` 自定义配置：
