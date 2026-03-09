@@ -3,6 +3,8 @@ services:
     image: oaklight/toolregistry-hub-server:latest
     ports:
       - 55093:8000
+    volumes:
+      - ./tools.jsonc:/app/tools.jsonc:ro
     environment:
       - API_BEARER_TOKEN=${API_BEARER_TOKEN}
       # - API_BEARER_TOKENS_FILE=${API_BEARER_TOKENS_FILE}
@@ -21,6 +23,8 @@ services:
     image: oaklight/toolregistry-hub-server:latest
     ports:
       - 55094:8000
+    volumes:
+      - ./tools.jsonc:/app/tools.jsonc:ro
     environment:
       - API_BEARER_TOKEN=${API_BEARER_TOKEN}
       - SEARXNG_URL=${SEARXNG_URL}
@@ -35,6 +39,8 @@ services:
     image: oaklight/toolregistry-hub-server:latest
     ports:
       - 55095:8000
+    volumes:
+      - ./tools.jsonc:/app/tools.jsonc:ro
     environment:
       - API_BEARER_TOKEN=${API_BEARER_TOKEN}
       - SEARXNG_URL=${SEARXNG_URL}

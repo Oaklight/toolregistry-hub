@@ -6,6 +6,8 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - 8000:8000
+    volumes:
+      - ./tools.jsonc:/app/tools.jsonc:ro
     env_file:
       - .env
     environment:
