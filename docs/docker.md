@@ -76,6 +76,9 @@ You can customize which tools are loaded at startup using a `tools.jsonc` config
 
     # Or directly from GitHub
     curl -o tools.jsonc https://raw.githubusercontent.com/Oaklight/toolregistry-hub/master/tools.jsonc.example
+
+    # Ensure the file is readable by the container user (appuser, uid=10001)
+    chmod 644 tools.jsonc
     ```
 
 2. Edit `tools.jsonc` to customize your setup:
