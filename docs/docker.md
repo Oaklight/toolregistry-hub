@@ -68,11 +68,14 @@ You can customize which tools are loaded at startup using a `tools.jsonc` config
 
 ### Setup
 
-1. Copy the example configuration:
+1. Download the example configuration:
 
     ```bash
-    cd docker/
-    cp ../tools.jsonc.example tools.jsonc
+    # Via jsDelivr CDN (recommended, works in regions where GitHub is not directly accessible)
+    curl -o tools.jsonc https://cdn.jsdelivr.net/gh/Oaklight/toolregistry-hub@master/tools.jsonc.example
+
+    # Or directly from GitHub
+    curl -o tools.jsonc https://raw.githubusercontent.com/Oaklight/toolregistry-hub/master/tools.jsonc.example
     ```
 
 2. Edit `tools.jsonc` to customize your setup:
