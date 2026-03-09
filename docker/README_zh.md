@@ -54,6 +54,7 @@ cp .env.sample .env  # 编辑 API 密钥
 curl -o tools.jsonc https://cdn.jsdelivr.net/gh/Oaklight/toolregistry-hub@master/tools.jsonc.example
 # 或直接从 GitHub 下载
 # curl -o tools.jsonc https://raw.githubusercontent.com/Oaklight/toolregistry-hub/master/tools.jsonc.example
+chmod 644 tools.jsonc  # 确保容器用户（appuser）可读
 
 docker compose up -d
 ```

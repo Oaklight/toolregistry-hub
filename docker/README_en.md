@@ -54,6 +54,7 @@ cp .env.sample .env  # Edit API keys
 curl -o tools.jsonc https://cdn.jsdelivr.net/gh/Oaklight/toolregistry-hub@master/tools.jsonc.example
 # Or from GitHub directly
 # curl -o tools.jsonc https://raw.githubusercontent.com/Oaklight/toolregistry-hub/master/tools.jsonc.example
+chmod 644 tools.jsonc  # Ensure readable by container user (appuser)
 
 docker compose up -d
 ```
