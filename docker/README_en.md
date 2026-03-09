@@ -49,6 +49,12 @@ Replace `your_token_here` with token from [tokens.txt.example](tokens.txt.exampl
 
 ```
 cp .env.sample .env  # Edit API keys
+
+# Download tool configuration (jsDelivr CDN, recommended)
+curl -o tools.jsonc https://cdn.jsdelivr.net/gh/Oaklight/toolregistry-hub@master/tools.jsonc.example
+# Or from GitHub directly
+# curl -o tools.jsonc https://raw.githubusercontent.com/Oaklight/toolregistry-hub/master/tools.jsonc.example
+
 docker compose up -d
 ```
 
