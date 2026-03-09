@@ -68,11 +68,14 @@ docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest toolregistry-ser
 
 ### 设置步骤
 
-1. 复制示例配置：
+1. 下载示例配置：
 
     ```bash
-    cd docker/
-    cp ../tools.jsonc.example tools.jsonc
+    # 通过 jsDelivr CDN（推荐，适用于无法直接访问 GitHub 的地区）
+    curl -o tools.jsonc https://cdn.jsdelivr.net/gh/Oaklight/toolregistry-hub@master/tools.jsonc.example
+
+    # 或直接从 GitHub 下载
+    curl -o tools.jsonc https://raw.githubusercontent.com/Oaklight/toolregistry-hub/master/tools.jsonc.example
     ```
 
 2. 编辑 `tools.jsonc` 自定义配置：
