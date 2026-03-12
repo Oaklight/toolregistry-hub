@@ -24,7 +24,8 @@
     {"class": "toolregistry_hub.websearch.websearch_tavily.TavilySearch", "namespace": "web/tavily_search"},
     {"class": "toolregistry_hub.websearch.websearch_searxng.SearXNGSearch", "namespace": "web/searxng_search"},
     {"class": "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch", "namespace": "web/brightdata_search"},
-    {"class": "toolregistry_hub.websearch.websearch_scrapeless.ScrapelessSearch", "namespace": "web/scrapeless_search"}
+    {"class": "toolregistry_hub.websearch.websearch_scrapeless.ScrapelessSearch", "namespace": "web/scrapeless_search"},
+    {"class": "toolregistry_hub.websearch.websearch_serper.SerperSearch", "namespace": "web/serper_search"}
   ],
 
   // Mode: "denylist" (default) or "allowlist"
@@ -39,7 +40,7 @@
   //   calculator, datetime, web/fetch, filesystem, file_ops,
   //   think, todolist, unit_converter,
   //   web/brave_search, web/tavily_search, web/searxng_search,
-  //   web/brightdata_search, web/scrapeless_search
+  //   web/brightdata_search, web/scrapeless_search, web/serper_search
   "disabled": [
     "filesystem", // filesystem operations — security sensitive
     "file_ops" // file editing — security sensitive

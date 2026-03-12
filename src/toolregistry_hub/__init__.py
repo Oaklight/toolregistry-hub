@@ -30,6 +30,7 @@ from .websearch import (
     BraveSearch,
     SearchResult,
     SearXNGSearch,
+    SerperSearch,
     TavilySearch,
 )
 from .websearch_legacy import (
@@ -53,6 +54,7 @@ __all__ = [
     "SearchResult",
     "BraveSearch",
     "SearXNGSearch",
+    "SerperSearch",
     "TavilySearch",
     # ------- Legacy WebSearch tools -------
     "WebSearchGeneral",

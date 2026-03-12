@@ -53,6 +53,10 @@ _DEFAULT_TOOLS: List[Dict[str, str]] = [
         "class": "toolregistry_hub.websearch.websearch_scrapeless.ScrapelessSearch",
         "namespace": "web/scrapeless_search",
     },
+    {
+        "class": "toolregistry_hub.websearch.websearch_serper.SerperSearch",
+        "namespace": "web/serper_search",
+    },
 ]
 
 # Methods to exclude from route generation (internal/protocol methods)

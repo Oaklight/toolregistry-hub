@@ -3,6 +3,7 @@ from .websearch_brave import BraveSearch
 from .websearch_brightdata import BrightDataSearch
 from .websearch_scrapeless import ScrapelessSearch
 from .websearch_searxng import SearXNGSearch
+from .websearch_serper import SerperSearch
 from .websearch_tavily import TavilySearch
 
 __all__ = [
@@ -11,5 +12,6 @@ __all__ = [
     "ScrapelessSearch",
     "SearchResult",
     "SearXNGSearch",
+    "SerperSearch",
     "TavilySearch",
 ]
