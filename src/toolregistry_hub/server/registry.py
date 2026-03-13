@@ -59,7 +59,9 @@ _DEFAULT_TOOLS: list[dict[str, str]] = [
 ]
 
 # Methods to exclude from route generation (internal/protocol methods)
-_HIDDEN_METHODS: set[str] = {"is_configured"}
+# Note: Methods starting with "_" are already excluded by toolregistry,
+# but we keep this for any other internal methods that need hiding.
+_HIDDEN_METHODS: set[str] = set()
 
 
 def _import_class(class_path: str) -> type:
@@ -140,7 +142,7 @@ def build_registry(
             registry.register_from_class(instance, with_namespace=namespace)
 
             # Check instance readiness via Configurable protocol
-            if isinstance(instance, Configurable) and not instance.is_configured():
+            if isinstance(instance, Configurable) and not instance._is_configured():
                 required_envs: list[str] = getattr(cls, "_required_envs", [])
                 reason = (
                     f"Missing env: {', '.join(required_envs)}"
@@ -152,16 +154,18 @@ def build_registry(
                         registry.disable(tool_name, reason=reason)
                 logger.info(f"Disabled {namespace}: {reason}")
 
-    # Remove hidden methods (e.g. is_configured) from the registry
-    to_remove = [
-        name
-        for name, tool in registry._tools.items()
-        if tool.method_name in _HIDDEN_METHODS
-    ]
-    for name in to_remove:
-        del registry._tools[name]
-        registry._disabled.pop(name, None)
-        logger.debug(f"Removed hidden method from registry: {name}")
+    # Remove hidden methods from the registry (if any are explicitly listed)
+    # Note: Methods starting with "_" are already excluded by toolregistry
+    if _HIDDEN_METHODS:
+        to_remove = [
+            name
+            for name, tool in registry._tools.items()
+            if tool.method_name in _HIDDEN_METHODS
+        ]
+        for name in to_remove:
+            del registry._tools[name]
+            registry._disabled.pop(name, None)
+            logger.debug(f"Removed hidden method from registry: {name}")
 
     # Apply startup tool configuration (highest priority)
     if config is not None:

@@ -62,7 +62,7 @@ class SearXNGSearch(BaseSearch):
             else:
                 self.search_url = self.base_url
 
-    def is_configured(self) -> bool:
+    def _is_configured(self) -> bool:
         """Check if SearXNG URL is configured."""
         return self.search_url is not None
 

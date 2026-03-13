@@ -3,54 +3,56 @@
 This module provides the CLI entry point for running ToolRegistry Hub servers
 with support for both OpenAPI and MCP protocols.
 
+The CLI reuses toolregistry-server's infrastructure but provides Hub-specific
+banner, version information, and pre-configured tool registry.
+
 Usage:
-    toolregistry-server [OPTIONS]
-    toolregistry-server --help
+    toolregistry-hub openapi [OPTIONS]
+    toolregistry-hub mcp [OPTIONS]
+    toolregistry-hub --help
 
 Example:
     # Start OpenAPI server on port 8000
-    $ toolregistry-server --port 8000
+    $ toolregistry-hub openapi --port 8000
 
     # Start MCP server with stdio transport
-    $ toolregistry-server --mode mcp --mcp-transport stdio
+    $ toolregistry-hub mcp --transport stdio
 
     # Start MCP server with SSE transport
-    $ toolregistry-server --mode mcp --mcp-transport sse --port 8000
+    $ toolregistry-hub mcp --transport sse --port 8000
 
     # With configuration file
-    $ toolregistry-server --tools-config tools.jsonc
+    $ toolregistry-hub openapi --config tools.jsonc
 """
 
 import argparse
 import sys
+from typing import NoReturn
 
 from loguru import logger
 
 from .. import __version__
-from ..version_check import check_for_updates, get_version_check_sync
+from ..version_check import check_for_updates
 from .banner import BANNER_ART
 
 
-def print_banner():
-    """Print the ToolRegistry Hub banner with centered content and border."""
+def _get_version_info() -> dict:
+    """Get version information with update check.
+
+    Returns:
+        Dictionary with current_version, update_available, and latest_version.
+    """
     import asyncio
 
-    width = 80
-    border_char = "·"
-
-    # Split banner art into lines
-    art_lines = BANNER_ART.split("\n")
-
-    # Check for updates
     try:
         # Check if there's already a running event loop
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # If we're already in an event loop, skip async version check
             logger.debug(
                 "Already in event loop, skipping async version check in banner"
             )
-            version_info = {
+            return {
                 "current_version": __version__,
                 "update_available": False,
                 "latest_version": None,
@@ -60,148 +62,250 @@ def print_banner():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                version_info = loop.run_until_complete(check_for_updates())
+                return loop.run_until_complete(check_for_updates())
             finally:
                 loop.close()
                 asyncio.set_event_loop(None)
     except Exception as e:
         logger.debug(f"Failed to check for updates in banner: {e}")
-        version_info = {
+        return {
             "current_version": __version__,
             "update_available": False,
             "latest_version": None,
         }
 
-    # Build the banner
-    lines = []
 
-    # Top border
-    lines.append(border_char * width)
+def print_hub_banner() -> None:
+    """Print the ToolRegistry Hub banner using toolregistry-server's print_banner.
 
-    # Empty line
-    lines.append(f": {' ' * (width - 4)} :")
+    This function uses the shared print_banner from toolregistry-server,
+    passing in the Hub-specific banner art and version information.
+    """
+    try:
+        from toolregistry_server.cli import print_banner
+    except ImportError:
+        # Fallback if toolregistry-server is not installed
+        logger.warning("toolregistry-server not installed, skipping banner")
+        return
 
-    # Art lines - center each line
-    for line in art_lines:
-        centered = line.center(width - 4)
-        lines.append(f": {centered} :")
+    # Get version info with update check
+    version_info = _get_version_info()
 
-    # Empty line
-    lines.append(f": {' ' * (width - 4)} :")
-
-    # Version information with update status
+    # Build extra lines for update notification
+    extra_lines = None
     if version_info["update_available"]:
-        version_line = f"Version {version_info['current_version']}"
-        update_line = f"UPDATE AVAILABLE: v{version_info['latest_version']}"
-        install_line = "Run: pip install --upgrade toolregistry-hub"
+        extra_lines = [
+            f"UPDATE AVAILABLE: v{version_info['latest_version']}",
+            "Run: pip install --upgrade toolregistry-hub",
+        ]
 
-        # Center and add version lines
-        centered_version = version_line.center(width - 4)
-        lines.append(f": {centered_version} :")
-
-        centered_update = update_line.center(width - 4)
-        lines.append(f": {centered_update} :")
-
-        centered_install = install_line.center(width - 4)
-        lines.append(f": {centered_install} :")
+    # Build version string
+    if version_info["update_available"]:
+        version = version_info["current_version"]
     else:
-        version_line = f"Version {version_info['current_version']} (Latest)"
-        centered_version = version_line.center(width - 4)
-        lines.append(f": {centered_version} :")
+        version = f"{version_info['current_version']} (Latest)"
 
-    # Empty line
-    lines.append(f": {' ' * (width - 4)} :")
-
-    # Bottom border
-    lines.append(border_char * width)
-
-    # Print the banner
-    print("\n".join(lines))
+    # Use toolregistry-server's print_banner with Hub customizations
+    print_banner(
+        version=version,
+        banner_art=BANNER_ART,
+        extra_lines=extra_lines,
+    )
 
 
-def _log_server_info(mode: str, mcp_transport: str | None = None) -> None:
-    """Log server information for logging purposes.
+def create_parser() -> argparse.ArgumentParser:
+    """Create the argument parser for the CLI.
+
+    Returns:
+        Configured ArgumentParser instance with subcommands.
+    """
+    parser = argparse.ArgumentParser(
+        prog="toolregistry-hub",
+        description="ToolRegistry Hub - Pre-configured tool server with various utilities",
+    )
+
+    parser.add_argument(
+        "--version",
+        "-V",
+        action="store_true",
+        help="Show version and exit",
+    )
+
+    parser.add_argument(
+        "--no-banner",
+        action="store_true",
+        help="Disable the startup banner",
+    )
+
+    # Create subparsers for openapi and mcp commands
+    subparsers = parser.add_subparsers(
+        dest="command",
+        title="commands",
+        description="Available server modes",
+        metavar="{openapi,mcp}",
+    )
+
+    # OpenAPI subcommand
+    openapi_parser = subparsers.add_parser(
+        "openapi",
+        help="Start OpenAPI (REST) server",
+        description="Start an OpenAPI server exposing tools as REST endpoints",
+    )
+    _add_openapi_arguments(openapi_parser)
+
+    # MCP subcommand
+    mcp_parser = subparsers.add_parser(
+        "mcp",
+        help="Start MCP server",
+        description="Start an MCP server for LLM tool integration",
+    )
+    _add_mcp_arguments(mcp_parser)
+
+    return parser
+
+
+def _add_openapi_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add OpenAPI-specific arguments to the parser.
 
     Args:
-        mode: Server mode ('openapi' or 'mcp')
-        mcp_transport: MCP transport mode (only used when mode is 'mcp')
+        parser: The ArgumentParser to add arguments to.
     """
-    if mode == "openapi":
-        logger.info("Server mode: OpenAPI")
-    elif mode == "mcp":
-        transport_info = mcp_transport or "default"
-        logger.info(f"Server mode: MCP (transport: {transport_info})")
-    else:
-        logger.warning(f"Unknown server mode: {mode}")
-
-
-def main():
-    """Main entry point for the CLI."""
-    # Print banner at startup
-    print_banner()
-
-    parser = argparse.ArgumentParser(description="Run the Tool Registry API server.")
     parser.add_argument(
         "--host",
         type=str,
         default="0.0.0.0",
-        help="Host to bind the server to. Default is 0.0.0.0.",
+        help="Host to bind the server to (default: 0.0.0.0)",
     )
     parser.add_argument(
         "--port",
         type=int,
         default=8000,
-        help="Port to bind the server to. Default is 8000.",
+        help="Port to bind the server to (default: 8000)",
     )
     parser.add_argument(
-        "--mode",
-        choices=["openapi", "mcp"],
-        default="openapi",
-        help="Server mode: openapi or mcp. Default is openapi.",
-    )
-    parser.add_argument(
-        "--mcp-transport",
-        choices=["streamable-http", "sse", "stdio"],
-        default="streamable-http",
-        help="MCP transport mode for mcp mode. Default is streamable-http.",
-    )
-    parser.add_argument(
-        "--tools-config",
+        "--config",
         type=str,
         default=None,
-        help="Path to a JSONC tool configuration file (tools.jsonc). "
-        "Controls which tools are enabled/disabled at startup.",
+        help="Path to a JSON/JSONC configuration file for tools",
     )
     parser.add_argument(
-        "--version",
-        "-V",
-        action="version",
-        version=f"%(prog)s {get_version_check_sync()}",
-        help="Show the version and check for updates",
+        "--tokens",
+        type=str,
+        default=None,
+        help="Path to a file containing authentication tokens (one per line)",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload for development mode",
+    )
+
+
+def _add_mcp_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add MCP-specific arguments to the parser.
+
+    Args:
+        parser: The ArgumentParser to add arguments to.
+    """
+    parser.add_argument(
+        "--transport",
+        type=str,
+        choices=["stdio", "sse", "streamable-http"],
+        default="stdio",
+        help="Transport type: stdio, sse, or streamable-http (default: stdio)",
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Host for SSE/HTTP transport (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port for SSE/HTTP transport (default: 8000)",
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to a JSON/JSONC configuration file for tools",
+    )
+
+
+def main(args: list[str] | None = None) -> NoReturn | None:
+    """Main entry point for the CLI.
+
+    Args:
+        args: Command-line arguments. If None, uses sys.argv.
+
+    Returns:
+        None on success, or exits with error code.
+    """
+    parser = create_parser()
+    parsed = parser.parse_args(args)
+
+    # Handle version flag
+    if parsed.version:
+        version_info = _get_version_info()
+        if version_info["update_available"]:
+            print(f"toolregistry-hub {version_info['current_version']}")
+            print(f"Update available: v{version_info['latest_version']}")
+            print("Run: pip install --upgrade toolregistry-hub")
+        else:
+            print(f"toolregistry-hub {version_info['current_version']} (Latest)")
+        sys.exit(0)
+
+    # If no command specified, show help
+    if parsed.command is None:
+        parser.print_help()
+        sys.exit(0)
+
+    # Print banner unless disabled
+    if not parsed.no_banner:
+        print_hub_banner()
 
     # Apply tools config to the registry before starting the server
-    if args.tools_config is not None:
+    if parsed.config is not None:
         from .registry import build_registry
 
         # Rebuild registry with the specified config path
         import toolregistry_hub.server.registry as _reg_mod
 
-        _reg_mod._registry = build_registry(tools_config_path=args.tools_config)
+        _reg_mod._registry = build_registry(tools_config_path=parsed.config)
 
-    if args.mode == "openapi":
-        _run_openapi_server(args.host, args.port)
-    elif args.mode == "mcp":
-        _run_mcp_server(args.host, args.port, args.mcp_transport)
+    # Dispatch to appropriate command handler
+    if parsed.command == "openapi":
+        _run_openapi_server(
+            host=parsed.host,
+            port=parsed.port,
+            tokens_path=getattr(parsed, "tokens", None),
+            reload=getattr(parsed, "reload", False),
+        )
+    elif parsed.command == "mcp":
+        _run_mcp_server(
+            transport=parsed.transport,
+            host=parsed.host,
+            port=parsed.port,
+        )
+
+    return None
 
 
-def _run_openapi_server(host: str, port: int) -> None:
+def _run_openapi_server(
+    host: str,
+    port: int,
+    tokens_path: str | None = None,
+    reload: bool = False,
+) -> None:
     """Run the OpenAPI server.
 
     Args:
         host: Host to bind the server to.
         port: Port to bind the server to.
+        tokens_path: Path to tokens file for authentication.
+        reload: Enable auto-reload for development.
     """
     try:
         import uvicorn
@@ -221,7 +325,7 @@ def _run_openapi_server(host: str, port: int) -> None:
     from .routes.version import router as version_router
 
     # Log server info
-    _log_server_info(mode="openapi")
+    logger.info("Server mode: OpenAPI")
 
     # Get the hub registry
     registry = get_registry()
@@ -230,7 +334,7 @@ def _run_openapi_server(host: str, port: int) -> None:
     route_table = RouteTable(registry)
 
     # Setup authentication
-    valid_tokens = get_valid_tokens()
+    valid_tokens = get_valid_tokens(tokens_path)
     dependencies = None
 
     if valid_tokens:
@@ -260,9 +364,13 @@ def _run_openapi_server(host: str, port: int) -> None:
     logger.info("Included version router at /version")
 
     logger.info("OpenAPI app initialized with toolregistry-server")
+    logger.info(f"Registered {len(route_table.list_routes())} tool(s)")
 
     # Run the server
-    uvicorn.run(app, host=host, port=port)
+    if reload:
+        logger.warning("Reload mode is not fully supported with dynamic configuration")
+
+    uvicorn.run(app, host=host, port=port, reload=reload)
 
 
 def _run_mcp_server(host: str, port: int, transport: str) -> None:
@@ -297,7 +405,7 @@ def _run_mcp_server(host: str, port: int, transport: str) -> None:
     from .registry import get_registry
 
     # Log server info
-    _log_server_info(mode="mcp", mcp_transport=transport)
+    logger.info(f"Server mode: MCP (transport: {transport})")
 
     # Get the hub registry
     registry = get_registry()
@@ -309,13 +417,16 @@ def _run_mcp_server(host: str, port: int, transport: str) -> None:
     mcp_server = create_mcp_server(route_table, name="ToolRegistry-Hub")
 
     logger.info("MCP server initialized with toolregistry-server")
+    logger.info(f"Registered {len(route_table.list_routes())} tool(s)")
 
     # Run the appropriate transport
     if transport == "stdio":
         asyncio.run(run_stdio(mcp_server))
     elif transport == "sse":
+        logger.info(f"SSE endpoint: http://{host}:{port}/sse")
         asyncio.run(run_sse(mcp_server, host=host, port=port))
     else:  # streamable-http
+        logger.info(f"HTTP endpoint: http://{host}:{port}/mcp")
         asyncio.run(run_streamable_http(mcp_server, host=host, port=port))
 
 

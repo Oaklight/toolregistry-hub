@@ -13,7 +13,7 @@ TIMEOUT_DEFAULT = 10.0
 
 
 class BaseSearch(ABC):
-    def is_configured(self) -> bool:
+    def _is_configured(self) -> bool:
         """Check if the search engine has valid configuration.
 
         Default implementation checks if ``api_key_parser`` has keys.
@@ -23,6 +23,10 @@ class BaseSearch(ABC):
         This method satisfies the :class:`~toolregistry_hub.utils.Configurable`
         protocol and is used by ``build_registry()`` to auto-disable
         unconfigured tools.
+
+        Note:
+            The method is prefixed with ``_`` to indicate it's an internal method
+            and should not be exposed as a tool endpoint.
 
         Returns:
             True if the instance is properly configured, False otherwise.
