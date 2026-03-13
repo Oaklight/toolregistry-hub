@@ -16,6 +16,15 @@ author: Oaklight
 
 - 新增 Serper 搜索提供商集成
 
+### 重构
+
+- **MCP 服务器 FastMCP 重写**
+    - 使用 FastMCP（MCP SDK 官方高级 API）重构 MCP 服务器实现
+    - 修复 streamable-http transport 时序问题
+    - 修复 ASGI 响应重复发送错误
+    - 改进优雅关闭处理，添加适当的信号管理
+    - 简化代码库，移除手动 transport 管理
+
 ## [0.6.0] - 2026-03-10
 
 ### 新功能
