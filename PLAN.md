@@ -106,13 +106,40 @@ Decision: treat missing requirements as “tool unavailable” rather than “se
 
 ### 4.4 Server boilerplate should be integration glue only
 
-The server’s responsibility is:
+The server's responsibility is:
 
 - build the registry
 - generate tool routes
 - implement transport integration (OpenAPI/MCP)
 
 Avoid reintroducing per-tool route files.
+
+### 4.5 Central Router Table as bridge between ToolRegistry and protocol adapters
+
+The `RouteTable` class serves as a central abstraction layer:
+
+- **Single source of truth**: converts `ToolRegistry` tools into `RouteEntry` objects with routing metadata
+- **Observer pattern**: supports listeners for state change notifications (enable/disable/refresh)
+- **ETag support**: provides version tracking for cache validation
+- **Protocol agnostic**: both OpenAPI and MCP adapters consume the same `RouteTable`
+
+This design allows protocol adapters to remain thin and focused on transport-specific concerns.
+
+### 4.6 Package responsibility separation
+
+The tooling ecosystem is organized into three packages with clear responsibilities:
+
+| Package | Responsibility | Dependencies |
+|---------|---------------|--------------|
+| `toolregistry` | Core library: Tool model, ToolRegistry, client integrations | None |
+| `toolregistry-server` | Server library: RouteTable, protocol adapters (OpenAPI/MCP), auth, CLI | `toolregistry` |
+| `toolregistry-hub` | Tool collection: built-in tools, default server configuration | `toolregistry`, `toolregistry-server` |
+
+This separation enables:
+
+- Independent versioning and release cycles
+- Cleaner dependency graphs
+- Reuse of server infrastructure for custom tool collections
 
 ---
 
@@ -127,7 +154,7 @@ This roadmap intentionally stays high-level. Detailed checklists belong in Issue
 - **Phase 3**: enable/disable with reason tracking (namespace + method)
 - **Phase 4**: environment requirements + registry build foundation
 - **Phase 5 (core)**: auto-route generation from `ToolRegistry`
-- **Phase 6**: MCP server migration/finalization
+- **Phase 6 (MCP adapter)**: MCP server migration/finalization
   - MCP exposure generated directly from `ToolRegistry` (using [`registry_to_mcp_server()`](src/toolregistry_hub/server/mcp_adapter.py:1))
   - enable/disable state reflected dynamically (no drift) — each `list_tools`/`call_tool` queries registry in real-time
   - removed `FastMCP.from_fastapi()` dependency; now uses MCP SDK low-level Server API
@@ -138,17 +165,30 @@ This roadmap intentionally stays high-level. Detailed checklists belong in Issue
 
 ### Next
 
+- **Phase 6 续 (Central Router Table + toolregistry-server)**
+  - Create `toolregistry-server` as independent package/repository
+  - Implement central `RouteTable` class as bridge between `ToolRegistry` and protocol adapters
+  - Migrate server code from `toolregistry-hub` to `toolregistry-server`:
+    - `autoroute.py` → `openapi/adapter.py`
+    - `mcp_adapter.py` → `mcp/adapter.py`
+    - `auth.py` → `auth/bearer.py`
+    - CLI code → `cli/main.py`
+  - Update `toolregistry-hub` to depend on `toolregistry-server`
+  - Implement ETag support for OpenAPI schema caching
+  - Design document: [`plans/phase6-router-table-design.md`](plans/phase6-router-table-design.md:1)
+
 - **Operational observability (lightweight)**
   - expose which tools are enabled/disabled and why (API and/or logs)
 
 - **Websearch API key resilience / failover**
   - investigate invalid/expired/quota-exhausted API key detection and automatic retry with the next available key
-  - design shared failover behavior in [`APIKeyParser`](src/toolregistry_hub/utils/api_key_parser.py) and websearch providers
+  - design shared failover behavior in [`APIKeyParser`](src/toolregistry_hub/utils/api_key_parser.py:1) and websearch providers
   - address current double key-consumption behavior in providers that call key rotation separately for headers and rate limiting
   - tracking issue: [`#53`](https://github.com/Oaklight/toolregistry-hub/issues/53)
 
 - **OpenAPI change efficiency**
   - evaluate ETag / conditional responses for `openapi.json` so clients can refresh efficiently
+  - (partially addressed by Phase 6 续 RouteTable ETag support)
 
 ### Later / Optional
 
@@ -207,6 +247,30 @@ These links are an index; details live in the referenced Issues/PRs.
   - https://github.com/Oaklight/toolregistry-hub/issues/42
 - API key failover / invalid-key skip:
   - https://github.com/Oaklight/toolregistry-hub/issues/53
+- MCP server migration (Phase 6):
+  - https://github.com/Oaklight/toolregistry-hub/issues/47
+- MCP SDK adapter implementation (completed):
+  - https://github.com/Oaklight/toolregistry-hub/issues/55
+- Server code migration to toolregistry-server:
+  - https://github.com/Oaklight/toolregistry-hub/issues/56
+
+### toolregistry-server (new repository)
+
+Repository: https://github.com/Oaklight/toolregistry-server (to be created)
+
+Planned issues:
+
+- `#1` Initialize repository structure
+- `#2` Implement RouteTable
+- `#3` Migrate OpenAPI adapter
+- `#4` Migrate MCP adapter
+- `#5` Implement ETag support
+- `#6` CLI implementation
+
+Design documents:
+
+- Central Router Table design: [`plans/phase6-router-table-design.md`](plans/phase6-router-table-design.md:1)
+- Server template: [`plans/toolregistry-server-template/`](plans/toolregistry-server-template/:1)
 
 ### Shared project board
 
