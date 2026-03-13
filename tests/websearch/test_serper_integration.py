@@ -28,7 +28,9 @@ logger.add(
 class TestSerperIntegration:
     """Integration tests for Serper Search API with real API calls."""
 
-    @pytest.mark.skipif(not os.getenv("SERPER_API_KEY"), reason="SERPER_API_KEY not set")
+    @pytest.mark.skipif(
+        not os.getenv("SERPER_API_KEY"), reason="SERPER_API_KEY not set"
+    )
     def test_serper_basic_search(self):
         """Test basic English search with real API."""
         logger.info("Testing Serper - Basic English Search")
@@ -45,12 +47,19 @@ class TestSerperIntegration:
         assert results[0].url, "First result should have a URL"
         assert results[0].content, "First result should have content"
 
-    @pytest.mark.skipif(not os.getenv("SERPER_API_KEY"), reason="SERPER_API_KEY not set")
+    @pytest.mark.skipif(
+        not os.getenv("SERPER_API_KEY"), reason="SERPER_API_KEY not set"
+    )
     def test_serper_chinese_search(self):
         """Test Chinese search with gl and hl parameters."""
         logger.info("Testing Serper - Chinese Search")
         search = SerperSearch()
-        results = search.search("\u4eba\u5de5\u667a\u80fd\u6700\u65b0\u8fdb\u5c55", max_results=3, hl="zh", gl="cn")
+        results = search.search(
+            "\u4eba\u5de5\u667a\u80fd\u6700\u65b0\u8fdb\u5c55",
+            max_results=3,
+            hl="zh",
+            gl="cn",
+        )
         logger.info(f"Returned {len(results)} results")
         for i, r in enumerate(results, 1):
             logger.info(f"  {i}. {r.title}")
@@ -58,7 +67,9 @@ class TestSerperIntegration:
             logger.info(f"     Content: {r.content[:100]}...")
         assert len(results) > 0, "Should return at least one result for Chinese query"
 
-    @pytest.mark.skipif(not os.getenv("SERPER_API_KEY"), reason="SERPER_API_KEY not set")
+    @pytest.mark.skipif(
+        not os.getenv("SERPER_API_KEY"), reason="SERPER_API_KEY not set"
+    )
     def test_serper_max_results_limit(self):
         """Test that max_results parameter is respected."""
         logger.info("Testing Serper - max_results=1")
@@ -70,7 +81,9 @@ class TestSerperIntegration:
             logger.info(f"  URL: {results[0].url}")
         assert len(results) == 1, "Should return exactly 1 result"
 
-    @pytest.mark.skipif(not os.getenv("SERPER_API_KEY"), reason="SERPER_API_KEY not set")
+    @pytest.mark.skipif(
+        not os.getenv("SERPER_API_KEY"), reason="SERPER_API_KEY not set"
+    )
     def test_serper_empty_query(self):
         """Test that empty query returns empty results."""
         logger.info("Testing Serper - Empty Query")
@@ -79,7 +92,9 @@ class TestSerperIntegration:
         logger.info(f"Empty query returned {len(results)} results (expected: 0)")
         assert len(results) == 0, "Empty query should return no results"
 
-    @pytest.mark.skipif(not os.getenv("SERPER_API_KEY"), reason="SERPER_API_KEY not set")
+    @pytest.mark.skipif(
+        not os.getenv("SERPER_API_KEY"), reason="SERPER_API_KEY not set"
+    )
     def test_serper_multi_key_rotation(self):
         """Test multi-API-key initialization and rotation."""
         logger.info("Testing Serper - Multi API Key Rotation")
@@ -90,8 +105,9 @@ class TestSerperIntegration:
         # Test with keys from env (may be single or multi-key)
         search_from_env = SerperSearch()
         logger.info(f"Env key count: {search_from_env.api_key_parser.key_count}")
-        assert search_from_env.api_key_parser.key_count == env_key_count, \
+        assert search_from_env.api_key_parser.key_count == env_key_count, (
             f"Should have {env_key_count} key(s) from env"
+        )
 
         # Test with explicit two keys (use first key from env, duplicated)
         first_key = api_key_str.split(",")[0].strip()
@@ -110,13 +126,15 @@ class TestSerperIntegration:
 
         # If env has multiple keys, verify rotation works with real different keys
         if env_key_count > 1:
-            logger.info(f"Env has {env_key_count} keys, testing real multi-key rotation")
+            logger.info(
+                f"Env has {env_key_count} keys, testing real multi-key rotation"
+            )
             search_from_env.api_key_parser._current_key_index = 0
             keys_seen = []
             for idx in range(env_key_count):
                 k = search_from_env.api_key_parser.get_next_api_key()
                 keys_seen.append(k[:8])
-                logger.info(f"  Key {idx+1}: {k[:8]}...")
+                logger.info(f"  Key {idx + 1}: {k[:8]}...")
             k_wrap = search_from_env.api_key_parser.get_next_api_key()
             logger.info(f"  Key wrap-around: {k_wrap[:8]}...")
             assert k_wrap[:8] == keys_seen[0], "Should wrap around to first key"
@@ -129,7 +147,9 @@ class TestSerperIntegration:
             logger.info(f"  {i}. {r.title}")
             logger.info(f"     URL: {r.url}")
 
-    @pytest.mark.skipif(not os.getenv("SERPER_API_KEY"), reason="SERPER_API_KEY not set")
+    @pytest.mark.skipif(
+        not os.getenv("SERPER_API_KEY"), reason="SERPER_API_KEY not set"
+    )
     def test_serper_is_configured(self):
         """Test is_configured method with real API key."""
         logger.info("Testing Serper - is_configured check")

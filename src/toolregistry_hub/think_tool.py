@@ -6,7 +6,7 @@ Inspired by "Eliciting Reasoning in Language Models with Cognitive Tools"
 (https://arxiv.org/html/2506.12115).
 """
 
-from typing import Literal, Optional, Union
+from typing import Literal
 
 
 class ThinkTool:
@@ -18,23 +18,20 @@ class ThinkTool:
 
     @staticmethod
     def think(
-        thinking_mode: Optional[
-            Union[
-                Literal[
-                    # Core modes (most commonly used)
-                    "reasoning",  # Logical analysis and deduction
-                    "planning",  # Breaking down tasks, creating strategies
-                    "reflection",  # Reviewing, verifying, self-correction
-                    # Memory mode (replaces recall tool)
-                    "recalling",  # Dumping knowledge/facts from memory
-                    # Creative modes
-                    "brainstorming",  # Generating ideas freely
-                    "exploring",  # Mental simulation, what-if scenarios
-                ],
-                str,  # Allow custom modes
-            ]
-        ] = None,
-        focus_area: Optional[str] = None,
+        thinking_mode: Literal[
+            # Core modes (most commonly used)
+            "reasoning",  # Logical analysis and deduction
+            "planning",  # Breaking down tasks, creating strategies
+            "reflection",  # Reviewing, verifying, self-correction
+            # Memory mode (replaces recall tool)
+            "recalling",  # Dumping knowledge/facts from memory
+            # Creative modes
+            "brainstorming",  # Generating ideas freely
+            "exploring",  # Mental simulation, what-if scenarios
+        ]
+        | str
+        | None = None,
+        focus_area: str | None = None,
         thought_process: str = "",
     ) -> None:
         """Record your cognitive process - thinking, reasoning, planning, or recalling.

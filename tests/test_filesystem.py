@@ -194,7 +194,7 @@ class TestFileSystem:
         assert FileSystem.is_file(dest_file)
 
         # Content should be the same
-        with open(self.test_file, "r") as f1, open(dest_file, "r") as f2:
+        with open(self.test_file) as f1, open(dest_file) as f2:
             assert f1.read() == f2.read()
 
     def test_copy_directory(self):
@@ -238,7 +238,7 @@ class TestFileSystem:
         assert FileSystem.is_file(dest_file)
 
         # Content should be preserved
-        with open(dest_file, "r") as f:
+        with open(dest_file) as f:
             assert f.read() == original_content
 
     def test_move_directory(self):

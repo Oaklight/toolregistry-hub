@@ -12,10 +12,7 @@ The registry supports two usage patterns:
    provide API keys or other config directly, without environment variables.
 """
 
-from __future__ import annotations
-
 import importlib
-from typing import Dict, List, Optional, Type
 
 from loguru import logger
 from toolregistry import ToolRegistry
@@ -23,7 +20,7 @@ from toolregistry import ToolRegistry
 from ..utils.configurable import Configurable
 from ..utils.fn_namespace import _is_all_static_methods
 
-_DEFAULT_TOOLS: List[Dict[str, str]] = [
+_DEFAULT_TOOLS: list[dict[str, str]] = [
     {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
     {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"},
     {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web/fetch"},
@@ -65,7 +62,7 @@ _DEFAULT_TOOLS: List[Dict[str, str]] = [
 _HIDDEN_METHODS: set[str] = {"is_configured"}
 
 
-def _import_class(class_path: str) -> Type:
+def _import_class(class_path: str) -> type:
     """Dynamically import a class from a dotted path string.
 
     Args:
@@ -85,8 +82,8 @@ def _import_class(class_path: str) -> Type:
 
 
 def build_registry(
-    tool_kwargs: Optional[Dict[str, dict]] = None,
-    tools_config_path: Optional[str] = None,
+    tool_kwargs: dict[str, dict] | None = None,
+    tools_config_path: str | None = None,
 ) -> ToolRegistry:
     """Build the hub tool registry with all tools registered and auto-disabled
     based on instance configuration state.
@@ -144,7 +141,7 @@ def build_registry(
 
             # Check instance readiness via Configurable protocol
             if isinstance(instance, Configurable) and not instance.is_configured():
-                required_envs: List[str] = getattr(cls, "_required_envs", [])
+                required_envs: list[str] = getattr(cls, "_required_envs", [])
                 reason = (
                     f"Missing env: {', '.join(required_envs)}"
                     if required_envs
@@ -173,7 +170,7 @@ def build_registry(
     return registry
 
 
-_registry: Optional[ToolRegistry] = None
+_registry: ToolRegistry | None = None
 
 
 def get_registry() -> ToolRegistry:

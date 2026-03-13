@@ -1,7 +1,6 @@
 import time
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
-from typing import Dict, List, Optional
 
 import httpx
 import ua_generator
@@ -20,14 +19,14 @@ class _WebSearchEntrySearXNG(dict):
         super().__init__(**data)
 
     content: str
-    thumbnail: Optional[str] = None
+    thumbnail: str | None = None
     engine: str
     template: str
-    parsed_url: List[str]
-    img_src: Optional[str] = None
-    priority: Optional[str] = None
-    engines: List[str]
-    positions: List[int]
+    parsed_url: list[str]
+    img_src: str | None = None
+    priority: str | None = None
+    engines: list[str]
+    positions: list[int]
     score: float
     category: str
 
@@ -54,7 +53,7 @@ class WebSearchSearXNG(WebSearchGeneral):
     def __init__(
         self,
         searxng_base_url: str,
-        proxy: Optional[str] = None,
+        proxy: str | None = None,
     ):
         """Initialize WebSearchSearXNG with configuration parameters.
         Args:
@@ -65,15 +64,15 @@ class WebSearchSearXNG(WebSearchGeneral):
         if not self.searxng_base_url.endswith("/search"):
             self.searxng_base_url += "/search"  # Ensure the URL ends with /search
 
-        self.proxy: Optional[str] = proxy if proxy else None
+        self.proxy: str | None = proxy if proxy else None
 
     def search(
         self,
         query: str,
         number_results: int = 5,
         threshold: float = 0.2,
-        timeout: Optional[float] = None,
-    ) -> List[Dict[str, str]]:
+        timeout: float | None = None,
+    ) -> list[dict[str, str]]:
         """Perform search and return results.
 
         Args:
@@ -134,10 +133,10 @@ class WebSearchSearXNG(WebSearchGeneral):
     def _meta_search_searxng(
         query,
         num_results=10,
-        proxy: Optional[str] = None,
-        timeout: Optional[float] = 5,
+        proxy: str | None = None,
+        timeout: float | None = 5,
         searxng_base_url: str = "http://localhost:8080/search",
-    ) -> List[_WebSearchEntrySearXNG]:
+    ) -> list[_WebSearchEntrySearXNG]:
         """
         Perform a search using SearXNG and return the results.
         """

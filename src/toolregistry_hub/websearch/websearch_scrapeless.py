@@ -30,7 +30,7 @@ API Documentation: https://docs.scrapeless.com/
 """
 
 import json
-from typing import Any, List, Optional
+from typing import Any
 
 import httpx
 from loguru import logger
@@ -48,7 +48,7 @@ class ScrapelessSearch(BaseSearch):
 
     def __init__(
         self,
-        api_keys: Optional[str] = None,
+        api_keys: str | None = None,
         base_url: str = "https://api.scrapeless.com",
     ):
         """Initialize Scrapeless search client.
@@ -92,7 +92,7 @@ class ScrapelessSearch(BaseSearch):
         country: str = "us",
         start: int = 0,
         **kwargs,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Perform a Google search using Scrapeless DeepSERP API.
 
         IMPORTANT: For time-sensitive queries (e.g., "recent news", "latest updates", "today's events"),
@@ -161,7 +161,7 @@ class ScrapelessSearch(BaseSearch):
         language: str = "en",
         country: str = "us",
         **kwargs,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Perform the actual search using Scrapeless DeepSERP API for a single page.
 
         Args:
@@ -238,7 +238,7 @@ class ScrapelessSearch(BaseSearch):
             logger.error(f"Scrapeless API request failed: {e}")
             return []
 
-    def _parse_results(self, raw_results: Any) -> List[SearchResult]:
+    def _parse_results(self, raw_results: Any) -> list[SearchResult]:
         """Parse raw search results into standardized format.
 
         This method is required by BaseSearch abstract class.

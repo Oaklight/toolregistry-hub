@@ -48,7 +48,7 @@ class TestFileOps:
 
         # Verify file was created and content is correct
         assert os.path.exists(new_file)
-        with open(new_file, "r", encoding="utf-8") as f:
+        with open(new_file, encoding="utf-8") as f:
             assert f.read() == new_content
 
     def test_write_file_overwrite(self):

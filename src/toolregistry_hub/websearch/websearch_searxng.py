@@ -30,7 +30,6 @@ SearXNG Setup: https://docs.searxng.org/admin/installation.html
 """
 
 import os
-from typing import Dict, List, Optional
 
 import httpx
 from loguru import logger
@@ -44,7 +43,7 @@ from .search_result import SearchResult
 class SearXNGSearch(BaseSearch):
     """Simple SearXNG API client for web search functionality."""
 
-    def __init__(self, base_url: Optional[str] = None):
+    def __init__(self, base_url: str | None = None):
         """Initialize SearXNG search client.
 
         Args:
@@ -83,7 +82,7 @@ class SearXNGSearch(BaseSearch):
         max_results: int = 5,
         timeout: float = TIMEOUT_DEFAULT,
         **kwargs,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Perform a web search using SearXNG API.
 
         IMPORTANT: For time-sensitive queries (e.g., "recent news", "latest updates", "today's events"),
@@ -134,7 +133,7 @@ class SearXNGSearch(BaseSearch):
 
         return results[:max_results] if results else []
 
-    def _search_impl(self, query: str, **kwargs) -> List[SearchResult]:
+    def _search_impl(self, query: str, **kwargs) -> list[SearchResult]:
         """Perform the actual search using SearXNG API for a single query.
 
         Args:
@@ -191,7 +190,7 @@ class SearXNGSearch(BaseSearch):
             logger.error(f"SearXNG API request failed: {e}")
             return []
 
-    def _parse_results(self, raw_results: Dict) -> List[SearchResult]:
+    def _parse_results(self, raw_results: dict) -> list[SearchResult]:
         """Parse SearXNG API response into standardized format.
 
         Args:

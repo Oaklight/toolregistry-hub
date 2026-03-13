@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -45,7 +45,7 @@ class BaseSearch(ABC):
     @abstractmethod
     def search(
         self, query: str, *, max_results: int = 5, timeout: float = 10.0, **kwargs
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Perform a web search and return results.
 
         IMPORTANT: For time-sensitive queries (e.g., "recent news", "latest updates", "today's events"),
@@ -69,7 +69,7 @@ class BaseSearch(ABC):
         # Developer should rewrite this function if they see fit
 
     @abstractmethod
-    def _parse_results(self, raw_results: Any) -> List[SearchResult]:
+    def _parse_results(self, raw_results: Any) -> list[SearchResult]:
         """Parse raw search results into standardized format.
         Used inside _search method to parse raw results from upstream API call.
 
@@ -81,7 +81,7 @@ class BaseSearch(ABC):
         """
 
     @abstractmethod
-    def _search_impl(self, query: str, **kwargs) -> List[SearchResult]:
+    def _search_impl(self, query: str, **kwargs) -> list[SearchResult]:
         """Perform the actual search using upstream API for a single query.
         It should be reused in case of pagination or similar situation.
 
@@ -98,7 +98,7 @@ class BaseSearch(ABC):
         entry: SearchResult,
         *,
         timeout: float = TIMEOUT_DEFAULT,
-        proxy: Optional[str] = None,
+        proxy: str | None = None,
     ) -> dict:
         """Retrieve complete webpage content from search result entry.
 

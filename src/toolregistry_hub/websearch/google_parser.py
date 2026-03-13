@@ -18,7 +18,7 @@ Usage:
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -37,13 +37,13 @@ class GoogleAPIConfig:
     results_key: (
         str  # Key for organic results array (e.g., "organic", "organic_results")
     )
-    url_keys: List[str]  # Possible keys for URL field (in priority order)
-    description_keys: List[
+    url_keys: list[str]  # Possible keys for URL field (in priority order)
+    description_keys: list[
         str
     ]  # Possible keys for description field (in priority order)
 
     # Optional fields
-    position_key: Optional[str] = (
+    position_key: str | None = (
         None  # Key for result position/rank (e.g., "rank", "position")
     )
     use_position_scoring: bool = False  # Whether to calculate score based on position
@@ -83,7 +83,7 @@ class GoogleResultParser:
         """
         self.config = config
 
-    def parse(self, response_data: Dict[str, Any]) -> List[SearchResult]:
+    def parse(self, response_data: dict[str, Any]) -> list[SearchResult]:
         """Parse API response into standardized SearchResult objects.
 
         Args:
@@ -120,8 +120,8 @@ class GoogleResultParser:
         return results
 
     def _parse_single_result(
-        self, item: Dict[str, Any], index: int
-    ) -> Optional[SearchResult]:
+        self, item: dict[str, Any], index: int
+    ) -> SearchResult | None:
         """Parse a single search result item.
 
         Args:
@@ -155,9 +155,7 @@ class GoogleResultParser:
             score=score,
         )
 
-    def _extract_field(
-        self, item: Dict[str, Any], field_keys: List[str]
-    ) -> Optional[str]:
+    def _extract_field(self, item: dict[str, Any], field_keys: list[str]) -> str | None:
         """Extract a field value trying multiple possible key names.
 
         Args:
@@ -173,7 +171,7 @@ class GoogleResultParser:
                 return value
         return None
 
-    def _calculate_score(self, item: Dict[str, Any], index: int) -> float:
+    def _calculate_score(self, item: dict[str, Any], index: int) -> float:
         """Calculate relevance score for a search result.
 
         Args:
@@ -201,7 +199,7 @@ class GoogleResultParser:
         return max(0.0, min(1.0, score))
 
 
-def parse_brightdata_results(response_data: Dict[str, Any]) -> List[SearchResult]:
+def parse_brightdata_results(response_data: dict[str, Any]) -> list[SearchResult]:
     """Convenience function to parse Bright Data Google search results.
 
     Args:
@@ -214,7 +212,7 @@ def parse_brightdata_results(response_data: Dict[str, Any]) -> List[SearchResult
     return parser.parse(response_data)
 
 
-def parse_scrapeless_results(response_data: Dict[str, Any]) -> List[SearchResult]:
+def parse_scrapeless_results(response_data: dict[str, Any]) -> list[SearchResult]:
     """Convenience function to parse Scrapeless Google search results.
 
     Args:

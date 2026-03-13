@@ -5,8 +5,6 @@ ensuring tool enable/disable state is always read directly from the registry
 at request time (no drift).
 """
 
-from __future__ import annotations
-
 import json
 
 from loguru import logger

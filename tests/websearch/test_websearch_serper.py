@@ -262,7 +262,11 @@ class TestSerperSearch:
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "organic": [
-                {"title": f"Result {i}", "link": f"https://example{i}.com", "snippet": f"Desc {i}"}
+                {
+                    "title": f"Result {i}",
+                    "link": f"https://example{i}.com",
+                    "snippet": f"Desc {i}",
+                }
                 for i in range(10)
             ]
         }

@@ -1,8 +1,8 @@
 import time
+from collections.abc import Generator
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from time import sleep
-from typing import Dict, Generator, List, Optional, Set
 from urllib.parse import unquote  # to decode the url
 
 import httpx
@@ -47,7 +47,7 @@ class WebSearchGoogle(WebSearchGeneral):
     def __init__(
         self,
         google_base_url: str = "https://www.google.com",
-        proxy: Optional[str] = None,
+        proxy: str | None = None,
     ):
         """Initialize WebSearchGoogle with configuration parameters.
 
@@ -59,15 +59,15 @@ class WebSearchGoogle(WebSearchGeneral):
         if not self.google_base_url.endswith("/search"):
             self.google_base_url += "/search"  # Ensure the URL ends with /search
 
-        self.proxy: Optional[str] = proxy if proxy else None
+        self.proxy: str | None = proxy if proxy else None
 
     def search(
         self,
         query: str,
         number_results: int = 5,
         threshold: float = 0.2,  # Not used in this implementation, kept for compatibility.
-        timeout: Optional[float] = None,
-    ) -> List[Dict[str, str]]:
+        timeout: float | None = None,
+    ) -> list[dict[str, str]]:
         """Perform search and return results.
 
         Args:
@@ -122,16 +122,16 @@ class WebSearchGoogle(WebSearchGeneral):
     def _meta_search_google(
         query,
         num_results=10,
-        proxy: Optional[str] = None,
+        proxy: str | None = None,
         sleep_interval: float = 0,
         timeout: float = 5,
         start_num: int = 0,
         google_base_url: str = "https://www.google.com/search",
-    ) -> List[_WebSearchEntryGoogle]:
+    ) -> list[_WebSearchEntryGoogle]:
         """Search the Google search engine"""
         results = []
         fetched_results = 0
-        fetched_links: Set[str] = set()
+        fetched_links: set[str] = set()
 
         # Create a persistent client with connection pooling
         ua = ua_generator.generate(device="mobile")
@@ -176,7 +176,7 @@ class WebSearchGoogle(WebSearchGeneral):
 
     @staticmethod
     def _parse_google_entries(
-        html: str, fetched_links: Set[str], num_results: int
+        html: str, fetched_links: set[str], num_results: int
     ) -> Generator[_WebSearchEntryGoogle, None, None]:
         """Parse HTML content from Google search results."""
         soup = BeautifulSoup(html, "html.parser")

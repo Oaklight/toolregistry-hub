@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 import random
 import re
 import unicodedata
-from typing import Literal, Optional
+from typing import Literal
 
 import httpx
 import ua_generator
@@ -71,7 +69,7 @@ class Fetch:
     def fetch_content(
         url: str,
         timeout: float = TIMEOUT_DEFAULT,
-        proxy: Optional[str] = None,
+        proxy: str | None = None,
     ) -> str:
         """
         Fetch and extract content from a given URL.
@@ -118,7 +116,7 @@ def _is_content_sufficient(text: str) -> bool:
 def _extract(
     url: str,
     timeout: float = TIMEOUT_DEFAULT,
-    proxy: Optional[str] = None,
+    proxy: str | None = None,
 ) -> str:
     """
     Extract content from a given URL using available methods.
@@ -196,7 +194,7 @@ def _extract(
 def _get_content_with_markdown_negotiation(
     url: str,
     timeout: float = TIMEOUT_DEFAULT,
-    proxy: Optional[str] = None,
+    proxy: str | None = None,
 ) -> str:
     """
     Attempt to fetch markdown content via Cloudflare Content Negotiation.
@@ -269,7 +267,7 @@ def _get_content_with_jina_reader(
     url: str,
     return_format: Literal["markdown", "text", "html"] = "markdown",
     timeout: float = TIMEOUT_DEFAULT,
-    proxy: Optional[str] = None,
+    proxy: str | None = None,
 ) -> str:
     """Fetch parsed content from Jina AI Reader for a given URL.
 
@@ -315,7 +313,7 @@ def _jina_reader_request(
     engine: str = "browser",
     return_format: Literal["markdown", "text", "html"] = "markdown",
     timeout: float = TIMEOUT_DEFAULT,
-    proxy: Optional[str] = None,
+    proxy: str | None = None,
 ) -> str:
     """Send a single request to the Jina Reader API.
 
@@ -375,7 +373,7 @@ def _jina_reader_request(
 def _get_content_with_bs4(
     url: str,
     timeout: float = TIMEOUT_DEFAULT,
-    proxy: Optional[str] = None,
+    proxy: str | None = None,
 ) -> str:
     """
     Utilizes BeautifulSoup to fetch and parse the content of a webpage.

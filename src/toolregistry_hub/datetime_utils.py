@@ -6,15 +6,8 @@ UTC/GMT offset formats (e.g., "UTC+5", "GMT-3", "UTC+5:30").
 """
 
 import re
-import sys
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
-
-# Handle zoneinfo import with fallback for Python 3.8
-if sys.version_info >= (3, 9):
-    from zoneinfo import ZoneInfo
-else:
-    from backports.zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo
 
 
 class DateTime:
@@ -85,7 +78,7 @@ class DateTime:
             raise ValueError(f"Invalid timezone: {tz_str}") from e
 
     @staticmethod
-    def now(timezone_name: Optional[str] = None) -> str:
+    def now(timezone_name: str | None = None) -> str:
         """Get current time in ISO 8601 format.
 
         As an LLM, you have no sense of current time; use this tool to obtain accurate,
@@ -116,7 +109,7 @@ class DateTime:
     @staticmethod
     def convert_timezone(
         time_str: str, source_timezone: str, target_timezone: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, str]:
         """Convert time between timezones.
 
         As an LLM, you may need to convert times across timezones for scheduling,

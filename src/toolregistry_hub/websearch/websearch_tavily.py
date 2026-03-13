@@ -25,8 +25,6 @@ Usage:
 API Documentation: https://docs.tavily.com/documentation/api-reference/endpoint/search
 """
 
-from typing import Dict, List, Optional
-
 import httpx
 from loguru import logger
 
@@ -40,7 +38,7 @@ from .search_result import SearchResult
 class TavilySearch(BaseSearch):
     """Simple Tavily Search API client for web search functionality."""
 
-    def __init__(self, api_keys: Optional[str] = None, rate_limit_delay: float = 0.5):
+    def __init__(self, api_keys: str | None = None, rate_limit_delay: float = 0.5):
         """Initialize Tavily search client.
 
         Args:
@@ -71,7 +69,7 @@ class TavilySearch(BaseSearch):
         max_results: int = 5,
         timeout: float = TIMEOUT_DEFAULT,
         **kwargs,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Perform a web search using Tavily API.
 
         IMPORTANT: For time-sensitive queries (e.g., "recent news", "latest updates", "today's events"),
@@ -103,7 +101,7 @@ class TavilySearch(BaseSearch):
 
         return results[:max_results] if results else []
 
-    def _search_impl(self, query: str, **kwargs) -> List[SearchResult]:
+    def _search_impl(self, query: str, **kwargs) -> list[SearchResult]:
         """Perform the actual search using Tavily API for a single query.
 
         Args:
@@ -171,7 +169,7 @@ class TavilySearch(BaseSearch):
             logger.error(f"Tavily API request failed: {e}")
             return []
 
-    def _parse_results(self, raw_results: Dict) -> List[SearchResult]:
+    def _parse_results(self, raw_results: dict) -> list[SearchResult]:
         """Parse Tavily API response into standardized format.
 
         Args:

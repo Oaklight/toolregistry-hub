@@ -21,8 +21,6 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
-
 
 from loguru import logger
 from toolregistry import ToolRegistry
@@ -97,9 +95,9 @@ class ToolConfig:
     """
 
     mode: str = "denylist"
-    disabled: List[str] = field(default_factory=list)
-    enabled: List[str] = field(default_factory=list)
-    tools: Optional[List[ToolEntry]] = None
+    disabled: list[str] = field(default_factory=list)
+    enabled: list[str] = field(default_factory=list)
+    tools: list[ToolEntry] | None = None
     source: str = ""
 
 
@@ -108,7 +106,7 @@ class ToolConfig:
 # ---------------------------------------------------------------------------
 
 
-def load_tool_config(config_path: Optional[str] = None) -> Optional[ToolConfig]:
+def load_tool_config(config_path: str | None = None) -> ToolConfig | None:
     """Discover and parse a JSONC tool configuration file.
 
     Args:
@@ -193,7 +191,7 @@ def load_tool_config(config_path: Optional[str] = None) -> Optional[ToolConfig]:
     )
 
 
-def _resolve_config_path(config_path: Optional[str]) -> Optional[Path]:
+def _resolve_config_path(config_path: str | None) -> Path | None:
     """Resolve the configuration file path using the discovery order.
 
     Args:
@@ -294,7 +292,7 @@ def _ns_matches(tool_namespace: str, pattern: str) -> bool:
 
 def _apply_denylist(
     registry: ToolRegistry,
-    disabled_namespaces: List[str],
+    disabled_namespaces: list[str],
     known_namespaces: set,
 ) -> None:
     """Disable tools belonging to the listed namespaces.
@@ -315,7 +313,7 @@ def _apply_denylist(
 
 def _apply_allowlist(
     registry: ToolRegistry,
-    enabled_namespaces: List[str],
+    enabled_namespaces: list[str],
     known_namespaces: set,
 ) -> None:
     """Disable tools whose namespace is NOT in the allow list.

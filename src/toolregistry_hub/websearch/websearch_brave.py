@@ -25,8 +25,6 @@ Usage:
 API Documentation: https://api-dashboard.search.brave.com/app/documentation/web-search/get-started
 """
 
-from typing import Dict, List, Optional
-
 import httpx
 from loguru import logger
 
@@ -40,7 +38,7 @@ from .search_result import SearchResult
 class BraveSearch(BaseSearch):
     """Simple Brave Search API client for web search functionality."""
 
-    def __init__(self, api_keys: Optional[str] = None, rate_limit_delay: float = 1.0):
+    def __init__(self, api_keys: str | None = None, rate_limit_delay: float = 1.0):
         """Initialize Brave search client.
 
         Args:
@@ -72,7 +70,7 @@ class BraveSearch(BaseSearch):
         max_results: int = 5,
         timeout: float = TIMEOUT_DEFAULT,
         **kwargs,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Perform a web search using Brave Search API.
 
         IMPORTANT: For time-sensitive queries (e.g., "recent news", "latest updates", "today's events"),
@@ -110,7 +108,7 @@ class BraveSearch(BaseSearch):
 
         return results[:max_results] if results else []
 
-    def _search_impl(self, query: str, **kwargs) -> List[SearchResult]:
+    def _search_impl(self, query: str, **kwargs) -> list[SearchResult]:
         """Perform the actual search using Brave Search API for a single query.
 
         Args:
@@ -186,7 +184,7 @@ class BraveSearch(BaseSearch):
             logger.error(f"Brave API request failed: {e}")
             return []
 
-    def _parse_results(self, raw_results: Dict) -> List[SearchResult]:
+    def _parse_results(self, raw_results: dict) -> list[SearchResult]:
         """Parse Brave API response into standardized format.
 
         Args:

@@ -1,14 +1,13 @@
 """Authentication and security utilities for API routes."""
 
 import os
-from typing import Optional, Set
 
 from loguru import logger
 
 from ..utils.api_key_parser import APIKeyParser
 
 
-def _parse_bearer_tokens() -> Optional[Set[str]]:
+def _parse_bearer_tokens() -> set[str] | None:
     """Parse bearer tokens from environment variables.
 
     Supports two configuration formats:
@@ -55,10 +54,10 @@ def _parse_bearer_tokens() -> Optional[Set[str]]:
 
 
 # Cache parsed tokens to avoid repeated parsing
-_cached_tokens: Optional[Set[str]] = None
+_cached_tokens: set[str] | None = None
 
 
-def get_valid_tokens() -> Optional[Set[str]]:
+def get_valid_tokens() -> set[str] | None:
     """Get cached valid tokens."""
     global _cached_tokens
     if _cached_tokens is None:

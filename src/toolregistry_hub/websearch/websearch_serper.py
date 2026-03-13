@@ -27,7 +27,7 @@ API Documentation: https://serper.dev/playground
 """
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 from loguru import logger
@@ -49,7 +49,7 @@ class SerperSearch(BaseSearch):
 
     def __init__(
         self,
-        api_keys: Optional[str] = None,
+        api_keys: str | None = None,
         rate_limit_delay: float = 1.0,
     ):
         """Initialize Serper search client.
@@ -81,7 +81,7 @@ class SerperSearch(BaseSearch):
         max_results: int = 5,
         timeout: float = TIMEOUT_DEFAULT,
         **kwargs,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Perform a Google search using Serper API.
 
         IMPORTANT: For time-sensitive queries (e.g., "recent news", "latest updates", "today's events"),
@@ -134,7 +134,7 @@ class SerperSearch(BaseSearch):
 
         return results[:max_results] if results else []
 
-    def _search_impl(self, query: str, **kwargs) -> List[SearchResult]:
+    def _search_impl(self, query: str, **kwargs) -> list[SearchResult]:
         """Perform the actual search using Serper API for a single request.
 
         Args:
@@ -148,7 +148,7 @@ class SerperSearch(BaseSearch):
             logger.warning("Empty query provided")
             return []
 
-        payload: Dict[str, Any] = {"q": query}
+        payload: dict[str, Any] = {"q": query}
 
         # Add num parameter
         num = kwargs.get("num")
@@ -207,7 +207,7 @@ class SerperSearch(BaseSearch):
             logger.error(f"Serper API request failed: {e}")
             return []
 
-    def _parse_results(self, raw_results: Any) -> List[SearchResult]:
+    def _parse_results(self, raw_results: Any) -> list[SearchResult]:
         """Parse Serper API response into standardized format.
 
         Args:

@@ -13,7 +13,6 @@ import difflib
 import fnmatch
 import os
 import re
-from typing import Dict, List, Union
 
 
 class FileOps:
@@ -88,7 +87,7 @@ class FileOps:
         FileOps.write_file(path, content)
 
     @staticmethod
-    def search_files(path: str, regex: str, file_pattern: str = "*") -> List[dict]:
+    def search_files(path: str, regex: str, file_pattern: str = "*") -> list[dict]:
         """Perform regex search across files in a directory, returning matches with context.
 
         Args:
@@ -114,7 +113,7 @@ class FileOps:
                     continue
                 file_path = os.path.join(root, filename)
                 try:
-                    with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                    with open(file_path, encoding="utf-8", errors="replace") as f:
                         lines = f.readlines()
                 except Exception:
                     continue
@@ -219,7 +218,7 @@ class FileOps:
             FileNotFoundError: If path doesn't exist
             UnicodeError: On encoding failures
         """
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             return f.read()
 
     @staticmethod
@@ -292,7 +291,7 @@ class FileOps:
     # ======================
 
     @staticmethod
-    def validate_path(path: str) -> Dict[str, Union[bool, str]]:
+    def validate_path(path: str) -> dict[str, bool | str]:
         """Validate file path safety (checks for empty paths, dangerous characters).
 
         Args:

@@ -1,9 +1,9 @@
 import base64
 import time
+from collections.abc import Generator
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from time import sleep
-from typing import Dict, Generator, List, Optional, Set
 from urllib.parse import parse_qs, unquote, urlparse
 
 import httpx
@@ -103,7 +103,7 @@ class WebSearchBing(WebSearchGeneral):
     def __init__(
         self,
         bing_base_url: str = "https://www.bing.com",
-        proxy: Optional[str] = None,
+        proxy: str | None = None,
     ):
         """Initialize WebSearchBing with configuration parameters.
 
@@ -115,15 +115,15 @@ class WebSearchBing(WebSearchGeneral):
         if not self.bing_base_url.endswith("/search"):
             self.bing_base_url += "/search"  # Ensure the URL ends with /search
 
-        self.proxy: Optional[str] = proxy if proxy else None
+        self.proxy: str | None = proxy if proxy else None
 
     def search(
         self,
         query: str,
         number_results: int = 5,
         threshold: float = 0.2,  # Not used in this implementation, kept for compatibility.
-        timeout: Optional[float] = None,
-    ) -> List[Dict[str, str]]:
+        timeout: float | None = None,
+    ) -> list[dict[str, str]]:
         """Perform search and return results.
 
         Args:
@@ -177,16 +177,16 @@ class WebSearchBing(WebSearchGeneral):
     def _meta_search_bing(
         query,
         num_results=10,
-        proxy: Optional[str] = None,
+        proxy: str | None = None,
         sleep_interval: float = 0,
         timeout: float = 5,
         start_num: int = 0,
         bing_base_url: str = "https://www.bing.com/search",
-    ) -> List[_WebSearchEntryBing]:
+    ) -> list[_WebSearchEntryBing]:
         """Search the Bing search engine"""
         results = []
         fetched_results = 0
-        fetched_links: Set[str] = set()
+        fetched_links: set[str] = set()
 
         # Create a persistent client with connection pooling
         ua = ua_generator.generate(browser=["chrome", "edge"])
@@ -231,7 +231,7 @@ class WebSearchBing(WebSearchGeneral):
 
     @staticmethod
     def _parse_bing_entries(
-        html: str, fetched_links: Set[str], num_results: int
+        html: str, fetched_links: set[str], num_results: int
     ) -> Generator[_WebSearchEntryBing, None, None]:
         """Parse HTML content from Bing search results."""
         soup = BeautifulSoup(html, "html.parser")

@@ -1,6 +1,5 @@
 import os
 import time
-from typing import Dict, List, Optional, Set
 
 import httpx
 from loguru import logger
@@ -14,7 +13,7 @@ CACHE_DURATION = 24 * 60 * 60 * 30
 UBLOCKLIST_URL = "https://raw.githubusercontent.com/eallion/uBlacklist-subscription-compilation/main/uBlacklist.txt"
 GITHUB_RAW_PROXY = "https://rawgithubusercontent.deno.dev"
 # Module-level variable to store blocked items
-_blocked_items: Set[str] = set()
+_blocked_items: set[str] = set()
 _last_blocklist_content = None
 _last_blocklist_timestamp = None
 
@@ -57,7 +56,7 @@ def fetch_and_cache_blocklist(
     url: str,
     cache_path: str = BLOCKLIST_CACHE_PATH,
     cache_duration: int = CACHE_DURATION,
-) -> Optional[str]:
+) -> str | None:
     """Fetch the blocklist from the specified URL and cache it locally.
 
     Args:
@@ -108,7 +107,7 @@ def fetch_and_cache_blocklist(
         return _fallback_to_cache(cache_path)
 
 
-def _try_fetch_from_proxy(url: str, cache_path: str) -> Optional[str]:
+def _try_fetch_from_proxy(url: str, cache_path: str) -> str | None:
     """Attempt to fetch the blocklist from a proxy URL if the original times out.
 
     Args:
@@ -137,7 +136,7 @@ def _try_fetch_from_proxy(url: str, cache_path: str) -> Optional[str]:
         return _fallback_to_cache(cache_path)
 
 
-def _fallback_to_cache(cache_path: str) -> Optional[str]:
+def _fallback_to_cache(cache_path: str) -> str | None:
     """Fallback to cached content if available, even if outdated.
 
     Args:
@@ -148,7 +147,7 @@ def _fallback_to_cache(cache_path: str) -> Optional[str]:
     """
     if os.path.exists(cache_path):
         try:
-            with open(cache_path, "r", encoding="utf-8") as f:
+            with open(cache_path, encoding="utf-8") as f:
                 logger.debug(
                     "Falling back to outdated cached blocklist from {}", cache_path
                 )
@@ -161,8 +160,8 @@ def _fallback_to_cache(cache_path: str) -> Optional[str]:
 
 
 def filter_search_results(
-    results: List[Dict[str, str]], blocklist_content: Optional[str] = None
-) -> List[Dict[str, str]]:
+    results: list[dict[str, str]], blocklist_content: str | None = None
+) -> list[dict[str, str]]:
     """Filter search results based on a blocklist.
 
     Args:

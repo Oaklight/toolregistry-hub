@@ -28,7 +28,7 @@ API Documentation: https://docs.brightdata.com/
 
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import urlencode
 
 import httpx
@@ -47,8 +47,8 @@ class BrightDataSearch(BaseSearch):
 
     def __init__(
         self,
-        api_keys: Optional[str] = None,
-        zone: Optional[str] = None,
+        api_keys: str | None = None,
+        zone: str | None = None,
     ):
         """Initialize Bright Data search client.
 
@@ -142,9 +142,9 @@ class BrightDataSearch(BaseSearch):
         *,
         max_results: int = 5,
         timeout: float = TIMEOUT_DEFAULT,
-        cursor: Optional[str] = None,
+        cursor: str | None = None,
         **kwargs,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """Perform a web search using Bright Data Google Search API.
 
         IMPORTANT: For time-sensitive queries (e.g., "recent news", "latest updates", "today's events"),
@@ -191,8 +191,8 @@ class BrightDataSearch(BaseSearch):
         return results[:max_results] if results else []
 
     def _search_impl(
-        self, query: str, cursor: Optional[str] = None, **kwargs
-    ) -> List[SearchResult]:
+        self, query: str, cursor: str | None = None, **kwargs
+    ) -> list[SearchResult]:
         """Perform the actual search using Bright Data API for a single query.
 
         Args:
@@ -288,7 +288,7 @@ class BrightDataSearch(BaseSearch):
             logger.error(f"Bright Data API request failed: {e}")
             return []
 
-    def _parse_results(self, raw_results: Dict[str, Any]) -> List[SearchResult]:
+    def _parse_results(self, raw_results: dict[str, Any]) -> list[SearchResult]:
         """Parse Bright Data API response into standardized format.
 
         This method now delegates to the universal GoogleResultParser.

@@ -5,8 +5,6 @@ for tool classes, enabling automatic validation and disabling of tools
 when their required environment variables are not set.
 """
 
-from typing import Type
-
 
 def requires_env(*envs: str):
     """Declare required environment variables for a tool class.
@@ -29,7 +27,7 @@ def requires_env(*envs: str):
         ['MY_API_KEY']
     """
 
-    def decorator(cls: Type) -> Type:
+    def decorator(cls: type) -> type:
         setattr(cls, "_required_envs", list(envs))
         return cls
 

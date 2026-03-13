@@ -1,6 +1,6 @@
 """Unit tests for WebSearch base module (BaseSearch and SearchResult)."""
 
-from typing import Any, List
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -70,10 +70,10 @@ class ConcreteSearch(BaseSearch):
 
     def search(
         self, query: str, *, max_results: int = 5, timeout: float = 10.0, **kwargs
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         return self._search_impl(query, **kwargs)[:max_results]
 
-    def _parse_results(self, raw_results: Any) -> List[SearchResult]:
+    def _parse_results(self, raw_results: Any) -> list[SearchResult]:
         return [
             SearchResult(
                 title=item.get("title", ""),
@@ -83,7 +83,7 @@ class ConcreteSearch(BaseSearch):
             for item in raw_results
         ]
 
-    def _search_impl(self, query: str, **kwargs) -> List[SearchResult]:
+    def _search_impl(self, query: str, **kwargs) -> list[SearchResult]:
         return [
             SearchResult(
                 title="Result 1",

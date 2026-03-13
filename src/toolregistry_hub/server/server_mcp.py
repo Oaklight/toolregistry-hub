@@ -4,16 +4,6 @@ This module provides functions to create and run an MCP server backed by
 a ToolRegistry, supporting stdio, SSE, and streamable-http transports.
 """
 
-from __future__ import annotations
-
-import sys
-
-if sys.version_info < (3, 10):
-    raise RuntimeError(
-        "MCP server requires Python 3.10 or higher. "
-        f"Current version: {sys.version_info.major}.{sys.version_info.minor}"
-    )
-
 import asyncio
 import json
 import os

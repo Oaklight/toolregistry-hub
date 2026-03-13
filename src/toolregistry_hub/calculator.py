@@ -2,7 +2,7 @@ import inspect
 import json
 import math
 import textwrap
-from typing import Dict, List, Literal, Union
+from typing import Literal
 
 from .utils import get_all_static_methods
 
@@ -103,34 +103,34 @@ class BaseCalculator:
 
     # ====== Statistical functions 统计函数 ======
     @staticmethod
-    def min(numbers: List[float]) -> float:
+    def min(numbers: list[float]) -> float:
         """Finds the minimum value in a list of numbers."""
         if not numbers:
             raise ValueError("numbers list cannot be empty")
         return min(numbers)
 
     @staticmethod
-    def max(numbers: List[float]) -> float:
+    def max(numbers: list[float]) -> float:
         """Finds the maximum value in a list of numbers."""
         if not numbers:
             raise ValueError("numbers list cannot be empty")
         return max(numbers)
 
     @staticmethod
-    def sum(numbers: List[float]) -> float:
+    def sum(numbers: list[float]) -> float:
         """Calculates the sum of a list of numbers."""
         # No range check needed for sum
         return sum(numbers)
 
     @staticmethod
-    def average(numbers: List[float]) -> float:
+    def average(numbers: list[float]) -> float:
         """Calculates arithmetic mean of numbers."""
         if not numbers:
             raise ValueError("numbers list cannot be empty")
         return sum(numbers) / len(numbers)
 
     @staticmethod
-    def median(numbers: List[float]) -> float:
+    def median(numbers: list[float]) -> float:
         """Calculates median of numbers."""
         if not numbers:
             raise ValueError("numbers list cannot be empty")
@@ -142,19 +142,19 @@ class BaseCalculator:
         return (sorted_numbers[mid - 1] + sorted_numbers[mid]) / 2
 
     @staticmethod
-    def mode(numbers: List[float]) -> List[float]:
+    def mode(numbers: list[float]) -> list[float]:
         """Finds mode(s) of numbers."""
         if not numbers:
             raise ValueError("numbers list cannot be empty")
 
-        freq: Dict[float, int] = {}
+        freq: dict[float, int] = {}
         for num in numbers:
             freq[num] = freq.get(num, 0) + 1
         max_count = max(freq.values())
         return [num for num, count in freq.items() if count == max_count]
 
     @staticmethod
-    def standard_deviation(numbers: List[float]) -> float:
+    def standard_deviation(numbers: list[float]) -> float:
         """Calculates population standard deviation of numbers."""
         if not numbers:
             raise ValueError("numbers list cannot be empty")
@@ -185,8 +185,8 @@ class BaseCalculator:
     # ====== Distance and norm 距离/范数 ======
     @staticmethod
     def dist(
-        p: List[float],
-        q: List[float],
+        p: list[float],
+        q: list[float],
         metric: Literal["euclidean", "manhattan"] = "euclidean",
     ) -> float:
         """Calculates distance between two points, using specified metric."""
@@ -198,7 +198,7 @@ class BaseCalculator:
             return sum(abs(x - y) for x, y in zip(p, q))
 
     @staticmethod
-    def norm_euclidean(p: List[float]) -> float:
+    def norm_euclidean(p: list[float]) -> float:
         """Calculates Euclidean norm of a point."""
         return math.hypot(*p)  # Using math.hypot for Euclidean norm
 
@@ -273,7 +273,7 @@ class Calculator:
     # ====== Expression evaluation 表达式求值 ======
 
     @staticmethod
-    def _allowed_functions() -> List[str]:
+    def _allowed_functions() -> list[str]:
         return _ALLOWED_FUNCTIONS + _MATH_LIB_FUNCTIONS
 
     @staticmethod
@@ -345,7 +345,7 @@ class Calculator:
             return f"constant: {fn_name}\n{textwrap.indent(docstring, ' ' * 4)}"
 
     @staticmethod
-    def evaluate(expression: str) -> Union[float, int, bool]:
+    def evaluate(expression: str) -> float | int | bool:
         """Evaluates a mathematical expression.
 
         The `expression` can use named functions like `add(2, 3)` or native operators like `2 + 3`. Pay attention to operator precedence and use parentheses to ensure the intended order of operations. For example: `"add(2, 3) * pow(2, 3) + sqrt(16)"` or `"(2 + 3) * (2 ** 3) + sqrt(16)"` or mixed.

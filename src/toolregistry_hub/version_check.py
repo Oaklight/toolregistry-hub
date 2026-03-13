@@ -4,8 +4,6 @@ This module provides functionality to check for available updates
 on PyPI and compare versions.
 """
 
-from typing import Optional
-
 import httpx
 from loguru import logger
 
@@ -14,7 +12,7 @@ from . import __version__
 
 async def get_latest_pypi_version(
     package_name: str = "toolregistry-hub",
-) -> Optional[str]:
+) -> str | None:
     """Get the latest version of a package from PyPI.
 
     Args:

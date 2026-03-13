@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from loguru import logger
 
@@ -27,7 +26,7 @@ class WebSearchGeneral(ABC):
         query: str,
         number_results: int = 5,
         threshold: float = 0.2,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> list:
         """Perform search and return results.
         Args:
@@ -43,8 +42,8 @@ class WebSearchGeneral(ABC):
     @staticmethod
     def _fetch_webpage_content(
         entry: _WebSearchEntryGeneral,
-        timeout: Optional[float] = None,
-        proxy: Optional[str] = None,
+        timeout: float | None = None,
+        proxy: str | None = None,
     ) -> dict:
         """Retrieve complete webpage content from search result entry.
 

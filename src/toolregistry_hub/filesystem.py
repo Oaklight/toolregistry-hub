@@ -21,7 +21,6 @@ import os
 import shutil
 import stat  # Import stat for file attributes
 from pathlib import Path
-from typing import List
 
 
 class FileSystem:
@@ -96,7 +95,7 @@ class FileSystem:
         return False
 
     @staticmethod
-    def list_dir(path: str, depth: int = 1, show_hidden: bool = False) -> List[str]:
+    def list_dir(path: str, depth: int = 1, show_hidden: bool = False) -> list[str]:
         """Lists contents of a directory up to a specified depth.
 
         Args:

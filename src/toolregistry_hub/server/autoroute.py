@@ -6,9 +6,7 @@ Converts a :class:`~toolregistry.ToolRegistry` into a FastAPI
 request models and route handlers.
 """
 
-from __future__ import annotations
-
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any
 
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.openapi.utils import get_openapi
@@ -21,7 +19,7 @@ from toolregistry.tool import Tool
 # JSON Schema type → Python type mapping
 # ---------------------------------------------------------------------------
 
-_JSON_TYPE_MAP: Dict[str, Type] = {
+_JSON_TYPE_MAP: dict[str, type] = {
     "string": str,
     "integer": int,
     "number": float,
@@ -36,7 +34,7 @@ _JSON_TYPE_MAP: Dict[str, Type] = {
 # ---------------------------------------------------------------------------
 
 
-def _resolve_type(field_schema: Dict[str, Any]) -> Type:
+def _resolve_type(field_schema: dict[str, Any]) -> type:
     """Resolve a JSON Schema field description to a Python type.
 
     Handles basic types, ``array`` with ``items``, nested ``object`` with
@@ -63,7 +61,7 @@ def _resolve_type(field_schema: Dict[str, Any]) -> Type:
         items_schema = field_schema.get("items")
         if items_schema:
             inner = _resolve_type(items_schema)
-            return List[inner]  # ty: ignore[invalid-type-form]
+            return list[inner]  # ty: ignore[invalid-type-form]
         return list
 
     if json_type == "object" and "properties" in field_schema:
@@ -88,7 +86,7 @@ def _resolve_type(field_schema: Dict[str, Any]) -> Type:
 # ---------------------------------------------------------------------------
 
 
-def _schema_to_pydantic(name: str, schema: Dict[str, Any]) -> Type[BaseModel]:
+def _schema_to_pydantic(name: str, schema: dict[str, Any]) -> type[BaseModel]:
     """Convert a JSON Schema ``object`` definition into a dynamic Pydantic model.
 
     Args:
@@ -100,13 +98,13 @@ def _schema_to_pydantic(name: str, schema: Dict[str, Any]) -> Type[BaseModel]:
         A dynamically created :class:`pydantic.BaseModel` subclass whose
         fields mirror the schema properties.
     """
-    properties: Dict[str, Any] = schema.get("properties", {})
+    properties: dict[str, Any] = schema.get("properties", {})
     if not properties:
         # Return an empty model when there are no properties
         return create_model(name)
 
-    required_fields: List[str] = schema.get("required", [])
-    field_definitions: Dict[str, Tuple[Type, Any]] = {}
+    required_fields: list[str] = schema.get("required", [])
+    field_definitions: dict[str, tuple[type, Any]] = {}
 
     for field_name, field_schema in properties.items():
         py_type = _resolve_type(field_schema)
@@ -115,7 +113,7 @@ def _schema_to_pydantic(name: str, schema: Dict[str, Any]) -> Type[BaseModel]:
         is_required = field_name in required_fields
         default_value = field_schema.get("default", ... if is_required else None)
 
-        field_kwargs: Dict[str, Any] = {}
+        field_kwargs: dict[str, Any] = {}
         if description:
             field_kwargs["description"] = description
 
@@ -172,7 +170,7 @@ def _add_route(router: APIRouter, tool: Tool, registry: ToolRegistry) -> None:
     path = f"/{namespace}/{method_name}"
 
     # Determine request model
-    request_model: Type[BaseModel]
+    request_model: type[BaseModel]
     if tool.parameters_model is not None:
         request_model = tool.parameters_model
     else:
@@ -200,7 +198,7 @@ def _add_route(router: APIRouter, tool: Tool, registry: ToolRegistry) -> None:
 
         def _make_async_endpoint(
             t: Tool = tool,
-            M: Type[BaseModel] = request_model,
+            M: type[BaseModel] = request_model,
             reg: ToolRegistry = registry,
             tname: str = tool_name,
         ):
@@ -226,7 +224,7 @@ def _add_route(router: APIRouter, tool: Tool, registry: ToolRegistry) -> None:
 
         def _make_sync_endpoint(
             t: Tool = tool,
-            M: Type[BaseModel] = request_model,
+            M: type[BaseModel] = request_model,
             reg: ToolRegistry = registry,
             tname: str = tool_name,
         ):
@@ -301,7 +299,7 @@ def setup_dynamic_openapi(app: FastAPI, registry: ToolRegistry) -> None:
         registry: The tool registry used for enable/disable status checks.
     """
 
-    def custom_openapi() -> Dict[str, Any]:
+    def custom_openapi() -> dict[str, Any]:
         # Generate a fresh OpenAPI schema on every call (no caching)
         # so it always reflects the current enable/disable state.
         openapi_schema = get_openapi(
@@ -319,9 +317,9 @@ def setup_dynamic_openapi(app: FastAPI, registry: ToolRegistry) -> None:
 
         # Filter out paths whose operations correspond to disabled tools
         if disabled_operation_ids and "paths" in openapi_schema:
-            filtered_paths: Dict[str, Any] = {}
+            filtered_paths: dict[str, Any] = {}
             for path, path_item in openapi_schema["paths"].items():
-                filtered_methods: Dict[str, Any] = {}
+                filtered_methods: dict[str, Any] = {}
                 for method, operation in path_item.items():
                     if isinstance(operation, dict):
                         op_id = operation.get("operationId", "")

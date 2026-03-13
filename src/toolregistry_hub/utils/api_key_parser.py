@@ -7,7 +7,6 @@ different web search implementations.
 
 import os
 import time
-from typing import Dict, List, Optional
 
 
 class APIKeyParser:
@@ -15,9 +14,9 @@ class APIKeyParser:
 
     def __init__(
         self,
-        api_keys: Optional[str] = None,
-        env_var_name: Optional[str] = None,
-        api_tokens_file: Optional[str] = None,
+        api_keys: str | None = None,
+        env_var_name: str | None = None,
+        api_tokens_file: str | None = None,
         key_separator: str = ",",
         rate_limit_delay: float = 1.0,
     ):
@@ -42,7 +41,7 @@ class APIKeyParser:
 
         if not api_keys_str:
             # Deferred validation: allow empty initialization
-            self.api_keys: List[str] = []
+            self.api_keys: list[str] = []
         else:
             # Parse and validate API keys
             self.api_keys = self._parse_api_keys(api_keys_str, key_separator)
@@ -50,9 +49,9 @@ class APIKeyParser:
         self._current_key_index = 0
         self.rate_limit_delay = rate_limit_delay
         # Track last request time for each API key individually
-        self._last_request_times: Dict[str, float] = {}
+        self._last_request_times: dict[str, float] = {}
 
-    def _parse_api_keys(self, api_keys_str: str, separator: str) -> List[str]:
+    def _parse_api_keys(self, api_keys_str: str, separator: str) -> list[str]:
         """Parse and validate API keys from string.
 
         Args:
@@ -131,7 +130,7 @@ class APIKeyParser:
             if not os.path.exists(file_path):
                 raise ValueError(f"API tokens file not found: {file_path}")
 
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 file_tokens = [line.strip() for line in f if line.strip()]
 
             if not file_tokens:
@@ -185,7 +184,7 @@ class APIKeyParser:
             return self.api_keys[index]
         raise IndexError(f"Index {index} out of range for {len(self.api_keys)} keys")
 
-    def wait_for_rate_limit(self, api_key: Optional[str] = None):
+    def wait_for_rate_limit(self, api_key: str | None = None):
         """Ensure minimum delay between API requests to avoid rate limits for a specific key.
 
         Args:
@@ -219,9 +218,9 @@ class APIKeyParser:
 
 
 def create_api_key_parser(
-    api_keys: Optional[str] = None,
-    env_var_name: Optional[str] = None,
-    api_tokens_file: Optional[str] = None,
+    api_keys: str | None = None,
+    env_var_name: str | None = None,
+    api_tokens_file: str | None = None,
     key_separator: str = ",",
     rate_limit_delay: float = 1.0,
 ) -> APIKeyParser:

@@ -6,10 +6,9 @@ Tests the auth logic without importing the package.
 
 import os
 import tempfile
-from typing import Optional, Set
 
 
-def _parse_bearer_tokens() -> Optional[Set[str]]:
+def _parse_bearer_tokens() -> set[str] | None:
     """Parse bearer tokens from environment variables.
 
     Supports two configuration formats:
@@ -34,7 +33,7 @@ def _parse_bearer_tokens() -> Optional[Set[str]]:
     token_file = os.getenv("API_BEARER_TOKENS_FILE")
     if token_file and os.path.exists(token_file):
         try:
-            with open(token_file, "r", encoding="utf-8") as f:
+            with open(token_file, encoding="utf-8") as f:
                 file_tokens = [line.strip() for line in f if line.strip()]
                 tokens.update(file_tokens)
                 print(f"Loaded {len(file_tokens)} tokens from file: {token_file}")

@@ -1,5 +1,5 @@
 import re
-from typing import List, Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
@@ -46,7 +46,7 @@ class TodoList:
         return text.replace("|", "\\|")
 
     @staticmethod
-    def _render_markdown_table(rows: List[dict]) -> str:
+    def _render_markdown_table(rows: list[dict]) -> str:
         """Render rows into a normalized Markdown table string.
 
         Expected row keys: 'id', 'task', 'status'.
@@ -65,7 +65,7 @@ class TodoList:
         return "\n".join(lines)
 
     @staticmethod
-    def _render_ascii_table(rows: List[dict]) -> str:
+    def _render_ascii_table(rows: list[dict]) -> str:
         """Render rows into ASCII table format."""
         if not rows:
             return "No todos"
@@ -142,9 +142,9 @@ class TodoList:
 
     @staticmethod
     def update(
-        todos: List[str],
-        format: Optional[Literal["markdown", "simple", "ascii"]] = "simple",
-    ) -> Optional[str]:
+        todos: list[str],
+        format: Literal["markdown", "simple", "ascii"] | None = "simple",
+    ) -> str | None:
         """Update or create todo list with optional formatting output.
 
         Args:
