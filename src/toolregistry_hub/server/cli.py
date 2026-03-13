@@ -23,6 +23,12 @@ Example:
 
     # With configuration file
     $ toolregistry-hub openapi --config tools.jsonc
+
+    # With custom .env file
+    $ toolregistry-hub openapi --env /path/to/.env
+
+    # Skip loading .env file
+    $ toolregistry-hub openapi --no-env
 """
 
 import argparse
@@ -164,12 +170,32 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add common arguments shared by all subcommands.
+
+    Args:
+        parser: The ArgumentParser to add arguments to.
+    """
+    parser.add_argument(
+        "--env",
+        type=str,
+        default=None,
+        help="Path to .env file. Default: .env in current directory",
+    )
+    parser.add_argument(
+        "--no-env",
+        action="store_true",
+        help="Skip loading .env file",
+    )
+
+
 def _add_openapi_arguments(parser: argparse.ArgumentParser) -> None:
     """Add OpenAPI-specific arguments to the parser.
 
     Args:
         parser: The ArgumentParser to add arguments to.
     """
+    _add_common_arguments(parser)
     parser.add_argument(
         "--host",
         type=str,
@@ -207,6 +233,7 @@ def _add_mcp_arguments(parser: argparse.ArgumentParser) -> None:
     Args:
         parser: The ArgumentParser to add arguments to.
     """
+    _add_common_arguments(parser)
     parser.add_argument(
         "--transport",
         type=str,
@@ -261,6 +288,18 @@ def main(args: list[str] | None = None) -> NoReturn | None:
     if parsed.command is None:
         parser.print_help()
         sys.exit(0)
+
+    # Load environment variables from .env file
+    # Reuse toolregistry-server's load_env_file function
+    try:
+        from toolregistry_server.cli import load_env_file
+
+        load_env_file(
+            env_path=getattr(parsed, "env", None),
+            no_env=getattr(parsed, "no_env", False),
+        )
+    except ImportError:
+        logger.warning("toolregistry-server not installed, skipping .env loading")
 
     # Print banner unless disabled
     if not parsed.no_banner:
