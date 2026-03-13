@@ -57,9 +57,31 @@ def _parse_bearer_tokens() -> set[str] | None:
 _cached_tokens: set[str] | None = None
 
 
-def get_valid_tokens() -> set[str] | None:
-    """Get cached valid tokens."""
+def get_valid_tokens(tokens_path: str | None = None) -> set[str] | None:
+    """Get cached valid tokens.
+
+    Args:
+        tokens_path: Optional path to a tokens file. If provided, tokens from
+            this file will be loaded in addition to environment variables.
+
+    Returns:
+        Set of valid tokens, or None if no tokens configured.
+    """
     global _cached_tokens
     if _cached_tokens is None:
         _cached_tokens = _parse_bearer_tokens()
+
+    # If a tokens_path is provided, load additional tokens from it
+    if tokens_path:
+        try:
+            parser = APIKeyParser(api_tokens_file=tokens_path)
+            file_tokens = list(parser.api_keys)
+            if file_tokens:
+                if _cached_tokens is None:
+                    _cached_tokens = set()
+                _cached_tokens.update(file_tokens)
+                logger.info(f"Loaded {len(file_tokens)} tokens from {tokens_path}")
+        except ValueError as e:
+            logger.error(f"Error reading token file {tokens_path}: {e}")
+
     return _cached_tokens
