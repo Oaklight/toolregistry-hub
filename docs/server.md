@@ -372,8 +372,7 @@ TOOLS_CONFIG=path/to/tools.jsonc toolregistry-server
 1. **依赖安装失败**
 
    - 确保您的 Python 版本符合要求
-   - OpenAPI 模式需要 Python 3.8+
-   - MCP 模式需要 Python 3.10+
+   - OpenAPI 和 MCP 模式均需要 Python 3.10+
 
 2. **端口被占用**
 
