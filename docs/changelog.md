@@ -16,6 +16,15 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 - Added Serper search provider integration
 
+### Refactoring
+
+- **MCP Server FastMCP Rewrite**
+    - Refactored MCP server implementation using FastMCP (official MCP SDK high-level API)
+    - Fixed streamable-http transport timing issues
+    - Fixed ASGI duplicate response errors
+    - Improved graceful shutdown handling with proper signal management
+    - Simplified codebase by removing manual transport management
+
 ## [0.6.0] - 2026-03-10
 
 ### New Features
