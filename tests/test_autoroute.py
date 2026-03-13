@@ -8,8 +8,6 @@ Covers:
 - Integration tests with create_core_app()
 """
 
-from __future__ import annotations
-
 import asyncio
 from typing import Any, Literal, get_args, get_origin
 
