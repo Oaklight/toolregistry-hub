@@ -12,6 +12,8 @@ The registry supports two usage patterns:
    provide API keys or other config directly, without environment variables.
 """
 
+from __future__ import annotations
+
 import importlib
 from typing import Dict, List, Optional, Type
 

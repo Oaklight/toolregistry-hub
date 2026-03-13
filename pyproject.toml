@@ -20,30 +20,37 @@ classifiers = [
 dependencies = [
     "loguru>=0.7.3",
     "httpx>=0.28.1",
-    "ua-generator>=1.0.6; python_version < '3.9'",
-    "ua-generator",                                      # for Python 3.9 and above
+    "ua-generator>=1.0.6,<2.0.0; python_version < '3.9'", # ua-generator 2.0.0+ uses dict[str, str] syntax requiring Python 3.9+
+    "ua-generator>=1.0.6; python_version >= '3.9'",       # for Python 3.9 and above
     "beautifulsoup4>=4.13.4",
-    "pydantic>=2.7.2,<3.0.0",
-    "backports.zoneinfo>=0.2.1; python_version < '3.9'", # for Python 3.8 support
+    "pydantic>=2.7.2,<2.11; python_version < '3.9'",      # pydantic 2.11+ requires Python 3.9+
+    "pydantic>=2.7.2,<3.0.0; python_version >= '3.9'",    # for Python 3.9 and above
+    "backports.zoneinfo>=0.2.1; python_version < '3.9'",  # for Python 3.8 support
 ]
 
 [project.optional-dependencies]
 dev = [
     "ty>=0.0.21",
-    "python-dotenv>=1.0.1",
+    "python-dotenv>=1.0.1,<1.1; python_version < '3.9'",  # python-dotenv 1.1+ requires Python 3.9+
+    "python-dotenv>=1.0.1; python_version >= '3.9'",
     "build>=1.2.2.post1",
     "twine>=6.1.0",
-    "pytest>=7.0.0",
+    "pytest>=7.0.0,<9.0; python_version < '3.10'",        # pytest 9.0+ requires Python 3.10+
+    "pytest>=7.0.0; python_version >= '3.10'",
+]
+server_core = [
+    "toolregistry>=0.5.0",
 ]
 server_openapi = [
-    "toolregistry>=0.5.0",
-    "fastapi>=0.119.0",
-    "uvicorn[standard]>=0.24.0",
+    "toolregistry-hub[server_core]",
+    "fastapi>=0.119.0,<0.125; python_version < '3.9'",    # fastapi 0.125+ requires Python 3.9+
+    "fastapi>=0.119.0; python_version >= '3.9'",
+    "uvicorn[standard]>=0.24.0,<0.34; python_version < '3.9'",  # uvicorn 0.34+ requires Python 3.9+
+    "uvicorn[standard]>=0.24.0; python_version >= '3.9'",
 ]
 server_mcp = [
-    "toolregistry>=0.5.0",
-    "fastapi>=0.119.0",
-    "fastmcp>=2.12.4; python_version >= '3.10'",
+    "toolregistry-hub[server_core]",
+    "mcp>=1.8.0,<2.0; python_version >= '3.10'", # mcp requires Python 3.10+, also depends on starlette>=0.27 and uvicorn>=0.31.1
 ]
 server = [
     "toolregistry-hub[server_openapi]",

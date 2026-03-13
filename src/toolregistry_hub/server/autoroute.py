@@ -6,6 +6,8 @@ Converts a :class:`~toolregistry.ToolRegistry` into a FastAPI
 request models and route handlers.
 """
 
+from __future__ import annotations
+
 from typing import Any, Dict, List, Tuple, Type
 
 from fastapi import APIRouter, FastAPI, HTTPException

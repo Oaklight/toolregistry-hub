@@ -168,7 +168,7 @@ def main():
         uvicorn.run(app, host=args.host, port=args.port)
     elif args.mode == "mcp":
         try:
-            from .server_mcp import mcp_app
+            from .server_mcp import create_mcp_server, run_mcp_http, run_mcp_stdio
         except ImportError as e:
             logger.error(f"MCP server dependencies not installed: {e}")
             logger.info("Installation options:")
@@ -180,19 +180,21 @@ def main():
             )
             sys.exit(1)
 
+        from .registry import get_registry
+
         # Set server info
         set_info(mode="mcp", mcp_transport=args.mcp_transport)
 
+        registry = get_registry()
+        mcp_server = create_mcp_server(registry)
+
+        import asyncio
+
         if args.mcp_transport == "stdio":
-            mcp_app.run(
-                show_banner=False
-            )  # Run MCP in stdio mode; assumes FastMCP supports this method
+            asyncio.run(run_mcp_stdio(mcp_server))
         else:
-            mcp_app.run(
-                transport=args.mcp_transport,
-                host=args.host,
-                port=args.port,
-                show_banner=False,
+            asyncio.run(
+                run_mcp_http(mcp_server, args.host, args.port, args.mcp_transport)
             )
 
 
