@@ -12,6 +12,10 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ## [Unreleased]
 
+### New Features
+
+- Added Serper search provider integration
+
 ## [0.6.0] - 2026-03-10
 
 ### New Features

@@ -1,6 +1,6 @@
 # Web Search Tools
 
-The web search tools provide functionality to perform web searches through various search engines. This module supports multiple search engines, including Brave, SearXNG, Tavily, and Google (via BrightData/Scrapeless).
+The web search tools provide functionality to perform web searches through various search engines. This module supports multiple search engines, including Brave, Serper, SearXNG, Tavily, and Google (via BrightData/Scrapeless).
 
 !!! note "Bing Search Removed"
     Bing Search has been removed due to frequent bot detection issues. Please use alternative search providers.
@@ -11,10 +11,11 @@ Here's a quick overview of free tier offerings for each search provider:
 
 | Provider | Free Tier | Monthly Limit | Notes |
 |----------|-----------|---------------|-------|
-| **Brave Search** | ✅ Yes | 4,000 queries | Two separate plans (2,000 each) |
+| **Brave Search** | ⚠️ Changed | ~1,000 queries | $5 free credits/month (Feb 2026), credit card required |
+| **Serper** | ✅ Yes | 2,500 queries | Google search results |
 | **Bright Data** | ✅ Yes | 5,000 queries | No verification required |
 | **Tavily** | ✅ Yes | 1,000 queries | AI-optimized search |
-| **Scrapeless** | ❌ No | - | Affordable paid plans |
+| **Scrapeless** | ❌ No | - | Paid plans only |
 | **SearXNG** | ✅ Free | Unlimited | Self-hosted, open source |
 
 ### tip "Maximizing Free Usage"
@@ -36,7 +37,8 @@ The web search tools mainly include the following two versions:
 
 Currently supported search engines include:
 
-- [Brave Search](brave.md) - Using Brave search engine (Recommended)
+- [Brave Search](brave.md) - Using Brave search engine
+- [Serper Search](serper.md) - Using Serper API for Google search results
 - [Tavily Search](tavily.md) - Using Tavily search API (AI-optimized)
 - [SearXNG Search](searxng.md) - Using SearXNG meta search engine (Privacy-focused)
 - [BrightData Search](brightdata.md) - Using BrightData for Google results
@@ -46,7 +48,7 @@ Currently supported search engines include:
 ## Basic Usage
 
 ```python
-from toolregistry_hub.websearch import BraveSearch, SearXNGSearch, TavilySearch, BrightDataSearch, ScrapelessSearch
+from toolregistry_hub.websearch import BraveSearch, SearXNGSearch, TavilySearch, BrightDataSearch, ScrapelessSearch, SerperSearch
 
 # Using Brave search (Recommended)
 brave_search = BraveSearch()
@@ -112,7 +114,8 @@ for result in results:
 
 - [Search Result Types](search_result.md) - Data structure of search results
 - [Base Search Class](base_search.md) - Base class for all search engines
-- [Brave Search](brave.md) - Implementation of Brave search engine (Recommended)
+- [Brave Search](brave.md) - Implementation of Brave search engine
+- [Serper Search](serper.md) - Implementation of Serper API for Google search results
 - [Tavily Search](tavily.md) - Implementation of Tavily search API
 - [SearXNG Search](searxng.md) - Implementation of SearXNG search engine
 - [BrightData Search](brightdata.md) - Implementation of BrightData for Google results
