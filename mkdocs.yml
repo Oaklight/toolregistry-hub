@@ -80,6 +80,7 @@ nav:
               - Brave 搜索: tools/websearch/brave.md
               - BrightData 搜索: tools/websearch/brightdata.md
               - Scrapeless 搜索: tools/websearch/scrapeless.md
+              - Serper 搜索: tools/websearch/serper.md
               - Tavily 搜索: tools/websearch/tavily.md
               - SearXNG 搜索: tools/websearch/searxng.md
       - 其他工具:

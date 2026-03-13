@@ -33,22 +33,22 @@ Brave 搜索提供了使用 Brave Search API 进行网络搜索的功能。Brave
    export BRAVE_API_KEY="your-brave-api-key-here"
    ```
 
-## 免费额度
+## 定价
 
-Brave Search 提供慷慨的免费额度：
+!!! warning "免费计划已移除（2026 年 2 月）"
+    Brave Search API 于 2026 年 2 月移除了之前的免费计划，改为基于积分的定价模式。订阅需要信用卡。
 
-- **注册后可获得两个独立的免费计划**，每个提供每月 2,000 次查询
-- **总计：每月 4,000 次免费查询**
-- **Data Search 免费计划**：<https://api-dashboard.search.brave.com/app/plans?tab=normal>
-- **AI Search 免费计划**：<https://api-dashboard.search.brave.com/app/plans?tab=ai>
+- **Search**：$5 / 1,000 次请求，每月赠送 **$5 免费积分**（约 1,000 次查询/月）
+- **Answers**：$4 / 1,000 次请求 + $5 / 百万 input/output tokens
+- 当前定价详见 <https://brave.com/search/api/>
 
-### 最大化免费使用
+### 最大化使用
 
-1. **多API密钥轮换**：使用多个API密钥进行负载均衡，进一步扩展免费配额容量
+1. **多API密钥轮换**：使用多个API密钥进行负载均衡
 2. **规划搜索频率**：智能控制搜索频率，避免浪费配额
 
-!!! note "免费额度政策"
-   所有免费额度信息可能因供应商政策变更而有所不同。信息在编写时是准确的。
+!!! note "定价政策"
+   所有定价信息可能因供应商政策变更而有所不同。信息在编写时是准确的。
 
 ## 使用示例
 

@@ -12,6 +12,10 @@ author: Oaklight
 
 ## [Unreleased]
 
+### 新功能
+
+- 新增 Serper 搜索提供商集成
+
 ## [0.6.0] - 2026-03-10
 
 ### 新功能

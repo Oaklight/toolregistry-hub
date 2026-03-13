@@ -1,6 +1,6 @@
 # 网络搜索工具
 
-网络搜索工具提供了通过各种搜索引擎进行网络搜索的功能。该模块支持多种搜索引擎，包括 Brave、SearXNG、Tavily 和 Google（通过 BrightData/Scrapeless）。
+网络搜索工具提供了通过各种搜索引擎进行网络搜索的功能。该模块支持多种搜索引擎，包括 Brave、Serper、SearXNG、Tavily 和 Google（通过 BrightData/Scrapeless）。
 
 !!! note "Bing 搜索已移除"
     Bing 搜索因频繁遇到机器人检测问题已被移除。请使用其他搜索提供商。
@@ -11,10 +11,11 @@
 
 | 提供商 | 免费额度 | 月度限制 | 备注 |
 |----------|-----------|---------------|-------|
-| **Brave Search** | ✅ 有 | 4,000 次查询 | 两个独立计划（各 2,000 次） |
+| **Brave Search** | ⚠️ 已变更 | 约 1,000 次查询 | 每月赠送 $5 积分（2026年2月起），需要信用卡 |
+| **Serper** | ✅ 有 | 2,500 次查询 | Google 搜索结果 |
 | **Bright Data** | ✅ 有 | 5,000 次查询 | 无需验证 |
 | **Tavily** | ✅ 有 | 1,000 次查询 | AI 优化搜索 |
-| **Scrapeless** | ❌ 无 | - | 价格实惠的付费计划 |
+| **Scrapeless** | ❌ 无 | - | 仅付费计划 |
 | **SearXNG** | ✅ 免费 | 无限制 | 自托管，开源 |
 
 !!! tip "最大化免费使用"
@@ -35,7 +36,8 @@
 
 当前支持的搜索引擎包括：
 
-- [Brave 搜索](brave.md) - 使用 Brave 搜索引擎（推荐）
+- [Brave 搜索](brave.md) - 使用 Brave 搜索引擎
+- [Serper 搜索](serper.md) - 使用 Serper API 获取 Google 搜索结果
 - [Tavily 搜索](tavily.md) - 使用 Tavily 搜索 API（AI 优化）
 - [SearXNG 搜索](searxng.md) - 使用 SearXNG 元搜索引擎（注重隐私）
 - [BrightData 搜索](brightdata.md) - 使用 BrightData 获取 Google 搜索结果
@@ -45,7 +47,7 @@
 ## 基本使用
 
 ```python
-from toolregistry_hub.websearch import BraveSearch, SearXNGSearch, TavilySearch, BrightDataSearch, ScrapelessSearch
+from toolregistry_hub.websearch import BraveSearch, SearXNGSearch, TavilySearch, BrightDataSearch, ScrapelessSearch, SerperSearch
 
 # 使用 Brave 搜索（推荐）
 brave_search = BraveSearch()
@@ -111,7 +113,8 @@ for result in results:
 
 - [搜索结果类型](search_result.md) - 搜索结果的数据结构
 - [基础搜索类](base_search.md) - 所有搜索引擎的基类
-- [Brave 搜索](brave.md) - Brave 搜索引擎的实现（推荐）
+- [Brave 搜索](brave.md) - Brave 搜索引擎的实现
+- [Serper 搜索](serper.md) - Serper API 获取 Google 搜索结果的实现
 - [Tavily 搜索](tavily.md) - Tavily 搜索 API 的实现
 - [SearXNG 搜索](searxng.md) - SearXNG 搜索引擎的实现
 - [BrightData 搜索](brightdata.md) - BrightData 获取 Google 搜索结果的实现
