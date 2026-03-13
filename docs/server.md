@@ -372,8 +372,7 @@ The following environment variables are used by specific tools. Tools with missi
 1. **Dependency Installation Failed**
 
    - Ensure your Python version meets requirements
-   - OpenAPI mode requires Python 3.8+
-   - MCP mode requires Python 3.10+
+   - Both OpenAPI and MCP modes require Python 3.10+
 
 2. **Port Already in Use**
 
