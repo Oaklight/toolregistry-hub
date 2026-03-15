@@ -154,6 +154,13 @@ This roadmap intentionally stays high-level. Detailed checklists belong in Issue
 - **Phase 3**: enable/disable with reason tracking (namespace + method)
 - **Phase 4**: environment requirements + registry build foundation
 - **Phase 5 (core)**: auto-route generation from `ToolRegistry`
+- **Phase 6 (callback mechanism)**: `on_change()` / `remove_on_change()` callback mechanism in `toolregistry` core
+  - Implemented `ChangeEvent`, `ChangeEventType`, `ChangeCallback` types
+  - Added callback registration/removal APIs to `ToolRegistry`
+  - Callbacks triggered on tool register/unregister/enable/disable events
+  - 26 unit tests covering all callback scenarios
+  - Bilingual documentation updated
+  - Related issue: [toolregistry#68](https://github.com/Oaklight/ToolRegistry/issues/68)
 - **Phase 6 (MCP adapter)**: MCP server migration/finalization
   - MCP exposure generated directly from `ToolRegistry` (using [`registry_to_mcp_server()`](src/toolregistry_hub/server/mcp_adapter.py:1))
   - enable/disable state reflected dynamically (no drift) — each `list_tools`/`call_tool` queries registry in real-time
@@ -229,7 +236,7 @@ These links are an index; details live in the referenced Issues/PRs.
   - https://github.com/Oaklight/ToolRegistry/issues/64
   - https://github.com/Oaklight/ToolRegistry/issues/65
 - New roadmap items created from this plan:
-  - MCP server support (registry-driven): https://github.com/Oaklight/ToolRegistry/issues/68
+  - Callback mechanism (`on_change()` / `remove_on_change()`): https://github.com/Oaklight/ToolRegistry/issues/68 ✅
   - OpenAPI ETag support: https://github.com/Oaklight/ToolRegistry/issues/69
   - Observability API (enabled/disabled + reasons): https://github.com/Oaklight/ToolRegistry/issues/70
 
