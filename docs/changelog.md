@@ -12,11 +12,33 @@ author: Oaklight
 
 ## [Unreleased]
 
+### 破坏性变更
+
+- **服务器代码迁移至 `toolregistry-server`** ([#56](https://github.com/Oaklight/toolregistry-hub/issues/56), [#57](https://github.com/Oaklight/toolregistry-hub/pull/57))
+    - 服务器相关功能（OpenAPI 适配器、MCP 适配器、CLI 服务器命令）已迁移至独立的 `toolregistry-server` 包
+    - 依赖服务器功能的用户需单独安装 `toolregistry-server`
+
+- **最低 Python 版本升级至 3.10** ([#54](https://github.com/Oaklight/toolregistry-hub/issues/54))
+    - 不再支持 Python 3.8 和 3.9
+    - 与 Python 3.9 EOL 及 MCP SDK 要求保持一致
+
 ### 新功能
+
+- **`.env` 文件加载支持** ([#59](https://github.com/Oaklight/toolregistry-hub/pull/59))
+    - 支持从 `.env` 文件加载环境变量
+    - 新增 `--env-file` 和 `--no-env` CLI 选项
 
 - 新增 Serper 搜索提供商集成
 
+### 改进
+
+- **CLI 改进与 API 清理** ([#58](https://github.com/Oaklight/toolregistry-hub/pull/58))
+    - CLI 改进，将 `is_configured` 设为私有
+
 ### 重构
+
+- **现代化类型注解至 Python 3.10+**
+    - 将旧式 typing 导入替换为 Python 3.10+ 现代语法
 
 - **MCP 服务器 FastMCP 重写**
     - 使用 FastMCP（MCP SDK 官方高级 API）重构 MCP 服务器实现
