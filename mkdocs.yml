@@ -96,8 +96,10 @@ nav:
       - 已弃用:
           - 旧版网络搜索: tools/websearch/legacy.md
           - Bing 搜索 (已弃用): tools/websearch/bing.md
+  - 生态系统: ecosystem.md
   - 更新日志: changelog.md
   - ToolRegistry: https://toolregistry.readthedocs.io/
+  - Server: https://toolregistry-server.readthedocs.io/
 
 # Extensions
 markdown_extensions:

@@ -71,6 +71,16 @@ toolregistry-server --mode mcp --port 8000
 - **📚 文档完善**: 多语言的全面文档
 - **🎯 生产就绪**: 在实际应用中经过实战测试
 
+## 生态系统
+
+ToolRegistry Hub 是三包生态系统的一部分。详情请参阅[生态系统](ecosystem.md)页面。
+
+| 包名 | 角色 |
+|------|------|
+| [toolregistry](https://toolregistry.readthedocs.io/zh/) | 核心工具管理库 |
+| [toolregistry-server](https://toolregistry-server.readthedocs.io/zh/) | OpenAPI 和 MCP 服务器适配器 |
+| **toolregistry-hub** | 即用型实用工具 |
+
 ## 🤝 参与进来
 
 - **[GitHub 仓库](https://github.com/Oaklight/toolregistry-hub)** - 源代码和问题
