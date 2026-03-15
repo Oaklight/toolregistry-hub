@@ -96,8 +96,10 @@ nav:
       - Deprecated:
           - Legacy Web Search: tools/websearch/legacy.md
           - Bing Search: tools/websearch/bing.md
+  - Ecosystem: ecosystem.md
   - Changelog: changelog.md
   - ToolRegistry: https://toolregistry.readthedocs.io/
+  - Server: https://toolregistry-server.readthedocs.io/
 
 # Extensions
 markdown_extensions:

@@ -71,6 +71,16 @@ toolregistry-server --mode mcp --port 8000
 - **📚 Documented**: Comprehensive documentation in multiple languages
 - **🎯 Production Ready**: Battle-tested in real-world applications
 
+## Ecosystem
+
+ToolRegistry Hub is part of a three-package ecosystem. See the [Ecosystem](ecosystem.md) page for details.
+
+| Package | Role |
+|---------|------|
+| [toolregistry](https://toolregistry.readthedocs.io/) | Core tool management library |
+| [toolregistry-server](https://toolregistry-server.readthedocs.io/) | OpenAPI & MCP server adapters |
+| **toolregistry-hub** | Ready-to-use utility tools |
+
 ## 🤝 Get Involved
 
 - **[GitHub Repository](https://github.com/Oaklight/toolregistry-hub)** - Source code and issues
