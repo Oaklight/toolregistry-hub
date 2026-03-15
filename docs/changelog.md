@@ -12,11 +12,33 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **Server Code Migrated to `toolregistry-server`** ([#56](https://github.com/Oaklight/toolregistry-hub/issues/56), [#57](https://github.com/Oaklight/toolregistry-hub/pull/57))
+    - Server-related functionality (OpenAPI adapter, MCP adapter, CLI server commands) has been moved to the standalone `toolregistry-server` package
+    - Users who relied on server features should install `toolregistry-server` separately
+
+- **Minimum Python Version Upgraded to 3.10** ([#54](https://github.com/Oaklight/toolregistry-hub/issues/54))
+    - Python 3.8 and 3.9 no longer supported
+    - Aligns with Python 3.9 EOL and MCP SDK requirements
+
 ### New Features
+
+- **`.env` File Loading Support** ([#59](https://github.com/Oaklight/toolregistry-hub/pull/59))
+    - Support for loading environment variables from `.env` files
+    - Added `--env-file` and `--no-env` CLI options
 
 - Added Serper search provider integration
 
+### Improvements
+
+- **CLI Improvements and API Cleanup** ([#58](https://github.com/Oaklight/toolregistry-hub/pull/58))
+    - CLI improvements and `is_configured` made private
+
 ### Refactoring
+
+- **Modernize Type Annotations to Python 3.10+**
+    - Replaced legacy typing imports with modern Python 3.10+ syntax
 
 - **MCP Server FastMCP Rewrite**
     - Refactored MCP server implementation using FastMCP (official MCP SDK high-level API)
