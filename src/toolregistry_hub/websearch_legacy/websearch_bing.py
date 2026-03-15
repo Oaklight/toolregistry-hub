@@ -38,11 +38,13 @@ class WebSearchBing(WebSearchGeneral):
     - Supports proxy settings
 
     Examples:
-        >>> from toolregistry.hub.websearch_bing import WebSearchBing
-        >>> searcher = WebSearchBing()
-        >>> results = searcher.search("python web scraping", number_results=3)
-        >>> for result in results:
-        ...     print(result["title"])
+        ```python
+        from toolregistry.hub.websearch_bing import WebSearchBing
+        searcher = WebSearchBing()
+        results = searcher.search("python web scraping", number_results=3)
+        for result in results:
+            print(result["title"])
+        ```
     """
 
     @staticmethod

@@ -237,21 +237,23 @@ def create_api_key_parser(
         Configured APIKeyParser instance
 
     Example:
-        >>> # Using environment variable
-        >>> parser = create_api_key_parser(env_var_name="MY_API_KEYS")
-        >>>
-        >>> # Using direct keys
-        >>> parser = create_api_key_parser(api_keys="key1,key2,key3")
-        >>>
-        >>> # Using file with API keys
-        >>> parser = create_api_key_parser(api_tokens_file="/path/to/keys.txt")
-        >>>
-        >>> # Using custom separator and rate limit
-        >>> parser = create_api_key_parser(
-        ...     env_var_name="MY_API_KEYS",
-        ...     key_separator=";",
-        ...     rate_limit_delay=2.0
-        ... )
+        ```python
+        # Using environment variable
+        parser = create_api_key_parser(env_var_name="MY_API_KEYS")
+
+        # Using direct keys
+        parser = create_api_key_parser(api_keys="key1,key2,key3")
+
+        # Using file with API keys
+        parser = create_api_key_parser(api_tokens_file="/path/to/keys.txt")
+
+        # Using custom separator and rate limit
+        parser = create_api_key_parser(
+            env_var_name="MY_API_KEYS",
+            key_separator=";",
+            rate_limit_delay=2.0
+        )
+        ```
     """
     return APIKeyParser(
         api_keys=api_keys,

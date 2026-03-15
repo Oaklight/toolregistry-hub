@@ -7,17 +7,21 @@ This module re-exports components from toolregistry-server for backward compatib
 The actual server implementations have been migrated to the toolregistry-server package.
 
 Example:
-    >>> from toolregistry_hub.server import RouteTable, create_openapi_app
-    >>> from toolregistry_hub.server.registry import get_registry
-    >>>
-    >>> registry = get_registry()
-    >>> route_table = RouteTable(registry)
-    >>> app = create_openapi_app(route_table)
+    ```python
+    from toolregistry_hub.server import RouteTable, create_openapi_app
+    from toolregistry_hub.server.registry import get_registry
+
+    registry = get_registry()
+    route_table = RouteTable(registry)
+    app = create_openapi_app(route_table)
+    ```
 
 For new code, consider importing directly from toolregistry_server:
-    >>> from toolregistry_server import RouteTable
-    >>> from toolregistry_server.openapi import create_openapi_app
-    >>> from toolregistry_server.mcp import create_mcp_server
+    ```python
+    from toolregistry_server import RouteTable
+    from toolregistry_server.openapi import create_openapi_app
+    from toolregistry_server.mcp import create_mcp_server
+    ```
 """
 
 from typing import TYPE_CHECKING

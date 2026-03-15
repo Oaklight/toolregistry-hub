@@ -8,14 +8,16 @@ This module serves as a central hub for various utility tools including:
 - UnitConverter: Unit conversion functions
 
 Example:
-    >>> from toolregistry.hub import Calculator, FileSystem, FileOps, ThinkTool
-    >>> calc = Calculator()
-    >>> result = calc.add(1, 2)
-    >>> fs = FileSystem()
-    >>> exists = fs.exists('/path/to/file')
-    >>> ops = FileOps()
-    >>> ops.replace_lines('file.txt', 5, 'new content')
-    >>> think = ThinkTool.think("Analyzing the problem...")
+    ```python
+    from toolregistry.hub import Calculator, FileSystem, FileOps, ThinkTool
+    calc = Calculator()
+    result = calc.add(1, 2)
+    fs = FileSystem()
+    exists = fs.exists('/path/to/file')
+    ops = FileOps()
+    ops.replace_lines('file.txt', 5, 'new content')
+    think = ThinkTool.think("Analyzing the problem...")
+    ```
 """
 
 from .calculator import BaseCalculator, Calculator

@@ -434,12 +434,11 @@ class UnitConverter:
             ValueError: If the conversion function is not recognized or if required parameters are missing.
 
         Examples:
-            >>> UnitConverter.convert(100, "celsius_to_fahrenheit")
-            212.0
-            >>> UnitConverter.convert(10, "meters_to_feet")
-            32.8084
-            >>> UnitConverter.convert(100, "lux_to_lumen", area=2)
-            200.0
+            ```python
+            UnitConverter.convert(100, "celsius_to_fahrenheit")  # 212.0
+            UnitConverter.convert(10, "meters_to_feet")  # 32.8084
+            UnitConverter.convert(100, "lux_to_lumen", area=2)  # 200.0
+            ```
         """
         if conversion not in UnitConverter._all_conversions():
             raise ValueError(f"Conversion function '{conversion}' is not recognized.")

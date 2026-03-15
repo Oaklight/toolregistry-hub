@@ -8,13 +8,14 @@ This module contains the FileSystem class and convenience functions for:
 - Path manipulation
 
 Example:
-    >>> from toolregistry_hub import FileSystem
-    >>> fs = FileSystem()
-    >>> fs.create_dir('new_dir')
+    ```python
+    from toolregistry_hub import FileSystem
+    fs = FileSystem()
+    fs.create_dir('new_dir')
     # Note: create_file is part of FileSystem, write_file is in FileOps
-    >>> fs.create_file('new_dir/file.txt', 'content')
-    >>> fs.list_dir('new_dir')
-    ['file.txt']
+    fs.create_file('new_dir/file.txt', 'content')
+    fs.list_dir('new_dir')  # ['file.txt']
+    ```
 """
 
 import os

@@ -20,11 +20,12 @@ def requires_env(*envs: str):
         A class decorator that sets ``_required_envs`` on the decorated class.
 
     Example:
-        >>> @requires_env("MY_API_KEY")
-        ... class MyTool:
-        ...     pass
-        >>> MyTool._required_envs
-        ['MY_API_KEY']
+        ```python
+        @requires_env("MY_API_KEY")
+        class MyTool:
+            pass
+        MyTool._required_envs  # ['MY_API_KEY']
+        ```
     """
 
     def decorator(cls: type) -> type:

@@ -43,11 +43,13 @@ class WebSearchSearXNG(WebSearchGeneral):
     - Automatic emoji removal and text normalization
 
     Examples:
-        >>> from toolregistry_hub.websearch import WebSearchSearXNG
-        >>> searcher = WebSearchSearXNG("http://localhost:8080")
-        >>> results = searcher.search("python web scraping", number_results=3)
-        >>> for result in results:
-        ...     print(result["title"])
+        ```python
+        from toolregistry_hub.websearch import WebSearchSearXNG
+        searcher = WebSearchSearXNG("http://localhost:8080")
+        results = searcher.search("python web scraping", number_results=3)
+        for result in results:
+            print(result["title"])
+        ```
     """
 
     def __init__(

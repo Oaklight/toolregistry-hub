@@ -37,11 +37,13 @@ class WebSearchGoogle(WebSearchGeneral):
     - Supports proxy and region settings
 
     Examples:
-        >>> from toolregistry_hub.websearch import WebSearchGoogle
-        >>> searcher = WebSearchGoogle()
-        >>> results = searcher.search("python web scraping", number_results=3)
-        >>> for result in results:
-        ...     print(result["title"])
+        ```python
+        from toolregistry_hub.websearch import WebSearchGoogle
+        searcher = WebSearchGoogle()
+        results = searcher.search("python web scraping", number_results=3)
+        for result in results:
+            print(result["title"])
+        ```
     """
 
     def __init__(
