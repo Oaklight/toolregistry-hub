@@ -77,6 +77,22 @@ clean-docker:
 	docker rmi $(DOCKER_IMAGE):$(V) 2>/dev/null || true
 	docker system prune -f
 
+# ──────────────────────────────────────────────
+# Linting, Formatting & Testing
+# ──────────────────────────────────────────────
+
+# Run linter (delegates to tests/Makefile)
+lint:
+	@echo "Running linter..."
+	$(MAKE) -C tests lint
+	@echo "Lint complete."
+
+# Auto-fix formatting (delegates to tests/Makefile)
+lint-fix:
+	@echo "Auto-fixing formatting..."
+	$(MAKE) -C tests format
+	@echo "Format complete."
+
 # Run tests (delegates to tests/Makefile)
 test:
 	@echo "Running tests..."
@@ -98,6 +114,8 @@ help:
 	@echo "  clean-docker   - Clean Docker images and containers"
 	@echo ""
 	@echo "Development:"
+	@echo "  lint           - Run linter (delegates to tests/Makefile)"
+	@echo "  lint-fix       - Auto-fix formatting (delegates to tests/Makefile)"
 	@echo "  test           - Run tests (delegates to tests/Makefile)"
 	@echo ""
 	@echo "Usage examples:"
@@ -115,4 +133,4 @@ help:
 	@echo "  REGISTRY_MIRROR=<url> - Specify Docker registry mirror (affects base image)"
 	@echo "  MIRROR=<url>          - Alias for PYPI_MIRROR (backward compatibility)"
 
-.PHONY: build-package push-package clean-package build-docker push-docker clean-docker test help
+.PHONY: build-package push-package clean-package build-docker push-docker clean-docker lint lint-fix test help
