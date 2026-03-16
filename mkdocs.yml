@@ -1,7 +1,7 @@
 site_name: ToolRegistry Hub
 site_description: 提供各种实用工具的 Python 库
 site_author: Peng Ding
-site_url: https://toolregistry-hub.readthedocs.io/zh/
+site_url: https://toolregistry-hub.readthedocs.io/zh-cn/
 repo_name: Oaklight/toolregistry-hub
 repo_url: https://github.com/Oaklight/toolregistry-hub
 copyright: Copyright &copy; 2025 Peng Ding
@@ -86,7 +86,7 @@ extra:
       link: /en/
       lang: en
     - name: 中文
-      link: /zh/
+      link: /zh-cn/
       lang: zh
 
 extra_javascript:
