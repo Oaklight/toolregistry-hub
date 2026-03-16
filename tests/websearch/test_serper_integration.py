@@ -151,11 +151,11 @@ class TestSerperIntegration:
         not os.getenv("SERPER_API_KEY"), reason="SERPER_API_KEY not set"
     )
     def test_serper_is_configured(self):
-        """Test is_configured method with real API key."""
-        logger.info("Testing Serper - is_configured check")
+        """Test _is_configured method with real API key."""
+        logger.info("Testing Serper - _is_configured check")
         search = SerperSearch()
-        logger.info(f"is_configured: {search.is_configured()}")
-        assert search.is_configured(), "Should be configured with valid API key"
+        logger.info(f"_is_configured: {search._is_configured()}")
+        assert search._is_configured(), "Should be configured with valid API key"
 
 
 def main():

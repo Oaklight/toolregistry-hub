@@ -172,8 +172,8 @@ def load_tool_config(config_path: str | None = None) -> ToolConfig | None:
                         f"Invalid tool entry at index {i} in {path}: expected dict"
                     )
                     continue
-                class_path = entry.get("class")
-                namespace = entry.get("namespace")
+                class_path = entry.get("class")  # type: ignore[arg-type]
+                namespace = entry.get("namespace")  # type: ignore[arg-type]
                 if not class_path or not namespace:
                     logger.warning(
                         f"Tool entry at index {i} missing 'class' or "

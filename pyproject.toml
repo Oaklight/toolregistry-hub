@@ -32,6 +32,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ty>=0.0.21",
+    "ruff>=0.1.0",
     "python-dotenv>=1.0.1",
     "build>=1.2.2.post1",
     "twine>=6.1.0",
@@ -71,6 +72,13 @@ version = { attr = "toolregistry_hub.__version__" }
 
 [project.scripts]
 toolregistry-hub = "toolregistry_hub.server.cli:main"
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "UP"]
+ignore = ["UP007", "E501"]
 
 [tool.ty.environment]
 python-version = "3.10"

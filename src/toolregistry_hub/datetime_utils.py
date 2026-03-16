@@ -160,7 +160,7 @@ class DateTime:
         # Calculate time difference
         source_offset = source_time.utcoffset() or timedelta()
         target_offset = target_time.utcoffset() or timedelta()
-        hours_difference = (target_offset - source_offset).total_seconds() / 3600
+        hours_difference = float((target_offset - source_offset).total_seconds() / 3600)
 
         # Format time difference string
         if hours_difference.is_integer():

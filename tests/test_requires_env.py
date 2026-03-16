@@ -88,10 +88,10 @@ class TestConfigurableProtocol(unittest.TestCase):
     """Test cases for Configurable protocol."""
 
     def test_class_with_is_configured_satisfies_protocol(self):
-        """Test that any class with is_configured() satisfies the Configurable protocol."""
+        """Test that any class with _is_configured() satisfies the Configurable protocol."""
 
         class MyConfigurable:
-            def is_configured(self) -> bool:
+            def _is_configured(self) -> bool:
                 return True
 
         instance = MyConfigurable()
@@ -141,20 +141,20 @@ class TestConfigurableProtocol(unittest.TestCase):
             os.environ.pop("SEARXNG_URL", None)
 
             brave = BraveSearch()
-            self.assertFalse(brave.is_configured())
+            self.assertFalse(brave._is_configured())
 
             searxng = SearXNGSearch()
-            self.assertFalse(searxng.is_configured())
+            self.assertFalse(searxng._is_configured())
 
     def test_configured_websearch_returns_true(self):
         """Test that websearch instances with keys/URL report configured."""
         from toolregistry_hub.websearch import BraveSearch, SearXNGSearch
 
         brave = BraveSearch(api_keys="test-key")
-        self.assertTrue(brave.is_configured())
+        self.assertTrue(brave._is_configured())
 
         searxng = SearXNGSearch(base_url="http://localhost:8080")
-        self.assertTrue(searxng.is_configured())
+        self.assertTrue(searxng._is_configured())
 
 
 if __name__ == "__main__":

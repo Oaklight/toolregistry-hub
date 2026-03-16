@@ -28,7 +28,7 @@ class TestSerperSearch:
         with patch.dict("os.environ", {}, clear=True):
             search = SerperSearch()
             assert search.api_key_parser.key_count == 0
-            assert not search.is_configured()
+            assert not search._is_configured()
 
     def test_headers_property(self):
         """Test headers property."""

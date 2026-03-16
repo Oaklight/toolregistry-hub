@@ -43,7 +43,7 @@ class TestSearXNGSearch:
         with patch.dict("os.environ", {}, clear=True):
             searcher = SearXNGSearch()
             assert searcher.search_url is None
-            assert not searcher.is_configured()
+            assert not searcher._is_configured()
 
     def test_headers_property(self):
         """Test headers property."""

@@ -55,7 +55,7 @@ class TestBrightDataSearch:
         with patch.dict("os.environ", {}, clear=True):
             search = BrightDataSearch()
             assert search.api_key_parser.key_count == 0
-            assert not search.is_configured()
+            assert not search._is_configured()
 
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"

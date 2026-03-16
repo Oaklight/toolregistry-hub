@@ -33,8 +33,8 @@ try:
     _SERVER_AVAILABLE = True
 except ImportError:
     _SERVER_AVAILABLE = False
-    RouteTable = None  # type: ignore[misc, assignment]
-    RouteEntry = None  # type: ignore[misc, assignment]
+    RouteTable = None
+    RouteEntry = None
 
 # Lazy imports for protocol-specific components
 if TYPE_CHECKING:
