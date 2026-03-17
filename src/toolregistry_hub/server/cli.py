@@ -33,13 +33,16 @@ Example:
 
 import argparse
 import sys
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 from loguru import logger
 
 from .. import __version__
 from ..version_check import check_for_updates
 from .banner import BANNER_ART
+
+if TYPE_CHECKING:
+    from toolregistry import ToolRegistry
 
 
 def _get_version_info() -> dict:
@@ -187,6 +190,13 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Skip loading .env file",
     )
+    parser.add_argument(
+        "--admin-port",
+        type=int,
+        default=None,
+        metavar="PORT",
+        help="Enable the admin panel on the specified port (e.g. 8081)",
+    )
 
 
 def _add_openapi_arguments(parser: argparse.ArgumentParser) -> None:
@@ -315,21 +325,37 @@ def main(args: list[str] | None = None) -> NoReturn | None:
         _reg_mod._registry = build_registry(tools_config_path=parsed.config)
 
     # Dispatch to appropriate command handler
+    admin_port = getattr(parsed, "admin_port", None)
+
     if parsed.command == "openapi":
         _run_openapi_server(
             host=parsed.host,
             port=parsed.port,
             tokens_path=getattr(parsed, "tokens", None),
             reload=getattr(parsed, "reload", False),
+            admin_port=admin_port,
         )
     elif parsed.command == "mcp":
         _run_mcp_server(
             transport=parsed.transport,
             host=parsed.host,
             port=parsed.port,
+            admin_port=admin_port,
         )
 
     return None
+
+
+def _enable_admin_panel(registry: "ToolRegistry", port: int) -> None:
+    """Enable the admin panel and execution logging on the registry.
+
+    Args:
+        registry: The ToolRegistry instance.
+        port: Port number for the admin panel.
+    """
+    registry.enable_logging()
+    info = registry.enable_admin(port=port)
+    logger.info(f"Admin panel enabled at {info.url}")
 
 
 def _run_openapi_server(
@@ -337,6 +363,7 @@ def _run_openapi_server(
     port: int,
     tokens_path: str | None = None,
     reload: bool = False,
+    admin_port: int | None = None,
 ) -> None:
     """Run the OpenAPI server.
 
@@ -368,6 +395,10 @@ def _run_openapi_server(
 
     # Get the hub registry
     registry = get_registry()
+
+    # Enable admin panel if requested
+    if admin_port is not None:
+        _enable_admin_panel(registry, admin_port)
 
     # Create route table from registry
     route_table = RouteTable(registry)
@@ -412,7 +443,9 @@ def _run_openapi_server(
     uvicorn.run(app, host=host, port=port, reload=reload)
 
 
-def _run_mcp_server(host: str, port: int, transport: str) -> None:
+def _run_mcp_server(
+    host: str, port: int, transport: str, admin_port: int | None = None
+) -> None:
     """Run the MCP server.
 
     Args:
@@ -448,6 +481,10 @@ def _run_mcp_server(host: str, port: int, transport: str) -> None:
 
     # Get the hub registry
     registry = get_registry()
+
+    # Enable admin panel if requested
+    if admin_port is not None:
+        _enable_admin_panel(registry, admin_port)
 
     # Create route table from registry
     route_table = RouteTable(registry)
