@@ -10,7 +10,7 @@ author: Oaklight
 
 This page documents all notable changes to the toolregistry-hub project since the first official release version 0.4.14.
 
-## [Unreleased]
+## [0.7.0] - 2026-03-18
 
 ### Breaking Changes
 
@@ -22,18 +22,34 @@ This page documents all notable changes to the toolregistry-hub project since th
     - Python 3.8 and 3.9 no longer supported
     - Aligns with Python 3.9 EOL and MCP SDK requirements
 
+- **`is_configured` Renamed to `_is_configured`** ([#58](https://github.com/Oaklight/toolregistry-hub/pull/58))
+    - The method is now private and no longer exposed as a tool endpoint
+
 ### New Features
+
+- **Admin Panel Support** ([a88ab25](https://github.com/Oaklight/toolregistry-hub/commit/a88ab25))
+    - Add `--admin-port` flag to enable admin panel for server management
+    - Requires `toolregistry-server>=0.1.1`
+
+- **Serper Search Provider** ([2305551](https://github.com/Oaklight/toolregistry-hub/commit/2305551))
+    - Add Serper (serper.dev) search provider for Google search results
+    - 2,500 free queries per month
+    - Supports country, language, and location targeting
 
 - **`.env` File Loading Support** ([#59](https://github.com/Oaklight/toolregistry-hub/pull/59))
     - Support for loading environment variables from `.env` files
     - Added `--env-file` and `--no-env` CLI options
 
-- Added Serper search provider integration
-
 ### Improvements
 
-- **CLI Improvements and API Cleanup** ([#58](https://github.com/Oaklight/toolregistry-hub/pull/58))
-    - CLI improvements and `is_configured` made private
+- **Dependency Updates**
+    - Bump `toolregistry` minimum to `>=0.6.0`
+    - Bump `toolregistry-server` minimum to `>=0.1.1`
+
+- **CI/CD**
+    - Add ruff/ty CI workflow for lint and type checking ([e5b2f06](https://github.com/Oaklight/toolregistry-hub/commit/e5b2f06))
+    - Add upstream compatibility test workflow ([79585d2](https://github.com/Oaklight/toolregistry-hub/commit/79585d2))
+    - Add lint and lint-fix targets to root Makefile
 
 ### Refactoring
 
@@ -44,8 +60,17 @@ This page documents all notable changes to the toolregistry-hub project since th
     - Refactored MCP server implementation using FastMCP (official MCP SDK high-level API)
     - Fixed streamable-http transport timing issues
     - Fixed ASGI duplicate response errors
-    - Improved graceful shutdown handling with proper signal management
-    - Simplified codebase by removing manual transport management
+
+### Documentation
+
+- **Brave Search Pricing Update**
+    - Document Brave Search API free plan removal (Feb 2026)
+    - Update to credit-based pricing: $5/1k requests with $5 free monthly credits (~1,000 queries)
+
+- **Web Search Docs Refresh**
+    - Add Serper search documentation (EN/ZH)
+    - Update free tier summary tables
+    - Remove outdated "(Recommended)" labels
 
 ## [0.6.0] - 2026-03-10
 
