@@ -39,16 +39,15 @@ dev = [
     "pytest>=7.0.0",
 ]
 server_core = [
-    "toolregistry>=0.5.0",
-    "toolregistry-server>=0.1.0",
+    "toolregistry-server>=0.1.1",
 ]
 server_openapi = [
     "toolregistry-hub[server_core]",
-    "toolregistry-server[openapi]>=0.1.0",
+    "toolregistry-server[openapi]>=0.1.1",
 ]
 server_mcp = [
     "toolregistry-hub[server_core]",
-    "toolregistry-server[mcp]>=0.1.0",
+    "toolregistry-server[mcp]>=0.1.1",
 ]
 server = [
     "toolregistry-hub[server_openapi]",

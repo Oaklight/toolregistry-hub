@@ -82,6 +82,8 @@ USER appuser
 
 # Expose the port that the application listens on.
 EXPOSE 8000
+# Admin panel port
+EXPOSE 8001
 
 # Run the application using the installed console script
-CMD ["toolregistry-server", "--host=0.0.0.0", "--port=8000", "--mode=openapi"]
+CMD ["toolregistry-hub", "openapi", "--host=0.0.0.0", "--port=8000", "--admin-port=8001"]

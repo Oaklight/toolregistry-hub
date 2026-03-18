@@ -1,5 +1,5 @@
 DOCKER_REPO = oaklight/toolregistry-hub-server
-VERSION := $(shell cat ../pyproject.toml | grep '^version' | cut -d'"' -f2)
+VERSION := $(shell grep '__version__' ../src/toolregistry_hub/__init__.py | head -1 | cut -d'"' -f2)
 
 # Optional variables
 MIRROR ?=
