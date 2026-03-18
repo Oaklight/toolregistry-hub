@@ -10,7 +10,7 @@ author: Oaklight
 
 本页面记录了 toolregistry-hub 项目从首个正式发布版本 0.4.14 以来的所有重要变更。
 
-## [Unreleased]
+## [0.7.0] - 2026-03-18
 
 ### 破坏性变更
 
@@ -22,18 +22,34 @@ author: Oaklight
     - 不再支持 Python 3.8 和 3.9
     - 与 Python 3.9 EOL 及 MCP SDK 要求保持一致
 
+- **`is_configured` 重命名为 `_is_configured`** ([#58](https://github.com/Oaklight/toolregistry-hub/pull/58))
+    - 该方法现为私有方法，不再作为工具端点暴露
+
 ### 新功能
+
+- **管理面板支持** ([a88ab25](https://github.com/Oaklight/toolregistry-hub/commit/a88ab25))
+    - 新增 `--admin-port` 参数以启用服务器管理面板
+    - 依赖 `toolregistry-server>=0.1.1`
+
+- **Serper 搜索提供商** ([2305551](https://github.com/Oaklight/toolregistry-hub/commit/2305551))
+    - 新增 Serper (serper.dev) 搜索提供商，获取 Google 搜索结果
+    - 每月 2,500 次免费查询
+    - 支持国家、语言和位置定向
 
 - **`.env` 文件加载支持** ([#59](https://github.com/Oaklight/toolregistry-hub/pull/59))
     - 支持从 `.env` 文件加载环境变量
     - 新增 `--env-file` 和 `--no-env` CLI 选项
 
-- 新增 Serper 搜索提供商集成
-
 ### 改进
 
-- **CLI 改进与 API 清理** ([#58](https://github.com/Oaklight/toolregistry-hub/pull/58))
-    - CLI 改进，将 `is_configured` 设为私有
+- **依赖更新**
+    - `toolregistry` 最低版本提升至 `>=0.6.0`
+    - `toolregistry-server` 最低版本提升至 `>=0.1.1`
+
+- **CI/CD**
+    - 新增 ruff/ty CI 工作流用于代码检查和类型检查 ([e5b2f06](https://github.com/Oaklight/toolregistry-hub/commit/e5b2f06))
+    - 新增上游兼容性测试工作流 ([79585d2](https://github.com/Oaklight/toolregistry-hub/commit/79585d2))
+    - 在根 Makefile 中添加 lint 和 lint-fix 目标
 
 ### 重构
 
@@ -44,8 +60,17 @@ author: Oaklight
     - 使用 FastMCP（MCP SDK 官方高级 API）重构 MCP 服务器实现
     - 修复 streamable-http transport 时序问题
     - 修复 ASGI 响应重复发送错误
-    - 改进优雅关闭处理，添加适当的信号管理
-    - 简化代码库，移除手动 transport 管理
+
+### 文档
+
+- **Brave Search 定价更新**
+    - 记录 Brave Search API 免费计划移除（2026 年 2 月）
+    - 更新为积分定价：$5/千次请求，每月赠送 $5 免费积分（约 1,000 次查询）
+
+- **网络搜索文档刷新**
+    - 新增 Serper 搜索文档（中/英）
+    - 更新免费额度汇总表
+    - 移除过时的"（推荐）"标签
 
 ## [0.6.0] - 2026-03-10
 
