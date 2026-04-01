@@ -4,10 +4,11 @@ The FileReader tool provides multi-format file reading with line numbers, pagina
 
 ## Class Overview
 
-- `FileReader` - Three reading methods for different file formats:
+- `FileReader` - Four reading methods for different file formats:
     - `read()` - Text files with line numbers and pagination
     - `read_notebook()` - Jupyter notebooks (`.ipynb`)
     - `read_pdf()` - PDF files (requires optional dependency)
+    - `read_image()` - Image files with multimodal content blocks (requires optional dependency)
 
 ## Usage
 
@@ -72,6 +73,30 @@ pip install toolregistry-hub[reader]
 
 If both are installed, `pdfplumber` is preferred for better text quality.
 
+### Reading Images
+
+```python
+# Read an image — returns multimodal content blocks
+blocks = FileReader.read_image("screenshot.png")
+# [
+#   {"type": "text", "text": "[Image: screenshot.png (image/png, 45321 bytes)]"},
+#   {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "iVBOR..."}}
+# ]
+
+# With custom max size (default 5 MB base64)
+blocks = FileReader.read_image("large_photo.jpg", max_size=1_000_000)
+```
+
+Supported formats: `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`.
+
+If the base64-encoded image exceeds `max_size`, Pillow is used for adaptive quality downsampling. Requires `Pillow`:
+
+```bash
+pip install toolregistry-hub[reader_image]
+```
+
+If Pillow is not installed, the original image is returned with a warning logged.
+
 ### Parameters
 
 #### `read()`
@@ -95,12 +120,20 @@ If both are installed, `pdfplumber` is preferred for better text quality.
 | `path` | `str` | required | Path to PDF file |
 | `pages` | `str \| None` | `None` | Page range (e.g. `"1-5"`, `"3"`) |
 
+#### `read_image()`
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | `str` | required | Path to image file |
+| `max_size` | `int` | `5242880` | Max base64-encoded size in bytes (5 MB) |
+
 ### Safety Caps
 
 - Text files: 10 MB max file size
 - Text lines: 2000 lines default per read
 - PDF pages: 20 pages max per call
 - Notebook outputs: 10 KB per cell output
+- Images: 5 MB max base64-encoded size (auto-downsampled if exceeded)
 
 ## MCP Server Endpoints
 
@@ -108,6 +141,7 @@ If both are installed, `pdfplumber` is preferred for better text quality.
 POST /tools/reader/read
 POST /tools/reader/read_pdf
 POST /tools/reader/read_notebook
+POST /tools/reader/read_image
 ```
 
 ## API Reference

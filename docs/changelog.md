@@ -30,10 +30,14 @@ This page documents all notable changes to the toolregistry-hub project since th
     - Lazy upstream `ToolMetadata` integration for future permission system support
     - stdout/stderr truncation at 64KB to prevent memory exhaustion
 
-- **FileReader: Multi-format file reading** ([#75](https://github.com/Oaklight/toolregistry-hub/pull/75), [#65](https://github.com/Oaklight/toolregistry-hub/issues/65))
+- **FileReader: Multi-format file reading** ([#75](https://github.com/Oaklight/toolregistry-hub/pull/75), [#65](https://github.com/Oaklight/toolregistry-hub/issues/65), [#79](https://github.com/Oaklight/toolregistry-hub/pull/79))
     - `read()` — text files with line numbers and pagination (10MB cap, 2000 lines default)
     - `read_notebook()` — Jupyter notebooks with cell types and outputs (stdlib only)
     - `read_pdf()` — PDF text extraction via pypdf or pdfplumber (optional dependency)
+    - `read_image()` — image files as multimodal content blocks (`[TextBlock, ImageBlock]`) with adaptive downsampling via Pillow ([#79](https://github.com/Oaklight/toolregistry-hub/pull/79), [#74](https://github.com/Oaklight/toolregistry-hub/issues/74))
+    - Supports `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp` formats
+    - Auto-downsamples images exceeding the base64 size budget (default 5 MB) with format-specific quality floors
+    - Add `reader_image = ["Pillow>=10.0.0"]` optional dependency group
 
 - **FileSearch: File discovery tools** ([#72](https://github.com/Oaklight/toolregistry-hub/pull/72))
     - `glob()` — find files by pattern, sorted by modification time (1000 results cap)
