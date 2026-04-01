@@ -24,6 +24,7 @@ from .calculator import BaseCalculator, Calculator
 from .datetime_utils import DateTime
 from .fetch import Fetch
 from .file_ops import FileOps
+from .file_search import FileSearch
 from .filesystem import FileSystem
 from .path_info import PathInfo
 from .think_tool import ThinkTool
@@ -49,6 +50,7 @@ __all__ = [
     "DateTime",
     "FileSystem",
     "FileOps",
+    "FileSearch",
     "PathInfo",
     "ThinkTool",
     "UnitConverter",
