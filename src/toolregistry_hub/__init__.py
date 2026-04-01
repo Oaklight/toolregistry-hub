@@ -25,6 +25,7 @@ from .datetime_utils import DateTime
 from .fetch import Fetch
 from .file_ops import FileOps
 from .filesystem import FileSystem
+from .path_info import PathInfo
 from .think_tool import ThinkTool
 from .todo_list import TodoList
 from .unit_converter import UnitConverter
@@ -48,6 +49,7 @@ __all__ = [
     "DateTime",
     "FileSystem",
     "FileOps",
+    "PathInfo",
     "ThinkTool",
     "UnitConverter",
     # WebSearch related tools
