@@ -121,7 +121,26 @@ mcp_app.run()
 - `POST /tools/unit_converter/list_conversions` - 列出可用的单位转换
 - `POST /tools/unit_converter/convert` - 执行单位转换
 
-#### 文件系统工具
+#### 文件读取工具
+
+- `POST /tools/reader/read` - 读取文本文件（带行号和分页）
+- `POST /tools/reader/read_pdf` - 读取 PDF 文件并提取文本
+- `POST /tools/reader/read_notebook` - 读取 Jupyter Notebook 单元格和输出
+
+#### 文件搜索工具
+
+- `POST /tools/fs/file_search/glob` - 按 glob 模式查找文件
+- `POST /tools/fs/file_search/grep` - 使用正则表达式搜索文件内容
+- `POST /tools/fs/file_search/tree` - 显示目录树结构
+
+#### 路径信息工具
+
+- `POST /tools/fs/path_info/info` - 获取文件/目录元数据（类型、大小、权限、修改时间）
+
+#### 文件系统工具（已弃用）
+
+!!! warning "已弃用"
+    FileSystem 已弃用。请使用 PathInfo、FileSearch 和 FileReader 替代。
 
 - `POST /tools/filesystem/exists` - 检查路径是否存在
 - `POST /tools/filesystem/is_file` - 检查路径是否为文件

@@ -10,6 +10,65 @@ author: Oaklight
 
 本页面记录了 toolregistry-hub 项目从首个正式发布版本 0.4.14 以来的所有重要变更。
 
+## [未发布] - 自 0.7.0 以来
+
+### 破坏性变更
+
+- **FileOps：用精确字符串替换取代 diff 编辑** ([#70](https://github.com/Oaklight/toolregistry-hub/pull/70), [#62](https://github.com/Oaklight/toolregistry-hub/issues/62))
+    - 移除了 `replace_by_diff()` 和 `replace_by_git()` 方法
+    - 新增 `edit(file_path, old_string, new_string)` 精确字符串匹配替换
+    - 支持 `replace_all` 批量替换和 `start_line` 多匹配消歧
+    - 保留文件编码（UTF-8/UTF-8-sig/UTF-16）和行尾（CRLF/LF）
+    - 返回 unified diff 格式的变更
+
+### 新功能
+
+- **BashTool：带安全验证的 Shell 命令执行** ([#77](https://github.com/Oaklight/toolregistry-hub/pull/77), [#66](https://github.com/Oaklight/toolregistry-hub/issues/66))
+    - 通过 `subprocess.run` 执行 Shell 命令，支持超时和工作目录配置
+    - 内置拒绝列表阻止危险模式（rm -rf、sudo、fork bomb、pipe-to-shell、git force push 等）
+    - 拒绝列表基于 6 个 AI 编程 CLI 工具的安全调研
+    - 上游 `ToolMetadata` 懒加载集成，为未来权限系统做准备
+    - stdout/stderr 截断上限 64KB，防止内存溢出
+
+- **FileReader：多格式文件读取** ([#75](https://github.com/Oaklight/toolregistry-hub/pull/75), [#65](https://github.com/Oaklight/toolregistry-hub/issues/65))
+    - `read()` — 文本文件，带行号和分页（10MB 上限，默认 2000 行）
+    - `read_notebook()` — Jupyter Notebook，显示单元格类型和输出（仅需标准库）
+    - `read_pdf()` — PDF 文本提取，通过 pypdf 或 pdfplumber（可选依赖）
+
+- **FileSearch：文件发现工具** ([#72](https://github.com/Oaklight/toolregistry-hub/pull/72))
+    - `glob()` — 按模式查找文件，按修改时间排序（上限 1000 条）
+    - `grep()` — 正则表达式内容搜索，支持文件过滤（上限 200 条）
+    - `tree()` — 目录树显示，支持深度控制（上限 2000 条目）
+
+- **PathInfo：统一元数据查询** ([#71](https://github.com/Oaklight/toolregistry-hub/pull/71))
+    - 单次 `info()` 调用返回存在性、类型、大小、修改时间和权限
+    - 替代 `FileSystem` 的五个独立方法
+    - 目录大小递归计算
+
+### 弃用
+
+- **FileSystem 类已弃用** ([#76](https://github.com/Oaklight/toolregistry-hub/pull/76))
+    - 由 PathInfo（元数据）、FileSearch（发现）和 FileReader（读取）替代
+    - 所有方法发出 `DeprecationWarning` 并附带迁移指引
+    - 将在未来的主版本中移除
+
+- **FileOps 旧方法已弃用** ([#76](https://github.com/Oaklight/toolregistry-hub/pull/76))
+    - `read_file()` → 请使用 `FileReader.read()`
+    - `write_file()` → 修改文件请使用 `FileOps.edit()`
+
+### 修复
+
+- **tool_config.py ty 类型检查错误** ([5890365](https://github.com/Oaklight/toolregistry-hub/commit/5890365))
+    - 修复 ty 0.0.23 与 0.0.27 之间的字典类型收窄问题
+
+### 构建
+
+- `toolregistry-server` 最低版本提升至 `>=0.1.2`，修复 MCP 参数验证问题
+
+### CI
+
+- 增强上游兼容性测试，覆盖 `toolregistry-server`
+
 ## [0.7.0] - 2026-03-18
 
 ### 破坏性变更

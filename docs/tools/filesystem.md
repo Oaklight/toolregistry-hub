@@ -8,6 +8,15 @@ author: Oaklight
 
 # 文件系统工具
 
+!!! warning "自 v0.7.1 起已弃用"
+    `FileSystem` 类已弃用。其功能已拆分为专用工具：
+
+    - **[PathInfo（路径信息）](path_info.md)** — 文件/目录元数据查询（`exists`、`is_file`、`is_dir`、`get_size`、`get_last_modified_time`）
+    - **[FileSearch（文件搜索）](file_search.md)** — 文件发现（`glob`、`grep`、`tree`）
+    - **[FileReader（文件读取）](file_reader.md)** — 带行号的文件读取，支持 Notebook/PDF
+
+    `FileSystem` 将继续工作但会发出弃用警告。将在未来的主版本中移除。
+
 文件系统工具提供全面的文件系统操作，用于创建、管理和操作目录与文件，具备高级功能如隐藏文件检测和递归操作。
 
 ## 🎯 概述

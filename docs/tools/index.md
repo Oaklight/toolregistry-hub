@@ -9,10 +9,17 @@
 
 - **[日期时间工具](datetime.md)** - 日期、时间和时区处理工具
 
+## Shell
+
+- **[Bash 工具](bash_tool.md)** - 带安全验证的 Shell 命令执行
+
 ## 文件管理
 
-- **[文件操作](file_ops.md)** - 文件内容操作和处理
-- **[文件系统](filesystem.md)** - 文件系统操作和管理
+- **[文件操作](file_ops.md)** - 文件内容操作（精确字符串替换）
+- **[文件读取](file_reader.md)** - 多格式文件读取（文本、Notebook、PDF）
+- **[文件搜索](file_search.md)** - 文件发现（glob、grep、tree）
+- **[路径信息](path_info.md)** - 统一的文件/目录元数据查询
+- **[文件系统](filesystem.md)** - *（已弃用）* 文件系统操作 — 请使用 PathInfo、FileSearch、FileReader 替代
 
 ## 网络工具
 

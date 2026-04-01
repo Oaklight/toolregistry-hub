@@ -104,7 +104,10 @@ nav:
           - 日期时间工具: tools/datetime.md
       - 文件管理:
           - 文件操作: tools/file_ops.md
-          - 文件系统: tools/filesystem.md
+          - 文件读取: tools/file_reader.md
+          - 文件搜索: tools/file_search.md
+          - 路径信息: tools/path_info.md
+          - 文件系统（已弃用）: tools/filesystem.md
       - 网络工具:
           - 网页获取工具: tools/websearch/web_fetch_tool.md
           - 网络搜索工具:
