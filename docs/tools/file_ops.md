@@ -42,9 +42,8 @@ for result in results:
 
 #### 方法
 
-- `replace_by_diff(path: str, diff: str) -> None`: 使用差异字符串替换文件内容
+- `edit(file_path: str, old_string: str, new_string: str, replace_all: bool = False, start_line: int | None = None) -> str`: 精确字符串替换。返回 unified diff 格式的变更内容。支持 `replace_all` 批量替换和 `start_line` 多匹配消歧。
 - `search_files(path: str, regex: str, file_pattern: str = "*") -> List[dict]`: 在文件中搜索匹配正则表达式的内容，返回包含 file, line_num, line, context 键的字典列表
-- `replace_by_git(path: str, diff: str) -> None`: 使用 Git 风格的差异替换文件内容
 - `read_file(path: str) -> str`: 读取文件内容
 - `write_file(path: str, content: str) -> None`: 写入内容到文件
 - `append_file(path: str, content: str) -> None`: 追加内容到文件
@@ -111,26 +110,20 @@ for result in results:
     print("-" * 50)
 ```
 
-### 使用差异替换文件内容
+### 编辑文件
 
 ```python
 from toolregistry_hub import FileOps
 
-# Read original file
-original_content = FileOps.read_file("example.py")
-print(f"Original content:\n{original_content}")
+# 单次匹配替换
+diff = FileOps.edit("example.py", "def hello():", "def hello_world():")
+print(diff)  # 显示 unified diff 格式的变更
 
-# Create diff
-modified_content = original_content.replace("def hello():", "def hello_world():")
-diff = FileOps.make_diff(original_content, modified_content)
-print(f"Diff:\n{diff}")
+# 替换所有匹配
+FileOps.edit("example.py", "TODO", "DONE", replace_all=True)
 
-# Apply diff
-FileOps.replace_by_diff("example.py", diff)
-
-# View updated file
-updated_content = FileOps.read_file("example.py")
-print(f"Updated content:\n{updated_content}")
+# 多匹配时使用 start_line 消歧，选择最接近第 42 行的匹配
+FileOps.edit("example.py", "return result", "return modified", start_line=42)
 ```
 
 ### 验证路径

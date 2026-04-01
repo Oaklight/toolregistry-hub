@@ -135,12 +135,11 @@ mcp_app.run()
 
 #### 文件操作工具
 
+- `POST /tools/file_ops/edit` - 精确字符串替换（返回 unified diff）
 - `POST /tools/file_ops/read_file` - 读取文件内容
 - `POST /tools/file_ops/write_file` - 写入文件内容
 - `POST /tools/file_ops/append_file` - 追加文件内容
 - `POST /tools/file_ops/search_files` - 搜索匹配模式的文件
-- `POST /tools/file_ops/replace_by_diff` - 使用 diff 替换内容
-- `POST /tools/file_ops/replace_by_git` - 使用 git 冲突标记替换内容
 - `POST /tools/file_ops/make_diff` - 生成内容差异
 - `POST /tools/file_ops/make_git_conflict` - 生成 git 冲突标记
 - `POST /tools/file_ops/validate_path` - 验证文件路径
