@@ -35,16 +35,19 @@ class BaseSearch(ABC):
             return bool(getattr(self, "api_key_parser").api_keys)
         return True
 
-    @property
     @abstractmethod
-    def _headers(self) -> dict:
-        """Generate headers necessary for making upstream query"""
-        # this method is for generating necessary headers used for upstream api call
-        # the content could be
-        # - BEARER authentication token
-        # - fake user agent from ua-generator
-        # - API key rotation
-        # - ...
+    def _build_headers(self, api_key: str | None = None) -> dict:
+        """Generate headers necessary for making upstream query.
+
+        Subclasses should build provider-specific headers using the given
+        ``api_key`` (if applicable). The key is obtained by the caller so
+        that rate-limiting, failover and the actual request all operate on
+        the *same* key — avoiding the double-consumption bug.
+
+        Args:
+            api_key: The API key to embed in the headers, or ``None`` for
+                providers that do not require one (e.g. SearXNG).
+        """
 
     @abstractmethod
     def search(

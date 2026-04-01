@@ -127,11 +127,14 @@ class BrightDataSearch(BaseSearch):
                     f"Proceeding anyway - zone might exist or will be created on first use."
                 )
 
-    @property
-    def _headers(self) -> dict:
-        """Generate headers for API requests."""
+    def _build_headers(self, api_key: str | None = None) -> dict:
+        """Generate headers with the given API key.
+
+        Args:
+            api_key: Bright Data API token to use for authentication.
+        """
         return {
-            "Authorization": f"Bearer {self.api_key_parser.get_next_api_key()}",
+            "Authorization": f"Bearer {api_key or ''}",
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
@@ -226,67 +229,71 @@ class BrightDataSearch(BaseSearch):
 
         timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
 
-        try:
-            with httpx.Client(timeout=timeout) as client:
-                response = client.post(
-                    self.base_url,
-                    headers=self._headers,
-                    json=payload,
-                )
-                response.raise_for_status()
+        max_attempts = max(self.api_key_parser.key_count, 1)
 
-                # Parse the response
-                # Bright Data returns the Google SERP data as text
-                raw_data = response.text
-                data = json.loads(raw_data)
+        for attempt in range(max_attempts):
+            try:
+                api_key = self.api_key_parser.get_next_valid_key()
+            except ValueError:
+                logger.error("All Bright Data API keys are currently unavailable")
+                break
 
-                # # Debug: Log the complete raw response structure
-                # logger.debug(f"Bright Data raw response keys: {list(data.keys())}")
-                # logger.debug(
-                #     f"Bright Data full response: {json.dumps(data, indent=2, ensure_ascii=False)}"
-                # )
+            self.api_key_parser.wait_for_rate_limit(api_key=api_key)
 
-                # # Debug: Log organic results structure if available
-                # if "organic" in data:
-                #     logger.debug(f"Number of organic results: {len(data['organic'])}")
-                #     if data["organic"]:
-                #         logger.debug(
-                #             f"First organic result structure: {json.dumps(data['organic'][0], indent=2, ensure_ascii=False)}"
-                #         )
+            try:
+                with httpx.Client(timeout=timeout) as client:
+                    response = client.post(
+                        self.base_url,
+                        headers=self._build_headers(api_key),
+                        json=payload,
+                    )
+                    response.raise_for_status()
 
-                # Use universal parser
-                results = self.parser.parse(data)
+                    raw_data = response.text
+                    data = json.loads(raw_data)
+                    results = self.parser.parse(data)
 
-                logger.info(
-                    f"Bright Data search for '{query}' (page {page_num}) returned {len(results)} results"
-                )
-                return results
+                    logger.info(
+                        f"Bright Data search for '{query}' (page {page_num}) returned {len(results)} results"
+                    )
+                    return results
 
-        except httpx.TimeoutException:
-            logger.error(f"Bright Data API request timed out after {timeout}s")
-            return []
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 401:
-                logger.error("Authentication failed. Check your BRIGHTDATA_API_KEY")
-            elif e.response.status_code == 422:
-                logger.error(
-                    f"Zone '{self.zone}' does not exist. Check your BRIGHTDATA_ZONE configuration"
-                )
-            elif e.response.status_code == 429:
-                logger.warning(
-                    "Rate limit exceeded, consider increasing rate_limit_delay"
-                )
-            else:
-                logger.error(
-                    f"Bright Data API HTTP error {e.response.status_code}: {e.response.text}"
-                )
-            return []
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse Bright Data API response: {e}")
-            return []
-        except Exception as e:
-            logger.error(f"Bright Data API request failed: {e}")
-            return []
+            except httpx.TimeoutException:
+                logger.error(f"Bright Data API request timed out after {timeout}s")
+                return []
+            except httpx.HTTPStatusError as e:
+                status = e.response.status_code
+                if status in (401, 403):
+                    self.api_key_parser.mark_key_failed(
+                        api_key, f"HTTP {status}", ttl=3600.0
+                    )
+                    logger.warning(
+                        f"Bright Data API key auth failed (HTTP {status}), trying next key"
+                    )
+                    continue
+                if status == 429:
+                    self.api_key_parser.mark_key_failed(
+                        api_key, "rate limited", ttl=300.0
+                    )
+                    logger.warning(
+                        "Bright Data API rate limit exceeded, trying next key"
+                    )
+                    continue
+                if status == 422:
+                    logger.error(
+                        f"Zone '{self.zone}' does not exist. Check your BRIGHTDATA_ZONE configuration"
+                    )
+                    return []
+                logger.error(f"Bright Data API HTTP error {status}: {e.response.text}")
+                return []
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse Bright Data API response: {e}")
+                return []
+            except Exception as e:
+                logger.error(f"Bright Data API request failed: {e}")
+                return []
+
+        return []
 
     def _parse_results(self, raw_results: dict[str, Any]) -> list[SearchResult]:
         """Parse Bright Data API response into standardized format.
@@ -300,12 +307,6 @@ class BrightDataSearch(BaseSearch):
             List of parsed search results
         """
         return self.parser.parse(raw_results)
-
-    def _wait_for_rate_limit(self):
-        """Ensure minimum delay between API requests to avoid rate limits."""
-        # Get the current API key and pass it to the rate limiter
-        current_key = self.api_key_parser.get_next_api_key()
-        self.api_key_parser.wait_for_rate_limit(api_key=current_key)
 
 
 def main():

@@ -2,6 +2,7 @@
 
 import os
 import sys
+import threading
 import time
 import unittest
 from unittest.mock import patch
@@ -157,6 +158,106 @@ class TestAPIKeyParser(unittest.TestCase):
         self.assertGreaterEqual(
             elapsed3, 0.05
         )  # Should have slept for at least some time
+
+
+class TestAPIKeyFailover(unittest.TestCase):
+    """Test cases for API key failover functionality."""
+
+    def test_mark_key_failed(self):
+        """Test marking a key as failed."""
+        parser = APIKeyParser(api_keys="key1,key2,key3")
+        parser.mark_key_failed("key1", "HTTP 401", ttl=3600)
+
+        failed = parser.failed_keys
+        self.assertIn("key1", failed)
+        self.assertEqual(failed["key1"], "HTTP 401")
+
+    def test_get_next_valid_key_skips_failed(self):
+        """Test that get_next_valid_key skips failed keys."""
+        parser = APIKeyParser(api_keys="key1,key2,key3")
+        parser.mark_key_failed("key1", "HTTP 401", ttl=3600)
+
+        # Should skip key1 and return key2
+        key = parser.get_next_valid_key()
+        self.assertNotEqual(key, "key1")
+
+    def test_get_next_valid_key_round_robin(self):
+        """Test round-robin with one failed key."""
+        parser = APIKeyParser(api_keys="key1,key2,key3")
+        parser.mark_key_failed("key2", "HTTP 403", ttl=3600)
+
+        keys = []
+        for _ in range(4):
+            keys.append(parser.get_next_valid_key())
+
+        # key2 should never appear
+        self.assertNotIn("key2", keys)
+        # key1 and key3 should appear
+        self.assertIn("key1", keys)
+        self.assertIn("key3", keys)
+
+    def test_all_keys_failed_raises(self):
+        """Test that ValueError is raised when all keys are failed."""
+        parser = APIKeyParser(api_keys="key1,key2")
+        parser.mark_key_failed("key1", "HTTP 401", ttl=3600)
+        parser.mark_key_failed("key2", "HTTP 403", ttl=3600)
+
+        with self.assertRaises(ValueError, msg="All API keys are currently failed"):
+            parser.get_next_valid_key()
+
+    def test_ttl_auto_recovery(self):
+        """Test that failed keys auto-recover after TTL expires."""
+        parser = APIKeyParser(api_keys="key1,key2")
+        parser.mark_key_failed("key1", "rate limited", ttl=0.1)
+
+        # Initially key1 should be failed
+        self.assertIn("key1", parser.failed_keys)
+
+        # Wait for TTL to expire
+        time.sleep(0.15)
+
+        # key1 should be auto-recovered
+        self.assertNotIn("key1", parser.failed_keys)
+
+        # get_next_valid_key should now return key1
+        key = parser.get_next_valid_key()
+        self.assertEqual(key, "key1")
+
+    def test_failed_keys_property(self):
+        """Test failed_keys property returns correct state."""
+        parser = APIKeyParser(api_keys="key1,key2,key3")
+        parser.mark_key_failed("key1", "HTTP 401", ttl=3600)
+        parser.mark_key_failed("key3", "rate limited", ttl=300)
+
+        failed = parser.failed_keys
+        self.assertEqual(len(failed), 2)
+        self.assertEqual(failed["key1"], "HTTP 401")
+        self.assertEqual(failed["key3"], "rate limited")
+
+    def test_thread_safety(self):
+        """Test that concurrent access to key rotation is thread-safe."""
+        parser = APIKeyParser(api_keys="key1,key2,key3", rate_limit_delay=0)
+        results = []
+        errors = []
+
+        def get_keys(n):
+            try:
+                for _ in range(n):
+                    results.append(parser.get_next_valid_key())
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=get_keys, args=(100,)) for _ in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        self.assertEqual(len(errors), 0)
+        self.assertEqual(len(results), 500)
+        # All results should be valid keys
+        for key in results:
+            self.assertIn(key, ["key1", "key2", "key3"])
 
 
 if __name__ == "__main__":

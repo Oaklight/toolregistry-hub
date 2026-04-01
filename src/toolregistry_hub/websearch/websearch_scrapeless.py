@@ -74,11 +74,14 @@ class ScrapelessSearch(BaseSearch):
             f"Initialized ScrapelessSearch with {self.api_key_parser.key_count} API keys"
         )
 
-    @property
-    def _headers(self) -> dict:
-        """Generate headers with API key authentication."""
+    def _build_headers(self, api_key: str | None = None) -> dict:
+        """Generate headers with the given API key.
+
+        Args:
+            api_key: Scrapeless API key to use for authentication.
+        """
         return {
-            "X-API-Key": self.api_key_parser.get_next_api_key(),
+            "X-API-Key": api_key or "",
             "Content-Type": "application/json",
         }
 
@@ -192,51 +195,66 @@ class ScrapelessSearch(BaseSearch):
             "async": False,  # Wait for result synchronously
         }
 
-        try:
-            with httpx.Client(timeout=timeout) as client:
-                response = client.post(
-                    self.endpoint, headers=self._headers, json=payload
-                )
-                response.raise_for_status()
+        max_attempts = max(self.api_key_parser.key_count, 1)
 
-                # Parse JSON response from Scrapeless DeepSERP API
-                response_data = response.json()
+        for attempt in range(max_attempts):
+            try:
+                api_key = self.api_key_parser.get_next_valid_key()
+            except ValueError:
+                logger.error("All Scrapeless API keys are currently unavailable")
+                break
 
-                # # Debug: Log the complete raw response structure
-                # logger.debug(f"Scrapeless raw response keys: {list(response_data.keys())}")
-                # logger.debug(f"Scrapeless full response: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
+            self.api_key_parser.wait_for_rate_limit(api_key=api_key)
 
-                # # Debug: Log organic results structure if available
-                # if "organic_results" in response_data:
-                #     logger.debug(f"Number of organic_results: {len(response_data['organic_results'])}")
-                #     if response_data['organic_results']:
-                #         logger.debug(f"First organic_result structure: {json.dumps(response_data['organic_results'][0], indent=2, ensure_ascii=False)}")
+            try:
+                with httpx.Client(timeout=timeout) as client:
+                    response = client.post(
+                        self.endpoint,
+                        headers=self._build_headers(api_key),
+                        json=payload,
+                    )
+                    response.raise_for_status()
 
-                # Use universal parser
-                results = self.parser.parse(response_data)
+                    response_data = response.json()
+                    results = self.parser.parse(response_data)
 
-                page_num = start // 10
-                logger.info(
-                    f"Scrapeless DeepSERP search for '{query}' (page {page_num}) returned {len(results)} results"
-                )
-                return results
+                    page_num = start // 10
+                    logger.info(
+                        f"Scrapeless DeepSERP search for '{query}' (page {page_num}) returned {len(results)} results"
+                    )
+                    return results
 
-        except httpx.TimeoutException:
-            logger.error(f"Scrapeless API request timed out after {timeout}s")
-            return []
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 429:
-                logger.warning("Rate limit exceeded")
-            logger.error(
-                f"Scrapeless API HTTP error {e.response.status_code}: {e.response.text}"
-            )
-            return []
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse Scrapeless API response: {e}")
-            return []
-        except Exception as e:
-            logger.error(f"Scrapeless API request failed: {e}")
-            return []
+            except httpx.TimeoutException:
+                logger.error(f"Scrapeless API request timed out after {timeout}s")
+                return []
+            except httpx.HTTPStatusError as e:
+                status = e.response.status_code
+                if status in (401, 403):
+                    self.api_key_parser.mark_key_failed(
+                        api_key, f"HTTP {status}", ttl=3600.0
+                    )
+                    logger.warning(
+                        f"Scrapeless API key auth failed (HTTP {status}), trying next key"
+                    )
+                    continue
+                if status == 429:
+                    self.api_key_parser.mark_key_failed(
+                        api_key, "rate limited", ttl=300.0
+                    )
+                    logger.warning(
+                        "Scrapeless API rate limit exceeded, trying next key"
+                    )
+                    continue
+                logger.error(f"Scrapeless API HTTP error {status}: {e.response.text}")
+                return []
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse Scrapeless API response: {e}")
+                return []
+            except Exception as e:
+                logger.error(f"Scrapeless API request failed: {e}")
+                return []
+
+        return []
 
     def _parse_results(self, raw_results: Any) -> list[SearchResult]:
         """Parse raw search results into standardized format.

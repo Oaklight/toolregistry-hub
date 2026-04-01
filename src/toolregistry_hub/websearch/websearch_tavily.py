@@ -54,11 +54,14 @@ class TavilySearch(BaseSearch):
 
         self.base_url = "https://api.tavily.com"
 
-    @property
-    def _headers(self) -> dict:
-        """Generate headers with the current API key."""
+    def _build_headers(self, api_key: str | None = None) -> dict:
+        """Generate headers with the given API key.
+
+        Args:
+            api_key: Tavily API key to use for authentication.
+        """
         return {
-            "Authorization": f"Bearer {self.api_key_parser.get_next_api_key()}",
+            "Authorization": f"Bearer {api_key or ''}",
             "Content-Type": "application/json",
         }
 
@@ -135,39 +138,60 @@ class TavilySearch(BaseSearch):
                 payload[param] = kwargs[param]
 
         timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
-        try:
-            # Rate limiting: ensure minimum delay between requests
-            self._wait_for_rate_limit()
+        max_attempts = max(self.api_key_parser.key_count, 1)
 
-            with httpx.Client(timeout=timeout) as client:
-                response = client.post(
-                    f"{self.base_url}/search", headers=self._headers, json=payload
-                )
-                response.raise_for_status()
+        for attempt in range(max_attempts):
+            try:
+                api_key = self.api_key_parser.get_next_valid_key()
+            except ValueError:
+                logger.error("All Tavily API keys are currently unavailable")
+                break
 
-                data = response.json()
-                results = self._parse_results(data)
+            self.api_key_parser.wait_for_rate_limit(api_key=api_key)
 
-                logger.info(
-                    f"Tavily search for '{query}' returned {len(results)} results"
-                )
-                return results
+            try:
+                with httpx.Client(timeout=timeout) as client:
+                    response = client.post(
+                        f"{self.base_url}/search",
+                        headers=self._build_headers(api_key),
+                        json=payload,
+                    )
+                    response.raise_for_status()
 
-        except httpx.TimeoutException:
-            logger.error(f"Tavily API request timed out after {timeout}s")
-            return []
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 429:
-                logger.warning(
-                    "Rate limit exceeded, consider increasing rate_limit_delay"
-                )
-            logger.error(
-                f"Tavily API HTTP error {e.response.status_code}: {e.response.text}"
-            )
-            return []
-        except Exception as e:
-            logger.error(f"Tavily API request failed: {e}")
-            return []
+                    data = response.json()
+                    results = self._parse_results(data)
+
+                    logger.info(
+                        f"Tavily search for '{query}' returned {len(results)} results"
+                    )
+                    return results
+
+            except httpx.TimeoutException:
+                logger.error(f"Tavily API request timed out after {timeout}s")
+                return []
+            except httpx.HTTPStatusError as e:
+                status = e.response.status_code
+                if status in (401, 403):
+                    self.api_key_parser.mark_key_failed(
+                        api_key, f"HTTP {status}", ttl=3600.0
+                    )
+                    logger.warning(
+                        f"Tavily API key auth failed (HTTP {status}), trying next key"
+                    )
+                    continue
+                if status == 429:
+                    self.api_key_parser.mark_key_failed(
+                        api_key, "rate limited", ttl=300.0
+                    )
+                    logger.warning("Tavily API rate limit exceeded, trying next key")
+                    continue
+                logger.error(f"Tavily API HTTP error {status}: {e.response.text}")
+                return []
+            except Exception as e:
+                logger.error(f"Tavily API request failed: {e}")
+                return []
+
+        return []
 
     def _parse_results(self, raw_results: dict) -> list[SearchResult]:
         """Parse Tavily API response into standardized format.
@@ -201,12 +225,6 @@ class TavilySearch(BaseSearch):
             results.append(result)
 
         return results
-
-    def _wait_for_rate_limit(self):
-        """Ensure minimum delay between API requests to avoid rate limits."""
-        # Get the current API key and pass it to the rate limiter
-        current_key = self.api_key_parser.get_next_api_key()
-        self.api_key_parser.wait_for_rate_limit(api_key=current_key)
 
 
 def main():
