@@ -19,7 +19,7 @@ author: Oaklight
 
 The FileSystem tools provide comprehensive file system operations for creating, managing, and manipulating directories and files. These tools are designed for robust file system interactions with advanced features like hidden file detection and recursive operations.
 
-## 🎯 Overview
+## Overview
 
 The FileSystem class provides operations related to file system structure, status, and metadata:
 
@@ -30,7 +30,7 @@ The FileSystem class provides operations related to file system structure, statu
 - **Metadata Access**: Get file sizes and modification times
 - **Hidden File Support**: Automatic detection of hidden files across platforms
 
-## 🚀 Quick Start
+## Quick Start
 
 ```python
 from toolregistry_hub import FileSystem
@@ -53,7 +53,7 @@ print(f"File size: {size} bytes")
 # Output: File size: 0 bytes
 ```
 
-## 📋 API Reference
+## API Reference
 
 ### Core Methods
 
@@ -138,7 +138,7 @@ List directory contents with configurable depth and hidden file visibility.
 - **Unix/Linux/macOS**: Files starting with '.'
 - **Windows**: Files with hidden attribute set
 
-## 🔧 Advanced Operations
+## Advanced Operations
 
 ### Directory Management
 
@@ -253,7 +253,7 @@ else:
 # Output: config.json is a file, size: 16 bytes
 ```
 
-## 🛠️ Best Practices
+## Best Practices
 
 ### Error Handling
 
@@ -324,7 +324,7 @@ def create_project_structure(base_path):
 create_project_structure("my_project")
 ```
 
-## 🚨 Important Notes
+## Important Notes
 
 ### Hidden File Handling
 
@@ -345,7 +345,7 @@ create_project_structure("my_project")
 - **Large directories**: Consider filtering results for better performance
 - **Hidden files**: Enabling `show_hidden=True` may impact performance on large directories
 
-## 🔄 Comparison with FileOps
+## Comparison with FileOps
 
 **FileSystem vs FileOps:**
 

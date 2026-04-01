@@ -79,7 +79,7 @@ ToolRegistry Hub is part of a three-package ecosystem. See the [Ecosystem](ecosy
 | [toolregistry-server](https://toolregistry-server.readthedocs.io/) | OpenAPI & MCP server adapters |
 | **toolregistry-hub** | Ready-to-use utility tools |
 
-## 🤝 Get Involved
+## Get Involved
 
 - **[GitHub Repository](https://github.com/Oaklight/toolregistry-hub)** - Source code and issues
 - **[中文文档](../zh/)** - Chinese documentation

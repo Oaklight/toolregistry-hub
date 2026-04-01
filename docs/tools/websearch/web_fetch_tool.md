@@ -10,7 +10,7 @@ author: Oaklight
 
 The Web Fetch tool provides intelligent webpage content extraction from URLs. It uses a three-stage strategy chain — Cloudflare Content Negotiation, BeautifulSoup parsing, and Jina Reader API — with **content quality evaluation** and **smart fallback** to extract clean, readable content from webpages while handling various website structures and formats, including JavaScript-heavy Single Page Applications (SPAs).
 
-## 🎯 Overview
+## Overview
 
 The Fetch class offers robust webpage content extraction:
 
@@ -22,7 +22,7 @@ The Fetch class offers robust webpage content extraction:
 - **Timeout Handling**: Configurable timeouts (default: 30s) and proxy support
 - **Error Resilience**: Graceful handling of network errors and inaccessible content
 
-## 🚀 Quick Start
+## Quick Start
 
 ```python
 from toolregistry_hub import Fetch
@@ -43,7 +43,7 @@ content = Fetch.fetch_content(
 )
 ```
 
-## 🔧 API Reference
+## API Reference
 
 ### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None) -> str`
 
@@ -63,7 +63,7 @@ Extract content from a given URL using available methods.
 
 - `Exception`: If URL is invalid or network errors occur
 
-## 🛠️ How It Works
+## How It Works
 
 ### Three-Stage Strategy Chain
 
@@ -172,7 +172,7 @@ The tool automatically removes:
 - Navigation elements (`<nav>`, `<footer>`, `<sidebar>`)
 - Interactive elements (`<iframe>`, `<noscript>`)
 
-## 📋 Usage Examples
+## Usage Examples
 
 ### Basic Content Extraction
 
@@ -284,7 +284,7 @@ else:
     print("Proxy configuration may be incorrect")
 ```
 
-## 🎯 Best Practices
+## Best Practices
 
 ### Error Handling
 
@@ -383,7 +383,7 @@ if is_valid:
     print(f"Valid content: {len(content)} characters")
 ```
 
-## 🚨 Important Considerations
+## Important Considerations
 
 ### Legal and Ethical Use
 
@@ -407,7 +407,7 @@ if is_valid:
 - **User agents**: Tool automatically rotates user agents
 - **Caching**: Consider caching results for frequently accessed content
 
-## 🔍 Content Quality
+## Content Quality
 
 ### What Gets Extracted
 

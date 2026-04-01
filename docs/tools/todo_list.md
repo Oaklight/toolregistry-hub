@@ -13,7 +13,7 @@ The Todo List tool provides structured task management and progress tracking fun
 ???+ note "Changelog"
     0.5.1 Initial release with support for planned, pending, done, and cancelled statuses
 
-## 🎯 Overview
+## Overview
 
 The TodoList class offers a dedicated space for:
 
@@ -24,7 +24,7 @@ The TodoList class offers a dedicated space for:
 - **Execution Planning**: Plan and document AI task execution sequences
 - **Output Formatting**: Generate formatted reports for different contexts
 
-## 🚀 Quick Start
+## Quick Start
 
 ```python
 from toolregistry_hub.todo_list import TodoList
@@ -47,7 +47,7 @@ progress_report = TodoList.update(workflow_tasks, format="markdown")
 print(progress_report)
 ```
 
-## 🔧 API Reference
+## API Reference
 
 ### `TodoList.update(todos, format="simple")`
 
@@ -69,7 +69,7 @@ Update or create a todo list with optional formatting output for workflow tracki
 - `done` - Task has been completed successfully
 - `cancelled` - Task has been cancelled or abandoned
 
-## 🛠️ Use Cases for AI Workflows
+## Use Cases for AI Workflows
 
 ### Multi-Step Task Execution
 
@@ -196,7 +196,7 @@ print("Decision Analysis Report:")
 print(report)
 ```
 
-## 📊 Output Formats
+## Output Formats
 
 ### Simple Format (Default)
 
@@ -249,7 +249,7 @@ Output:
 +--------+---------------------------+---------+
 ```
 
-## 🎯 Best Practices for AI Workflows
+## Best Practices for AI Workflows
 
 ### Structured Task Decomposition
 
@@ -356,7 +356,7 @@ print(f"Workflow Progress: {progress['progress_percentage']:.1f}%")
 print(f"Completed: {progress['completed']}/{progress['total']}")
 ```
 
-## 🚨 Important Notes
+## Important Notes
 
 ### Format Requirements
 
@@ -407,7 +407,7 @@ except ValueError as e:
     print(f"Format validation error: {e}")
 ```
 
-## 🔗 Integration with AI Workflows
+## Integration with AI Workflows
 
 ### Workflow Orchestration
 

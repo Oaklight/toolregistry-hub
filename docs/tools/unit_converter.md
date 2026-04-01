@@ -25,7 +25,7 @@ The UnitConverter tools provide comprehensive unit conversion functions for vari
     
     All conversion functionality remains the same, only the calling pattern has changed.
 
-## 🎯 Overview
+## Overview
 
 The UnitConverter class offers precise conversions between different units of measurement:
 
@@ -47,7 +47,7 @@ The UnitConverter class offers precise conversions between different units of me
 - **Radiation**: Gray, sievert
 - **Light Intensity**: Lux, lumen
 
-## 🚀 Quick Start
+## Quick Start
 
 ```python
 from toolregistry_hub import UnitConverter
@@ -81,7 +81,7 @@ help_text = UnitConverter.help("celsius_to_fahrenheit")
 print(help_text)
 ```
 
-## 📋 Conversion Categories
+## Conversion Categories
 
 ### Temperature Conversions
 
@@ -209,7 +209,7 @@ print(help_text)
 | Lux → Lumen | `lux_to_lumen()` | lumens = lux × area (square meters) | `UnitConverter.lux_to_lumen(100, 2) = 200.0` |
 | Lumen → Lux | `lumen_to_lux()` | lux = lumens / area (square meters) | `UnitConverter.lumen_to_lux(200, 2) = 100.0` |
 
-## 🛠️ Practical Examples
+## Practical Examples
 
 ### Cooking Conversions
 
@@ -316,7 +316,7 @@ print(f"Luminous flux: {lux_value} lux × {area} m² = {lumens} lumens")
 # Output: Luminous flux: 100 lux × 2 m² = 200.0 lumens
 ```
 
-## 🚨 Important Notes
+## Important Notes
 
 ### Precision and Accuracy
 
@@ -339,7 +339,7 @@ print(f"Luminous flux: {lux_value} lux × {area} m² = {lumens} lumens")
 - **Binary system**: Uses 1024-based conversions (KiB, MiB, GiB)
 - **Not decimal**: Different from SI prefixes (KB, MB, GB)
 
-## 🔍 Conversion Tables
+## Conversion Tables
 
 ### Quick Reference
 

@@ -10,7 +10,7 @@ author: Oaklight
 
 A unified cognitive tool for structured reasoning, combining **knowledge recall**, **logical reasoning**, and **creative exploration** into a single flexible interface. Design inspired by [Anthropic's Claude Think Tool](https://www.anthropic.com/engineering/claude-think-tool) and the cognitive psychology paper ["Eliciting Reasoning in Language Models with Cognitive Tools"](https://arxiv.org/html/2506.12115).
 
-## 🎯 Design Philosophy
+## Design Philosophy
 
 ### Why a Unified Tool?
 
@@ -40,7 +40,7 @@ Based on real-world usage feedback, we made a key insight: **models almost never
 - **Parameter order matters**: Guide the model to decide thinking approach first
 - **Modes as guidance**: Predefined modes provide direction but don't limit creativity
 
-## 🚀 Quick Start
+## Quick Start
 
 ```python
 from toolregistry_hub import ThinkTool
@@ -71,7 +71,7 @@ ThinkTool.think(
 )
 ```
 
-## 🔧 API Reference
+## API Reference
 
 ### `think(thinking_mode, focus_area, thought_process)`
 
@@ -100,7 +100,7 @@ Record your cognitive process - thinking, reasoning, planning, or recalling.
 | `brainstorming` | Generating ideas freely | Exploring possibilities without judgment |
 | `exploring` | Mental simulation, what-if scenarios | Imagining how things play out, considering hypotheticals |
 
-## 🎯 Usage Guide
+## Usage Guide
 
 ### Parameter Order Matters
 
@@ -212,7 +212,7 @@ ThinkTool.think(
 
 Choose the mode that best describes your current thinking type, but don't overthink it - modes are guidance, not restrictions.
 
-## 🚨 Important Notes
+## Important Notes
 
 ### What This Tool Does
 
@@ -229,13 +229,13 @@ Choose the mode that best describes your current thinking type, but don't overth
 
 This tool is a **recorder of thinking processes**, not an executor. Its value lies in making thinking visible, traceable, and improvable.
 
-## 📚 References
+## References
 
 - Anthropic, ["Claude Think Tool"](https://www.anthropic.com/engineering/claude-think-tool) - Original inspiration
 - Brown et al., ["Eliciting Reasoning in Language Models with Cognitive Tools"](https://arxiv.org/html/2506.12115) - Theoretical foundation
 - Cognitive psychology research on knowledge vs. reasoning separation
 
-## 🔗 Related Tools
+## Related Tools
 
 - [Calculator](calculator.md) - For actual mathematical computations
 - [Todo List](todo_list.md) - For task tracking and planning
