@@ -64,8 +64,7 @@ class TestSearchResult:
 class ConcreteSearch(BaseSearch):
     """Concrete implementation for testing abstract base class."""
 
-    @property
-    def _headers(self) -> dict:
+    def _build_headers(self, api_key: str | None = None) -> dict:
         return {"User-Agent": "test"}
 
     def search(
@@ -229,10 +228,10 @@ class TestWebSearchIntegration:
         assert isinstance(results, list)
         assert len(results) == 2
 
-    def test_headers_property(self):
-        """Test that headers property works."""
+    def test_build_headers(self):
+        """Test that _build_headers method works."""
         searcher = ConcreteSearch()
-        headers = searcher._headers
+        headers = searcher._build_headers()
 
         assert isinstance(headers, dict)
         assert "User-Agent" in headers

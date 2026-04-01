@@ -66,9 +66,12 @@ class SearXNGSearch(BaseSearch):
         """Check if SearXNG URL is configured."""
         return self.search_url is not None
 
-    @property
-    def _headers(self) -> dict:
-        """Generate headers necessary for making upstream query."""
+    def _build_headers(self, api_key: str | None = None) -> dict:
+        """Generate headers for SearXNG requests.
+
+        Args:
+            api_key: Unused — SearXNG does not require API keys.
+        """
         return {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "application/json",
@@ -166,7 +169,7 @@ class SearXNGSearch(BaseSearch):
         try:
             with httpx.Client(timeout=timeout) as client:
                 response = client.get(
-                    self.search_url, headers=self._headers, params=params
+                    self.search_url, headers=self._build_headers(), params=params
                 )
                 response.raise_for_status()
 

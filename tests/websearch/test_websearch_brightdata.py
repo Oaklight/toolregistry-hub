@@ -60,10 +60,10 @@ class TestBrightDataSearch:
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
     )
-    def test_headers_property(self, mock_ensure):
-        """Test headers property."""
+    def test_build_headers(self, mock_ensure):
+        """Test _build_headers method."""
         search = BrightDataSearch(api_keys="test_token")
-        headers = search._headers
+        headers = search._build_headers("test_token")
 
         assert headers["Authorization"] == "Bearer test_token"
         assert headers["Content-Type"] == "application/json"

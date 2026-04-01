@@ -45,10 +45,10 @@ class TestSearXNGSearch:
             assert searcher.search_url is None
             assert not searcher._is_configured()
 
-    def test_headers_property(self):
-        """Test headers property."""
+    def test_build_headers(self):
+        """Test _build_headers method."""
         searcher = SearXNGSearch("http://localhost:8080")
-        headers = searcher._headers
+        headers = searcher._build_headers()
 
         assert "User-Agent" in headers
         assert headers["Accept"] == "application/json"

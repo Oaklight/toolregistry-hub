@@ -30,10 +30,10 @@ class TestSerperSearch:
             assert search.api_key_parser.key_count == 0
             assert not search._is_configured()
 
-    def test_headers_property(self):
-        """Test headers property."""
+    def test_build_headers(self):
+        """Test _build_headers method."""
         search = SerperSearch(api_keys="test_key")
-        headers = search._headers
+        headers = search._build_headers("test_key")
 
         assert headers["Content-Type"] == "application/json"
         assert headers["X-API-KEY"] == "test_key"

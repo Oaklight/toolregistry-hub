@@ -6,6 +6,7 @@ different web search implementations.
 """
 
 import os
+import threading
 import time
 
 
@@ -50,6 +51,10 @@ class APIKeyParser:
         self.rate_limit_delay = rate_limit_delay
         # Track last request time for each API key individually
         self._last_request_times: dict[str, float] = {}
+        # Failed keys: key -> (reason, failure_time, ttl_seconds)
+        self._failed_keys: dict[str, tuple[str, float, float]] = {}
+        # Lock for thread-safe key rotation and failure tracking
+        self._lock = threading.Lock()
 
     def _parse_api_keys(self, api_keys_str: str, separator: str) -> list[str]:
         """Parse and validate API keys from string.
@@ -149,14 +154,42 @@ class APIKeyParser:
         """Get the next API key using round-robin selection.
 
         Returns:
-            The next API key in the rotation
+            The next API key in the rotation.
+
+        Raises:
+            ValueError: If no API keys are available.
         """
         if not self.api_keys:
             raise ValueError("No API keys available")
 
-        key = self.api_keys[self._current_key_index]
-        self._current_key_index = (self._current_key_index + 1) % len(self.api_keys)
+        with self._lock:
+            key = self.api_keys[self._current_key_index]
+            self._current_key_index = (self._current_key_index + 1) % len(self.api_keys)
         return key
+
+    def get_next_valid_key(self) -> str:
+        """Get the next non-failed API key using round-robin selection.
+
+        Skips keys that are currently marked as failed (whose TTL has not
+        expired). Expired failures are auto-recovered.
+
+        Returns:
+            The next valid API key.
+
+        Raises:
+            ValueError: If no API keys are available or all keys are failed.
+        """
+        if not self.api_keys:
+            raise ValueError("No API keys available")
+
+        with self._lock:
+            n = len(self.api_keys)
+            for _ in range(n):
+                key = self.api_keys[self._current_key_index]
+                self._current_key_index = (self._current_key_index + 1) % n
+                if self._is_key_available(key):
+                    return key
+            raise ValueError("All API keys are currently failed")
 
     @property
     def key_count(self) -> int:
@@ -184,37 +217,91 @@ class APIKeyParser:
             return self.api_keys[index]
         raise IndexError(f"Index {index} out of range for {len(self.api_keys)} keys")
 
+    def _is_key_available(self, key: str) -> bool:
+        """Check if a key is available (not failed or TTL expired).
+
+        If the key's TTL has expired, it is auto-recovered (removed from
+        ``_failed_keys``).
+
+        Note:
+            Caller must hold ``self._lock``.
+
+        Args:
+            key: The API key to check.
+
+        Returns:
+            True if the key is available for use.
+        """
+        if key not in self._failed_keys:
+            return True
+        reason, failure_time, ttl = self._failed_keys[key]
+        if time.time() - failure_time >= ttl:
+            del self._failed_keys[key]
+            return True
+        return False
+
+    def mark_key_failed(self, key: str, reason: str, ttl: float = 3600.0) -> None:
+        """Mark an API key as temporarily unavailable.
+
+        Args:
+            key: The API key to mark as failed.
+            reason: Human-readable reason (e.g. "HTTP 401", "rate limited").
+            ttl: Time-to-live in seconds before the key auto-recovers.
+                Defaults to 3600 (1 hour).
+        """
+        with self._lock:
+            self._failed_keys[key] = (reason, time.time(), ttl)
+
+    @property
+    def failed_keys(self) -> dict[str, str]:
+        """Return currently failed keys and their reasons.
+
+        Keys whose TTL has expired are auto-recovered and excluded.
+
+        Returns:
+            Mapping of failed key -> reason string.
+        """
+        with self._lock:
+            now = time.time()
+            # Auto-recover expired keys
+            expired = [
+                k
+                for k, (_, failure_time, ttl) in self._failed_keys.items()
+                if now - failure_time >= ttl
+            ]
+            for k in expired:
+                del self._failed_keys[k]
+            return {k: reason for k, (reason, _, _) in self._failed_keys.items()}
+
     def wait_for_rate_limit(self, api_key: str | None = None):
         """Ensure minimum delay between API requests to avoid rate limits for a specific key.
 
         Args:
-            api_key: The API key to check rate limit for. If None, uses the last used key.
+            api_key: The API key to check rate limit for. If None, uses the
+                previously selected key.
         """
         if api_key is None:
-            # Use the last used key (the one that was just selected)
-            if self._current_key_index == 0:
-                # If we're at the beginning, use the last key
-                api_key = self.api_keys[-1]
-            else:
-                api_key = self.api_keys[self._current_key_index - 1]
+            with self._lock:
+                if self._current_key_index == 0:
+                    api_key = self.api_keys[-1]
+                else:
+                    api_key = self.api_keys[self._current_key_index - 1]
 
-        current_time = time.time()
+        # Read last request time under lock, sleep outside lock
+        with self._lock:
+            current_time = time.time()
+            last_request_time = self._last_request_times.get(api_key, 0)
+            time_since_last_request = current_time - last_request_time
 
-        # Get the last request time for this specific API key
-        last_request_time = self._last_request_times.get(api_key, 0)
-        time_since_last_request = current_time - last_request_time
-
+        sleep_time = 0.0
         if time_since_last_request < self.rate_limit_delay:
             sleep_time = self.rate_limit_delay - time_since_last_request
-            import logging
 
-            logging.debug(
-                f"Rate limiting for key {api_key[:10]}...: sleeping for {sleep_time:.2f}s"
-            )
+        if sleep_time > 0:
             time.sleep(sleep_time)
 
-        # Update the last request time for this specific API key
-        self._last_request_times[api_key] = time.time()
+        with self._lock:
+            self._last_request_times[api_key] = time.time()
 
 
 def create_api_key_parser(
