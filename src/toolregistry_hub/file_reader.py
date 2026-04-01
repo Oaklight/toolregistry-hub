@@ -1,19 +1,35 @@
 """Multi-format file reader with line numbers and pagination.
 
 Supports plain text (with line-numbered output and offset/limit),
-Jupyter notebooks (stdlib ``json``), and PDF files (optional dependency).
-Image reading is planned but blocked on upstream multimodal support.
+Jupyter notebooks (stdlib ``json``), PDF files (optional dependency),
+and image files (returned as multimodal content blocks).
 """
 
 from __future__ import annotations
 
+import base64
+import io
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Safety caps
 _MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB for text files
 _MAX_LINES_DEFAULT = 2000
 _MAX_PDF_PAGES = 20
+
+# Image constants
+_SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+_EXTENSION_TO_MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
+_MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB base64 budget
 
 
 class FileReader:
@@ -185,26 +201,151 @@ class FileReader:
         return "\n".join(lines)
 
     @staticmethod
-    def read_image(path: str) -> str:
-        """Read an image file and return as multimodal content block.
+    def read_image(
+        path: str,
+        max_size: int = _MAX_IMAGE_SIZE_BYTES,
+    ) -> list:
+        """Read an image file and return as multimodal content blocks.
 
-        .. note::
-            Not yet implemented. Blocked on upstream ``toolregistry`` support
-            for multimodal return types (image content blocks).
-            See: https://github.com/Oaklight/ToolRegistry/issues/101
-            Tracking: https://github.com/Oaklight/toolregistry-hub/issues/74
+        Returns a list of content blocks (TextBlock + ImageBlock) that the
+        toolregistry pipeline can expand into format-specific multimodal
+        messages via ``expand_content_blocks()``.
+
+        If the base64-encoded image exceeds ``max_size``, Pillow is used to
+        downsample it. If Pillow is not installed, the original image is
+        returned with a warning.
 
         Args:
-            path: Path to image file.
+            path: Path to image file (.png, .jpg, .jpeg, .gif, .webp).
+            max_size: Maximum base64-encoded size in bytes. Defaults to 5 MB.
+
+        Returns:
+            A list of two content blocks::
+
+                [
+                    {"type": "text", "text": "[Image: name (mime, size)]"},
+                    {"type": "image", "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": "iVBOR..."
+                    }}
+                ]
 
         Raises:
-            NotImplementedError: Always. Pending upstream multimodal support.
+            FileNotFoundError: If the file does not exist.
+            ValueError: If the file extension is not supported.
         """
-        raise NotImplementedError(
-            "Image reading requires multimodal return type support from "
-            "upstream toolregistry. "
-            "See https://github.com/Oaklight/ToolRegistry/issues/101"
-        )
+        p = Path(path)
+        if not p.exists():
+            raise FileNotFoundError(f"File not found: {path}")
+
+        ext = p.suffix.lower()
+        if ext not in _SUPPORTED_IMAGE_EXTENSIONS:
+            raise ValueError(
+                f"Unsupported image format: '{ext}'. "
+                f"Supported: {', '.join(sorted(_SUPPORTED_IMAGE_EXTENSIONS))}"
+            )
+
+        media_type = _EXTENSION_TO_MIME[ext]
+        img_data = p.read_bytes()
+        raw_size = len(img_data)
+
+        b64_data = base64.b64encode(img_data).decode("ascii")
+
+        if len(b64_data) > max_size:
+            img_data, media_type = FileReader._downsample_image(
+                img_data, media_type, max_size
+            )
+            b64_data = base64.b64encode(img_data).decode("ascii")
+
+        return [
+            {
+                "type": "text",
+                "text": f"[Image: {p.name} ({media_type}, {raw_size} bytes)]",
+            },
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": media_type,
+                    "data": b64_data,
+                },
+            },
+        ]
+
+    @staticmethod
+    def _downsample_image(
+        img_data: bytes,
+        media_type: str,
+        max_size: int,
+    ) -> tuple[bytes, str]:
+        """Downsample an image to fit within the base64 size budget.
+
+        Uses adaptive quality reduction based on ``target_ratio``. Strategy
+        inspired by payload-size-based compression (similar to argo-proxy).
+
+        If Pillow is not available, returns the original data with a warning
+        logged.
+
+        Args:
+            img_data: Raw image bytes.
+            media_type: MIME type of the image.
+            max_size: Target maximum base64-encoded size in bytes.
+
+        Returns:
+            Tuple of (compressed_bytes, output_media_type).
+        """
+        try:
+            from PIL import Image
+        except ImportError:
+            logger.warning(
+                "Pillow not installed; returning original image without "
+                "compression. Install with: pip install Pillow"
+            )
+            return img_data, media_type
+
+        current_b64_size = len(base64.b64encode(img_data))
+        target_ratio = max_size / current_b64_size
+
+        img = Image.open(io.BytesIO(img_data))
+
+        buf = io.BytesIO()
+
+        if media_type == "image/jpeg":
+            quality = max(int(85 * target_ratio), 20)
+            img = img.convert("RGB") if img.mode != "RGB" else img
+            img.save(buf, format="JPEG", quality=quality)
+            return buf.getvalue(), "image/jpeg"
+
+        if media_type == "image/png":
+            # Convert to JPEG for better compression; handle transparency
+            quality = max(int(75 * target_ratio), 15)
+            if img.mode in ("RGBA", "LA", "P"):
+                background = Image.new("RGB", img.size, (255, 255, 255))
+                if img.mode == "P":
+                    img = img.convert("RGBA")
+                background.paste(img, mask=img.split()[-1])
+                img = background
+            else:
+                img = img.convert("RGB")
+            img.save(buf, format="JPEG", quality=quality)
+            return buf.getvalue(), "image/jpeg"
+
+        if media_type == "image/webp":
+            quality = max(int(80 * target_ratio), 15)
+            img = img.convert("RGB") if img.mode not in ("RGB", "RGBA") else img
+            img.save(buf, format="WEBP", quality=quality)
+            return buf.getvalue(), "image/webp"
+
+        if media_type == "image/gif":
+            # Extract first frame and convert to JPEG
+            quality = max(int(70 * target_ratio), 15)
+            img = img.convert("RGB")
+            img.save(buf, format="JPEG", quality=quality)
+            return buf.getvalue(), "image/jpeg"
+
+        # Fallback: return as-is
+        return img_data, media_type
 
     # --- Private helpers ---
 

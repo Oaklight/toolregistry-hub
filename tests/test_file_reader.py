@@ -1,11 +1,14 @@
 """Unit tests for FileReader module."""
 
+import base64
 import json
 import os
 import shutil
+import struct
 import tempfile
-
+import zlib
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -279,9 +282,129 @@ class TestFileReaderPdf:
         assert end - start + 1 == 20
 
 
+def _make_minimal_png(width: int = 1, height: int = 1) -> bytes:
+    """Generate a minimal valid PNG file in pure Python."""
+
+    def _chunk(chunk_type: bytes, data: bytes) -> bytes:
+        c = chunk_type + data
+        return (
+            struct.pack(">I", len(data))
+            + c
+            + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+        )
+
+    sig = b"\x89PNG\r\n\x1a\n"
+    ihdr_data = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    ihdr = _chunk(b"IHDR", ihdr_data)
+    # Row data: filter byte + RGB pixels
+    raw = b""
+    for _ in range(height):
+        raw += b"\x00" + b"\xff\x00\x00" * width  # red pixels
+    idat = _chunk(b"IDAT", zlib.compress(raw))
+    iend = _chunk(b"IEND", b"")
+    return sig + ihdr + idat + iend
+
+
+def _make_minimal_jpeg() -> bytes:
+    """Generate a minimal valid JPEG using Pillow, or return a stub."""
+    try:
+        import io
+
+        from PIL import Image
+
+        img = Image.new("RGB", (2, 2), color=(255, 0, 0))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        return buf.getvalue()
+    except ImportError:
+        pytest.skip("Pillow required to generate JPEG test data")
+
+
 class TestFileReaderImage:
     """Test cases for FileReader.read_image()."""
 
-    def test_raises_not_implemented(self):
-        with pytest.raises(NotImplementedError, match="multimodal"):
-            FileReader.read_image("/any/image.png")
+    def setup_method(self):
+        self.temp_dir = tempfile.mkdtemp()
+
+    def teardown_method(self):
+        shutil.rmtree(self.temp_dir)
+
+    def _write_image(self, name: str, data: bytes) -> str:
+        path = os.path.join(self.temp_dir, name)
+        with open(path, "wb") as f:
+            f.write(data)
+        return path
+
+    def test_read_image_png(self):
+        """PNG returns [TextBlock, ImageBlock]."""
+        png_data = _make_minimal_png()
+        path = self._write_image("test.png", png_data)
+        result = FileReader.read_image(path)
+
+        assert isinstance(result, list)
+        assert len(result) == 2
+        assert result[0]["type"] == "text"
+        assert result[1]["type"] == "image"
+        assert result[1]["source"]["media_type"] == "image/png"
+        assert result[1]["source"]["type"] == "base64"
+        # Verify round-trip
+        decoded = base64.b64decode(result[1]["source"]["data"])
+        assert decoded == png_data
+
+    def test_read_image_jpeg(self):
+        """JPEG returns correct content blocks."""
+        jpeg_data = _make_minimal_jpeg()
+        path = self._write_image("photo.jpg", jpeg_data)
+        result = FileReader.read_image(path)
+
+        assert len(result) == 2
+        assert result[1]["source"]["media_type"] == "image/jpeg"
+
+    def test_read_image_metadata_text_block(self):
+        """TextBlock contains filename, MIME type, and byte size."""
+        png_data = _make_minimal_png()
+        path = self._write_image("chart.png", png_data)
+        result = FileReader.read_image(path)
+
+        text = result[0]["text"]
+        assert "chart.png" in text
+        assert "image/png" in text
+        assert str(len(png_data)) in text
+
+    def test_read_image_file_not_found(self):
+        with pytest.raises(FileNotFoundError):
+            FileReader.read_image(os.path.join(self.temp_dir, "nope.png"))
+
+    def test_read_image_unsupported_format(self):
+        path = self._write_image("photo.bmp", b"BM fake bmp data")
+        with pytest.raises(ValueError, match="Unsupported image format"):
+            FileReader.read_image(path)
+
+    def test_read_image_downsample(self):
+        """Large image is downsampled when Pillow is available."""
+        PIL = pytest.importorskip("PIL")  # noqa: F841
+        # Create a large PNG (100x100 = decent size after encoding)
+        png_data = _make_minimal_png(width=100, height=100)
+        path = self._write_image("big.png", png_data)
+
+        # Use a very small max_size to force downsampling
+        result = FileReader.read_image(path, max_size=100)
+
+        assert len(result) == 2
+        assert result[1]["type"] == "image"
+        # After downsampling PNG → JPEG
+        assert result[1]["source"]["media_type"] == "image/jpeg"
+
+    def test_read_image_no_pillow_fallback(self):
+        """Without Pillow, large image is returned as-is with warning."""
+        png_data = _make_minimal_png(width=50, height=50)
+        path = self._write_image("big.png", png_data)
+
+        with mock.patch.dict("sys.modules", {"PIL": None, "PIL.Image": None}):
+            result = FileReader.read_image(path, max_size=10)
+
+        assert len(result) == 2
+        # Original PNG data returned unchanged
+        decoded = base64.b64decode(result[1]["source"]["data"])
+        assert decoded == png_data
+        assert result[1]["source"]["media_type"] == "image/png"

@@ -41,6 +41,9 @@ dev = [
 reader = [
     "pypdf>=4.0.0",
 ]
+reader_image = [
+    "Pillow>=10.0.0",
+]
 reader_plus = [
     "pdfplumber>=0.10.0",
 ]
