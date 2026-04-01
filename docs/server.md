@@ -121,7 +121,26 @@ In OpenAPI mode, all tools are provided as REST API endpoints. After starting th
 - `POST /tools/unit_converter/list_conversions` - List available unit conversions
 - `POST /tools/unit_converter/convert` - Perform unit conversion
 
-#### Filesystem Tools
+#### File Reader Tools
+
+- `POST /tools/reader/read` - Read text file with line numbers and pagination
+- `POST /tools/reader/read_pdf` - Read PDF file and extract text
+- `POST /tools/reader/read_notebook` - Read Jupyter notebook cells and outputs
+
+#### File Search Tools
+
+- `POST /tools/fs/file_search/glob` - Find files matching a glob pattern
+- `POST /tools/fs/file_search/grep` - Search file contents using regex
+- `POST /tools/fs/file_search/tree` - Display directory tree structure
+
+#### Path Info Tool
+
+- `POST /tools/fs/path_info/info` - Get file/directory metadata (type, size, permissions, modified time)
+
+#### Filesystem Tools (Deprecated)
+
+!!! warning "Deprecated"
+    FileSystem is deprecated. Use PathInfo, FileSearch, and FileReader instead.
 
 - `POST /tools/filesystem/exists` - Check if a path exists
 - `POST /tools/filesystem/is_file` - Check if a path is a file

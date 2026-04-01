@@ -10,6 +10,65 @@ author: Oaklight
 
 This page documents all notable changes to the toolregistry-hub project since the first official release version 0.4.14.
 
+## [Unreleased] - since 0.7.0
+
+### Breaking Changes
+
+- **FileOps: Replace diff-based editing with exact string replacement** ([#70](https://github.com/Oaklight/toolregistry-hub/pull/70), [#62](https://github.com/Oaklight/toolregistry-hub/issues/62))
+    - Removed `replace_by_diff()` and `replace_by_git()` methods
+    - Added `edit(file_path, old_string, new_string)` with exact string matching
+    - Supports `replace_all` for bulk replacement and `start_line` for disambiguation when multiple matches exist
+    - Preserves file encoding (UTF-8/UTF-8-sig/UTF-16) and line endings (CRLF/LF)
+    - Returns unified diff of changes
+
+### New Features
+
+- **BashTool: Shell command execution with safety validation** ([#77](https://github.com/Oaklight/toolregistry-hub/pull/77), [#66](https://github.com/Oaklight/toolregistry-hub/issues/66))
+    - Execute shell commands via `subprocess.run` with configurable timeout and working directory
+    - Built-in deny list blocks dangerous patterns (rm -rf, sudo, fork bombs, pipe-to-shell, git force push, etc.)
+    - Deny list based on security survey of 6 AI coding CLI tools
+    - Lazy upstream `ToolMetadata` integration for future permission system support
+    - stdout/stderr truncation at 64KB to prevent memory exhaustion
+
+- **FileReader: Multi-format file reading** ([#75](https://github.com/Oaklight/toolregistry-hub/pull/75), [#65](https://github.com/Oaklight/toolregistry-hub/issues/65))
+    - `read()` — text files with line numbers and pagination (10MB cap, 2000 lines default)
+    - `read_notebook()` — Jupyter notebooks with cell types and outputs (stdlib only)
+    - `read_pdf()` — PDF text extraction via pypdf or pdfplumber (optional dependency)
+
+- **FileSearch: File discovery tools** ([#72](https://github.com/Oaklight/toolregistry-hub/pull/72))
+    - `glob()` — find files by pattern, sorted by modification time (1000 results cap)
+    - `grep()` — regex content search with file filtering (200 results cap)
+    - `tree()` — directory tree display with depth control (2000 entries cap)
+
+- **PathInfo: Unified metadata query** ([#71](https://github.com/Oaklight/toolregistry-hub/pull/71))
+    - Single `info()` call returns existence, type, size, modification time, and permissions
+    - Replaces five separate `FileSystem` methods
+    - Recursive size calculation for directories
+
+### Deprecations
+
+- **FileSystem class deprecated** ([#76](https://github.com/Oaklight/toolregistry-hub/pull/76))
+    - Replaced by PathInfo (metadata), FileSearch (discovery), and FileReader (reading)
+    - All methods emit `DeprecationWarning` with migration guidance
+    - Will be removed in a future major release
+
+- **FileOps legacy methods deprecated** ([#76](https://github.com/Oaklight/toolregistry-hub/pull/76))
+    - `read_file()` → use `FileReader.read()`
+    - `write_file()` → use `FileOps.edit()` for modifications
+
+### Fixes
+
+- **ty type-check error in tool_config.py** ([5890365](https://github.com/Oaklight/toolregistry-hub/commit/5890365))
+    - Fixed dict type narrowing issue between ty 0.0.23 and 0.0.27
+
+### Build
+
+- Bump `toolregistry-server` minimum to `>=0.1.2` for MCP parameter validation fix
+
+### CI
+
+- Enhanced upstream compatibility tests to cover `toolregistry-server`
+
 ## [0.7.0] - 2026-03-18
 
 ### Breaking Changes

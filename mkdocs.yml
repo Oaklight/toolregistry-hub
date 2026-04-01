@@ -104,7 +104,10 @@ nav:
           - Date Time Tools: tools/datetime.md
       - File Management:
           - File Operations: tools/file_ops.md
-          - File System: tools/filesystem.md
+          - File Reader: tools/file_reader.md
+          - File Search: tools/file_search.md
+          - Path Info: tools/path_info.md
+          - File System (Deprecated): tools/filesystem.md
       - Web Tools:
           - Web Fetch Tool: tools/websearch/web_fetch_tool.md
           - Web Search Tools:

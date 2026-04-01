@@ -8,6 +8,15 @@ author: Oaklight
 
 # File System Tools
 
+!!! warning "Deprecated since v0.7.1"
+    The `FileSystem` class is deprecated. Its functionality has been split into purpose-built tools:
+
+    - **[PathInfo](path_info.md)** — file/directory metadata query (`exists`, `is_file`, `is_dir`, `get_size`, `get_last_modified_time`)
+    - **[FileSearch](file_search.md)** — file discovery (`glob`, `grep`, `tree`)
+    - **[FileReader](file_reader.md)** — file reading with line numbers, notebook/PDF support
+
+    `FileSystem` will continue to work but will emit deprecation warnings. It will be removed in a future major release.
+
 The FileSystem tools provide comprehensive file system operations for creating, managing, and manipulating directories and files. These tools are designed for robust file system interactions with advanced features like hidden file detection and recursive operations.
 
 ## 🎯 Overview

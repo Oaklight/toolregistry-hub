@@ -9,10 +9,17 @@
 
 - **[Date Time Tools](datetime.md)** - Date, time, and timezone handling utilities
 
+## Shell
+
+- **[Bash Tool](bash_tool.md)** - Shell command execution with built-in safety validation
+
 ## File Management
 
-- **[File Operations](file_ops.md)** - File content manipulation and processing
-- **[File System](filesystem.md)** - File system operations and management
+- **[File Operations](file_ops.md)** - File content manipulation (exact string replacement)
+- **[File Reader](file_reader.md)** - Multi-format file reading (text, notebook, PDF)
+- **[File Search](file_search.md)** - File discovery (glob, grep, tree)
+- **[Path Info](path_info.md)** - Unified file/directory metadata query
+- **[File System](filesystem.md)** - *(Deprecated)* File system operations — use PathInfo, FileSearch, FileReader instead
 
 ## Web Tools
 
