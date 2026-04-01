@@ -13,6 +13,7 @@ import difflib
 import fnmatch
 import os
 import re
+import warnings
 
 
 class FileOps:
@@ -147,7 +148,11 @@ class FileOps:
             )
 
         # Generate diff for display (on normalized content)
-        diff_output = FileOps.make_diff(content, new_content)
+        diff_output = "\n".join(
+            difflib.unified_diff(
+                content.splitlines(), new_content.splitlines(), lineterm=""
+            )
+        )
 
         # Restore line endings
         if line_ending == "\r\n":
@@ -168,6 +173,8 @@ class FileOps:
     def search_files(path: str, regex: str, file_pattern: str = "*") -> list[dict]:
         """Perform regex search across files in a directory, returning matches with context.
 
+        .. deprecated:: Use ``FileSearch.grep()`` instead.
+
         Args:
             path: The directory path to search recursively.
             regex: The regex pattern to search for.
@@ -180,6 +187,11 @@ class FileOps:
                 - line: matched line content
                 - context: list of context lines (tuples of line_num, line content)
         """
+        warnings.warn(
+            "FileOps.search_files() is deprecated. Use FileSearch.grep() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         pattern = re.compile(regex)
         results = []
@@ -223,6 +235,9 @@ class FileOps:
     def read_file(path: str) -> str:
         """Read text file content.
 
+        .. deprecated:: Use ``FileReader.read()`` instead (includes line numbers
+            and pagination).
+
         Args:
             path: File path to read
 
@@ -233,6 +248,11 @@ class FileOps:
             FileNotFoundError: If path doesn't exist
             UnicodeError: On encoding failures
         """
+        warnings.warn(
+            "FileOps.read_file() is deprecated. Use FileReader.read() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         with open(path, encoding="utf-8", errors="replace") as f:
             return f.read()
 
@@ -269,17 +289,20 @@ class FileOps:
     def make_diff(ours: str, theirs: str) -> str:
         """Generate unified diff text between two strings.
 
+        .. deprecated:: This utility method will be removed in a future release.
+
         Args:
             ours: The 'ours' version string.
             theirs: The 'theirs' version string.
 
-        Note:
-            Intended for comparison/visualization, not direct modification.
-            not for direct text modification tasks.
-
         Returns:
             Unified diff text
         """
+        warnings.warn(
+            "FileOps.make_diff() is deprecated and will be removed.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return "\n".join(
             difflib.unified_diff(ours.splitlines(), theirs.splitlines(), lineterm="")
         )
@@ -288,26 +311,27 @@ class FileOps:
     def make_git_conflict(ours: str, theirs: str) -> str:
         """Generate git merge conflict marker text between two strings.
 
+        .. deprecated:: This utility method will be removed in a future release.
+
         Args:
             ours: The 'ours' version string.
             theirs: The 'theirs' version string.
 
-        Note:
-            Intended for comparison/visualization, not direct modification.
-            not for direct text modification tasks.
-
         Returns:
             Text with conflict markers
         """
+        warnings.warn(
+            "FileOps.make_git_conflict() is deprecated and will be removed.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return f"<<<<<<< HEAD\n{ours}\n=======\n{theirs}\n>>>>>>> incoming\n"
-
-    # ======================
-    #  Safety Utilities
-    # ======================
 
     @staticmethod
     def validate_path(path: str) -> dict[str, bool | str]:
         """Validate file path safety (checks for empty paths, dangerous characters).
+
+        .. deprecated:: This utility method will be removed in a future release.
 
         Args:
             path: The path string to validate.
@@ -317,6 +341,11 @@ class FileOps:
             - valid (bool): Path safety status
             - message (str): Description if invalid
         """
+        warnings.warn(
+            "FileOps.validate_path() is deprecated and will be removed.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not path:
             return {"valid": False, "message": "Empty path"}
         if "~" in path:
