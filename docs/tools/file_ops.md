@@ -42,9 +42,8 @@ for result in results:
 
 #### Methods
 
-- `replace_by_diff(path: str, diff: str) -> None`: Replace file content using diff string
+- `edit(file_path: str, old_string: str, new_string: str, replace_all: bool = False, start_line: int | None = None) -> str`: Replace exact string in file. Returns unified diff of changes. Supports `replace_all` for bulk replacement and `start_line` for disambiguation when multiple matches exist.
 - `search_files(path: str, regex: str, file_pattern: str = "*") -> List[dict]`: Search for content matching regex in files, returns list of dicts with file, line_num, line, context keys
-- `replace_by_git(path: str, diff: str) -> None`: Replace file content using Git-style diff
 - `read_file(path: str) -> str`: Read file content
 - `write_file(path: str, content: str) -> None`: Write content to file
 - `append_file(path: str, content: str) -> None`: Append content to file
@@ -111,26 +110,21 @@ for result in results:
     print("-" * 50)
 ```
 
-### Using Diff to Replace File Content
+### Editing Files
 
 ```python
 from toolregistry_hub import FileOps
 
-# Read original file
-original_content = FileOps.read_file("example.py")
-print(f"Original content:\n{original_content}")
+# Simple single-match replacement
+diff = FileOps.edit("example.py", "def hello():", "def hello_world():")
+print(diff)  # Shows unified diff of what changed
 
-# Create diff
-modified_content = original_content.replace("def hello():", "def hello_world():")
-diff = FileOps.make_diff(original_content, modified_content)
-print(f"Diff:\n{diff}")
+# Replace all occurrences
+FileOps.edit("example.py", "TODO", "DONE", replace_all=True)
 
-# Apply diff
-FileOps.replace_by_diff("example.py", diff)
-
-# View updated file
-updated_content = FileOps.read_file("example.py")
-print(f"Updated content:\n{updated_content}")
+# Disambiguate with start_line when multiple matches exist
+# Selects the match closest to line 42
+FileOps.edit("example.py", "return result", "return modified", start_line=42)
 ```
 
 ### Validating Paths

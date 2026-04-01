@@ -135,12 +135,11 @@ In OpenAPI mode, all tools are provided as REST API endpoints. After starting th
 
 #### File Operations Tools
 
+- `POST /tools/file_ops/edit` - Replace exact string in file (returns unified diff)
 - `POST /tools/file_ops/read_file` - Read file content
 - `POST /tools/file_ops/write_file` - Write content to a file
 - `POST /tools/file_ops/append_file` - Append content to a file
 - `POST /tools/file_ops/search_files` - Search for files matching a pattern
-- `POST /tools/file_ops/replace_by_diff` - Replace content using diff
-- `POST /tools/file_ops/replace_by_git` - Replace content using git conflict markers
 - `POST /tools/file_ops/make_diff` - Generate a diff between contents
 - `POST /tools/file_ops/make_git_conflict` - Generate git conflict markers
 - `POST /tools/file_ops/validate_path` - Validate a file path
