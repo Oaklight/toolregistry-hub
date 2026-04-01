@@ -1,6 +1,5 @@
 """Unit tests for BashTool module."""
 
-import os
 import tempfile
 
 import pytest
