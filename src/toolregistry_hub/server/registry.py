@@ -21,6 +21,7 @@ from ..utils.configurable import Configurable
 from ..utils.fn_namespace import _is_all_static_methods
 
 _DEFAULT_TOOLS: list[dict[str, str]] = [
+    {"class": "toolregistry_hub.bash_tool.BashTool", "namespace": "bash"},
     {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
     {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"},
     {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web/fetch"},

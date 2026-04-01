@@ -20,6 +20,7 @@ Example:
     ```
 """
 
+from .bash_tool import BashTool
 from .calculator import BaseCalculator, Calculator
 from .datetime_utils import DateTime
 from .fetch import Fetch
@@ -46,6 +47,7 @@ from .websearch_legacy import (
 )
 
 __all__ = [
+    "BashTool",
     "BaseCalculator",
     "Calculator",
     "DateTime",
