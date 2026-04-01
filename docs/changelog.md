@@ -30,10 +30,14 @@ author: Oaklight
     - 上游 `ToolMetadata` 懒加载集成，为未来权限系统做准备
     - stdout/stderr 截断上限 64KB，防止内存溢出
 
-- **FileReader：多格式文件读取** ([#75](https://github.com/Oaklight/toolregistry-hub/pull/75), [#65](https://github.com/Oaklight/toolregistry-hub/issues/65))
+- **FileReader：多格式文件读取** ([#75](https://github.com/Oaklight/toolregistry-hub/pull/75), [#65](https://github.com/Oaklight/toolregistry-hub/issues/65), [#79](https://github.com/Oaklight/toolregistry-hub/pull/79))
     - `read()` — 文本文件，带行号和分页（10MB 上限，默认 2000 行）
     - `read_notebook()` — Jupyter Notebook，显示单元格类型和输出（仅需标准库）
     - `read_pdf()` — PDF 文本提取，通过 pypdf 或 pdfplumber（可选依赖）
+    - `read_image()` — 图片文件，返回多模态内容块（`[TextBlock, ImageBlock]`），通过 Pillow 自适应压缩（[#79](https://github.com/Oaklight/toolregistry-hub/pull/79), [#74](https://github.com/Oaklight/toolregistry-hub/issues/74)）
+    - 支持 `.png`、`.jpg`、`.jpeg`、`.gif`、`.webp` 格式
+    - 超出 base64 大小限制（默认 5 MB）时自动压缩，支持格式特定的质量下限
+    - 新增 `reader_image = ["Pillow>=10.0.0"]` 可选依赖组
 
 - **FileSearch：文件发现工具** ([#72](https://github.com/Oaklight/toolregistry-hub/pull/72))
     - `glob()` — 按模式查找文件，按修改时间排序（上限 1000 条）

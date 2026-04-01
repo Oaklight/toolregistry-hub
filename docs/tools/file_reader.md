@@ -4,10 +4,11 @@ FileReader 工具提供多格式文件读取功能，支持行号显示、分页
 
 ## 类概述
 
-- `FileReader` - 三种读取方法，对应不同文件格式：
+- `FileReader` - 四种读取方法，对应不同文件格式：
     - `read()` - 文本文件，带行号和分页
     - `read_notebook()` - Jupyter Notebook（`.ipynb`）
     - `read_pdf()` - PDF 文件（需要可选依赖）
+    - `read_image()` - 图片文件，返回多模态内容块（需要可选依赖）
 
 ## 使用方法
 
@@ -72,6 +73,30 @@ pip install toolregistry-hub[reader]
 
 如果两者都已安装，优先使用 `pdfplumber` 以获得更好的文本质量。
 
+### 读取图片
+
+```python
+# 读取图片 — 返回多模态内容块
+blocks = FileReader.read_image("screenshot.png")
+# [
+#   {"type": "text", "text": "[Image: screenshot.png (image/png, 45321 bytes)]"},
+#   {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "iVBOR..."}}
+# ]
+
+# 自定义最大尺寸（默认 5 MB base64）
+blocks = FileReader.read_image("large_photo.jpg", max_size=1_000_000)
+```
+
+支持格式：`.png`、`.jpg`、`.jpeg`、`.gif`、`.webp`。
+
+如果 base64 编码后的图片超过 `max_size`，将使用 Pillow 进行自适应质量压缩。需要安装 `Pillow`：
+
+```bash
+pip install toolregistry-hub[reader_image]
+```
+
+如果未安装 Pillow，将返回原始图片并记录警告日志。
+
 ### 参数
 
 #### `read()`
@@ -95,12 +120,20 @@ pip install toolregistry-hub[reader]
 | `path` | `str` | 必填 | PDF 文件路径 |
 | `pages` | `str \| None` | `None` | 页面范围（如 `"1-5"`、`"3"`） |
 
+#### `read_image()`
+
+| 参数 | 类型 | 默认值 | 描述 |
+|-----------|------|---------|-------------|
+| `path` | `str` | 必填 | 图片文件路径 |
+| `max_size` | `int` | `5242880` | base64 编码最大字节数（5 MB） |
+
 ### 安全上限
 
 - 文本文件：最大 10 MB
 - 文本行数：每次读取默认 2000 行
 - PDF 页数：每次调用最多 20 页
 - Notebook 输出：每个单元格输出最大 10 KB
+- 图片：base64 编码最大 5 MB（超出时自动压缩）
 
 ## MCP 服务端点
 
@@ -108,6 +141,7 @@ pip install toolregistry-hub[reader]
 POST /tools/reader/read
 POST /tools/reader/read_pdf
 POST /tools/reader/read_notebook
+POST /tools/reader/read_image
 ```
 
 ## API 参考
