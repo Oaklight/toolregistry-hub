@@ -13,62 +13,61 @@ hide:
 [![PyPI version](https://img.shields.io/pypi/v/toolregistry-hub?color=green)](https://pypi.org/project/toolregistry-hub/)
 [![Docker Image](https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=docker&color=green)](https://hub.docker.com/r/oaklight/toolregistry-hub-server)
 
-**从 [ToolRegistry](https://toolregistry.readthedocs.io/) 中提取的精选实用工具集合** - 专为效率、可靠性和易用性而设计。
+**精选的 AI Agent 就绪工具集合** — 可作为 Python 库直接使用，也可部署为服务器。[ToolRegistry](https://toolregistry.readthedocs.io/) 生态系统的一部分。
 
-## 🚀 快速开始
+## 两种使用方式
 
-```bash
-pip install toolregistry-hub
-```
+=== "作为 Python 库"
 
-```python
-from toolregistry_hub import Calculator, DateTime, FileOps
+    ```bash
+    pip install toolregistry-hub
+    ```
 
-# 数学计算
-result = Calculator.evaluate("2 + 3 * 4")
-print(result)  # 输出: 14
+    ```python
+    from toolregistry_hub import Calculator, DateTime, BashTool, FileSearch
 
-# 获取当前时间
-current_time = DateTime.now()
-print(current_time)
+    Calculator.evaluate("sqrt(144) + 2**3")   # 20.0
+    DateTime.now("Asia/Shanghai")              # 上海当前时间
+    BashTool.execute("git status")             # 安全的 Shell 执行
+    FileSearch.grep(r"TODO", path="src/")      # 搜索代码
+    ```
 
-# 文件操作
-content = FileOps.read_file("example.txt")
-```
+    每个工具都是带静态方法的普通 Python 类 — 无需实例化、无需管理状态、无需启动服务器。**[了解更多 →](library.md)**
 
-## 🛠️ 可用工具
+=== "作为服务器"
 
-ToolRegistry Hub 提供核心实用工具。**探索 [工具](tools/) 部分以获取每个工具的详细文档。**
+    ```bash
+    pip install toolregistry-hub[server]
 
-- **计算器工具** - 数学计算和表达式求值
-- **日期时间工具** - 日期、时间和时区处理
-- **文件操作** - 文件内容操作
-- **文件系统** - 文件系统操作
-- **网络搜索工具** - 多引擎网络搜索功能
-- **单位转换** - 在各种单位之间转换
-- **思考工具** - 简单推理和头脑风暴
-- **网页获取工具** - 从网页提取内容
+    # REST API 服务器
+    toolregistry-server --mode openapi --port 8000
 
-## 🚀 服务器模式
+    # MCP 服务器（用于 AI Agent）
+    toolregistry-server --mode mcp --port 8000
+    ```
 
-使用 REST API 或 MCP（模型上下文协议）支持运行独立服务器：
+    所有工具自动暴露为 API 端点。**[了解更多 →](server.md)**
 
-```bash
-# 启动 REST API 服务器
-toolregistry-server --mode openapi --port 8000
+## 可用工具
 
-# 启动 MCP 服务器
-toolregistry-server --mode mcp --port 8000
-```
+| 类别 | 工具 | 亮点 |
+|------|------|------|
+| **计算** | [Calculator](tools/calculator.md)、[UnitConverter](tools/unit_converter.md) | 表达式求值、100+ 种单位转换 |
+| **日期时间** | [DateTime](tools/datetime.md) | 时区感知、跨时区转换 |
+| **文件管理** | [FileOps](tools/file_ops.md)、[FileReader](tools/file_reader.md)、[FileSearch](tools/file_search.md)、[PathInfo](tools/path_info.md) | 精确字符串替换、glob/grep/tree、PDF 和 Notebook 读取 |
+| **Shell** | [BashTool](tools/bash_tool.md) | 内置拒绝列表的安全 Shell 执行 |
+| **网络** | [Fetch](tools/websearch/web_fetch_tool.md)、[BraveSearch](tools/websearch/brave.md)、[TavilySearch](tools/websearch/tavily.md)… | 内容提取、多引擎搜索 |
+| **认知** | [ThinkTool](tools/think_tool.md)、[TodoList](tools/todo_list.md) | 结构化推理、任务管理 |
 
-## 🌟 为什么选择 ToolRegistry Hub？
+**探索 [工具](tools/) 部分获取详细文档。**
 
-- **🔧 专注**: 精选的核心实用工具集合
-- **⚡ 高效**: 为性能和可靠性优化
-- **🔌 可集成**: 可独立使用或作为 [ToolRegistry](https://toolregistry.readthedocs.io/) 生态系统的一部分
-- **🌐 易访问**: REST API、MCP 服务器和直接 Python 使用
-- **📚 文档完善**: 多语言的全面文档
-- **🎯 生产就绪**: 在实际应用中经过实战测试
+## 为什么选择 ToolRegistry Hub？
+
+- **双模式** — 同一套工具既能 import 使用，又能部署为服务端点
+- **Agent 就绪** — 为 LLM function calling 设计，附带规范的工具 schema
+- **安全** — BashTool 拒绝列表、FileOps 安全上限、无任意代码执行
+- **极少依赖** — 大部分工具仅使用 Python 标准库
+- **开箱即用** — 15+ 工具覆盖文件、搜索、计算等场景
 
 ## 生态系统
 

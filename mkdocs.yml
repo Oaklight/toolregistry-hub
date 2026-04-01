@@ -124,6 +124,7 @@ nav:
           - 思考工具: tools/think_tool.md
           - 待办事项工具: tools/todo_list.md
   - 部署:
+      - 库使用方式: library.md
       - 服务器模式: server.md
       - Docker 部署: docker.md
   - 开发:
