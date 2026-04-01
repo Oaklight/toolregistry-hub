@@ -106,3 +106,7 @@ POST /tools/fs/file_search/glob
 POST /tools/fs/file_search/grep
 POST /tools/fs/file_search/tree
 ```
+
+## API Reference
+
+::: toolregistry_hub.file_search.FileSearch

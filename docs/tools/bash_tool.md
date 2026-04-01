@@ -98,3 +98,7 @@ POST /tools/bash/execute
 | `command` | `string` | Yes | - | Shell command to execute |
 | `timeout` | `integer` | No | `120` | Max seconds before kill |
 | `cwd` | `string` | No | `null` | Working directory |
+
+## API Reference
+
+::: toolregistry_hub.bash_tool.BashTool
