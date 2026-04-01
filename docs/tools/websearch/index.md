@@ -11,12 +11,12 @@
 
 | 提供商 | 免费额度 | 月度限制 | 备注 |
 |----------|-----------|---------------|-------|
-| **Brave Search** | ⚠️ 已变更 | 约 1,000 次查询 | 每月赠送 $5 积分（2026年2月起），需要信用卡 |
-| **Serper** | ✅ 有 | 2,500 次查询 | Google 搜索结果 |
-| **Bright Data** | ✅ 有 | 5,000 次查询 | 无需验证 |
-| **Tavily** | ✅ 有 | 1,000 次查询 | AI 优化搜索 |
-| **Scrapeless** | ❌ 无 | - | 仅付费计划 |
-| **SearXNG** | ✅ 免费 | 无限制 | 自托管，开源 |
+| **Brave Search** | 已变更 | 约 1,000 次查询 | 每月赠送 $5 积分（2026年2月起），需要信用卡 |
+| **Serper** | 有 | 2,500 次查询 | Google 搜索结果 |
+| **Bright Data** | 有 | 5,000 次查询 | 无需验证 |
+| **Tavily** | 有 | 1,000 次查询 | AI 优化搜索 |
+| **Scrapeless** | 无 | - | 仅付费计划 |
+| **SearXNG** | 免费 | 无限制 | 自托管，开源 |
 
 !!! tip "最大化免费使用"
     - **多 API 密钥轮转**：所有提供商都支持多个 API 密钥进行负载均衡
@@ -42,7 +42,7 @@
 - [SearXNG 搜索](searxng.md) - 使用 SearXNG 元搜索引擎（注重隐私）
 - [BrightData 搜索](brightdata.md) - 使用 BrightData 获取 Google 搜索结果
 - [Scrapeless 搜索](scrapeless.md) - 使用 Scrapeless Universal API，支持多个搜索引擎
-- [Bing 搜索](bing.md) - ❌ **已移除** - 曾使用 Bing 搜索引擎（v0.6.0 中移除）
+- [Bing 搜索](bing.md) - **已移除** - 曾使用 Bing 搜索引擎（v0.6.0 中移除）
 
 ## 基本使用
 
@@ -119,5 +119,5 @@ for result in results:
 - [SearXNG 搜索](searxng.md) - SearXNG 搜索引擎的实现
 - [BrightData 搜索](brightdata.md) - BrightData 获取 Google 搜索结果的实现
 - [Scrapeless 搜索](scrapeless.md) - Scrapeless DeepSERP API 的实现
-- [Bing 搜索](bing.md) - ❌ **已移除** Bing 搜索引擎的实现（v0.6.0 中移除）
+- [Bing 搜索](bing.md) - **已移除** Bing 搜索引擎的实现（v0.6.0 中移除）
 - [旧版网络搜索](legacy.md) - 旧版网络搜索模块的文档

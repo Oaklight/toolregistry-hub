@@ -153,10 +153,10 @@ curl -X POST "http://localhost:8000/tools/web/brightdata_search/search" \
 
 | 参数          | 类型    | 必需 | 默认值 | 说明                      |
 | ------------- | ------- | ---- | ------ | ------------------------- |
-| `query`       | string  | ✅   | -      | 搜索查询字符串            |
-| `max_results` | integer | ❌   | 5      | 返回结果数量(1-20)        |
-| `timeout`     | float   | ❌   | 10.0   | 请求超时时间(秒)          |
-| `cursor`      | string  | ❌   | "0"    | 分页游标(页码，从 0 开始) |
+| `query`       | string  | 是   | -      | 搜索查询字符串            |
+| `max_results` | integer | 否   | 5      | 返回结果数量(1-20)        |
+| `timeout`     | float   | 否   | 10.0   | 请求超时时间(秒)          |
+| `cursor`      | string  | 否   | "0"    | 分页游标(页码，从 0 开始) |
 
 #### 响应示例
 

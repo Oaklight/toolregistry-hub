@@ -363,14 +363,14 @@ print(f"已完成: {progress['completed']}/{progress['total']}")
 任务条目必须遵循确切的格式：`[id] description (status)`
 
 ```python
-# ✅ 正确的格式
+# 正确的格式
 correct_tasks = [
     "[analyze-data] 分析输入数据集 (pending)",
     "[train-model] 训练机器学习模型 (planned)",
     "[evaluate] 评估模型性能 (planned)"
 ]
 
-# ❌ 错误的格式（会抛出错误）
+# 错误的格式（会抛出错误）
 incorrect_tasks = [
     "analyze-data Analyze input dataset pending",  # 缺少括号和括号
     "[analyze-data] Analyze input dataset",        # 缺少状态
