@@ -20,6 +20,7 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
+from typing import Any
 from pathlib import Path
 
 from loguru import logger
@@ -172,8 +173,9 @@ def load_tool_config(config_path: str | None = None) -> ToolConfig | None:
                         f"Invalid tool entry at index {i} in {path}: expected dict"
                     )
                     continue
-                class_path = entry.get("class")  # type: ignore[arg-type]
-                namespace = entry.get("namespace")  # type: ignore[arg-type]
+                entry_dict: dict[str, Any] = entry
+                class_path = entry_dict.get("class")
+                namespace = entry_dict.get("namespace")
                 if not class_path or not namespace:
                     logger.warning(
                         f"Tool entry at index {i} missing 'class' or "
