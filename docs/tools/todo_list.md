@@ -13,7 +13,7 @@ author: Oaklight
 ???+ note "更新日志"
     0.5.1 初始版本，支持 planned、pending、done 和 cancelled 状态
 
-## 🎯 概述
+## 概述
 
 TodoList 类提供了以下功能：
 
@@ -24,7 +24,7 @@ TodoList 类提供了以下功能：
 - **执行规划**: 规划和记录 AI 任务执行序列
 - **输出格式化**: 为不同上下文生成格式化报告
 
-## 🚀 快速开始
+## 快速开始
 
 ```python
 from toolregistry_hub.todo_list import TodoList
@@ -47,7 +47,7 @@ progress_report = TodoList.update(workflow_tasks, format="markdown")
 print(progress_report)
 ```
 
-## 🔧 API 参考
+## API 参考
 
 ### `TodoList.update(todos, format="simple")`
 
@@ -69,7 +69,7 @@ print(progress_report)
 - `done` - 任务已成功完成
 - `cancelled` - 任务已取消或放弃
 
-## 🛠️ AI 工作流用例
+## AI 工作流用例
 
 ### 多步骤任务执行
 
@@ -196,7 +196,7 @@ print("决策分析报告:")
 print(report)
 ```
 
-## 📊 输出格式
+## 输出格式
 
 ### 简单格式（默认）
 
@@ -249,7 +249,7 @@ print(report)
 +--------+---------------------------+---------+
 ```
 
-## 🎯 AI 工作流最佳实践
+## AI 工作流最佳实践
 
 ### 结构化任务分解
 
@@ -356,7 +356,7 @@ print(f"工作流进度: {progress['progress_percentage']:.1f}%")
 print(f"已完成: {progress['completed']}/{progress['total']}")
 ```
 
-## 🚨 重要说明
+## 重要说明
 
 ### 格式要求
 
@@ -407,7 +407,7 @@ except ValueError as e:
     print(f"格式验证错误: {e}")
 ```
 
-## 🔗 与 AI 工作流集成
+## 与 AI 工作流集成
 
 ### 工作流编排
 

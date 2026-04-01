@@ -79,7 +79,7 @@ ToolRegistry Hub 是三包生态系统的一部分。详情请参阅[生态系�
 | [toolregistry-server](https://toolregistry-server.readthedocs.io/zh/) | OpenAPI 和 MCP 服务器适配器 |
 | **toolregistry-hub** | 即用型实用工具 |
 
-## 🤝 参与进来
+## 参与进来
 
 - **[GitHub 仓库](https://github.com/Oaklight/toolregistry-hub)** - 源代码和问题
 - **[English Documentation](../en/)** - 英文文档

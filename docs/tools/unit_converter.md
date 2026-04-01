@@ -25,7 +25,7 @@ author: Oaklight
     
     所有转换功能保持不变，只是调用方式有所改变。
 
-## 🎯 概述
+## 概述
 
 UnitConverter 类提供不同测量单位之间的精确转换：
 
@@ -47,7 +47,7 @@ UnitConverter 类提供不同测量单位之间的精确转换：
 - **辐射**：戈瑞、希沃特
 - **光强度**：勒克斯、流明
 
-## 🚀 快速开始
+## 快速开始
 
 ```python
 from toolregistry_hub import UnitConverter
@@ -78,7 +78,7 @@ help_text = UnitConverter.help("celsius_to_fahrenheit")
 print(help_text)
 ```
 
-## 📋 转换类别
+## 转换类别
 
 ### 温度转换
 
@@ -206,7 +206,7 @@ print(help_text)
 | 勒克斯 → 流明 | `lux_to_lumen()` | 流明 = 勒克斯 × 面积(平方米) | `UnitConverter.lux_to_lumen(100, 2) = 200.0` |
 | 流明 → 勒克斯 | `lumen_to_lux()` | 勒克斯 = 流明 / 面积(平方米) | `UnitConverter.lumen_to_lux(200, 2) = 100.0` |
 
-## 🛠️ 实际示例
+## 实际示例
 
 ### 烹饪转换
 
@@ -313,7 +313,7 @@ print(f"光通量：{lux_value} lux × {area} m² = {lumens} lumens")
 # 输出: 光通量：100 lux × 2 m² = 200.0 lumens
 ```
 
-## 🚨 重要说明
+## 重要说明
 
 ### 精度和准确性
 
@@ -336,7 +336,7 @@ print(f"光通量：{lux_value} lux × {area} m² = {lumens} lumens")
 - **二进制系统**：使用 1024 为基础的转换（KiB、MiB、GiB）
 - **非十进制**：与 SI 前缀不同（KB、MB、GB）
 
-## 🔍 转换表
+## 转换表
 
 ### 快速参考
 

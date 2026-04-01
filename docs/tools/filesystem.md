@@ -19,7 +19,7 @@ author: Oaklight
 
 文件系统工具提供全面的文件系统操作，用于创建、管理和操作目录与文件，具备高级功能如隐藏文件检测和递归操作。
 
-## 🎯 概述
+## 概述
 
 FileSystem 类提供与文件系统结构、状态和元数据相关的操作：
 
@@ -30,7 +30,7 @@ FileSystem 类提供与文件系统结构、状态和元数据相关的操作：
 - **元数据访问**：获取文件大小和修改时间
 - **隐藏文件支持**：跨平台自动检测隐藏文件
 
-## 🚀 快速开始
+## 快速开始
 
 ```python
 from toolregistry_hub import FileSystem
@@ -53,7 +53,7 @@ print(f"文件大小: {size} 字节")
 # 输出: 文件大小: 0 字节
 ```
 
-## 📋 API 参考
+## API 参考
 
 ### 核心方法
 
@@ -204,7 +204,7 @@ print(f"文件大小: {size} 字节")
 
 - `str`: 绝对路径
 
-## 🔧 高级操作
+## 高级操作
 
 ### 目录管理
 
@@ -319,7 +319,7 @@ else:
 # 输出: config.json 是文件，大小: 16 字节
 ```
 
-## 🛠️ 最佳实践
+## 最佳实践
 
 ### 错误处理
 
@@ -390,7 +390,7 @@ def create_project_structure(base_path):
 create_project_structure("my_project")
 ```
 
-## 🚨 重要注意事项
+## 重要注意事项
 
 ### 隐藏文件处理
 
@@ -411,7 +411,7 @@ create_project_structure("my_project")
 - **大目录**：考虑过滤结果以提高性能
 - **隐藏文件**：启用 `show_hidden=True` 可能影响大目录的性能
 
-## 🔄 与 FileOps 的对比
+## 与 FileOps 的对比
 
 **FileSystem 与 FileOps 对比：**
 

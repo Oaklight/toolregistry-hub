@@ -10,7 +10,7 @@ author: Oaklight
 
 用于结构化推理的统一认知工具，将**知识回忆**、**逻辑推理**和**创造性探索**整合到单一灵活的接口中。设计灵感来自 [Anthropic 的 Claude Think Tool](https://www.anthropic.com/engineering/claude-think-tool) 和认知心理学论文 ["Eliciting Reasoning in Language Models with Cognitive Tools"](https://arxiv.org/html/2506.12115)。
 
-## 🎯 设计理念
+## 设计理念
 
 ### 为什么使用统一工具？
 
@@ -40,7 +40,7 @@ author: Oaklight
 - **参数顺序很重要**：引导模型先决定思考方式
 - **模式即指引**：预定义模式提供方向，但不限制创造性
 
-## 🚀 快速开始
+## 快速开始
 
 ```python
 from toolregistry_hub import ThinkTool
@@ -71,7 +71,7 @@ ThinkTool.think(
 )
 ```
 
-## 🔧 API 参考
+## API 参考
 
 ### `think(thinking_mode, focus_area, thought_process)`
 
@@ -100,7 +100,7 @@ ThinkTool.think(
 | `brainstorming` | 自由生成想法 | 不加评判地探索可能性 |
 | `exploring` | 心理模拟、假设场景 | 想象事情如何发展、考虑假设情况 |
 
-## 🎯 使用指南
+## 使用指南
 
 ### 参数顺序很重要
 
@@ -212,7 +212,7 @@ ThinkTool.think(
 
 选择最能描述你当前思考类型的模式，但不必过度纠结 - 模式是指引而非限制。
 
-## 🚨 重要说明
+## 重要说明
 
 ### 这个工具的功能
 
@@ -229,13 +229,13 @@ ThinkTool.think(
 
 这个工具是**思考过程的记录器**，不是执行器。它的价值在于让思考过程可见、可追踪、可改进。
 
-## 📚 参考文献
+## 参考文献
 
 - Anthropic, ["Claude Think Tool"](https://www.anthropic.com/engineering/claude-think-tool) - 最初的灵感来源
 - Brown et al., ["Eliciting Reasoning in Language Models with Cognitive Tools"](https://arxiv.org/html/2506.12115) - 理论基础
 - 关于知识与推理分离的认知心理学研究
 
-## 🔗 相关工具
+## 相关工具
 
 - [计算器](calculator.md) - 用于实际数学计算
 - [待办事项列表](todo_list.md) - 用于任务跟踪和规划
