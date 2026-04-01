@@ -411,7 +411,7 @@ if is_valid:
 
 ### What Gets Extracted
 
-**✅ Extracted Content:**
+**Extracted Content:**
 
 - Main article text
 - Blog post content
@@ -420,7 +420,7 @@ if is_valid:
 - News article body
 - Tutorial content
 
-**❌ Filtered Out:**
+**Filtered Out:**
 
 - Navigation menus
 - Footer copyright text

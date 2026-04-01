@@ -11,12 +11,12 @@ Here's a quick overview of free tier offerings for each search provider:
 
 | Provider | Free Tier | Monthly Limit | Notes |
 |----------|-----------|---------------|-------|
-| **Brave Search** | ⚠️ Changed | ~1,000 queries | $5 free credits/month (Feb 2026), credit card required |
-| **Serper** | ✅ Yes | 2,500 queries | Google search results |
-| **Bright Data** | ✅ Yes | 5,000 queries | No verification required |
-| **Tavily** | ✅ Yes | 1,000 queries | AI-optimized search |
-| **Scrapeless** | ❌ No | - | Paid plans only |
-| **SearXNG** | ✅ Free | Unlimited | Self-hosted, open source |
+| **Brave Search** | Changed | ~1,000 queries | $5 free credits/month (Feb 2026), credit card required |
+| **Serper** | Yes | 2,500 queries | Google search results |
+| **Bright Data** | Yes | 5,000 queries | No verification required |
+| **Tavily** | Yes | 1,000 queries | AI-optimized search |
+| **Scrapeless** | No | - | Paid plans only |
+| **SearXNG** | Free | Unlimited | Self-hosted, open source |
 
 ### tip "Maximizing Free Usage"
 
@@ -43,7 +43,7 @@ Currently supported search engines include:
 - [SearXNG Search](searxng.md) - Using SearXNG meta search engine (Privacy-focused)
 - [BrightData Search](brightdata.md) - Using BrightData for Google results
 - [Scrapeless Search](scrapeless.md) - Using Scrapeless Universal API with support for multiple search engines
-- [Bing Search](bing.md) - ❌ **REMOVED** - Previously used Bing search engine (removed in v0.6.0)
+- [Bing Search](bing.md) - **REMOVED** - Previously used Bing search engine (removed in v0.6.0)
 
 ## Basic Usage
 
@@ -120,5 +120,5 @@ for result in results:
 - [SearXNG Search](searxng.md) - Implementation of SearXNG search engine
 - [BrightData Search](brightdata.md) - Implementation of BrightData for Google results
 - [Scrapeless Search](scrapeless.md) - Implementation of Scrapeless Universal API
-- [Bing Search](bing.md) - ❌ **REMOVED** Implementation of Bing search engine (removed in v0.6.0)
+- [Bing Search](bing.md) - **REMOVED** Implementation of Bing search engine (removed in v0.6.0)
 - [Legacy Web Search](legacy.md) - Documentation of the legacy web search module

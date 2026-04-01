@@ -153,10 +153,10 @@ curl -X POST "http://localhost:8000/tools/web/brightdata_search/search" \
 
 | Parameter     | Type    | Required | Default | Description                                    |
 | ------------- | ------- | -------- | ------- | ---------------------------------------------- |
-| `query`       | string  | ✅       | -       | Search query string                            |
-| `max_results` | integer | ❌       | 5       | Number of results to return (1-20)             |
-| `timeout`     | float   | ❌       | 10.0    | Request timeout in seconds                     |
-| `cursor`      | string  | ❌       | "0"     | Pagination cursor (page number, starts from 0) |
+| `query`       | string  | Yes      | -       | Search query string                            |
+| `max_results` | integer | No       | 5       | Number of results to return (1-20)             |
+| `timeout`     | float   | No       | 10.0    | Request timeout in seconds                     |
+| `cursor`      | string  | No       | "0"     | Pagination cursor (page number, starts from 0) |
 
 #### Response Example
 

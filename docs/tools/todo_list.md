@@ -363,14 +363,14 @@ print(f"Completed: {progress['completed']}/{progress['total']}")
 Task entries must follow the exact format: `[id] description (status)`
 
 ```python
-# ✅ Correct format
+# Correct format
 correct_tasks = [
     "[analyze-data] Analyze input dataset (pending)",
     "[train-model] Train machine learning model (planned)",
     "[evaluate] Evaluate model performance (planned)"
 ]
 
-# ❌ Incorrect formats (will raise errors)
+# Incorrect formats (will raise errors)
 incorrect_tasks = [
     "analyze-data Analyze input dataset pending",  # Missing brackets and parentheses
     "[analyze-data] Analyze input dataset",        # Missing status
