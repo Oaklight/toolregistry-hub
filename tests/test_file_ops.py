@@ -164,75 +164,129 @@ class TestFileOps:
         assert len(results) == 1
         assert "script.py" in results[0]["file"]
 
-    def test_replace_by_git_simple(self):
-        """Test replacing content using git conflict style."""
-        original_content = "line1\nline2\nline3"
-        FileOps.write_file(self.test_file, original_content)
+    def test_edit_single_match(self):
+        """Test editing with a single match."""
+        content = "line1\nline2\nline3\n"
+        FileOps.write_file(self.test_file, content)
 
-        diff = """<<<<<<< SEARCH
-line2
-=======
-modified line2
->>>>>>> REPLACE"""
-
-        FileOps.replace_by_git(self.test_file, diff)
+        diff = FileOps.edit(self.test_file, "line2", "modified line2")
 
         result = FileOps.read_file(self.test_file)
-        # The implementation has a bug where it doesn't properly match and replace
-        # It adds the replacement but doesn't remove the original
-        expected = "modified line2\nline2\nline3"
-        assert result == expected
+        assert result == "line1\nmodified line2\nline3\n"
+        assert isinstance(diff, str)
+        assert len(diff) > 0
 
-    def test_replace_by_diff_simple(self):
-        """Test replacing content using unified diff."""
-        original_content = "line1\nline2\nline3\n"
-        FileOps.write_file(self.test_file, original_content)
+    def test_edit_no_match(self):
+        """Test editing with no match raises ValueError."""
+        with pytest.raises(ValueError, match="not found"):
+            FileOps.edit(self.test_file, "nonexistent", "replacement")
 
-        diff = """--- a/test.txt
-+++ b/test.txt
-@@ -1,3 +1,3 @@
- line1
--line2
-+modified line2
- line3"""
+    def test_edit_multiple_matches_replace_all(self):
+        """Test editing with replace_all=True replaces all occurrences."""
+        content = "TODO item1\nTODO item2\nTODO item3\n"
+        FileOps.write_file(self.test_file, content)
 
-        FileOps.replace_by_diff(self.test_file, diff)
+        FileOps.edit(self.test_file, "TODO", "DONE", replace_all=True)
 
         result = FileOps.read_file(self.test_file)
-        expected = "line1\nmodified line2\nline3\n"
-        assert result == expected
+        assert result == "DONE item1\nDONE item2\nDONE item3\n"
+        assert "TODO" not in result
 
-    def test_replace_by_diff_invalid_format(self):
-        """Test replacing content with invalid diff format."""
-        diff = "invalid diff format"
+    def test_edit_multiple_matches_start_line(self):
+        """Test editing with start_line disambiguation."""
+        lines = [
+            "line1\n",
+            "TODO first\n",
+            "line3\n",
+            "line4\n",
+            "TODO second\n",
+            "line6\n",
+        ]
+        content = "".join(lines)
+        FileOps.write_file(self.test_file, content)
 
-        # The implementation doesn't validate diff format strictly
-        # It just processes what it can, so no exception is raised
-        FileOps.replace_by_diff(self.test_file, diff)
-        # Should not raise an exception
-
-    def test_replace_by_git_multiple_blocks(self):
-        """Test replacing multiple blocks using git conflict style."""
-        original_content = "line1\nline2\nline3\nline4"
-        FileOps.write_file(self.test_file, original_content)
-
-        diff = """<<<<<<< SEARCH
-line2
-=======
-modified line2
->>>>>>> REPLACE
-<<<<<<< SEARCH
-line4
-=======
-modified line4
->>>>>>> REPLACE"""
-
-        FileOps.replace_by_git(self.test_file, diff)
+        FileOps.edit(self.test_file, "TODO", "DONE", start_line=5)
 
         result = FileOps.read_file(self.test_file)
-        # The implementation has issues with multiple blocks
-        expected = "modified line2\nmodified line4\nline3\nline4"
-        assert result == expected
+        assert "TODO first" in result
+        assert "DONE second" in result
+
+    def test_edit_multiple_matches_no_disambiguation(self):
+        """Test editing with multiple matches and no disambiguation raises ValueError."""
+        content = "dup\ndup\ndup\n"
+        FileOps.write_file(self.test_file, content)
+
+        with pytest.raises(ValueError, match="3 times"):
+            FileOps.edit(self.test_file, "dup", "unique")
+
+    def test_edit_identical_strings(self):
+        """Test editing with identical old and new strings raises ValueError."""
+        with pytest.raises(ValueError, match="identical"):
+            FileOps.edit(self.test_file, "same", "same")
+
+    def test_edit_empty_old_string(self):
+        """Test editing with empty old_string raises ValueError."""
+        with pytest.raises(ValueError, match="must not be empty"):
+            FileOps.edit(self.test_file, "", "something")
+
+    def test_edit_preserves_crlf(self):
+        """Test that edit preserves CRLF line endings."""
+        with open(self.test_file, "wb") as f:
+            f.write(b"line1\r\nline2\r\nline3\r\n")
+
+        FileOps.edit(self.test_file, "line2", "modified")
+
+        with open(self.test_file, "rb") as f:
+            raw = f.read()
+        assert raw == b"line1\r\nmodified\r\nline3\r\n"
+
+    def test_edit_preserves_lf(self):
+        """Test that edit preserves LF line endings."""
+        with open(self.test_file, "wb") as f:
+            f.write(b"line1\nline2\nline3\n")
+
+        FileOps.edit(self.test_file, "line2", "modified")
+
+        with open(self.test_file, "rb") as f:
+            raw = f.read()
+        assert b"\r\n" not in raw
+        assert raw == b"line1\nmodified\nline3\n"
+
+    def test_edit_preserves_utf8_bom(self):
+        """Test that edit preserves UTF-8 BOM."""
+        bom = b"\xef\xbb\xbf"
+        with open(self.test_file, "wb") as f:
+            f.write(bom + b"line1\nline2\n")
+
+        FileOps.edit(self.test_file, "line1", "changed")
+
+        with open(self.test_file, "rb") as f:
+            raw = f.read()
+        assert raw.startswith(bom)
+        assert b"changed" in raw
+
+    def test_edit_returns_unified_diff(self):
+        """Test that edit returns a valid unified diff string."""
+        content = "aaa\nbbb\nccc\n"
+        FileOps.write_file(self.test_file, content)
+
+        diff = FileOps.edit(self.test_file, "bbb", "xxx")
+
+        assert "---" in diff
+        assert "+++" in diff
+        assert "@@" in diff
+        assert "-bbb" in diff
+        assert "+xxx" in diff
+
+    def test_edit_delete_string(self):
+        """Test editing with empty new_string deletes the old_string."""
+        content = "keep\nDELETE_ME\nkeep\n"
+        FileOps.write_file(self.test_file, content)
+
+        FileOps.edit(self.test_file, "DELETE_ME\n", "")
+
+        result = FileOps.read_file(self.test_file)
+        assert result == "keep\nkeep\n"
 
     def test_atomic_write_operation(self):
         """Test that write operations are atomic."""
