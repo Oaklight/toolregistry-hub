@@ -5,8 +5,8 @@ Key features:
 - All methods are static for stateless usage
 - Atomic writes with automatic backups
 - Unified error handling
-- Diff/patch and git conflict support
-- Structured data parsing
+- Exact string replacement with disambiguation support
+- Encoding and line ending preservation
 """
 
 import difflib
@@ -18,73 +18,151 @@ import re
 class FileOps:
     """Core file operations toolkit designed for LLM agent integration.
 
-    Handles file reading, atomic writing, appending, searching, and diff-based modifications.
+    Handles file reading, atomic writing, appending, searching, and exact
+    string replacement for file editing.
     """
+
+    # ======================
+    #  Internal Helpers
+    # ======================
+
+    @staticmethod
+    def _detect_encoding(raw: bytes) -> tuple[str, bytes]:
+        """Detect file encoding from BOM bytes.
+
+        Args:
+            raw: Raw file bytes.
+
+        Returns:
+            Tuple of (encoding_name, bom_bytes). For utf-8-sig the codec
+            handles BOM transparently so bom is empty.
+        """
+        if raw.startswith(b"\xef\xbb\xbf"):
+            return ("utf-8-sig", b"")
+        if raw.startswith(b"\xff\xfe"):
+            return ("utf-16-le", b"\xff\xfe")
+        if raw.startswith(b"\xfe\xff"):
+            return ("utf-16-be", b"\xfe\xff")
+        return ("utf-8", b"")
+
+    @staticmethod
+    def _detect_line_ending(text: str) -> str:
+        """Detect dominant line ending in text.
+
+        Args:
+            text: Decoded file content.
+
+        Returns:
+            '\\r\\n' if CRLF is dominant, otherwise '\\n'.
+        """
+        crlf_count = text.count("\r\n")
+        lf_count = text.count("\n") - crlf_count
+        return "\r\n" if crlf_count > lf_count else "\n"
 
     # ======================
     #  Content Modification
     # ======================
 
     @staticmethod
-    def replace_by_diff(path: str, diff: str) -> None:
-        """Apply unified diff format changes atomically to a file.
+    def edit(
+        file_path: str,
+        old_string: str,
+        new_string: str,
+        replace_all: bool = False,
+        start_line: int | None = None,
+    ) -> str:
+        """Replace exact string in file.
 
         Args:
-            path: The file path to modify.
-            diff: Unified diff text (must use standard format with ---/+++ headers and @@ hunk markers).
+            file_path: Absolute path to file.
+            old_string: Exact text to find. Must not be empty.
+            new_string: Replacement text (must differ from old_string).
+            replace_all: Replace all occurrences instead of just one.
+            start_line: Optional 1-based line number hint for disambiguation.
+                When multiple matches exist, selects the match whose start
+                line is closest to this value. Does not require exact precision.
 
-        Example diff text:
-            --- a/original_file
-            +++ b/modified_file
-            @@ -1,3 +1,3 @@
-            -line2
-            +line2 modified
+        Returns:
+            Unified diff showing what changed (for display purposes).
 
         Raises:
-            ValueError: On invalid diff format or patch failure
+            ValueError: If old_string is empty, identical to new_string,
+                not found, or ambiguous without start_line/replace_all.
+            FileNotFoundError: If file_path does not exist.
         """
-        original = FileOps.read_file(path)
-        original_lines = original.splitlines(keepends=True)
-        diff_lines = diff.splitlines(keepends=True)
-        patched_lines = []
-        orig_pos = 0
+        if not old_string:
+            raise ValueError("old_string must not be empty")
+        if old_string == new_string:
+            raise ValueError("old_string and new_string are identical")
 
-        hunk_regex = re.compile(r"@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@")
+        # Read file as bytes to preserve encoding
+        with open(file_path, "rb") as f:
+            raw = f.read()
 
-        i = 0
-        while i < len(diff_lines):
-            line = diff_lines[i]
-            if line.startswith("@@"):
-                m = hunk_regex.match(line)
-                if not m:
-                    raise ValueError("Invalid diff hunk header")
-                orig_start = int(m.group(1)) - 1
+        encoding, bom = FileOps._detect_encoding(raw)
+        if bom:
+            text = raw[len(bom) :].decode(encoding)
+        else:
+            text = raw.decode(encoding)
 
-                # Add unchanged lines before hunk
-                patched_lines.extend(original_lines[orig_pos:orig_start])
-                orig_pos = orig_start
+        line_ending = FileOps._detect_line_ending(text)
 
-                i += 1
-                while i < len(diff_lines) and not diff_lines[i].startswith("@@"):
-                    hline = diff_lines[i]
-                    if hline.startswith(" "):
-                        patched_lines.append(original_lines[orig_pos])
-                        orig_pos += 1
-                    elif hline.startswith("-"):
-                        orig_pos += 1
-                    elif hline.startswith("+"):
-                        patched_lines.append(hline[1:])
-                    else:
-                        raise ValueError(f"Invalid diff line: {hline}")
-                    i += 1
-            else:
-                i += 1
+        # Normalize to \n for matching
+        content = text.replace("\r\n", "\n")
+        old_str = old_string.replace("\r\n", "\n")
+        new_str = new_string.replace("\r\n", "\n")
 
-        # Add remaining lines after last hunk
-        patched_lines.extend(original_lines[orig_pos:])
+        # Find all non-overlapping occurrences
+        positions: list[int] = []
+        start = 0
+        while True:
+            idx = content.find(old_str, start)
+            if idx == -1:
+                break
+            positions.append(idx)
+            start = idx + len(old_str)
 
-        content = "".join(patched_lines)
-        FileOps.write_file(path, content)
+        n = len(positions)
+        if n == 0:
+            raise ValueError("old_string not found in file")
+
+        if n == 1:
+            pos = positions[0]
+            new_content = content[:pos] + new_str + content[pos + len(old_str) :]
+        elif replace_all:
+            new_content = content.replace(old_str, new_str)
+        elif start_line is not None:
+
+            def _pos_to_line(pos: int) -> int:
+                return content[:pos].count("\n") + 1
+
+            match_lines = [(pos, _pos_to_line(pos)) for pos in positions]
+            closest = min(match_lines, key=lambda x: abs(x[1] - start_line))
+            pos = closest[0]
+            new_content = content[:pos] + new_str + content[pos + len(old_str) :]
+        else:
+            raise ValueError(
+                f"old_string found {n} times in file. Use replace_all=True to "
+                f"replace all occurrences, or provide start_line to disambiguate."
+            )
+
+        # Generate diff for display (on normalized content)
+        diff_output = FileOps.make_diff(content, new_content)
+
+        # Restore line endings
+        if line_ending == "\r\n":
+            new_content = new_content.replace("\n", "\r\n")
+
+        # Encode back
+        encoded = bom + new_content.encode(encoding)
+
+        # Atomic write (binary)
+        tmp_path = f"{file_path}.tmp"
+        with open(tmp_path, "wb") as f:
+            f.write(encoded)
+        os.replace(tmp_path, file_path)
+
+        return diff_output
 
     @staticmethod
     def search_files(path: str, regex: str, file_pattern: str = "*") -> list[dict]:
@@ -136,69 +214,6 @@ class FileOps:
                             }
                         )
         return results
-
-    @staticmethod
-    def replace_by_git(path: str, diff: str) -> None:
-        """Apply git conflict style diff atomically to a file, replacing conflicted sections.
-
-        Args:
-            path: File path to modify.
-            diff: Git conflict style diff text (using <<<<<<< SEARCH, =======, >>>>>>> REPLACE markers).
-
-        Example diff text:
-            <<<<<<< SEARCH
-            line2
-            =======
-            line2 modified
-            >>>>>>> REPLACE
-
-        Raises:
-            ValueError: On invalid diff format or patch failure
-        """
-        original = FileOps.read_file(path)
-        original_lines = original.splitlines(keepends=True)
-        diff_lines = diff.splitlines(keepends=True)
-        patched_lines = []
-        orig_pos = 0
-
-        conflict_start_re = re.compile(r"<<<<<<<.*")
-        conflict_sep_re = re.compile(r"=======")
-        conflict_end_re = re.compile(r">>>>>>>.*")
-
-        i = 0
-        while i < len(diff_lines):
-            line = diff_lines[i]
-            if conflict_start_re.match(line):
-                # Add lines before conflict
-                patched_lines.extend(original_lines[orig_pos:orig_pos])
-                i += 1
-                # Count lines in original conflict block to skip
-                orig_conflict_lines = 0
-                # Skip lines until separator in diff
-                while i < len(diff_lines) and not conflict_sep_re.match(diff_lines[i]):
-                    i += 1
-                    orig_conflict_lines += 1
-                i += 1  # skip separator line
-                # Add lines after separator until conflict end
-                conflict_replacement_lines = []
-                while i < len(diff_lines) and not conflict_end_re.match(diff_lines[i]):
-                    conflict_replacement_lines.append(diff_lines[i])
-                    i += 1
-                i += 1  # skip conflict end line
-                patched_lines.extend(conflict_replacement_lines)
-                # Skip original conflicted lines
-                orig_pos += orig_conflict_lines
-            else:
-                if orig_pos < len(original_lines):
-                    patched_lines.append(original_lines[orig_pos])
-                    orig_pos += 1
-                i += 1
-
-        # Add remaining lines after last conflict
-        patched_lines.extend(original_lines[orig_pos:])
-
-        content = "".join(patched_lines)
-        FileOps.write_file(path, content)
 
     # ======================
     #  File I/O Operations
