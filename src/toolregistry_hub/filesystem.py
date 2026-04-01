@@ -21,31 +21,41 @@ Example:
 import os
 import shutil
 import stat  # Import stat for file attributes
+import warnings
 from pathlib import Path
+
+_DEPRECATION_MSG = (
+    "FileSystem is deprecated and will be removed in a future release. "
+    "Use PathInfo.info() for metadata queries, FileSearch for file discovery, "
+    "and FileOps for file manipulation."
+)
 
 
 class FileSystem:
     """Provides file system operations related to structure, state, and metadata.
 
-    Methods:
-        exists(path): Checks if path exists
-        is_file(path): Checks if path is a file
-        is_dir(path): Checks if path is a directory
-        list_dir(path): Lists directory contents
-        create_file(path): Creates an empty file or updates timestamp (like touch)
-        copy(src, dst): Copies file/directory
-        move(src, dst): Moves/renames file/directory
-        delete(path): Deletes file/directory
-        get_size(path): Gets file/directory size in bytes
-        get_last_modified_time(path): Gets file last modified time (Unix timestamp)
-        join_paths(*paths): Joins path components
-        get_absolute_path(path): Gets absolute path as a string
-        create_dir(path): Creates directory
+    .. deprecated::
+        This class is deprecated. Use the following replacements:
+
+        - ``exists``, ``is_file``, ``is_dir``, ``get_size``,
+          ``get_last_modified_time`` → :meth:`PathInfo.info`
+        - ``list_dir`` → :meth:`FileSearch.tree` / :meth:`FileSearch.glob`
+        - ``copy``, ``move``, ``delete`` → ``BashTool`` (pending)
+        - ``create_file``, ``create_dir`` → :meth:`FileOps.write_file`
+          / ``BashTool``
+        - ``join_paths``, ``get_absolute_path`` → model can concatenate
+          paths directly
     """
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
 
     @staticmethod
     def exists(path: str) -> bool:
         """Checks if a path exists.
+
+        .. deprecated:: Use ``PathInfo.info(path)["exists"]`` instead.
 
         Args:
             path: The path string to check.
@@ -53,11 +63,18 @@ class FileSystem:
         Returns:
             True if path exists, False otherwise
         """
+        warnings.warn(
+            "FileSystem.exists() is deprecated. Use PathInfo.info(path) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return Path(path).exists()
 
     @staticmethod
     def is_file(path: str) -> bool:
         """Checks if a path points to a file.
+
+        .. deprecated:: Use ``PathInfo.info(path)["type"] == "file"`` instead.
 
         Args:
             path: The path string to check.
@@ -65,11 +82,18 @@ class FileSystem:
         Returns:
             True if the path points to a file, False otherwise.
         """
+        warnings.warn(
+            "FileSystem.is_file() is deprecated. Use PathInfo.info(path) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return Path(path).is_file()
 
     @staticmethod
     def is_dir(path: str) -> bool:
         """Checks if a path points to a directory.
+
+        .. deprecated:: Use ``PathInfo.info(path)["type"] == "directory"`` instead.
 
         Args:
             path: The path string to check.
@@ -77,6 +101,11 @@ class FileSystem:
         Returns:
             True if the path points to a directory, False otherwise.
         """
+        warnings.warn(
+            "FileSystem.is_dir() is deprecated. Use PathInfo.info(path) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return Path(path).is_dir()
 
     @staticmethod
@@ -99,6 +128,8 @@ class FileSystem:
     def list_dir(path: str, depth: int = 1, show_hidden: bool = False) -> list[str]:
         """Lists contents of a directory up to a specified depth.
 
+        .. deprecated:: Use ``FileSearch.tree()`` or ``FileSearch.glob()`` instead.
+
         Args:
             path: The directory path string to list.
             depth: Maximum depth to list (default=1). Must be >= 1.
@@ -113,6 +144,12 @@ class FileSystem:
             ValueError: If depth is less than 1.
             FileNotFoundError: If the path does not exist or is not a directory.
         """
+        warnings.warn(
+            "FileSystem.list_dir() is deprecated. "
+            "Use FileSearch.tree() or FileSearch.glob() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         base_path = Path(path)
         if not base_path.is_dir():
             raise FileNotFoundError(
@@ -160,19 +197,34 @@ class FileSystem:
     def create_file(path: str) -> None:
         """Creates an empty file or updates the timestamp if it already exists (like 'touch').
 
+        .. deprecated:: Use ``FileOps.write_file()`` instead.
+
         Args:
             path: The file path string to create or update.
         """
+        warnings.warn(
+            "FileSystem.create_file() is deprecated. Use FileOps.write_file() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         Path(path).touch()
 
     @staticmethod
     def copy(src: str, dst: str) -> None:
         """Copies a file or directory.
 
+        .. deprecated:: Will be replaced by ``BashTool`` in a future release.
+
         Args:
             src: Source path string.
             dst: Destination path string.
         """
+        warnings.warn(
+            "FileSystem.copy() is deprecated. "
+            "Will be replaced by BashTool in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         src_path = Path(src)
         dst_path = Path(dst)
 
@@ -187,10 +239,18 @@ class FileSystem:
     def move(src: str, dst: str) -> None:
         """Moves/renames a file or directory.
 
+        .. deprecated:: Will be replaced by ``BashTool`` in a future release.
+
         Args:
             src: Source path string.
             dst: Destination path string.
         """
+        warnings.warn(
+            "FileSystem.move() is deprecated. "
+            "Will be replaced by BashTool in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         src_path = Path(src)
         dst_path = Path(dst)
         # Use shutil.move for better cross-filesystem compatibility
@@ -200,9 +260,17 @@ class FileSystem:
     def delete(path: str) -> None:
         """Deletes a file or directory recursively.
 
+        .. deprecated:: Will be replaced by ``BashTool`` in a future release.
+
         Args:
             path: Path string to delete.
         """
+        warnings.warn(
+            "FileSystem.delete() is deprecated. "
+            "Will be replaced by BashTool in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         path_obj = Path(path)
         if path_obj.is_file():
             path_obj.unlink()
@@ -215,6 +283,8 @@ class FileSystem:
     def get_size(path: str) -> int:
         """Gets file/directory size in bytes (recursive for directories).
 
+        .. deprecated:: Use ``PathInfo.info(path)["size"]`` instead.
+
         Args:
             path: Path string to check size of.
 
@@ -224,6 +294,11 @@ class FileSystem:
         Raises:
             FileNotFoundError: If the path does not exist.
         """
+        warnings.warn(
+            "FileSystem.get_size() is deprecated. Use PathInfo.info(path) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         path_obj = Path(path)
         if not path_obj.exists():
             raise FileNotFoundError(f"Path does not exist: {path}")
@@ -239,6 +314,8 @@ class FileSystem:
     def get_last_modified_time(path: str) -> float:
         """Gets the last modified time of a file or directory.
 
+        .. deprecated:: Use ``PathInfo.info(path)["last_modified"]`` instead.
+
         Args:
             path: Path string to the file or directory.
 
@@ -248,6 +325,12 @@ class FileSystem:
         Raises:
             FileNotFoundError: If the path does not exist.
         """
+        warnings.warn(
+            "FileSystem.get_last_modified_time() is deprecated. "
+            "Use PathInfo.info(path) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         path_obj = Path(path)
         if not path_obj.exists():
             raise FileNotFoundError(f"Path does not exist: {path}")
@@ -257,19 +340,27 @@ class FileSystem:
     def join_paths(*paths: str) -> str:
         """Joins multiple path components into a normalized string path.
 
+        .. deprecated:: LLMs can concatenate paths directly without a tool call.
+
         Args:
             *paths: One or more path component strings.
 
         Returns:
             Joined and normalized path string.
         """
-        # Using os.path.join for better compatibility if mixing Path and str
-        # and returning a string as often expected by other os functions.
+        warnings.warn(
+            "FileSystem.join_paths() is deprecated. "
+            "LLMs can concatenate paths directly.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return str(Path(*paths))
 
     @staticmethod
     def get_absolute_path(path: str) -> str:
         """Gets the absolute path as a normalized string.
+
+        .. deprecated:: LLMs can resolve paths directly without a tool call.
 
         Args:
             path: Path string to convert.
@@ -277,15 +368,29 @@ class FileSystem:
         Returns:
             Absolute path string.
         """
+        warnings.warn(
+            "FileSystem.get_absolute_path() is deprecated. "
+            "LLMs can resolve paths directly.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return str(Path(path).absolute())
 
     @staticmethod
     def create_dir(path: str, parents: bool = True, exist_ok: bool = True) -> None:
         """Creates a directory, including parent directories if needed (defaults to True).
 
+        .. deprecated:: Will be replaced by ``BashTool`` in a future release.
+
         Args:
             path: Directory path string to create.
             parents: Create parent directories if needed (default=True).
             exist_ok: Don't raise error if directory exists (default=True).
         """
+        warnings.warn(
+            "FileSystem.create_dir() is deprecated. "
+            "Will be replaced by BashTool in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         Path(path).mkdir(parents=parents, exist_ok=exist_ok)
