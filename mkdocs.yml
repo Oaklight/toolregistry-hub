@@ -124,6 +124,7 @@ nav:
           - Think Tool: tools/think_tool.md
           - Todo List Tool: tools/todo_list.md
   - Deployment:
+      - Library Usage: library.md
       - Server Mode: server.md
       - Docker Deployment: docker.md
   - Development:

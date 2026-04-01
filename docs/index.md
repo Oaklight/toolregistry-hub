@@ -13,62 +13,61 @@ hide:
 [![PyPI version](https://img.shields.io/pypi/v/toolregistry-hub?color=green)](https://pypi.org/project/toolregistry-hub/)
 [![Docker Image](https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=docker&color=green)](https://hub.docker.com/r/oaklight/toolregistry-hub-server)
 
-**A curated collection of utility tools extracted from [ToolRegistry](https://toolregistry.readthedocs.io/)** - designed for efficiency, reliability, and ease of use.
+**A curated collection of AI-agent-ready utility tools** — use them as a Python library or deploy as a server. Part of the [ToolRegistry](https://toolregistry.readthedocs.io/) ecosystem.
 
-## 🚀 Quick Start
+## Two Ways to Use
 
-```bash
-pip install toolregistry-hub
-```
+=== "As a Python Library"
 
-```python
-from toolregistry_hub import Calculator, DateTime, FileOps
+    ```bash
+    pip install toolregistry-hub
+    ```
 
-# Mathematical calculations
-result = Calculator.evaluate("2 + 3 * 4")
-print(result)  # Output: 14
+    ```python
+    from toolregistry_hub import Calculator, DateTime, BashTool, FileSearch
 
-# Get current time
-current_time = DateTime.now()
-print(current_time)
+    Calculator.evaluate("sqrt(144) + 2**3")   # 20.0
+    DateTime.now("Asia/Shanghai")              # current time in Shanghai
+    BashTool.execute("git status")             # safe shell execution
+    FileSearch.grep(r"TODO", path="src/")      # search code
+    ```
 
-# File operations
-content = FileOps.read_file("example.txt")
-```
+    Every tool is a plain Python class with static methods — no instantiation, no state, no server needed. **[Learn more →](library.md)**
 
-## 🛠️ Available Tools
+=== "As a Server"
 
-ToolRegistry Hub provides essential utility tools. **Explore the [Tools](tools/) section for detailed documentation of each tool.**
+    ```bash
+    pip install toolregistry-hub[server]
 
-- **Calculator Tools** - Mathematical calculations and expression evaluation
-- **Date Time Tools** - Date, time, and timezone handling
-- **File Operations** - File content manipulation
-- **File System** - File system operations
-- **Web Search Tools** - Multi-engine web search capabilities
-- **Unit Converter** - Convert between various units
-- **Think Tool** - Simple reasoning and brainstorming
-- **Web Fetch Tool** - Extract content from webpages
+    # REST API server
+    toolregistry-server --mode openapi --port 8000
 
-## 🚀 Server Mode
+    # MCP server (for AI agents)
+    toolregistry-server --mode mcp --port 8000
+    ```
 
-Run as a standalone server with REST API or MCP (Model Context Protocol) support:
+    All tools are auto-exposed as API endpoints. **[Learn more →](server.md)**
 
-```bash
-# Start REST API server
-toolregistry-server --mode openapi --port 8000
+## Available Tools
 
-# Start MCP server
-toolregistry-server --mode mcp --port 8000
-```
+| Category | Tools | Highlights |
+|----------|-------|------------|
+| **Calculation** | [Calculator](tools/calculator.md), [UnitConverter](tools/unit_converter.md) | Expression evaluation, 100+ unit conversions |
+| **Date & Time** | [DateTime](tools/datetime.md) | Timezone-aware time, cross-timezone conversion |
+| **File Management** | [FileOps](tools/file_ops.md), [FileReader](tools/file_reader.md), [FileSearch](tools/file_search.md), [PathInfo](tools/path_info.md) | Exact-string edit, glob/grep/tree, PDF & notebook reading |
+| **Shell** | [BashTool](tools/bash_tool.md) | Shell execution with built-in deny list security |
+| **Web** | [Fetch](tools/websearch/web_fetch_tool.md), [BraveSearch](tools/websearch/brave.md), [TavilySearch](tools/websearch/tavily.md), ... | Content extraction, multi-engine search |
+| **Cognitive** | [ThinkTool](tools/think_tool.md), [TodoList](tools/todo_list.md) | Structured reasoning, task management |
 
-## 🌟 Why ToolRegistry Hub?
+**Explore the [Tools](tools/) section for detailed documentation.**
 
-- **🔧 Focused**: Curated collection of essential utility tools
-- **⚡ Efficient**: Optimized for performance and reliability
-- **🔌 Integrable**: Works standalone or as part of [ToolRegistry](https://toolregistry.readthedocs.io/) ecosystem
-- **🌐 Accessible**: REST API, MCP server, and direct Python usage
-- **📚 Documented**: Comprehensive documentation in multiple languages
-- **🎯 Production Ready**: Battle-tested in real-world applications
+## Why ToolRegistry Hub?
+
+- **Dual-mode** — same tools work as library imports and as server endpoints
+- **Agent-ready** — designed for LLM function calling with proper schemas
+- **Secure** — BashTool deny list, FileOps safety caps, no arbitrary code execution
+- **Minimal dependencies** — most tools use only the Python standard library
+- **Batteries included** — 15+ tools covering files, search, compute, and more
 
 ## Ecosystem
 
