@@ -62,7 +62,3 @@ POST /tools/fs/path_info/info
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `path` | `string` | Yes | Absolute or relative path to query |
-
-## API Reference
-
-::: toolregistry_hub.path_info.PathInfo

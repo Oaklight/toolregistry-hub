@@ -6,3 +6,6 @@ mkdocstrings[python]>=0.24.0
 
 # Additional dependencies
 pymdown-extensions>=10.0.0
+
+# Required for mkdocstrings to collect API docs
+toolregistry-hub
