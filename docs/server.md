@@ -83,6 +83,10 @@ In OpenAPI mode, all tools are provided as REST API endpoints. After starting th
 
 ### Main API Endpoints
 
+#### Bash Tool
+
+- `POST /tools/bash/execute` - Execute a shell command (with safety validation)
+
 #### Calculator Tools
 
 - `POST /tools/calculator/help` - Get help information for specific calculator functions

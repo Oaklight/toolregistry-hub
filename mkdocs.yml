@@ -115,6 +115,8 @@ nav:
               - Serper Search: tools/websearch/serper.md
               - Tavily Search: tools/websearch/tavily.md
               - SearXNG Search: tools/websearch/searxng.md
+      - Shell:
+          - Bash Tool: tools/bash_tool.md
       - Other Tools:
           - Think Tool: tools/think_tool.md
           - Todo List Tool: tools/todo_list.md
