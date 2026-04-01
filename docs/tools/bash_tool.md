@@ -98,7 +98,3 @@ POST /tools/bash/execute
 | `command` | `string` | 是 | - | 要执行的 Shell 命令 |
 | `timeout` | `integer` | 否 | `120` | 超时秒数 |
 | `cwd` | `string` | 否 | `null` | 工作目录 |
-
-## API 参考
-
-::: toolregistry_hub.bash_tool.BashTool

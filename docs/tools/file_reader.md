@@ -109,7 +109,3 @@ POST /tools/reader/read
 POST /tools/reader/read_pdf
 POST /tools/reader/read_notebook
 ```
-
-## API 参考
-
-::: toolregistry_hub.file_reader.FileReader

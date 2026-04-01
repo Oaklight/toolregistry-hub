@@ -62,7 +62,3 @@ POST /tools/fs/path_info/info
 | 参数 | 类型 | 必填 | 描述 |
 |-----------|------|----------|-------------|
 | `path` | `string` | 是 | 要查询的绝对或相对路径 |
-
-## API 参考
-
-::: toolregistry_hub.path_info.PathInfo

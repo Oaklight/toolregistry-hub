@@ -106,7 +106,3 @@ POST /tools/fs/file_search/glob
 POST /tools/fs/file_search/grep
 POST /tools/fs/file_search/tree
 ```
-
-## API 参考
-
-::: toolregistry_hub.file_search.FileSearch
