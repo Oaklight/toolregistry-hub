@@ -26,6 +26,7 @@ _DEFAULT_TOOLS: list[dict[str, str]] = [
     {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web/fetch"},
     {"class": "toolregistry_hub.filesystem.FileSystem", "namespace": "filesystem"},
     {"class": "toolregistry_hub.file_ops.FileOps", "namespace": "file_ops"},
+    {"class": "toolregistry_hub.file_reader.FileReader", "namespace": "reader"},
     {"class": "toolregistry_hub.file_search.FileSearch", "namespace": "fs/file_search"},
     {"class": "toolregistry_hub.path_info.PathInfo", "namespace": "fs/path_info"},
     {"class": "toolregistry_hub.think_tool.ThinkTool", "namespace": "think"},

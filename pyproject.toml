@@ -38,6 +38,12 @@ dev = [
     "twine>=6.1.0",
     "pytest>=7.0.0",
 ]
+reader = [
+    "pypdf>=4.0.0",
+]
+reader_plus = [
+    "pdfplumber>=0.10.0",
+]
 server_core = [
     "toolregistry-server>=0.1.2",
 ]
