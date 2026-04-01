@@ -1,13 +1,21 @@
 name: Upstream Compatibility
 
 on:
+  # Weekly check against latest PyPI release
+  schedule:
+    - cron: "51 4 * * 1" # Monday 04:51 UTC
+
+  # Immediate trigger from toolregistry-server release
   repository_dispatch:
     types: [upstream-release]
+
+  # Manual trigger for debugging
   workflow_dispatch:
     inputs:
       version:
-        description: "toolregistry version to test against (e.g. 0.6.0)"
+        description: "toolregistry-server version to test against (blank = latest)"
         required: false
+        default: ""
 
 jobs:
   test-against-upstream:
@@ -21,20 +29,82 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install dependencies with latest toolregistry
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,server_core]"
-          # Upgrade toolregistry to the version that triggered this, or latest
+          pip install -e ".[dev,server]"
+
+      - name: Upgrade toolregistry-server to target version
+        id: install-upstream
+        run: |
           VERSION="${{ github.event.client_payload.version || inputs.version }}"
           if [ -n "$VERSION" ]; then
-            # Strip leading 'v' if present
             VERSION="${VERSION#v}"
-            pip install "toolregistry==$VERSION"
+            pip install "toolregistry-server==$VERSION"
           else
-            pip install --upgrade toolregistry
+            pip install --upgrade toolregistry-server
           fi
-          pip show toolregistry | grep Version
+          INSTALLED=$(pip show toolregistry-server | grep '^Version:' | awk '{print $2}')
+          echo "version=$INSTALLED" >> "$GITHUB_OUTPUT"
+          echo "Installed toolregistry-server $INSTALLED"
 
       - name: Run tests
-        run: python -m pytest tests/ -v
+        run: >
+          python -m pytest tests/ -v --tb=long
+          --junitxml=upstream-compat-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-compat-results
+          path: upstream-compat-results.xml
+
+      - name: Create issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ steps.install-upstream.outputs.version }}';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const title = `[CI] toolregistry-server ${version} compatibility failure`;
+            const body = [
+              `## Upstream Compatibility Failure`,
+              ``,
+              `toolregistry-server **${version}** breaks toolregistry-hub tests.`,
+              ``,
+              `**Workflow run:** ${runUrl}`,
+              `**Triggered by:** ${context.eventName}`,
+              ``,
+              `### Next Steps`,
+              `- Check the [test results](${runUrl}) for details`,
+              `- Determine if this is a breaking change in toolregistry-server or a test issue`,
+              `- Update toolregistry-hub code if API changed`,
+              `- Pin \`toolregistry-server\` version in \`pyproject.toml\` if needed`,
+            ].join('\n');
+
+            // Check for existing open issue to avoid duplicates
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'upstream-compat',
+            });
+
+            if (issues.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['upstream-compat', 'P1'],
+              });
+            } else {
+              // Comment on existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: `Still failing with toolregistry-server **${version}**.\n\n${runUrl}`,
+              });
+            }
