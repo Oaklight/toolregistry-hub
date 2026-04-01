@@ -83,6 +83,10 @@ mcp_app.run()
 
 ### 主要 API 端点
 
+#### Bash 工具
+
+- `POST /tools/bash/execute` - 执行 Shell 命令（带安全验证）
+
 #### 计算器工具
 
 - `POST /tools/calculator/help` - 获取特定计算器函数的帮助信息

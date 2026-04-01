@@ -115,6 +115,8 @@ nav:
               - Serper 搜索: tools/websearch/serper.md
               - Tavily 搜索: tools/websearch/tavily.md
               - SearXNG 搜索: tools/websearch/searxng.md
+      - Shell:
+          - Bash 工具: tools/bash_tool.md
       - 其他工具:
           - 思考工具: tools/think_tool.md
           - 待办事项工具: tools/todo_list.md
