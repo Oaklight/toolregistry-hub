@@ -32,13 +32,15 @@ from typing import Any
 from urllib.parse import urlencode
 
 import httpx
-from loguru import logger
 
+from .._structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
 from ..utils.requirements import requires_env
 from .base import TIMEOUT_DEFAULT, BaseSearch
 from .google_parser import BRIGHTDATA_CONFIG, GoogleResultParser
 from .search_result import SearchResult
+
+logger = get_logger()
 
 
 @requires_env("BRIGHTDATA_API_KEY")

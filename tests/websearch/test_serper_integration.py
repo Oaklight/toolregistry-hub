@@ -13,16 +13,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 import pytest
 from dotenv import load_dotenv
-from loguru import logger
-
+from toolregistry_hub._structlog import setup_logging
 from toolregistry_hub.websearch.websearch_serper import SerperSearch
 
-logger.remove()
-logger.add(
-    sys.stderr,
-    level="DEBUG",
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-)
+logger = setup_logging(level="DEBUG", renderer="console")
 
 
 class TestSerperIntegration:

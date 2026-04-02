@@ -5,9 +5,6 @@ This script helps analyze the complete data structure returned by both APIs
 to ensure we're not missing any valuable information in our parsing logic.
 
 Usage:
-    # Set log level to DEBUG to see detailed output
-    export LOGURU_LEVEL=DEBUG
-
     # Run the test
     python -m pytest tests/websearch/test_debug_google_apis.py -v -s
 
@@ -24,17 +21,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 import pytest
 from dotenv import load_dotenv
-from loguru import logger
-
+from toolregistry_hub._structlog import setup_logging
 from toolregistry_hub.websearch import websearch_brightdata, websearch_scrapeless
 
 # Configure logger for debugging
-logger.remove()  # Remove default handler
-logger.add(
-    sys.stderr,
-    level="DEBUG",
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-)
+logger = setup_logging(level="DEBUG", renderer="console")
 
 
 class TestBrightDataDebug:

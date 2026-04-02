@@ -22,7 +22,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "loguru>=0.7.3",
     "httpx>=0.28.1",
     "ua-generator>=1.0.6",
     "beautifulsoup4>=4.13.4",

@@ -2,7 +2,9 @@ import os
 import time
 
 import httpx
-from loguru import logger
+from .._structlog import get_logger
+
+logger = get_logger()
 
 # Cache file path for the blocklist
 BLOCKLIST_CACHE_PATH = os.path.expanduser(
@@ -49,7 +51,7 @@ def parse_blocklist_content(content: str) -> None:
             else:
                 # Simple domain or URL
                 _blocked_items.add(line)
-    logger.debug("Parsed blocklist with {} entries", len(_blocked_items))
+    logger.debug(f"Parsed blocklist with {len(_blocked_items)} entries")
 
 
 def fetch_and_cache_blocklist(
@@ -89,7 +91,7 @@ def fetch_and_cache_blocklist(
             # Save to cache
             with open(cache_path, "w", encoding="utf-8") as f:
                 f.write(content)
-            logger.debug("Fetched and cached blocklist to {}", cache_path)
+            logger.debug(f"Fetched and cached blocklist to {cache_path}")
 
             # Update module-level cache
             _last_blocklist_content = content
@@ -98,12 +100,12 @@ def fetch_and_cache_blocklist(
             parse_blocklist_content(content)
             return content
     except httpx.TimeoutException as e:
-        logger.error("Timeout when fetching blocklist from {}: {}", url, e)
+        logger.error(f"Timeout when fetching blocklist from {url}: {e}")
         if url.startswith("https://raw.githubusercontent.com"):
             return _try_fetch_from_proxy(url, cache_path)
         return _fallback_to_cache(cache_path)
     except Exception as e:
-        logger.error("Failed to fetch blocklist from {}: {}", url, e)
+        logger.error(f"Failed to fetch blocklist from {url}: {e}")
         return _fallback_to_cache(cache_path)
 
 
@@ -118,7 +120,7 @@ def _try_fetch_from_proxy(url: str, cache_path: str) -> str | None:
         Optional[str]: The content of the blocklist if successful, None otherwise.
     """
     proxy_url = url.replace("https://raw.githubusercontent.com", GITHUB_RAW_PROXY)
-    logger.debug("Attempting to fetch blocklist from proxy: {}", proxy_url)
+    logger.debug(f"Attempting to fetch blocklist from proxy: {proxy_url}")
     try:
         with httpx.Client(timeout=10.0) as client:
             response = client.get(proxy_url)
@@ -128,11 +130,11 @@ def _try_fetch_from_proxy(url: str, cache_path: str) -> str | None:
             # Save to cache
             with open(cache_path, "w", encoding="utf-8") as f:
                 f.write(content)
-            logger.debug("Fetched and cached blocklist from proxy to {}", cache_path)
+            logger.debug(f"Fetched and cached blocklist from proxy to {cache_path}")
             parse_blocklist_content(content)
             return content
     except Exception as e:
-        logger.error("Failed to fetch blocklist from proxy {}: {}", proxy_url, e)
+        logger.error(f"Failed to fetch blocklist from proxy {proxy_url}: {e}")
         return _fallback_to_cache(cache_path)
 
 
@@ -149,13 +151,13 @@ def _fallback_to_cache(cache_path: str) -> str | None:
         try:
             with open(cache_path, encoding="utf-8") as f:
                 logger.debug(
-                    "Falling back to outdated cached blocklist from {}", cache_path
+                    f"Falling back to outdated cached blocklist from {cache_path}"
                 )
                 content = f.read()
                 parse_blocklist_content(content)
                 return content
         except Exception as e:
-            logger.error("Error reading fallback cached blocklist: {}", e)
+            logger.error(f"Error reading fallback cached blocklist: {e}")
     return None
 
 
@@ -177,7 +179,7 @@ def filter_search_results(
         blocklist_content = fetch_and_cache_blocklist(url)
         if blocklist_content is None:
             logger.error(
-                "Failed to obtain blocklist content from {}, skipping filtering", url
+                f"Failed to obtain blocklist content from {url}, skipping filtering"
             )
             return results
     elif blocklist_content != _last_blocklist_content:
@@ -205,7 +207,7 @@ def filter_search_results(
         if not blocked:
             filtered_results.append(result)
         else:
-            logger.debug("Filtered out URL: {}", url)
+            logger.debug(f"Filtered out URL: {url}")
 
-    logger.debug("Filtered from {} to {} results", len(results), len(filtered_results))
+    logger.debug(f"Filtered from {len(results)} to {len(filtered_results)} results")
     return filtered_results

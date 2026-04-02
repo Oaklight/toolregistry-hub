@@ -35,11 +35,12 @@ import argparse
 import sys
 from typing import TYPE_CHECKING, NoReturn
 
-from loguru import logger
-
 from .. import __version__
+from .._structlog import get_logger
 from ..version_check import check_for_updates
 from .banner import BANNER_ART
+
+logger = get_logger()
 
 if TYPE_CHECKING:
     from toolregistry import ToolRegistry
