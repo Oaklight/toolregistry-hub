@@ -412,7 +412,7 @@ The following environment variables are used by specific tools. Tools with missi
 
 ### Logging
 
-The server uses `loguru` for logging. After starting the server, you can see detailed log information in the console, including:
+The server uses a built-in structured logging module for logging. After starting the server, you can see detailed log information in the console, including:
 
 - Server startup information
 - Route registration information
