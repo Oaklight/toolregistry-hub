@@ -26,12 +26,14 @@ API Documentation: https://docs.tavily.com/documentation/api-reference/endpoint/
 """
 
 import httpx
-from loguru import logger
 
+from .._structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
 from ..utils.requirements import requires_env
 from .base import TIMEOUT_DEFAULT, BaseSearch
 from .search_result import SearchResult
+
+logger = get_logger()
 
 
 @requires_env("TAVILY_API_KEY")

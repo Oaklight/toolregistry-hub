@@ -20,9 +20,10 @@ Usage:
 from dataclasses import dataclass
 from typing import Any
 
-from loguru import logger
-
+from .._structlog import get_logger
 from .search_result import SearchResult
+
+logger = get_logger()
 
 
 @dataclass

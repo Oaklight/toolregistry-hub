@@ -2,9 +2,10 @@
 
 import os
 
-from loguru import logger
-
+from .._structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
+
+logger = get_logger()
 
 
 def _parse_bearer_tokens() -> set[str] | None:

@@ -14,11 +14,13 @@ The registry supports two usage patterns:
 
 import importlib
 
-from loguru import logger
 from toolregistry import ToolRegistry
 
+from .._structlog import get_logger
 from ..utils.configurable import Configurable
 from ..utils.fn_namespace import _is_all_static_methods
+
+logger = get_logger()
 
 _DEFAULT_TOOLS: list[dict[str, str]] = [
     {"class": "toolregistry_hub.bash_tool.BashTool", "namespace": "bash"},

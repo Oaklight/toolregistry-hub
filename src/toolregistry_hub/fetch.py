@@ -6,7 +6,9 @@ from typing import Literal
 import httpx
 import ua_generator
 from bs4 import BeautifulSoup
-from loguru import logger
+from ._structlog import get_logger
+
+logger = get_logger()
 
 TIMEOUT_DEFAULT = 30.0
 

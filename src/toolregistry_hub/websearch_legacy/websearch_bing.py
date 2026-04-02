@@ -9,10 +9,12 @@ from urllib.parse import parse_qs, unquote, urlparse
 import httpx
 import ua_generator
 from bs4 import BeautifulSoup, Tag
-from loguru import logger
 
+from .._structlog import get_logger
 from .filter import filter_search_results
 from .websearch import WebSearchGeneral
+
+logger = get_logger()
 
 TIMEOUT_DEFAULT = 10.0
 

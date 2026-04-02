@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 
-from loguru import logger
-
+from .._structlog import get_logger
 from ..fetch import Fetch
+
+logger = get_logger()
 
 TIMEOUT_DEFAULT = 10.0
 

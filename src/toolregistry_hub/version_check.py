@@ -5,9 +5,11 @@ on PyPI and compare versions.
 """
 
 import httpx
-from loguru import logger
 
 from . import __version__
+from ._structlog import get_logger
+
+logger = get_logger()
 
 
 async def get_latest_pypi_version(

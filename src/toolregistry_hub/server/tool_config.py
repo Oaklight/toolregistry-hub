@@ -23,8 +23,11 @@ from dataclasses import dataclass, field
 from typing import Any
 from pathlib import Path
 
-from loguru import logger
 from toolregistry import ToolRegistry
+
+from .._structlog import get_logger
+
+logger = get_logger()
 
 
 # ---------------------------------------------------------------------------

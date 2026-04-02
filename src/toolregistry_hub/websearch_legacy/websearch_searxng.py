@@ -4,10 +4,12 @@ from functools import partial
 
 import httpx
 import ua_generator
-from loguru import logger
 
+from .._structlog import get_logger
 from .filter import filter_search_results
 from .websearch import WebSearchGeneral
+
+logger = get_logger()
 
 TIMEOUT_DEFAULT = 10.0
 

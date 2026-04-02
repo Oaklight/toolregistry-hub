@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from loguru import logger
-
+from .._structlog import get_logger
 from ..fetch import Fetch
 from .search_result import SearchResult
+
+logger = get_logger()
 
 _UNABLE_TO_FETCH_CONTENT = "Unable to fetch content"
 _UNABLE_TO_FETCH_TITLE = "Unable to fetch title"
