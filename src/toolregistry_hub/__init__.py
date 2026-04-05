@@ -22,6 +22,7 @@ Example:
 
 from .bash_tool import BashTool
 from .calculator import BaseCalculator, Calculator
+from .cron_tool import CronTool
 from .datetime_utils import DateTime
 from .fetch import Fetch
 from .file_ops import FileOps
@@ -72,6 +73,7 @@ __all__ = [
     "WebSearchBing",
     "WebSearchSearXNG",
     "TodoList",
+    "CronTool",
 ]
 
 __version__ = "0.7.0"  # version convention
