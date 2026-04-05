@@ -24,6 +24,7 @@ logger = get_logger()
 
 _DEFAULT_TOOLS: list[dict[str, str]] = [
     {"class": "toolregistry_hub.bash_tool.BashTool", "namespace": "bash"},
+    {"class": "toolregistry_hub.cron_tool.CronTool", "namespace": "cron"},
     {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
     {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"},
     {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web/fetch"},
