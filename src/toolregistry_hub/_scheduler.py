@@ -55,7 +55,8 @@ import logging
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 __all__ = [
     # Constants
