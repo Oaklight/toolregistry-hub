@@ -5,7 +5,7 @@ on:
   schedule:
     - cron: "51 4 * * 1" # Monday 04:51 UTC
 
-  # Immediate trigger from toolregistry-server release
+  # Immediate trigger from upstream release (toolregistry or toolregistry-server)
   repository_dispatch:
     types: [upstream-release]
 
@@ -13,9 +13,13 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "toolregistry-server version to test against (blank = latest)"
+        description: "Package version to test against (blank = latest)"
         required: false
         default: ""
+      package:
+        description: "Package to upgrade (toolregistry or toolregistry-server)"
+        required: false
+        default: "toolregistry"
 
 permissions:
   issues: write
@@ -37,9 +41,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,server]"
 
-      - name: Upgrade toolregistry-server to target version
+      - name: Upgrade upstream package to target version
         id: install-upstream
         run: |
+          PACKAGE="${{ github.event.client_payload.package || inputs.package || 'toolregistry' }}"
           VERSION="${{ github.event.client_payload.version || inputs.version }}"
           if [ -n "$VERSION" ]; then
             VERSION="${VERSION#v}"
@@ -47,13 +52,14 @@ jobs:
               echo "::error::Invalid version format: '$VERSION'"
               exit 1
             fi
-            pip install "toolregistry-server==$VERSION"
+            pip install "$PACKAGE==$VERSION"
           else
-            pip install --upgrade toolregistry-server
+            pip install --upgrade "$PACKAGE"
           fi
-          INSTALLED=$(pip show toolregistry-server | grep '^Version:' | awk '{print $2}')
+          INSTALLED=$(pip show "$PACKAGE" | grep '^Version:' | awk '{print $2}')
           echo "version=$INSTALLED" >> "$GITHUB_OUTPUT"
-          echo "Installed toolregistry-server $INSTALLED"
+          echo "package=$PACKAGE" >> "$GITHUB_OUTPUT"
+          echo "Installed $PACKAGE $INSTALLED"
 
       - name: Run tests
         run: >
@@ -73,21 +79,22 @@ jobs:
         with:
           script: |
             const version = '${{ steps.install-upstream.outputs.version }}';
+            const pkg = '${{ steps.install-upstream.outputs.package }}';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const title = `[CI] toolregistry-server ${version} compatibility failure`;
+            const title = `[CI] ${pkg} ${version} compatibility failure`;
             const body = [
               `## Upstream Compatibility Failure`,
               ``,
-              `toolregistry-server **${version}** breaks toolregistry-hub tests.`,
+              `${pkg} **${version}** breaks toolregistry-hub tests.`,
               ``,
               `**Workflow run:** ${runUrl}`,
               `**Triggered by:** ${context.eventName}`,
               ``,
               `### Next Steps`,
               `- Check the [test results](${runUrl}) for details`,
-              `- Determine if this is a breaking change in toolregistry-server or a test issue`,
+              `- Determine if this is a breaking change in ${pkg} or a test issue`,
               `- Update toolregistry-hub code if API changed`,
-              `- Pin \`toolregistry-server\` version in \`pyproject.toml\` if needed`,
+              `- Pin \`${pkg}\` version in \`pyproject.toml\` if needed`,
             ].join('\n');
 
             // Check for existing open issue to avoid duplicates
@@ -112,6 +119,6 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issues[0].number,
-                body: `Still failing with toolregistry-server **${version}**.\n\n${runUrl}`,
+                body: `Still failing with ${pkg} **${version}**.\n\n${runUrl}`,
               });
             }
