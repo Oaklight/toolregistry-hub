@@ -14,7 +14,8 @@ SearXNG search provides functionality to perform web searches using the SearXNG 
 
 #### Initialization Parameters
 
-- `base_url: Optional[str] = None` - Base URL of the SearXNG instance, defaults to built-in instance
+- `base_url: Optional[str] = None` - Base URL of the SearXNG instance, defaults to `SEARXNG_URL` environment variable
+- `api_key: Optional[str] = None` - Optional API key for instances that protect the JSON API, defaults to `SEARXNG_API_KEY` environment variable
 
 #### Methods
 
@@ -48,6 +49,15 @@ SearXNG offers unique advantages for free usage:
 
 !!! note "Free Usage Policy"
     SearXNG is open source and free to use. Self-hosting provides unlimited usage without API restrictions.
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `SEARXNG_URL` | Yes | Base URL of the SearXNG instance (e.g. `https://search.example.com`) |
+| `SEARXNG_API_KEY` | No | API key for instances that protect the JSON API with `X-API-Key` header |
+
+When the `SEARXNG_API_KEY` is set, it is automatically included as an `X-API-Key` header in all requests. This is useful for self-hosted instances that use the SearXNG limiter to restrict JSON API access to authorized clients only.
 
 ## Usage Examples
 
@@ -87,6 +97,25 @@ for result in results:
     print(f"URL: {result.url}")
     print(f"Excerpt: {result.excerpt}")
     print("-" * 50)
+```
+
+### Using API Key Authentication
+
+```python
+from toolregistry_hub.websearch import SearXNGSearch
+
+# Pass API key explicitly
+searxng_search = SearXNGSearch(
+    base_url="https://your-searxng-instance.com",
+    api_key="your-api-key",
+)
+
+# Or set environment variables and use defaults:
+#   export SEARXNG_URL="https://your-searxng-instance.com"
+#   export SEARXNG_API_KEY="your-api-key"
+# searxng_search = SearXNGSearch()
+
+results = searxng_search.search("Python programming", max_results=5)
 ```
 
 ### Setting Timeout
