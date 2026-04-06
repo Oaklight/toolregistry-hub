@@ -10,7 +10,15 @@ author: Oaklight
 
 本页面记录了 toolregistry-hub 项目从首个正式发布版本 0.4.14 以来的所有重要变更。
 
-## [未发布] - 自 0.7.0 以来
+## [未发布] - 自 0.8.0 以来
+
+### 修复
+
+- **SearXNG：支持可选的 X-API-Key 请求头用于保护实例** ([#85](https://github.com/Oaklight/toolregistry-hub/pull/85))
+    - 为 `SearXNGSearch` 添加可选的 `api_key` 参数，支持回退到 `SEARXNG_API_KEY` 环境变量
+    - 设置后在 JSON API 请求中发送 `X-API-Key` 请求头；完全向后兼容
+
+## [0.8.0] - 2026-04-06
 
 ### 破坏性变更
 
@@ -49,6 +57,18 @@ author: Oaklight
     - 替代 `FileSystem` 的五个独立方法
     - 目录大小递归计算
 
+- **CronTool：定时 Prompt 执行** ([#69](https://github.com/Oaklight/toolregistry-hub/issues/69), [4864ca7](https://github.com/Oaklight/toolregistry-hub/commit/4864ca7))
+    - 支持标准 5 字段 cron 表达式调度
+    - 循环和一次性两种模式，提供 `on_trigger` 回调用于 agent 运行时集成
+    - 循环任务 7 天 TTL 自动过期
+    - 可选持久化存储（JSON 文件）
+    - 内置 zerodep/scheduler (v0.3.0) 作为内部依赖
+
+- **API 密钥故障转移与认证/限流错误重试** ([#53](https://github.com/Oaklight/toolregistry-hub/issues/53), [29bdd13](https://github.com/Oaklight/toolregistry-hub/commit/29bdd13))
+    - `APIKeyParser` 中线程安全的失败密钥追踪，基于 TTL 自动恢复（401/403 为 1 小时，429 为 5 分钟）
+    - 修复双重密钥消耗 bug：将 `_headers` 属性替换为 `_build_headers(api_key)` 方法
+    - 所有基于 API 密钥的搜索提供商（Brave、Tavily、Serper、Scrapeless、BrightData）新增重试循环，在 401/403/429 错误时自动尝试下一个有效密钥
+
 ### 弃用
 
 - **FileSystem 类已弃用** ([#76](https://github.com/Oaklight/toolregistry-hub/pull/76))
@@ -59,6 +79,12 @@ author: Oaklight
 - **FileOps 旧方法已弃用** ([#76](https://github.com/Oaklight/toolregistry-hub/pull/76))
     - `read_file()` → 请使用 `FileReader.read()`
     - `write_file()` → 修改文件请使用 `FileOps.edit()`
+
+### 内部变更
+
+- **用 vendored zerodep/structlog 替换 loguru** ([#80](https://github.com/Oaklight/toolregistry-hub/pull/80), [7e17fb4](https://github.com/Oaklight/toolregistry-hub/commit/7e17fb4))
+    - 移除 `loguru` 外部依赖，替换为 vendored 零依赖 structlog 模块
+    - 所有日志现通过内部 `_structlog` 模块的 `get_logger()` 统一管理
 
 ### 修复
 
@@ -72,6 +98,8 @@ author: Oaklight
 ### CI
 
 - 增强上游兼容性测试，覆盖 `toolregistry-server`
+- 支持兼容性检查中的多个上游包 ([d8d25e4](https://github.com/Oaklight/toolregistry-hub/commit/d8d25e4))
+- 为 upstream-compat 工作流添加版本验证和 issues 权限 ([f590cc0](https://github.com/Oaklight/toolregistry-hub/commit/f590cc0))
 
 ## [0.7.0] - 2026-03-18
 
