@@ -38,6 +38,35 @@ class TestSearXNGSearch:
 
         assert searcher.base_url == "http://env-searxng:8080"
 
+    def test_init_with_api_key(self):
+        """Test initialization with explicit API key."""
+        searcher = SearXNGSearch("http://localhost:8080", api_key="my-secret-key")
+
+        assert searcher.api_key == "my-secret-key"
+
+    @patch.dict("os.environ", {"SEARXNG_API_KEY": "env-key"})
+    def test_init_api_key_from_env(self):
+        """Test initialization reads API key from environment variable."""
+        searcher = SearXNGSearch("http://localhost:8080")
+
+        assert searcher.api_key == "env-key"
+
+    @patch.dict(
+        "os.environ",
+        {"SEARXNG_URL": "http://env:8080", "SEARXNG_API_KEY": "env-key"},
+    )
+    def test_init_explicit_api_key_overrides_env(self):
+        """Test that explicit API key takes precedence over env var."""
+        searcher = SearXNGSearch(api_key="explicit-key")
+
+        assert searcher.api_key == "explicit-key"
+
+    def test_init_no_api_key(self):
+        """Test initialization without API key sets None."""
+        with patch.dict("os.environ", {}, clear=True):
+            searcher = SearXNGSearch("http://localhost:8080")
+            assert searcher.api_key is None
+
     def test_init_without_url_creates_unconfigured_instance(self):
         """Test that initialization without URL creates an unconfigured instance."""
         with patch.dict("os.environ", {}, clear=True):
@@ -45,13 +74,28 @@ class TestSearXNGSearch:
             assert searcher.search_url is None
             assert not searcher._is_configured()
 
-    def test_build_headers(self):
-        """Test _build_headers method."""
+    def test_build_headers_without_api_key(self):
+        """Test _build_headers without API key."""
         searcher = SearXNGSearch("http://localhost:8080")
         headers = searcher._build_headers()
 
         assert "User-Agent" in headers
         assert headers["Accept"] == "application/json"
+        assert "X-API-Key" not in headers
+
+    def test_build_headers_with_instance_api_key(self):
+        """Test _build_headers includes X-API-Key from instance."""
+        searcher = SearXNGSearch("http://localhost:8080", api_key="my-key")
+        headers = searcher._build_headers()
+
+        assert headers["X-API-Key"] == "my-key"
+
+    def test_build_headers_with_explicit_api_key(self):
+        """Test _build_headers with explicitly passed API key."""
+        searcher = SearXNGSearch("http://localhost:8080")
+        headers = searcher._build_headers(api_key="override-key")
+
+        assert headers["X-API-Key"] == "override-key"
 
     @patch("httpx.Client")
     def test_search_success(self, mock_client):

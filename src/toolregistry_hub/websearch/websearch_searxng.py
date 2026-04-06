@@ -45,13 +45,16 @@ logger = get_logger()
 class SearXNGSearch(BaseSearch):
     """Simple SearXNG API client for web search functionality."""
 
-    def __init__(self, base_url: str | None = None):
+    def __init__(self, base_url: str | None = None, api_key: str | None = None):
         """Initialize SearXNG search client.
 
         Args:
             base_url: SearXNG instance URL. If not provided, will try to get from SEARXNG_URL env var.
+            api_key: Optional API key for instances that protect the JSON API.
+                If not provided, will try to get from SEARXNG_API_KEY env var.
         """
         self.base_url = base_url or os.getenv("SEARXNG_URL")
+        self.api_key = api_key or os.getenv("SEARXNG_API_KEY") or None
         if not self.base_url:
             # Deferred validation: allow empty initialization
             self.search_url = None
@@ -72,13 +75,18 @@ class SearXNGSearch(BaseSearch):
         """Generate headers for SearXNG requests.
 
         Args:
-            api_key: Unused — SearXNG does not require API keys.
+            api_key: Optional API key. Falls back to ``self.api_key`` when
+                not provided explicitly.
         """
-        return {
+        headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "application/json",
             "Accept-Language": "en-US,en;q=0.9",
         }
+        key = api_key or self.api_key
+        if key:
+            headers["X-API-Key"] = key
+        return headers
 
     def search(
         self,
