@@ -7,10 +7,22 @@ name = "toolregistry-hub"
 # Relying on tool.setuptools.dynamic to load `version` from `__init__.py` at build time.
 dynamic = ['version']
 authors = [{ name = "Oaklight", email = "oaklight@gmx.com" }]
-description = "ToolRegistry Hub: A Python library providing various utility tools for mathematical calculations, date/time operations, file management, web search, unit conversions, and more - designed to support common tasks in LLM function calling and general development"
+description = "Ready-to-use tool collection for AI agents — file ops, web search, code execution, scheduling, and more"
 readme = "readme_en.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+keywords = [
+    "llm",
+    "tool-calling",
+    "function-calling",
+    "ai-agents",
+    "mcp",
+    "mcp-tools",
+    "openapi",
+    "agentic-ai",
+    "web-search",
+    "file-operations",
+]
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
