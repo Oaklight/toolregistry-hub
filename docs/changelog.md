@@ -10,7 +10,15 @@ author: Oaklight
 
 This page documents all notable changes to the toolregistry-hub project since the first official release version 0.4.14.
 
-## [Unreleased] - since 0.7.0
+## [Unreleased] - since 0.8.0
+
+### Fixes
+
+- **SearXNG: Support optional X-API-Key header for protected instances** ([#85](https://github.com/Oaklight/toolregistry-hub/pull/85))
+    - Add optional `api_key` parameter to `SearXNGSearch`, with fallback to `SEARXNG_API_KEY` environment variable
+    - When set, sends `X-API-Key` header with JSON API requests; fully backwards compatible
+
+## [0.8.0] - 2026-04-06
 
 ### Breaking Changes
 
@@ -49,6 +57,18 @@ This page documents all notable changes to the toolregistry-hub project since th
     - Replaces five separate `FileSystem` methods
     - Recursive size calculation for directories
 
+- **CronTool: Scheduled prompt execution** ([#69](https://github.com/Oaklight/toolregistry-hub/issues/69), [4864ca7](https://github.com/Oaklight/toolregistry-hub/commit/4864ca7))
+    - Cron expression scheduling with standard 5-field format
+    - Recurring and one-shot modes with `on_trigger` callback for agent runtime integration
+    - 7-day TTL auto-expiry for recurring jobs
+    - Optional durable persistence via JSON file
+    - Vendored zerodep/scheduler (v0.3.0) as internal dependency
+
+- **API key failover with retry on auth/rate-limit errors** ([#53](https://github.com/Oaklight/toolregistry-hub/issues/53), [29bdd13](https://github.com/Oaklight/toolregistry-hub/commit/29bdd13))
+    - Thread-safe failed key tracking in `APIKeyParser` with TTL-based auto-recovery (1h for 401/403, 5min for 429)
+    - Fix double key consumption bug: replace `_headers` property with `_build_headers(api_key)` method
+    - Retry loop in all API-key-based websearch providers (Brave, Tavily, Serper, Scrapeless, BrightData) that automatically tries the next valid key on 401/403/429 errors
+
 ### Deprecations
 
 - **FileSystem class deprecated** ([#76](https://github.com/Oaklight/toolregistry-hub/pull/76))
@@ -59,6 +79,12 @@ This page documents all notable changes to the toolregistry-hub project since th
 - **FileOps legacy methods deprecated** ([#76](https://github.com/Oaklight/toolregistry-hub/pull/76))
     - `read_file()` → use `FileReader.read()`
     - `write_file()` → use `FileOps.edit()` for modifications
+
+### Internal
+
+- **Replace loguru with vendored zerodep/structlog** ([#80](https://github.com/Oaklight/toolregistry-hub/pull/80), [7e17fb4](https://github.com/Oaklight/toolregistry-hub/commit/7e17fb4))
+    - Remove `loguru` external dependency, replaced with vendored zero-dependency structlog module
+    - All logging now uses `get_logger()` from internal `_structlog` module
 
 ### Fixes
 
@@ -72,6 +98,8 @@ This page documents all notable changes to the toolregistry-hub project since th
 ### CI
 
 - Enhanced upstream compatibility tests to cover `toolregistry-server`
+- Support multiple upstream packages in compat check ([d8d25e4](https://github.com/Oaklight/toolregistry-hub/commit/d8d25e4))
+- Add version validation and issues permission to upstream-compat workflow ([f590cc0](https://github.com/Oaklight/toolregistry-hub/commit/f590cc0))
 
 ## [0.7.0] - 2026-03-18
 
