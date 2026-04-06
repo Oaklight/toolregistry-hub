@@ -14,7 +14,8 @@ SearXNG 搜索提供了使用 SearXNG 元搜索引擎进行网络搜索的功能
 
 #### 初始化参数
 
-- `base_url: Optional[str] = None` - SearXNG 实例的基础 URL，默认使用内置实例
+- `base_url: Optional[str] = None` - SearXNG 实例的基础 URL，默认使用 `SEARXNG_URL` 环境变量
+- `api_key: Optional[str] = None` - 可选的 API 密钥，用于需要保护 JSON API 的实例，默认使用 `SEARXNG_API_KEY` 环境变量
 
 #### 方法
 
@@ -48,6 +49,15 @@ SearXNG 为免费使用提供独特优势：
 
 !!! note "免费使用政策"
     SearXNG 是开源且免费使用的。自托管提供无限使用，无 API 限制。
+
+## 环境变量
+
+| 变量 | 必填 | 说明 |
+|---|---|---|
+| `SEARXNG_URL` | 是 | SearXNG 实例的基础 URL（例如 `https://search.example.com`） |
+| `SEARXNG_API_KEY` | 否 | 用于通过 `X-API-Key` 请求头保护 JSON API 的实例密钥 |
+
+设置 `SEARXNG_API_KEY` 后，所有请求将自动附带 `X-API-Key` 请求头。适用于使用 SearXNG limiter 限制 JSON API 仅允许授权客户端访问的自托管实例。
 
 ## 使用示例
 
@@ -87,6 +97,25 @@ for result in results:
     print(f"URL: {result.url}")
     print(f"摘要: {result.excerpt}")
     print("-" * 50)
+```
+
+### 使用 API 密钥认证
+
+```python
+from toolregistry_hub.websearch import SearXNGSearch
+
+# 显式传入 API 密钥
+searxng_search = SearXNGSearch(
+    base_url="https://your-searxng-instance.com",
+    api_key="your-api-key",
+)
+
+# 或设置环境变量后使用默认值：
+#   export SEARXNG_URL="https://your-searxng-instance.com"
+#   export SEARXNG_API_KEY="your-api-key"
+# searxng_search = SearXNGSearch()
+
+results = searxng_search.search("Python programming", max_results=5)
 ```
 
 ### 设置超时
