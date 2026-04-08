@@ -1,7 +1,7 @@
 ---
 title: Home
-summary: A comprehensive Python library providing various utility tools
-description: ToolRegistry Hub is a Python library that provides various utility tools designed to support common tasks including calculations, file operations, web search, and more.
+summary: Ready-to-Use Tool Collection for LLM Agents
+description: ToolRegistry Hub provides a curated collection of AI-agent-ready tools for web search, file operations, code execution, scheduling, and more.
 keywords: python, tools, utilities, calculator, file operations, web search
 author: Oaklight
 hide:
@@ -13,7 +13,7 @@ hide:
 [![PyPI version](https://img.shields.io/pypi/v/toolregistry-hub?color=green)](https://pypi.org/project/toolregistry-hub/)
 [![Docker Image](https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=docker&color=green)](https://hub.docker.com/r/oaklight/toolregistry-hub-server)
 
-**A curated collection of AI-agent-ready utility tools** — use them as a Python library or deploy as a server. Part of the [ToolRegistry](https://toolregistry.readthedocs.io/) ecosystem.
+**Ready-to-use tool collection for LLM agents** — web search, file ops, code execution, and more. Use as a Python library or deploy as a server. Part of the [ToolRegistry](https://toolregistry.readthedocs.io/) ecosystem.
 
 ## Two Ways to Use
 

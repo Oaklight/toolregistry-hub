@@ -1,5 +1,5 @@
 site_name: ToolRegistry Hub
-site_description: A comprehensive Python library providing various utility tools
+site_description: Ready-to-Use Tool Collection for LLM Agents — web search, file ops, code execution, and more
 site_author: Peng Ding
 site_url: https://toolregistry-hub.readthedocs.io/en/
 repo_name: Oaklight/toolregistry-hub
