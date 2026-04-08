@@ -7,7 +7,7 @@ name = "toolregistry-hub"
 # Relying on tool.setuptools.dynamic to load `version` from `__init__.py` at build time.
 dynamic = ['version']
 authors = [{ name = "Oaklight", email = "oaklight@gmx.com" }]
-description = "Ready-to-use tool collection for AI agents — file ops, web search, code execution, scheduling, and more"
+description = "ToolRegistry Hub: Ready-to-Use Tool Collection for LLM Agents — web search, file ops, code execution, and more"
 readme = "readme_en.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
