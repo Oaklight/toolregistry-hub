@@ -1,5 +1,5 @@
 site_name: ToolRegistry Hub
-site_description: 提供各种实用工具的 Python 库
+site_description: 面向 LLM Agent 的即用工具集合 — 网络搜索、文件操作、代码执行等
 site_author: Peng Ding
 site_url: https://toolregistry-hub.readthedocs.io/zh-cn/
 repo_name: Oaklight/toolregistry-hub

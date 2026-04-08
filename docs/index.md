@@ -1,7 +1,7 @@
 ---
 title: 首页
-summary: ToolRegistry Hub - 提供各种实用工具的 Python 库
-description: ToolRegistry Hub 是一个 Python 库，提供各种实用工具，旨在支持计算、文件操作、网络搜索等常见任务。
+summary: 面向 LLM Agent 的即用工具集合
+description: ToolRegistry Hub 提供精选的 AI Agent 就绪工具集合，涵盖网络搜索、文件操作、代码执行、定时任务等。
 keywords: python, 工具, 实用程序, 计算器, 文件操作, 网络搜索
 author: Oaklight
 hide:
@@ -13,7 +13,7 @@ hide:
 [![PyPI version](https://img.shields.io/pypi/v/toolregistry-hub?color=green)](https://pypi.org/project/toolregistry-hub/)
 [![Docker Image](https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=docker&color=green)](https://hub.docker.com/r/oaklight/toolregistry-hub-server)
 
-**精选的 AI Agent 就绪工具集合** — 可作为 Python 库直接使用，也可部署为服务器。[ToolRegistry](https://toolregistry.readthedocs.io/) 生态系统的一部分。
+**面向 LLM Agent 的即用工具集合** — 网络搜索、文件操作、代码执行等。可作为 Python 库直接使用，也可部署为服务器。[ToolRegistry](https://toolregistry.readthedocs.io/) 生态系统的一部分。
 
 ## 两种使用方式
 
