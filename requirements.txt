@@ -9,3 +9,6 @@ pymdown-extensions>=10.0.0
 
 # Required for mkdocstrings to collect API docs (install from master for unreleased classes)
 toolregistry-hub @ git+https://github.com/Oaklight/toolregistry-hub.git@master
+
+# LLM-friendly documentation
+llmstxt-standalone

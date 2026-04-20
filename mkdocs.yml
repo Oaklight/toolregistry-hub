@@ -50,6 +50,46 @@ plugins:
             merge_init_into_class: true
             separate_signature: true
             show_signature_annotations: true
+  - llmstxt:
+      full_output: llms-full.txt
+      sections:
+        Home:
+          - index.md
+        Tools:
+          - tools/index.md
+          - tools/calculator.md
+          - tools/unit_converter.md
+          - tools/datetime.md
+          - tools/file_ops.md
+          - tools/file_reader.md
+          - tools/file_search.md
+          - tools/path_info.md
+          - tools/filesystem.md
+          - tools/websearch/web_fetch_tool.md
+          - tools/websearch/index.md
+          - tools/websearch/brave.md
+          - tools/websearch/brightdata.md
+          - tools/websearch/scrapeless.md
+          - tools/websearch/serper.md
+          - tools/websearch/tavily.md
+          - tools/websearch/searxng.md
+          - tools/bash_tool.md
+          - tools/think_tool.md
+          - tools/todo_list.md
+        Deployment:
+          - library.md
+          - server.md
+          - docker.md
+        Development:
+          - dev/helper_functions.md
+          - tools/websearch/base_search.md
+          - tools/websearch/search_result.md
+          - tools/websearch/legacy.md
+          - tools/websearch/bing.md
+        Ecosystem:
+          - ecosystem.md
+        Changelog:
+          - changelog.md
 
 markdown_extensions:
   - admonition
