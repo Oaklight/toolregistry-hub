@@ -11,8 +11,10 @@ from toolregistry_hub.fetch import (
     _MIN_CONTENT_LENGTH,
     _SPA_SHELL_INDICATORS,
     _extract,
+    _extract_with_readability,
+    _extract_with_soup,
+    _fetch_html,
     _format_text,
-    _get_content_with_bs4,
     _get_content_with_jina_reader,
     _get_content_with_markdown_negotiation,
     _is_content_sufficient,
@@ -328,45 +330,22 @@ class TestJinaReader:
 
 
 # ============================================================
-# _get_content_with_bs4 tests
+# _fetch_html tests
 # ============================================================
 
 
-class TestBS4:
-    """Tests for the _get_content_with_bs4 function."""
+class TestFetchHtml:
+    """Tests for the _fetch_html function."""
 
     @patch("toolregistry_hub.fetch.httpx.get")
-    def test_extracts_main_content(self, mock_get):
-        html = """
-        <html><body>
-            <nav>Navigation</nav>
-            <main><p>Main content here with enough text to be meaningful.</p></main>
-            <footer>Footer</footer>
-        </body></html>
-        """
+    def test_success_returns_html(self, mock_get):
         mock_response = MagicMock()
-        mock_response.text = html
+        mock_response.text = "<html><body>Hello</body></html>"
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        result = _get_content_with_bs4("https://example.com")
-        assert "Main content" in result
-        assert "Navigation" not in result
-
-    @patch("toolregistry_hub.fetch.httpx.get")
-    def test_extracts_article_content(self, mock_get):
-        html = """
-        <html><body>
-            <article><p>Article content here.</p></article>
-        </body></html>
-        """
-        mock_response = MagicMock()
-        mock_response.text = html
-        mock_response.raise_for_status = MagicMock()
-        mock_get.return_value = mock_response
-
-        result = _get_content_with_bs4("https://example.com")
-        assert "Article content" in result
+        result = _fetch_html("https://example.com")
+        assert result == "<html><body>Hello</body></html>"
 
     @patch("toolregistry_hub.fetch.httpx.get")
     def test_http_error_returns_empty(self, mock_get):
@@ -379,19 +358,109 @@ class TestBS4:
         )
         mock_get.return_value = mock_response
 
-        result = _get_content_with_bs4("https://example.com")
+        result = _fetch_html("https://example.com")
         assert result == ""
 
     @patch("toolregistry_hub.fetch.httpx.get")
-    def test_no_body_returns_empty(self, mock_get):
-        html = "<html></html>"
+    def test_connection_error_returns_empty(self, mock_get):
+        mock_get.side_effect = httpx.ConnectError("Connection refused")
+
+        result = _fetch_html("https://example.com")
+        assert result == ""
+
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_passes_proxy(self, mock_get):
         mock_response = MagicMock()
-        mock_response.text = html
+        mock_response.text = "<html></html>"
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        result = _get_content_with_bs4("https://example.com")
+        _fetch_html("https://example.com", proxy="http://proxy:8080")
+
+        call_kwargs = mock_get.call_args
+        assert call_kwargs.kwargs.get("proxy") == "http://proxy:8080"
+
+
+# ============================================================
+# _extract_with_readability tests
+# ============================================================
+
+
+class TestReadabilityExtraction:
+    """Tests for the _extract_with_readability function."""
+
+    def test_extracts_article_content(self):
+        paragraphs = "<p>This is a test paragraph with enough content. </p>" * 20
+        html = f"""
+        <html><head><title>Test Article</title></head>
+        <body>
+            <nav>Navigation links</nav>
+            <article>{paragraphs}</article>
+            <footer>Footer content</footer>
+        </body></html>
+        """
+        result = _extract_with_readability(html, "https://example.com")
+        assert len(result) >= _MIN_CONTENT_LENGTH
+        assert "test paragraph" in result.lower()
+
+    def test_short_content_returns_empty(self):
+        html = "<html><body><p>Short.</p></body></html>"
+        result = _extract_with_readability(html, "https://example.com")
         assert result == ""
+
+    def test_returns_plain_text(self):
+        paragraphs = "<p>Some meaningful content for testing purposes. </p>" * 20
+        html = f"<html><body><article>{paragraphs}</article></body></html>"
+        result = _extract_with_readability(html, "https://example.com")
+        # Result should be plain text, not HTML
+        assert "<p>" not in result
+        assert "<article>" not in result
+
+    def test_exception_returns_empty(self):
+        # Invalid input that might cause parsing issues
+        result = _extract_with_readability("", "https://example.com")
+        assert result == ""
+
+
+# ============================================================
+# _extract_with_soup tests
+# ============================================================
+
+
+class TestSoupExtraction:
+    """Tests for the _extract_with_soup function."""
+
+    def test_extracts_main_content(self):
+        html = """
+        <html><body>
+            <nav>Navigation</nav>
+            <main><p>Main content here with enough text to be meaningful.</p></main>
+            <footer>Footer</footer>
+        </body></html>
+        """
+        result = _extract_with_soup(html)
+        assert "Main content" in result
+        assert "Navigation" not in result
+
+    def test_extracts_article_content(self):
+        html = """
+        <html><body>
+            <article><p>Article content here.</p></article>
+        </body></html>
+        """
+        result = _extract_with_soup(html)
+        assert "Article content" in result
+
+    def test_no_body_returns_empty(self):
+        html = "<html></html>"
+        result = _extract_with_soup(html)
+        assert result == ""
+
+    def test_malformed_html_no_crash(self):
+        html = "<div><p>Unclosed paragraph<div>Nested improperly"
+        result = _extract_with_soup(html)
+        # Should not raise, may return content or empty
+        assert isinstance(result, str)
 
 
 # ============================================================
@@ -403,31 +472,65 @@ class TestExtract:
     """Integration tests for the _extract function."""
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
-    @patch("toolregistry_hub.fetch._get_content_with_bs4")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_html")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
-    def test_markdown_negotiation_success(self, mock_md, mock_bs4, mock_jina):
+    def test_markdown_negotiation_success(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
+    ):
         mock_md.return_value = "# Markdown Content\nSome text here."
         result = _extract("https://example.com")
         assert "Markdown Content" in result
-        mock_bs4.assert_not_called()
+        mock_fetch.assert_not_called()
         mock_jina.assert_not_called()
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
-    @patch("toolregistry_hub.fetch._get_content_with_bs4")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_html")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
-    def test_bs4_sufficient_content(self, mock_md, mock_bs4, mock_jina):
+    def test_readability_sufficient_content(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
+    ):
         mock_md.return_value = ""
-        mock_bs4.return_value = "This is a long enough article. " * 10
+        mock_fetch.return_value = "<html>...</html>"
+        mock_readability.return_value = "This is a long enough article. " * 10
+        mock_soup.return_value = "Short soup."
         result = _extract("https://example.com")
         assert "long enough article" in result
         mock_jina.assert_not_called()
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
-    @patch("toolregistry_hub.fetch._get_content_with_bs4")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_html")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
-    def test_bs4_spa_shell_triggers_jina(self, mock_md, mock_bs4, mock_jina):
+    def test_readability_fails_soup_sufficient(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
+    ):
         mock_md.return_value = ""
-        mock_bs4.return_value = (
+        mock_fetch.return_value = "<html>...</html>"
+        mock_readability.return_value = ""
+        mock_soup.return_value = "Soup extracted content is good enough. " * 10
+        result = _extract("https://example.com")
+        assert "Soup extracted" in result
+        mock_jina.assert_not_called()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_html")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_local_spa_shell_triggers_jina(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
+    ):
+        mock_md.return_value = ""
+        mock_fetch.return_value = "<html>...</html>"
+        mock_readability.return_value = (
+            "Loading... Please enable JavaScript to continue." + "x" * 200
+        )
+        mock_soup.return_value = (
             "Loading... Please enable JavaScript to continue." + "x" * 200
         )
         mock_jina.return_value = "# Real Content\nActual article text here. " * 10
@@ -437,47 +540,49 @@ class TestExtract:
         mock_jina.assert_called_once()
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
-    @patch("toolregistry_hub.fetch._get_content_with_bs4")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_html")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
-    def test_bs4_short_content_triggers_jina(self, mock_md, mock_bs4, mock_jina):
+    def test_no_html_triggers_jina(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
+    ):
         mock_md.return_value = ""
-        mock_bs4.return_value = "Short"
-        mock_jina.return_value = "# Full Content\nComplete article. " * 10
-
-        result = _extract("https://example.com")
-        assert "Full Content" in result
-        mock_jina.assert_called_once()
-
-    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
-    @patch("toolregistry_hub.fetch._get_content_with_bs4")
-    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
-    def test_bs4_no_content_triggers_jina(self, mock_md, mock_bs4, mock_jina):
-        mock_md.return_value = ""
-        mock_bs4.return_value = ""
+        mock_fetch.return_value = ""
         mock_jina.return_value = "# Jina Content\nFetched via Jina. " * 10
 
         result = _extract("https://example.com")
         assert "Jina Content" in result
+        mock_readability.assert_not_called()
+        mock_soup.assert_not_called()
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
-    @patch("toolregistry_hub.fetch._get_content_with_bs4")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_html")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
-    def test_jina_failure_falls_back_to_bs4_low_quality(
-        self, mock_md, mock_bs4, mock_jina
+    def test_jina_failure_falls_back_to_local(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
     ):
         mock_md.return_value = ""
-        mock_bs4.return_value = "Short low quality"
+        mock_fetch.return_value = "<html>...</html>"
+        mock_readability.return_value = "Short low quality"
+        mock_soup.return_value = ""
         mock_jina.return_value = ""
 
         result = _extract("https://example.com")
         assert "Short low quality" in result
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
-    @patch("toolregistry_hub.fetch._get_content_with_bs4")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_html")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
-    def test_all_strategies_fail(self, mock_md, mock_bs4, mock_jina):
+    def test_all_strategies_fail(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
+    ):
         mock_md.return_value = ""
-        mock_bs4.return_value = ""
+        mock_fetch.return_value = ""
         mock_jina.return_value = ""
 
         result = _extract("https://example.com")

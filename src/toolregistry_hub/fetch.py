@@ -5,15 +5,17 @@ from typing import Literal
 
 import httpx
 import ua_generator
-from bs4 import BeautifulSoup
+
+from ._vendor.readability import extract as readability_extract
+from ._vendor.soup import Soup
 from ._vendor.structlog import get_logger
 
 logger = get_logger()
 
 TIMEOUT_DEFAULT = 30.0
 
-# Minimum content length (in characters) to consider BS4 extraction sufficient.
-# Content shorter than this triggers Jina Reader fallback.
+# Minimum content length (in characters) to consider extraction sufficient.
+# Content shorter than this triggers the next fallback strategy.
 _MIN_CONTENT_LENGTH = 100
 
 # Common indicators of SPA shell pages that lack real content.
@@ -120,25 +122,23 @@ def _extract(
     timeout: float = TIMEOUT_DEFAULT,
     proxy: str | None = None,
 ) -> str:
-    """
-    Extract content from a given URL using available methods.
+    """Extract content from a given URL using available methods.
 
     Strategies are tried in order:
     1. Cloudflare Content Negotiation (zero-cost markdown attempt)
-    2. BeautifulSoup direct parsing (with content quality check)
-    3. Jina Reader (fallback for SPA shells or BS4 failures)
+    2. Readability extraction (intelligent article scoring, local)
+    3. Simple soup extraction (CSS selector fallback, local)
+    4. Jina Reader (external API fallback for SPA / JS-heavy pages)
 
-    If BS4 returns low-quality content (too short or SPA shell), Jina Reader
-    is attempted. If Jina also fails, the BS4 result is returned as a
-    low-quality fallback (better than nothing).
+    HTML is fetched once and reused by stages 2 and 3.
 
     Args:
-        url (str): The URL to extract content from.
-        timeout (float, optional): Request timeout in seconds. Defaults to TIMEOUT_DEFAULT (30). Usually not needed.
-        proxy (str, optional): Proxy to use for the request. Defaults to None.
+        url: The URL to extract content from.
+        timeout: Request timeout in seconds. Defaults to TIMEOUT_DEFAULT.
+        proxy: Proxy to use for the request. Defaults to None.
 
     Returns:
-        str: Extracted content from the URL, or "Unable to fetch content" if all strategies fail.
+        Extracted content, or ``"Unable to fetch content"`` if all strategies fail.
     """
     # 1. Try Cloudflare Content Negotiation (zero-cost, high quality if supported)
     content = _get_content_with_markdown_negotiation(
@@ -150,22 +150,45 @@ def _extract(
         logger.info(f"Successfully fetched {url} using strategy: markdown_negotiation")
         return _format_text(content)
 
-    # 2. Try BeautifulSoup direct parsing
-    bs4_content = _get_content_with_bs4(
-        url,
-        timeout=timeout,
-        proxy=proxy,
-    )
+    # Fetch HTML once for local extraction strategies
+    html = _fetch_html(url, timeout=timeout, proxy=proxy)
 
-    if bs4_content and _is_content_sufficient(bs4_content):
-        logger.info(f"Successfully fetched {url} using strategy: beautifulsoup")
-        return _format_text(bs4_content)
+    local_content = ""
+    if html:
+        # 2. Try Readability extraction (intelligent article detection)
+        readability_content = _extract_with_readability(html, url)
 
-    # 3. BS4 failed or content quality insufficient — try Jina Reader
-    reason = "low_quality_content" if bs4_content else "no_content"
+        # 3. Try simple soup extraction (CSS selector fallback)
+        soup_content = _extract_with_soup(html)
+
+        # Pick the best local result: prefer whichever is longer and sufficient.
+        # Readability produces cleaner article text; soup captures more structural
+        # content.  When readability returns only a short skeleton (e.g. SPA pages),
+        # soup's broader extraction is usually more useful.
+        for candidate, strategy in [
+            (readability_content, "readability"),
+            (soup_content, "soup"),
+        ]:
+            if candidate and _is_content_sufficient(candidate):
+                # Prefer readability if it extracted substantially more or equal
+                # content; otherwise fall through to soup.
+                if strategy == "readability" and soup_content and len(soup_content) > len(candidate) * 2:
+                    logger.debug(
+                        f"Readability result shorter than soup "
+                        f"({len(candidate)} vs {len(soup_content)}), trying soup"
+                    )
+                    continue
+                logger.info(f"Successfully fetched {url} using strategy: {strategy}")
+                return _format_text(candidate)
+
+        # Stash best local result for final fallback
+        local_content = readability_content or soup_content or ""
+
+    # 4. Local extraction insufficient — try Jina Reader
+    reason = "low_quality_content" if local_content else "no_content"
     logger.debug(
-        f"BS4 insufficient for {url} (reason: {reason}, "
-        f"length: {len(bs4_content) if bs4_content else 0}), trying Jina Reader"
+        f"Local extraction insufficient for {url} (reason: {reason}, "
+        f"length: {len(local_content)}), trying Jina Reader"
     )
 
     jina_content = _get_content_with_jina_reader(
@@ -177,17 +200,17 @@ def _extract(
     if jina_content and _is_content_sufficient(jina_content):
         logger.info(
             f"Successfully fetched {url} using strategy: jina_reader "
-            f"(bs4 reason: {reason})"
+            f"(local reason: {reason})"
         )
         return _format_text(jina_content)
 
-    # 4. Jina also failed — fall back to BS4 low-quality result if available
-    if bs4_content:
+    # 5. Fall back to best local result if available
+    if local_content:
         logger.info(
-            f"Successfully fetched {url} using strategy: beautifulsoup "
-            f"(low_quality_fallback, length: {len(bs4_content)})"
+            f"Successfully fetched {url} using strategy: local_fallback "
+            f"(low_quality, length: {len(local_content)})"
         )
-        return _format_text(bs4_content)
+        return _format_text(local_content)
 
     logger.warning(f"All extraction strategies failed for {url}")
     return "Unable to fetch content"
@@ -372,21 +395,20 @@ def _jina_reader_request(
         return ""
 
 
-def _get_content_with_bs4(
+def _fetch_html(
     url: str,
     timeout: float = TIMEOUT_DEFAULT,
     proxy: str | None = None,
 ) -> str:
-    """
-    Utilizes BeautifulSoup to fetch and parse the content of a webpage.
+    """Fetch raw HTML from a URL.
 
     Args:
-        url (str): The URL of the webpage.
-        timeout (float, Optional): Timeout for the HTTP request. Defaults to TIMEOUT_DEFAULT.
-        proxy (str, Optional): Proxy to use for the HTTP request. Defaults to None.
+        url: The URL to fetch.
+        timeout: Request timeout in seconds.
+        proxy: Optional proxy URL.
 
     Returns:
-        str: Parsed text content of the webpage.
+        HTML string, or empty string on failure.
     """
     try:
         ua = ua_generator.generate(browser=["chrome", "edge"])
@@ -399,23 +421,68 @@ def _get_content_with_bs4(
             proxy=proxy,
         )
         response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
-        for element in soup(["script", "style", "nav", "footer", "iframe", "noscript"]):
+        return response.text
+    except httpx.HTTPStatusError as e:
+        logger.debug(f"HTTP Error [{e.response.status_code}]: {e}")
+        return ""
+    except Exception as e:
+        logger.debug(f"Error fetching {url}: {e}")
+        return ""
+
+
+def _extract_with_readability(html: str, url: str) -> str:
+    """Extract content using the Readability algorithm.
+
+    Uses Mozilla Readability-style scoring to identify and extract the
+    main article content from arbitrary web pages.
+
+    Args:
+        html: Raw HTML string.
+        url: Original URL (passed to readability for link resolution).
+
+    Returns:
+        Plain text of the main article, or empty string on failure.
+    """
+    try:
+        result = readability_extract(html, url=url)
+        if result.length >= _MIN_CONTENT_LENGTH:
+            return result.text
+        logger.debug(f"Readability extraction too short ({result.length} chars)")
+        return ""
+    except Exception as e:
+        logger.debug(f"Readability extraction failed: {e}")
+        return ""
+
+
+def _extract_with_soup(html: str) -> str:
+    """Simple content extraction using zerodep soup.
+
+    Fallback for when readability fails. Decomposes non-content tags,
+    then looks for main/article/div.content landmarks.
+
+    Args:
+        html: Raw HTML string.
+
+    Returns:
+        Extracted text, or empty string.
+    """
+    try:
+        soup = Soup(html)
+        for element in soup.find_all(
+            ["script", "style", "nav", "footer", "iframe", "noscript"]
+        ):
             element.decompose()
         main_content = (
             soup.find("main")
             or soup.find("article")
             or soup.find("div", {"class": "content"})
         )
-        content_source = main_content if main_content else soup.body
+        content_source = main_content if main_content else soup.find("body")
         if not content_source:
             return ""
         return content_source.get_text(separator=" ", strip=True)
-    except httpx.HTTPStatusError as e:
-        logger.debug(f"HTTP Error [{e.response.status_code}]: {e}")
-        return ""
     except Exception as e:
-        logger.debug(f"Error parsing webpage content: {e}")
+        logger.debug(f"Soup extraction failed: {e}")
         return ""
 
 
