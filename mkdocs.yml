@@ -1,7 +1,7 @@
 site_name: ToolRegistry Hub
 site_description: Ready-to-Use Tool Collection for LLM Agents — web search, file ops, code execution, and more
 site_author: Peng Ding
-site_url: https://toolregistry-hub.readthedocs.io/en/
+site_url: https://toolregistry-hub.readthedocs.io/en/latest
 repo_name: Oaklight/toolregistry-hub
 repo_url: https://github.com/Oaklight/toolregistry-hub
 copyright: Copyright &copy; 2025 Peng Ding
