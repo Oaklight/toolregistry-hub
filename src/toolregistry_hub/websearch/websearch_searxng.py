@@ -33,7 +33,7 @@ import os
 
 import httpx
 
-from .._structlog import get_logger
+from .._vendor.structlog import get_logger
 from ..utils.requirements import requires_env
 from .base import TIMEOUT_DEFAULT, BaseSearch
 from .search_result import SearchResult

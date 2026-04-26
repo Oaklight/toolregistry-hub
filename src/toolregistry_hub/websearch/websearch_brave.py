@@ -27,7 +27,7 @@ API Documentation: https://api-dashboard.search.brave.com/app/documentation/web-
 
 import httpx
 
-from .._structlog import get_logger
+from .._vendor.structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
 from ..utils.requirements import requires_env
 from .base import TIMEOUT_DEFAULT, BaseSearch

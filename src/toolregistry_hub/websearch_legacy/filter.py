@@ -2,7 +2,7 @@ import os
 import time
 
 import httpx
-from .._structlog import get_logger
+from .._vendor.structlog import get_logger
 
 logger = get_logger()
 

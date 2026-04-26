@@ -25,7 +25,7 @@ from pathlib import Path
 
 from toolregistry import ToolRegistry
 
-from .._structlog import get_logger
+from .._vendor.structlog import get_logger
 
 logger = get_logger()
 

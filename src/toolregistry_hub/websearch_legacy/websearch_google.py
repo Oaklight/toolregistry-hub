@@ -9,7 +9,7 @@ import httpx
 import ua_generator
 from bs4 import BeautifulSoup, Tag
 
-from .._structlog import get_logger
+from .._vendor.structlog import get_logger
 from .filter import filter_search_results
 from .websearch import WebSearchGeneral
 

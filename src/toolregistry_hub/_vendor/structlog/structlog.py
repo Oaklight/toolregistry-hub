@@ -3,6 +3,7 @@
 # deps = []
 # tier = "medium"
 # category = "utility"
+# note = "Install/update via `zerodep add structlog`"
 # ///
 
 """Zero-dependency structured logging with pretty console output.
@@ -48,8 +49,7 @@ import logging
 import os
 import sys
 import traceback
-from typing import IO, Any
-from collections.abc import Callable
+from typing import IO, Any, Callable
 
 __all__ = [
     # Type aliases

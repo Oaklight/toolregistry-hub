@@ -2,7 +2,7 @@
 
 import os
 
-from .._structlog import get_logger
+from .._vendor.structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
 
 logger = get_logger()

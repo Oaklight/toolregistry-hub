@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from collections.abc import Callable
 
-from ._scheduler import (
+from ._vendor.scheduler import (
     CronTrigger,
     InvalidCronExpression,
     JobNotFound,
@@ -118,7 +118,7 @@ class CronTool:
             trigger = CronTrigger(cron)
         else:
             # One-shot: compute next fire time from cron, use OnceTrigger
-            from ._scheduler import _cron_next_fire_time
+            from ._vendor.scheduler import _cron_next_fire_time
 
             next_time = _cron_next_fire_time(spec, now)
             trigger = OnceTrigger(next_time)
@@ -317,7 +317,7 @@ class CronTool:
             if record.recurring:
                 trigger = CronTrigger(record.cron_expr)
             else:
-                from ._scheduler import _cron_next_fire_time
+                from ._vendor.scheduler import _cron_next_fire_time
 
                 try:
                     next_time = _cron_next_fire_time(spec, now)
