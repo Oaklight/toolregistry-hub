@@ -5,7 +5,7 @@ from functools import partial
 import httpx
 import ua_generator
 
-from .._structlog import get_logger
+from .._vendor.structlog import get_logger
 from .filter import filter_search_results
 from .websearch import WebSearchGeneral
 

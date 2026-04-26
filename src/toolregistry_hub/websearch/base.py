@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from .._structlog import get_logger
+from .._vendor.structlog import get_logger
 from ..fetch import Fetch
 from .search_result import SearchResult
 

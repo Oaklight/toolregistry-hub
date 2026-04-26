@@ -20,7 +20,7 @@ Usage:
 from dataclasses import dataclass
 from typing import Any
 
-from .._structlog import get_logger
+from .._vendor.structlog import get_logger
 from .search_result import SearchResult
 
 logger = get_logger()

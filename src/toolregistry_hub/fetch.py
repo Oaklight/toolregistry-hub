@@ -6,7 +6,7 @@ from typing import Literal
 import httpx
 import ua_generator
 from bs4 import BeautifulSoup
-from ._structlog import get_logger
+from ._vendor.structlog import get_logger
 
 logger = get_logger()
 

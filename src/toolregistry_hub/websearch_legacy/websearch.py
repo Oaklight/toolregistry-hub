@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from .._structlog import get_logger
+from .._vendor.structlog import get_logger
 from ..fetch import Fetch
 
 logger = get_logger()

@@ -7,7 +7,7 @@ on PyPI and compare versions.
 import httpx
 
 from . import __version__
-from ._structlog import get_logger
+from ._vendor.structlog import get_logger
 
 logger = get_logger()
 

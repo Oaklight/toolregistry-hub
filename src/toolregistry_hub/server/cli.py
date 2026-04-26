@@ -36,7 +36,7 @@ import sys
 from typing import TYPE_CHECKING, NoReturn
 
 from .. import __version__
-from .._structlog import get_logger
+from .._vendor.structlog import get_logger
 from ..version_check import check_for_updates
 from .banner import BANNER_ART
 
