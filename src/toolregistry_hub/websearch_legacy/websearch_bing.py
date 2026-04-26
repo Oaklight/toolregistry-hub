@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import httpx
 import ua_generator
-from bs4 import BeautifulSoup, Tag
+from .._vendor.soup import Soup, Tag
 
 from .._vendor.structlog import get_logger
 from .filter import filter_search_results
@@ -238,7 +238,7 @@ class WebSearchBing(WebSearchGeneral):
         html: str, fetched_links: set[str], num_results: int
     ) -> Generator[_WebSearchEntryBing, None, None]:
         """Parse HTML content from Bing search results."""
-        soup = BeautifulSoup(html, "html.parser")
+        soup = Soup(html)
         result_block = soup.find_all("li", class_="b_algo")
         new_results = 0
 

@@ -7,7 +7,7 @@ from urllib.parse import unquote  # to decode the url
 
 import httpx
 import ua_generator
-from bs4 import BeautifulSoup, Tag
+from .._vendor.soup import Soup, Tag
 
 from .._vendor.structlog import get_logger
 from .filter import filter_search_results
@@ -183,7 +183,7 @@ class WebSearchGoogle(WebSearchGeneral):
         html: str, fetched_links: set[str], num_results: int
     ) -> Generator[_WebSearchEntryGoogle, None, None]:
         """Parse HTML content from Google search results."""
-        soup = BeautifulSoup(html, "html.parser")
+        soup = Soup(html)
         result_block = soup.find_all("div", class_="ezO2md")
         new_results = 0
 
