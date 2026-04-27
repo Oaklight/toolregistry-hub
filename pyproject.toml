@@ -98,6 +98,9 @@ target-version = "py310"
 select = ["E", "F", "UP"]
 ignore = ["UP007", "E501"]
 
+[tool.ruff.lint.per-file-ignores]
+"src/toolregistry_hub/_vendor/**" = ["UP035"]
+
 [tool.ty.environment]
 python-version = "3.10"
 
