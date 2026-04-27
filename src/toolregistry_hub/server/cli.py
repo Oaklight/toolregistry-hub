@@ -198,6 +198,18 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
         metavar="PORT",
         help="Enable the admin panel on the specified port (e.g. 8081)",
     )
+    parser.add_argument(
+        "--tool-discovery",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable/disable tool discovery with progressive disclosure (default: enabled)",
+    )
+    parser.add_argument(
+        "--think-augment",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable/disable think-augmented function calling (default: enabled)",
+    )
 
 
 def _add_openapi_arguments(parser: argparse.ArgumentParser) -> None:
@@ -316,14 +328,16 @@ def main(args: list[str] | None = None) -> NoReturn | None:
     if not parsed.no_banner:
         print_hub_banner()
 
-    # Apply tools config to the registry before starting the server
-    if parsed.config is not None:
-        from .registry import build_registry
+    # Build registry with CLI flags before starting the server
+    from .registry import build_registry
 
-        # Rebuild registry with the specified config path
-        import toolregistry_hub.server.registry as _reg_mod
+    import toolregistry_hub.server.registry as _reg_mod
 
-        _reg_mod._registry = build_registry(tools_config_path=parsed.config)
+    _reg_mod._registry = build_registry(
+        tools_config_path=getattr(parsed, "config", None),
+        enable_discovery=getattr(parsed, "tool_discovery", True),
+        enable_think=getattr(parsed, "think_augment", True),
+    )
 
     # Dispatch to appropriate command handler
     admin_port = getattr(parsed, "admin_port", None)

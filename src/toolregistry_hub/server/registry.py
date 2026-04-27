@@ -15,6 +15,7 @@ The registry supports two usage patterns:
 import importlib
 
 from toolregistry import ToolRegistry
+from toolregistry.tool import ToolTag
 
 from .._vendor.structlog import get_logger
 from ..utils.configurable import Configurable
@@ -28,7 +29,6 @@ _DEFAULT_TOOLS: list[dict[str, str]] = [
     {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
     {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"},
     {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web/fetch"},
-    {"class": "toolregistry_hub.filesystem.FileSystem", "namespace": "filesystem"},
     {"class": "toolregistry_hub.file_ops.FileOps", "namespace": "file_ops"},
     {"class": "toolregistry_hub.file_reader.FileReader", "namespace": "reader"},
     {"class": "toolregistry_hub.file_search.FileSearch", "namespace": "fs/file_search"},
@@ -38,6 +38,10 @@ _DEFAULT_TOOLS: list[dict[str, str]] = [
     {
         "class": "toolregistry_hub.unit_converter.UnitConverter",
         "namespace": "unit_converter",
+    },
+    {
+        "class": "toolregistry_hub.websearch.websearch_unified.WebSearch",
+        "namespace": "web/websearch",
     },
     {
         "class": "toolregistry_hub.websearch.websearch_brave.BraveSearch",
@@ -70,6 +74,73 @@ _DEFAULT_TOOLS: list[dict[str, str]] = [
 # but we keep this for any other internal methods that need hiding.
 _HIDDEN_METHODS: set[str] = set()
 
+# Metadata overrides for registered tools, keyed by namespace.
+# Sets ToolTag and defer flags after register_from_class().
+_TOOL_METADATA: dict[str, dict] = {
+    # Core tools (always visible in initial schema)
+    "calculator": {"tags": {ToolTag.READ_ONLY}},
+    "datetime": {"tags": {ToolTag.READ_ONLY}},
+    "think": {"tags": {ToolTag.READ_ONLY}},
+    "file_ops": {"tags": {ToolTag.FILE_SYSTEM, ToolTag.DESTRUCTIVE}},
+    "web/fetch": {"tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
+    # Unified websearch entry (visible by default)
+    "web/websearch": {"tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
+    # Provider-specific search engines (deferred — discoverable via discover_tools)
+    "web/brave_search": {
+        "defer": True,
+        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
+    },
+    "web/tavily_search": {
+        "defer": True,
+        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
+    },
+    "web/searxng_search": {
+        "defer": True,
+        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
+    },
+    "web/brightdata_search": {
+        "defer": True,
+        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
+    },
+    "web/scrapeless_search": {
+        "defer": True,
+        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
+    },
+    "web/serper_search": {
+        "defer": True,
+        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
+    },
+    # Deferred tools (discoverable via discover_tools)
+    "reader": {"defer": True, "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY}},
+    "fs/file_search": {"defer": True, "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY}},
+    "fs/path_info": {"defer": True, "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY}},
+    "bash": {"defer": True, "tags": {ToolTag.DESTRUCTIVE, ToolTag.PRIVILEGED}},
+    "cron": {"defer": True, "tags": {ToolTag.PRIVILEGED}},
+    "todolist": {"defer": True, "tags": {ToolTag.READ_ONLY}},
+    "unit_converter": {"defer": True, "tags": {ToolTag.READ_ONLY}},
+}
+
+
+def _apply_tool_metadata(registry: ToolRegistry) -> None:
+    """Apply tags, defer flags, and search hints to registered tools.
+
+    Iterates all tools in the registry and applies metadata overrides
+    from ``_TOOL_METADATA`` based on each tool's namespace.
+
+    Args:
+        registry: The registry whose tools should be annotated.
+    """
+    for tool in registry._tools.values():
+        ns = tool.namespace
+        if ns and ns in _TOOL_METADATA:
+            overrides = _TOOL_METADATA[ns]
+            if "defer" in overrides:
+                tool.metadata.defer = overrides["defer"]
+            if "tags" in overrides:
+                tool.metadata.tags = overrides["tags"]
+            if "search_hint" in overrides:
+                tool.metadata.search_hint = overrides["search_hint"]
+
 
 def _import_class(class_path: str) -> type:
     """Dynamically import a class from a dotted path string.
@@ -93,6 +164,8 @@ def _import_class(class_path: str) -> type:
 def build_registry(
     tool_kwargs: dict[str, dict] | None = None,
     tools_config_path: str | None = None,
+    enable_discovery: bool = True,
+    enable_think: bool = True,
 ) -> ToolRegistry:
     """Build the hub tool registry with all tools registered and auto-disabled
     based on instance configuration state.
@@ -104,6 +177,12 @@ def build_registry(
         tools_config_path: Optional path to a JSONC tool configuration file.
             If ``None``, the default discovery order is used (env var, then
             ``./tools.jsonc``).
+        enable_discovery: Enable tool discovery (progressive disclosure).
+            When ``True``, registers a ``discover_tools`` tool and marks
+            selected tools as deferred.
+        enable_think: Enable think-augmented function calling.
+            When ``True``, injects a ``thought`` property into tool schemas
+            for chain-of-thought reasoning.
 
     Returns:
         A fully configured ToolRegistry instance with all tools registered.
@@ -126,7 +205,7 @@ def build_registry(
     else:
         tools_to_register = _DEFAULT_TOOLS
 
-    registry = ToolRegistry(name="hub")
+    registry = ToolRegistry(name="hub", think_augment=enable_think)
 
     for tool_def in tools_to_register:
         class_path = tool_def["class"]
@@ -143,10 +222,10 @@ def build_registry(
         kwargs = (tool_kwargs or {}).get(kwargs_key, {})
 
         if _is_all_static_methods(cls):
-            registry.register_from_class(cls, with_namespace=namespace)
+            registry.register_from_class(cls, namespace=namespace)
         else:
             instance = cls(**kwargs)
-            registry.register_from_class(instance, with_namespace=namespace)
+            registry.register_from_class(instance, namespace=namespace)
 
             # Check instance readiness via Configurable protocol
             if isinstance(instance, Configurable) and not instance._is_configured():
@@ -177,6 +256,13 @@ def build_registry(
     # Apply startup tool configuration (highest priority)
     if config is not None:
         apply_tool_config(registry, config)
+
+    # Apply metadata (tags, defer flags) to registered tools
+    _apply_tool_metadata(registry)
+
+    # Enable tool discovery (registers discover_tools, indexes all tools)
+    if enable_discovery:
+        registry.enable_tool_discovery()
 
     return registry
 
