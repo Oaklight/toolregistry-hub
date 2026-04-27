@@ -49,6 +49,8 @@ toolregistry-server --mode mcp --mcp-transport stdio
 - `--port`: Port to bind the server to (default: 8000)
 - `--mode`: Server mode, options are `openapi` or `mcp` (default: openapi)
 - `--mcp-transport`: MCP transport mode, options are `streamable-http`, `sse`, or `stdio` (default: streamable-http)
+- `--tool-discovery` / `--no-tool-discovery`: Enable or disable tool discovery with progressive disclosure (default: enabled). When enabled, less-used tools are deferred and discoverable via the `discover_tools` tool
+- `--think-augment` / `--no-think-augment`: Enable or disable think-augmented function calling (default: enabled). When enabled, injects a `thought` property into tool schemas for chain-of-thought reasoning
 
 ### In-Code Startup
 
@@ -100,11 +102,13 @@ In OpenAPI mode, all tools are provided as REST API endpoints. After starting th
 #### Web Tools
 
 - `POST /tools/web/fetch/fetch_content` - Extract content from webpages
-- `POST /tools/web/brave_search/search` - Search the web using Brave
-- `POST /tools/web/searxng_search/search` - Search the web using SearXNG
-- `POST /tools/web/tavily_search/search` - Search the web using Tavily
-- `POST /tools/web/scrapeless_search/search` - Search the web using Scrapeless
-- `POST /tools/web/brightdata_search/search` - Search the web using BrightData
+- `POST /tools/web/websearch/search` - Unified web search with engine selector (auto, brave, tavily, etc.)
+- `POST /tools/web/websearch/list_engines` - List available search engines and their configuration status
+- `POST /tools/web/brave_search/search` - Search the web using Brave *(deferred)*
+- `POST /tools/web/searxng_search/search` - Search the web using SearXNG *(deferred)*
+- `POST /tools/web/tavily_search/search` - Search the web using Tavily *(deferred)*
+- `POST /tools/web/scrapeless_search/search` - Search the web using Scrapeless *(deferred)*
+- `POST /tools/web/brightdata_search/search` - Search the web using BrightData *(deferred)*
 
 #### Date Time Tools
 
@@ -120,6 +124,12 @@ In OpenAPI mode, all tools are provided as REST API endpoints. After starting th
 - `POST /tools/unit_converter/help` - Get unit conversion help information
 - `POST /tools/unit_converter/list_conversions` - List available unit conversions
 - `POST /tools/unit_converter/convert` - Perform unit conversion
+
+#### Cron Tool
+
+- `POST /tools/cron/create` - Schedule a recurring or one-shot prompt *(deferred)*
+- `POST /tools/cron/delete` - Cancel a scheduled job *(deferred)*
+- `POST /tools/cron/list` - List all scheduled jobs *(deferred)*
 
 #### File Reader Tools
 
@@ -383,6 +393,9 @@ The following environment variables are used by specific tools. Tools with missi
 | `SEARXNG_URL` | SearXNG Search | SearXNG instance URL (e.g., `http://localhost:8080`) |
 | `BRIGHTDATA_API_KEY` | BrightData Search | Bright Data API key ([get one](https://brightdata.com/)) |
 | `SCRAPELESS_API_KEY` | Scrapeless Search | Scrapeless API key ([get one](https://scrapeless.com/)) |
+| `SERPER_API_KEY` | Serper Search | Serper API key ([get one](https://serper.dev/)) |
+| `JINA_API_KEY` | Fetch (Jina Reader) | Optional Jina Reader API key for authenticated requests (comma-separated for multi-key rotation) |
+| `WEBSEARCH_PRIORITY` | Unified WebSearch | Comma-separated engine priority for auto mode (e.g., `searxng,brave,tavily`) |
 
 !!! note "Auto-Disable Behavior"
     When the server starts, it checks each tool's required environment variables. Tools with missing variables are automatically registered but disabled. They will not appear in the tool list returned to clients. You can enable them later by setting the required environment variables and restarting the server.

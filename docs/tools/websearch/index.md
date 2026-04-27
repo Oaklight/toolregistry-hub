@@ -28,15 +28,17 @@ Here's a quick overview of free tier offerings for each search provider:
 
 ## Module Overview
 
-The web search tools mainly include the following two versions:
+The web search tools mainly include the following:
 
-1. **New Web Search Module** (`websearch`) - Provides a unified search engine abstraction layer and more advanced features
-2. **Legacy Web Search Module** (`websearch_legacy`) - Provides basic web search functionality
+1. **Unified Web Search** (`WebSearch`) - Single entry point for all search providers with auto-selection, fallback, and dynamic engine discovery. See [Unified Web Search](websearch_unified.md)
+2. **Individual Search Providers** (`websearch`) - Direct access to specific search engines (Brave, Tavily, SearXNG, etc.)
+3. **Legacy Web Search Module** (`websearch_legacy`) - Provides basic web search functionality
 
 ## Search Engine Support
 
 Currently supported search engines include:
 
+- [Unified Web Search](websearch_unified.md) - All-in-one entry point with auto engine selection and fallback
 - [Brave Search](brave.md) - Using Brave search engine
 - [Serper Search](serper.md) - Using Serper API for Google search results
 - [Tavily Search](tavily.md) - Using Tavily search API (AI-optimized)
@@ -46,6 +48,29 @@ Currently supported search engines include:
 - [Bing Search](bing.md) - **REMOVED** - Previously used Bing search engine (removed in v0.6.0)
 
 ## Basic Usage
+
+### Unified Entry Point (Recommended)
+
+```python
+from toolregistry_hub.websearch import WebSearch
+
+# Auto-select the best available engine
+ws = WebSearch()
+results = ws.search("Python programming", max_results=5)
+for result in results:
+    print(f"Title: {result.title}")
+    print(f"URL: {result.url}")
+    print(f"Content: {result.content}")
+    print("-" * 50)
+
+# Specify a particular engine
+results = ws.search("machine learning", engine="brave", max_results=5)
+
+# List available engines
+engines = ws.list_engines()
+```
+
+### Direct Engine Usage
 
 ```python
 from toolregistry_hub.websearch import BraveSearch, SearXNGSearch, TavilySearch, BrightDataSearch, ScrapelessSearch, SerperSearch
@@ -112,6 +137,7 @@ for result in results:
 
 ## Detailed Documentation
 
+- [Unified Web Search](websearch_unified.md) - All-in-one entry point with auto engine selection and fallback
 - [Search Result Types](search_result.md) - Data structure of search results
 - [Base Search Class](base_search.md) - Base class for all search engines
 - [Brave Search](brave.md) - Implementation of Brave search engine

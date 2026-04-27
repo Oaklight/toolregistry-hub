@@ -24,7 +24,12 @@
 ## Web Tools
 
 - **[Web Fetch Tool](websearch/web_fetch_tool.md)** - Extract content from webpages
-- **[Web Search Tools](websearch/)** - Multi-engine web search capabilities
+- **[Unified Web Search](websearch/websearch_unified.md)** - Single entry point for all search providers with auto-selection and fallback
+- **[Web Search Tools](websearch/)** - Individual search provider implementations
+
+## Scheduling
+
+- **[Cron Tool](cron_tool.md)** - Scheduled prompt execution with cron expressions
 
 ## Other Tools
 

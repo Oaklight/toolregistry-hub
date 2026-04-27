@@ -1,22 +1,22 @@
 ---
 title: Web Fetch Tool
 summary: Extract content from webpages and URLs with intelligent content detection
-description: Web content fetching tool that extracts clean, readable content from webpages using BeautifulSoup and Jina Reader with intelligent fallback mechanisms.
+description: Web content fetching tool that extracts clean, readable content from webpages using Readability, zerodep soup, and Jina Reader with intelligent fallback mechanisms.
 keywords: web fetch, webpage content, URL extraction, web scraping, content extraction
 author: Oaklight
 ---
 
 # Web Fetch Tool
 
-The Web Fetch tool provides intelligent webpage content extraction from URLs. It uses a three-stage strategy chain — Cloudflare Content Negotiation, BeautifulSoup parsing, and Jina Reader API — with **content quality evaluation** and **smart fallback** to extract clean, readable content from webpages while handling various website structures and formats, including JavaScript-heavy Single Page Applications (SPAs).
+The Web Fetch tool provides intelligent webpage content extraction from URLs. It uses a four-stage strategy chain — Cloudflare Content Negotiation, Readability extraction, zerodep soup parsing, and Jina Reader API — with **content quality evaluation** and **smart fallback** to extract clean, readable content from webpages while handling various website structures and formats, including JavaScript-heavy Single Page Applications (SPAs).
 
 ## Overview
 
 The Fetch class offers robust webpage content extraction:
 
-- **Three-Stage Strategy Chain**: Cloudflare Content Negotiation → BeautifulSoup parsing → Jina Reader API
+- **Four-Stage Strategy Chain**: Cloudflare Content Negotiation → Readability extraction → Soup parsing → Jina Reader API
 - **Content Quality Evaluation**: Detects SPA shell pages and insufficient content, triggering automatic fallback
-- **Smart Fallback with Low-Quality Recovery**: If Jina Reader also fails, returns BS4 low-quality content as a last resort (better than nothing)
+- **Smart Fallback with Low-Quality Recovery**: If Jina Reader also fails, returns local low-quality content as a last resort (better than nothing)
 - **Content Cleaning**: Removes navigation, ads, and unnecessary elements
 - **User Agent Rotation**: Uses realistic browser user agents via `ua-generator`
 - **Timeout Handling**: Configurable timeouts (default: 30s) and proxy support
@@ -65,13 +65,16 @@ Extract content from a given URL using available methods.
 
 ## How It Works
 
-### Three-Stage Strategy Chain
+### Four-Stage Strategy Chain
 
-The Web Fetch tool uses a three-stage extraction approach with **content quality evaluation** at each step:
+The Web Fetch tool uses a four-stage extraction approach with **content quality evaluation** at each step:
 
 1. **Cloudflare Content Negotiation**: Zero-cost attempt to get markdown directly from the origin server
-2. **BeautifulSoup Direct Parsing**: Intelligent HTML parsing with content cleaning + quality check
-3. **Jina Reader (Fallback)**: External API with multi-engine retry (`browser` → `cf-browser-rendering`) for JavaScript rendering (SPA support)
+2. **Readability Extraction**: Mozilla Readability-style article scoring to identify and extract main content
+3. **Soup Parsing**: Lightweight HTML parsing with CSS selector fallback using zerodep soup (zero external dependencies)
+4. **Jina Reader (Fallback)**: External API with multi-engine retry (`browser` → `cf-browser-rendering`) for JavaScript rendering (SPA support)
+
+The tool fetches the raw HTML once and reuses it for both Readability and Soup extraction. It compares the results from both local strategies and picks the better one before deciding whether to fall back to Jina Reader.
 
 ### Extraction Process
 
@@ -79,22 +82,23 @@ The Web Fetch tool uses a three-stage extraction approach with **content quality
 flowchart TD
     A[URL Input] --> B[Cloudflare Content Negotiation]
     B -->|Markdown returned| Z[Return Clean Content]
-    B -->|Not supported| C[BeautifulSoup Parsing]
-    C -->|Has content| D{Content Quality Check}
-    D -->|Sufficient| Z
-    C -->|HTTP error / no content| F
-    D -->|Too short or SPA shell| F[Jina Reader - browser engine]
-    F -->|Good content| Z
-    F -->|Insufficient content| F2[Jina Reader - cf-browser-rendering engine]
-    F2 -->|Good content| Z
-    F2 -->|Failed or low quality| G{BS4 had content?}
-    G -->|Yes| H[Return BS4 low-quality fallback]
-    G -->|No| I[Return error message]
+    B -->|Not supported| C[Fetch HTML]
+    C --> D[Readability Extraction]
+    C --> E[Soup Extraction]
+    D & E --> F{Pick Best Local Result}
+    F -->|Sufficient quality| Z
+    F -->|Too short or SPA shell| G[Jina Reader - browser engine]
+    G -->|Good content| Z
+    G -->|Insufficient content| G2[Jina Reader - cf-browser-rendering engine]
+    G2 -->|Good content| Z
+    G2 -->|Failed or low quality| H{Local had content?}
+    H -->|Yes| I[Return local low-quality fallback]
+    H -->|No| J[Return error message]
 ```
 
 ### Content Quality Evaluation
 
-After BeautifulSoup extraction, the tool evaluates content quality using `_is_content_sufficient()` before deciding whether to accept the result or fall back to Jina Reader:
+After local extraction (Readability + Soup), the tool evaluates content quality using `_is_content_sufficient()` before deciding whether to accept the result or fall back to Jina Reader:
 
 **Minimum Length Check:**
 
@@ -118,7 +122,7 @@ When SPA shell content is detected, Jina Reader is automatically triggered with 
 
 **Low-Quality Fallback:**
 
-If Jina Reader also fails to produce sufficient content, the tool falls back to the BS4 low-quality result (if available) — because partial content is better than no content at all.
+If Jina Reader also fails to produce sufficient content, the tool falls back to the local low-quality result (if available) — because partial content is better than no content at all.
 
 ### Cloudflare Content Negotiation
 
@@ -140,7 +144,7 @@ The first strategy leverages [Cloudflare's "Markdown for Agents"](https://blog.c
 
 ### Jina Reader API
 
-The Jina Reader serves as the fallback strategy for pages that BeautifulSoup cannot handle well (e.g., JavaScript-heavy SPAs). The implementation uses a **multi-engine retry** approach:
+The Jina Reader serves as the fallback strategy for pages that local extraction cannot handle well (e.g., JavaScript-heavy SPAs). The implementation uses a **multi-engine retry** approach:
 
 **Request Configuration:**
 

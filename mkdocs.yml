@@ -67,6 +67,7 @@ plugins:
           - tools/filesystem.md
           - tools/websearch/web_fetch_tool.md
           - tools/websearch/index.md
+          - tools/websearch/websearch_unified.md
           - tools/websearch/brave.md
           - tools/websearch/brightdata.md
           - tools/websearch/scrapeless.md
@@ -74,6 +75,7 @@ plugins:
           - tools/websearch/tavily.md
           - tools/websearch/searxng.md
           - tools/bash_tool.md
+          - tools/cron_tool.md
           - tools/think_tool.md
           - tools/todo_list.md
         Deployment:
@@ -152,6 +154,7 @@ nav:
           - Web Fetch Tool: tools/websearch/web_fetch_tool.md
           - Web Search Tools:
               - Overview: tools/websearch/index.md
+              - Unified Web Search: tools/websearch/websearch_unified.md
               - Brave Search: tools/websearch/brave.md
               - BrightData Search: tools/websearch/brightdata.md
               - Scrapeless Search: tools/websearch/scrapeless.md
@@ -160,6 +163,8 @@ nav:
               - SearXNG Search: tools/websearch/searxng.md
       - Shell:
           - Bash Tool: tools/bash_tool.md
+      - Scheduling:
+          - Cron Tool: tools/cron_tool.md
       - Other Tools:
           - Think Tool: tools/think_tool.md
           - Todo List Tool: tools/todo_list.md

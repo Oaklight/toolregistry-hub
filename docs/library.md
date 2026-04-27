@@ -45,7 +45,7 @@ output = BashTool.execute("ls -la", timeout=10)
 print(output["stdout"])
 ```
 
-All tool classes use **static methods** — no instantiation needed, no state to manage.
+Most tool classes use **static methods** — no instantiation needed, no state to manage. Some tools like `Fetch`, `WebSearch`, and search providers are instance-based for configuration flexibility.
 
 ## Available Tools
 
@@ -125,14 +125,51 @@ BashTool has a built-in deny list that blocks dangerous commands (`rm -rf /`, `s
 
 ```python
 from toolregistry_hub import Fetch, BraveSearch, TavilySearch
+from toolregistry_hub.websearch import WebSearch
 
 # Fetch and extract content from a URL
-content = Fetch.fetch_content("https://example.com")
+content = Fetch().fetch_content("https://example.com")
 
-# Web search (requires API keys via environment variables)
+# Fetch with Jina Reader API key (optional, for authenticated access)
+fetcher = Fetch(api_keys=["jina_key1", "jina_key2"])
+content = fetcher.fetch_content("https://example.com")
+
+# Unified web search — auto-selects the best available engine
+ws = WebSearch()
+results = ws.search("Python 3.12 new features", max_results=5)
+for r in results:
+    print(f"{r.title}: {r.url}")
+
+# Specify a particular engine
+results = ws.search("Python async", engine="brave", max_results=5)
+
+# List available engines and their configuration status
+engines = ws.list_engines()
+
+# Direct engine usage (requires API keys via environment variables)
 results = BraveSearch().search("Python 3.12 new features", max_results=5)
 for r in results:
     print(f"{r.title}: {r.url}")
+```
+
+### Scheduling
+
+```python
+from toolregistry_hub import CronTool
+
+# Schedule a recurring prompt (every 5 minutes)
+job = CronTool.create(cron="*/5 * * * *", prompt="Check server health")
+
+# Schedule a one-shot reminder
+job = CronTool.create(
+    cron="30 14 28 4 *",
+    prompt="Deploy release to staging",
+    recurring=False,
+)
+
+# List and manage scheduled jobs
+jobs = CronTool.list()
+CronTool.delete(job_id="abc123")
 ```
 
 ### Cognitive Tools
@@ -191,7 +228,10 @@ Some tools require API keys to function. Set them as environment variables or us
 | `TAVILY_API_KEY` | TavilySearch | For Tavily search |
 | `SERPER_API_KEY` | SerperSearch | For Serper search |
 | `BRIGHTDATA_API_KEY` | BrightDataSearch | For BrightData search |
-| `SEARXNG_BASE_URL` | SearXNGSearch | For self-hosted SearXNG |
+| `SCRAPELESS_API_KEY` | ScrapelessSearch | For Scrapeless search |
+| `SEARXNG_URL` | SearXNGSearch | For self-hosted SearXNG |
+| `JINA_API_KEY` | Fetch (Jina Reader) | Optional, for authenticated Jina Reader access (comma-separated for multi-key rotation) |
+| `WEBSEARCH_PRIORITY` | WebSearch (auto mode) | Comma-separated engine priority (e.g., `searxng,brave,tavily`) |
 
 Tools without API key requirements (Calculator, DateTime, FileOps, BashTool, etc.) work out of the box with zero configuration.
 
