@@ -172,7 +172,11 @@ def _extract(
             if candidate and _is_content_sufficient(candidate):
                 # Prefer readability if it extracted substantially more or equal
                 # content; otherwise fall through to soup.
-                if strategy == "readability" and soup_content and len(soup_content) > len(candidate) * 2:
+                if (
+                    strategy == "readability"
+                    and soup_content
+                    and len(soup_content) > len(candidate) * 2
+                ):
                     logger.debug(
                         f"Readability result shorter than soup "
                         f"({len(candidate)} vs {len(soup_content)}), trying soup"
