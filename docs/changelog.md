@@ -12,6 +12,63 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ## [Unreleased] - since 0.8.0
 
+### New Features
+
+- **Tool discovery with progressive disclosure**
+    - Call `registry.enable_tool_discovery()` to register a `discover_tools` tool for BM25F search across all registered tools
+    - Less-used tools (FileReader, FileSearch, PathInfo, BashTool, CronTool, TodoList, UnitConverter) marked as deferred — discoverable via `discover_tools` but excluded from initial schema for smart clients
+    - Add `--tool-discovery / --no-tool-discovery` CLI flag (default: enabled)
+
+- **Think-augmented function calling**
+    - Inject a `thought` property into tool schemas for chain-of-thought reasoning ([arXiv:2601.18282](https://arxiv.org/abs/2601.18282))
+    - Built-in dedup prevents double injection when both server and harness enable it
+    - Add `--think-augment / --no-think-augment` CLI flag (default: enabled)
+
+- **ToolTag metadata for all registered tools**
+    - Assign `ToolTag` labels (`READ_ONLY`, `DESTRUCTIVE`, `NETWORK`, `FILE_SYSTEM`, `PRIVILEGED`) to every default tool based on its behavior
+    - Tags are available via `tool.metadata.tags` for filtering and display
+
+- **Fetch: Jina API key support with multi-key rotation**
+    - `Fetch` class now accepts optional `api_keys` parameter for Jina Reader authentication
+    - Falls back to `JINA_API_KEY` environment variable (comma-separated for multiple keys)
+    - Round-robin key rotation with automatic failure tracking (HTTP 401/403 → 1h cooldown, HTTP 429 → 5min cooldown)
+
+- **Fetch: User-specified extraction engine**
+    - Add `engine` parameter to `_extract()`: `"auto"` (default fallback chain), `"markdown"`, `"readability"`, `"soup"`, `"jina"`
+    - Direct engine mode skips fallback chain — only the specified engine is tried
+
+- **Fetch: Replace BS4 with readability + soup extraction pipeline** ([#87](https://github.com/Oaklight/toolregistry-hub/pull/87), [#83](https://github.com/Oaklight/toolregistry-hub/issues/83))
+    - Replace simplistic BeautifulSoup CSS selector extraction with multi-strategy pipeline: readability (Mozilla Readability.js port, intelligent article scoring) → soup (structural CSS fallback)
+    - HTML fetched once and shared across both local strategies; readability preferred unless soup extracts >2x more content
+    - Vendor readability and soup modules from [zerodep](https://github.com/Oaklight/zerodep) into `_vendor/` with nested layout
+
+- **WebSearch: Unified entry point with dynamic engine selection**
+    - New `WebSearch` class registered at `web/websearch` namespace; the 6 individual provider tools (`web/brave_search`, `web/tavily_search`, etc.) are now deferred and discoverable via `discover_tools`
+    - `search(query, engine="auto", fallback=False, ...)` — `engine="auto"` tries configured providers in priority order; specific engines fail loudly when their key is missing, or fall through to auto when `fallback=True`
+    - Configurable priority via `WEBSEARCH_PRIORITY` environment variable (comma-separated names); default order is paid-providers-first
+    - Per-instance dynamic narrowing of the `engine` `Literal` annotation: at construction time, the JSON schema seen by LLM clients only includes engines whose API keys are actually configured on this server
+    - `list_engines()` helper for runtime introspection of available providers
+
+### Code Cleanup
+
+- Remove dead code from `fetch.py`: `_get_lynx_useragent()`, `HEADERS_LYNX`, `_remove_emojis()`, unused `random` import
+- Move Lynx-based user-agent generation to `_legacy` for future Chrome CDP reference
+- Convert `Fetch` from static utility to instance class for API key state management
+
+### Deprecations
+
+- **FileSystem removed from default server registry**
+    - `FileSystem` class is no longer registered in server mode; replaced by PathInfo, FileSearch, and FileReader
+    - The class itself is kept for library backward compatibility and still emits `DeprecationWarning`
+
+### Internal Changes
+
+- Consolidate all zerodep vendored modules (structlog, scheduler, readability, soup) into `_vendor/` with nested layout ([#87](https://github.com/Oaklight/toolregistry-hub/pull/87))
+- Remove `beautifulsoup4` external dependency; migrate `websearch_legacy` (bing, google) to zerodep soup ([#87](https://github.com/Oaklight/toolregistry-hub/pull/87))
+- Exclude `_vendor/` from ruff UP035 lint rule and ty type checking
+- Refactor CLI to always build registry with CLI flags instead of only when `--config` is set
+- Fix deprecated `with_namespace=` parameter in `register_from_class()` calls (now uses `namespace=`)
+
 ### Fixes
 
 - **SearXNG: Support optional X-API-Key header for protected instances** ([#85](https://github.com/Oaklight/toolregistry-hub/pull/85))
