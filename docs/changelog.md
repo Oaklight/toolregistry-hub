@@ -12,6 +12,63 @@ author: Oaklight
 
 ## [未发布] - 自 0.8.0 以来
 
+### 新功能
+
+- **工具发现与渐进式披露**
+    - 调用 `registry.enable_tool_discovery()` 注册 `discover_tools` 工具，支持 BM25F 全文检索所有已注册工具
+    - 低频工具（FileReader、FileSearch、PathInfo、BashTool、CronTool、TodoList、UnitConverter）标记为延迟加载——可通过 `discover_tools` 发现，但智能客户端初始 schema 中不包含
+    - 新增 `--tool-discovery / --no-tool-discovery` CLI 参数（默认：启用）
+
+- **思维增强工具调用**
+    - 向工具 schema 注入 `thought` 属性，支持链式思维推理（[arXiv:2601.18282](https://arxiv.org/abs/2601.18282)）
+    - 内置去重逻辑，当服务端和 harness 同时启用时不会重复注入
+    - 新增 `--think-augment / --no-think-augment` CLI 参数（默认：启用）
+
+- **为所有注册工具添加 ToolTag 元数据**
+    - 根据工具行为分配 `ToolTag` 标签（`READ_ONLY`、`DESTRUCTIVE`、`NETWORK`、`FILE_SYSTEM`、`PRIVILEGED`）
+    - 标签通过 `tool.metadata.tags` 可用于过滤和展示
+
+- **Fetch：Jina API 密钥支持与多密钥轮询**
+    - `Fetch` 类现在接受可选的 `api_keys` 参数用于 Jina Reader 认证
+    - 回退到 `JINA_API_KEY` 环境变量（逗号分隔多个密钥）
+    - 轮询式密钥轮换，自动故障追踪（HTTP 401/403 → 1 小时冷却，HTTP 429 → 5 分钟冷却）
+
+- **Fetch：用户指定提取引擎**
+    - 为 `_extract()` 添加 `engine` 参数：`"auto"`（默认回退链）、`"markdown"`、`"readability"`、`"soup"`、`"jina"`
+    - 直接引擎模式跳过回退链——仅尝试指定的引擎
+
+- **Fetch：用 readability + soup 替换 BS4 提取管道** ([#87](https://github.com/Oaklight/toolregistry-hub/pull/87), [#83](https://github.com/Oaklight/toolregistry-hub/issues/83))
+    - 用多策略管道替换简单的 BeautifulSoup CSS 选择器提取：readability（Mozilla Readability.js 移植，智能文章评分）→ soup（结构化 CSS 降级）
+    - HTML 只获取一次，两个本地策略共用；优先使用 readability，除非 soup 提取内容超过 2 倍
+    - 从 [zerodep](https://github.com/Oaklight/zerodep) 引入 readability 和 soup 模块到 `_vendor/`，采用嵌套目录布局
+
+- **WebSearch：统一入口与动态引擎选择**
+    - 新增 `WebSearch` 类注册到 `web/websearch` 命名空间；原有 6 个 provider 工具（`web/brave_search`、`web/tavily_search` 等）改为 defer，可通过 `discover_tools` 发现
+    - `search(query, engine="auto", fallback=False, ...)` —— `engine="auto"` 按优先级尝试已配置的 provider；指定具体 engine 时若未配置则严格报错，或在 `fallback=True` 时降级到 auto 链
+    - 通过 `WEBSEARCH_PRIORITY` 环境变量配置优先级（逗号分隔），默认顺序为付费 provider 优先
+    - `engine` 参数 `Literal` 注解的实例级动态收窄：构造时 LLM 看到的 JSON schema 只包含当前服务实际配置了 API key 的 engine
+    - 新增 `list_engines()` 辅助方法，运行时查询可用 provider
+
+### 代码清理
+
+- 移除 `fetch.py` 中的死代码：`_get_lynx_useragent()`、`HEADERS_LYNX`、`_remove_emojis()`、未使用的 `random` 导入
+- 将基于 Lynx 的用户代理生成移至 `_legacy`，为未来 Chrome CDP 实现保留参考
+- 将 `Fetch` 从静态工具类转换为实例类，用于管理 API 密钥状态
+
+### 弃用
+
+- **FileSystem 从默认服务端注册表中移除**
+    - `FileSystem` 类不再在服务端模式中注册；已由 PathInfo、FileSearch 和 FileReader 替代
+    - 该类本身保留以兼容库用户，仍会发出 `DeprecationWarning`
+
+### 内部变更
+
+- 将所有 zerodep 模块（structlog、scheduler、readability、soup）整合到 `_vendor/` 嵌套目录布局 ([#87](https://github.com/Oaklight/toolregistry-hub/pull/87))
+- 移除 `beautifulsoup4` 外部依赖；将 `websearch_legacy`（bing、google）迁移至 zerodep soup ([#87](https://github.com/Oaklight/toolregistry-hub/pull/87))
+- 排除 `_vendor/` 目录的 ruff UP035 lint 规则和 ty 类型检查
+- 重构 CLI，始终使用 CLI 参数构建注册表，而非仅在指定 `--config` 时构建
+- 修复 `register_from_class()` 调用中已弃用的 `with_namespace=` 参数（改用 `namespace=`）
+
 ### 修复
 
 - **SearXNG：支持可选的 X-API-Key 请求头用于保护实例** ([#85](https://github.com/Oaklight/toolregistry-hub/pull/85))
