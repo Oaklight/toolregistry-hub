@@ -50,7 +50,7 @@ _DEFAULT_PRIORITY: tuple[str, ...] = (
 )
 
 
-# Maps engine name → (module path, class name). Lazily imported so unused
+# Maps engine name -> (module path, class name). Lazily imported so unused
 # providers don't pay the import cost.
 _ENGINE_REGISTRY: dict[str, tuple[str, str]] = {
     "brave": ("toolregistry_hub.websearch.websearch_brave", "BraveSearch"),
@@ -131,7 +131,7 @@ class WebSearch:
     Users can either let the wrapper auto-select the best configured provider
     (``engine="auto"``) or pin a specific engine. Unconfigured engines (missing
     API keys) are skipped automatically. When a specific engine is requested
-    but unavailable, the call fails by default — set ``fallback=True`` on a
+    but unavailable, the call fails by default -- set ``fallback=True`` on a
     per-call basis to fall through to the auto chain instead.
 
     Example:
@@ -156,7 +156,7 @@ class WebSearch:
         # Cache instantiated engines (configured ones only)
         self._engine_cache: dict[str, BaseSearch] = {}
         # Narrow the ``engine`` parameter type to only the configured engines
-        # so that the JSON schema seen by LLM clients reflects real runtime
+        # so that the JSON schema seen by LLM clients reflects the real runtime
         # availability. The class-level full Literal remains intact for IDE /
         # static analysis use.
         self._narrow_engine_annotation()
@@ -251,7 +251,7 @@ class WebSearch:
         """List all known engines and whether each is currently configured.
 
         Returns:
-            Mapping of engine name → configured status.
+            Mapping of engine name -> configured status.
         """
         result: dict[str, bool] = {}
         for name in _ENGINE_REGISTRY:
@@ -273,7 +273,7 @@ class WebSearch:
         IMPORTANT: For time-sensitive queries (e.g., "recent news", "latest updates",
         "today's events"), you MUST first obtain the current date/time using an
         available time/datetime tool before constructing your search query. As an
-        LLM, you have no inherent sense of current time — your training data may
+        LLM, you have no inherent sense of current time -- your training data may
         be outdated. Always verify the current date when temporal context matters.
 
         Args:

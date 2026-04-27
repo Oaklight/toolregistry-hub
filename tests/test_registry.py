@@ -9,7 +9,10 @@ from unittest.mock import patch
 # Add the src directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from toolregistry.tool import ToolTag
+
 from toolregistry_hub.server.registry import (
+    _TOOL_METADATA,
     _import_class,
     build_registry,
     get_registry,
@@ -293,6 +296,83 @@ class TestBuildRegistryWithToolsConfig(unittest.TestCase):
             self.assertNotIn("fake", namespaces)
         finally:
             os.unlink(config_path)
+
+
+class TestToolMetadataAndDiscovery(unittest.TestCase):
+    """Test cases for tool metadata, discovery, and think-augment features."""
+
+    def test_filesystem_not_in_defaults(self):
+        """Test that deprecated FileSystem is no longer in default tools."""
+        reg = build_registry(enable_discovery=False)
+        namespaces = {tool.namespace for tool in reg._tools.values() if tool.namespace}
+        self.assertNotIn("filesystem", namespaces)
+
+    def test_tool_metadata_tags_applied(self):
+        """Test that ToolTag metadata is applied to registered tools."""
+        reg = build_registry(enable_discovery=False)
+
+        # Calculator should have READ_ONLY tag
+        calc_tools = [t for t in reg._tools.values() if t.namespace == "calculator"]
+        for tool in calc_tools:
+            self.assertIn(ToolTag.READ_ONLY, tool.metadata.tags)
+
+        # BashTool should have DESTRUCTIVE and PRIVILEGED
+        bash_tools = [t for t in reg._tools.values() if t.namespace == "bash"]
+        for tool in bash_tools:
+            self.assertIn(ToolTag.DESTRUCTIVE, tool.metadata.tags)
+            self.assertIn(ToolTag.PRIVILEGED, tool.metadata.tags)
+
+        # FileOps should have FILE_SYSTEM and DESTRUCTIVE
+        fileops_tools = [t for t in reg._tools.values() if t.namespace == "file_ops"]
+        for tool in fileops_tools:
+            self.assertIn(ToolTag.FILE_SYSTEM, tool.metadata.tags)
+            self.assertIn(ToolTag.DESTRUCTIVE, tool.metadata.tags)
+
+    def test_deferred_tools_marked(self):
+        """Test that tools in _TOOL_METADATA with defer=True are deferred."""
+        reg = build_registry(enable_discovery=False)
+
+        deferred_namespaces = {
+            ns for ns, meta in _TOOL_METADATA.items() if meta.get("defer")
+        }
+        for tool in reg._tools.values():
+            if tool.namespace in deferred_namespaces:
+                self.assertTrue(
+                    tool.metadata.defer,
+                    f"Tool in namespace {tool.namespace} should be deferred",
+                )
+
+    def test_core_tools_not_deferred(self):
+        """Test that core tools are not deferred."""
+        reg = build_registry(enable_discovery=False)
+
+        core_namespaces = {"calculator", "datetime", "think", "file_ops"}
+        for tool in reg._tools.values():
+            if tool.namespace in core_namespaces:
+                self.assertFalse(
+                    tool.metadata.defer,
+                    f"Core tool in namespace {tool.namespace} should not be deferred",
+                )
+
+    def test_discovery_enabled(self):
+        """Test that enable_discovery=True registers discover_tools."""
+        reg = build_registry(enable_discovery=True)
+        self.assertIn("discover_tools", reg._tools)
+
+    def test_discovery_disabled(self):
+        """Test that enable_discovery=False does not register discover_tools."""
+        reg = build_registry(enable_discovery=False)
+        self.assertNotIn("discover_tools", reg._tools)
+
+    def test_think_augment_enabled(self):
+        """Test that enable_think=True activates think-augmented calling."""
+        reg = build_registry(enable_discovery=False, enable_think=True)
+        self.assertTrue(reg._think_augment)
+
+    def test_think_augment_disabled(self):
+        """Test that enable_think=False deactivates think-augmented calling."""
+        reg = build_registry(enable_discovery=False, enable_think=False)
+        self.assertFalse(reg._think_augment)
 
 
 class TestGetRegistry(unittest.TestCase):
