@@ -61,7 +61,7 @@ class WebSearchGeneral(ABC):
             raise ValueError("Result missing URL")
 
         try:
-            content = Fetch.fetch_content(
+            content = Fetch().fetch_content(
                 url,
                 timeout=timeout or TIMEOUT_DEFAULT,
                 proxy=proxy,

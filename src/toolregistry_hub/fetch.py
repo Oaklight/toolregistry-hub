@@ -1,7 +1,10 @@
-import random
+"""Fetch and extract content from URLs."""
+
+from __future__ import annotations
+
 import re
 import unicodedata
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import httpx
 import ua_generator
@@ -9,6 +12,9 @@ import ua_generator
 from ._vendor.readability import extract as readability_extract
 from ._vendor.soup import Soup
 from ._vendor.structlog import get_logger
+
+if TYPE_CHECKING:
+    from .utils.api_key_parser import APIKeyParser
 
 logger = get_logger()
 
@@ -34,49 +40,47 @@ _SPA_SHELL_INDICATORS = [
 ]
 
 
-def _get_lynx_useragent():
-    """
-    Generates a random user agent string mimicking the format of various software versions.
-
-    The user agent string is composed of:
-    - Lynx version: Lynx/x.y.z where x is 2-3, y is 8-9, and z is 0-2
-    - libwww version: libwww-FM/x.y where x is 2-3 and y is 13-15
-    - SSL-MM version: SSL-MM/x.y where x is 1-2 and y is 3-5
-    - OpenSSL version: OpenSSL/x.y.z where x is 1-3, y is 0-4, and z is 0-9
-
-    Returns:
-        str: A randomly generated user agent string.
-    """
-    lynx_version = (
-        f"Lynx/{random.randint(2, 3)}.{random.randint(8, 9)}.{random.randint(0, 2)}"
-    )
-    libwww_version = f"libwww-FM/{random.randint(2, 3)}.{random.randint(13, 15)}"
-    ssl_mm_version = f"SSL-MM/{random.randint(1, 2)}.{random.randint(3, 5)}"
-    openssl_version = (
-        f"OpenSSL/{random.randint(1, 3)}.{random.randint(0, 4)}.{random.randint(0, 9)}"
-    )
-    return f"{lynx_version} {libwww_version} {ssl_mm_version} {openssl_version}"
-
-
-HEADERS_LYNX = {
-    "User-Agent": _get_lynx_useragent(),
-    "Accept": "*/*",
-}
-
-
 class Fetch:
-    """
-    A class to handle fetching and extracting content from URLs.
+    """Fetch and extract content from URLs.
+
+    Supports optional Jina Reader API keys for higher rate limits.
+    Multiple keys are rotated automatically via round-robin with
+    failure tracking.
     """
 
-    @staticmethod
+    def __init__(self, api_keys: str | None = None):
+        """Initialize Fetch with optional Jina Reader API keys.
+
+        Args:
+            api_keys: Comma-separated Jina API keys. Falls back to
+                the ``JINA_API_KEY`` environment variable if not provided.
+                When set, requests to the Jina Reader API include an
+                ``Authorization: Bearer <key>`` header.
+        """
+        from .utils.api_key_parser import APIKeyParser
+
+        parser = APIKeyParser(
+            api_keys=api_keys,
+            env_var_name="JINA_API_KEY",
+            rate_limit_delay=0.0,
+        )
+        self.api_key_parser: APIKeyParser | None = parser if parser.api_keys else None
+
+    def _is_configured(self) -> bool:
+        """Check if Fetch is configured.
+
+        Always returns True because Jina API keys are optional.
+        Fetch works without keys (unauthenticated requests).
+        """
+        return True
+
     def fetch_content(
+        self,
         url: str,
         timeout: float = TIMEOUT_DEFAULT,
         proxy: str | None = None,
     ) -> str:
-        """
-        Fetch and extract content from a given URL.
+        """Fetch and extract content from a given URL.
 
         Args:
             url (str): The URL to fetch content from.
@@ -87,7 +91,12 @@ class Fetch:
             str: Extracted content from the URL, or a message indicating failure if extraction fails.
         """
         try:
-            content = _extract(url, timeout=timeout, proxy=proxy)
+            content = _extract(
+                url,
+                timeout=timeout,
+                proxy=proxy,
+                api_key_parser=self.api_key_parser,
+            )
             return content
         except Exception as e:
             logger.error(f"Failed to fetch content from {url}: {e}")
@@ -121,6 +130,7 @@ def _extract(
     url: str,
     timeout: float = TIMEOUT_DEFAULT,
     proxy: str | None = None,
+    api_key_parser: APIKeyParser | None = None,
 ) -> str:
     """Extract content from a given URL using available methods.
 
@@ -136,6 +146,7 @@ def _extract(
         url: The URL to extract content from.
         timeout: Request timeout in seconds. Defaults to TIMEOUT_DEFAULT.
         proxy: Proxy to use for the request. Defaults to None.
+        api_key_parser: Optional API key parser for Jina Reader authentication.
 
     Returns:
         Extracted content, or ``"Unable to fetch content"`` if all strategies fail.
@@ -199,6 +210,7 @@ def _extract(
         url,
         timeout=timeout,
         proxy=proxy,
+        api_key_parser=api_key_parser,
     )
 
     if jina_content and _is_content_sufficient(jina_content):
@@ -297,6 +309,7 @@ def _get_content_with_jina_reader(
     return_format: Literal["markdown", "text", "html"] = "markdown",
     timeout: float = TIMEOUT_DEFAULT,
     proxy: str | None = None,
+    api_key_parser: APIKeyParser | None = None,
 ) -> str:
     """Fetch parsed content from Jina AI Reader for a given URL.
 
@@ -315,17 +328,30 @@ def _get_content_with_jina_reader(
         timeout: Maximum seconds Jina should spend rendering the page.
             Defaults to TIMEOUT_DEFAULT.
         proxy: Proxy to use for the HTTP request.  Defaults to ``None``.
+        api_key_parser: Optional API key parser for authentication.
 
     Returns:
         Parsed content from Jina AI, or empty string on failure.
     """
     for engine in _JINA_ENGINES:
+        # Get next valid API key for this attempt (if available)
+        api_key: str | None = None
+        if api_key_parser:
+            try:
+                api_key = api_key_parser.get_next_valid_key()
+            except ValueError:
+                logger.debug(
+                    "All Jina API keys currently failed, proceeding without key"
+                )
+
         content = _jina_reader_request(
             url,
             engine=engine,
             return_format=return_format,
             timeout=timeout,
             proxy=proxy,
+            api_key=api_key,
+            api_key_parser=api_key_parser,
         )
         if content and _is_content_sufficient(content):
             return content
@@ -343,6 +369,8 @@ def _jina_reader_request(
     return_format: Literal["markdown", "text", "html"] = "markdown",
     timeout: float = TIMEOUT_DEFAULT,
     proxy: str | None = None,
+    api_key: str | None = None,
+    api_key_parser: APIKeyParser | None = None,
 ) -> str:
     """Send a single request to the Jina Reader API.
 
@@ -353,6 +381,8 @@ def _jina_reader_request(
         return_format: Desired output format.
         timeout: Maximum seconds Jina should spend rendering the page.
         proxy: Optional HTTP proxy URL.
+        api_key: Optional Jina API key for the ``Authorization`` header.
+        api_key_parser: Optional parser for marking failed keys.
 
     Returns:
         Extracted content string, or empty string on failure.
@@ -366,6 +396,9 @@ def _jina_reader_request(
             "X-Remove-Selector": "header, footer, nav, aside",
             "X-Wait-For-Selector": _JINA_WAIT_SELECTORS,
         }
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
         jina_reader_url = "https://r.jina.ai/"
         # httpx timeout must exceed Jina's rendering timeout so we don't
         # abort the HTTP connection before Jina finishes.
@@ -390,9 +423,13 @@ def _jina_reader_request(
             logger.debug(f"Jina Reader ({engine}) returned empty content for {url}")
         return content
     except httpx.HTTPStatusError as e:
-        logger.debug(
-            f"Jina Reader ({engine}) HTTP Error [{e.response.status_code}]: {e}"
-        )
+        status = e.response.status_code
+        logger.debug(f"Jina Reader ({engine}) HTTP Error [{status}]: {e}")
+        if api_key and api_key_parser:
+            if status in (401, 403):
+                api_key_parser.mark_key_failed(api_key, f"HTTP {status}", ttl=3600.0)
+            elif status == 429:
+                api_key_parser.mark_key_failed(api_key, "rate limited", ttl=300.0)
         return ""
     except Exception as e:
         logger.debug(f"Jina Reader ({engine}) error: {e}")
