@@ -24,7 +24,12 @@
 ## 网络工具
 
 - **[网页获取工具](websearch/web_fetch_tool.md)** - 提取网页内容
-- **[网络搜索工具](websearch/)** - 多引擎网络搜索功能
+- **[统一网络搜索](websearch/websearch_unified.md)** - 所有搜索引擎的统一入口，支持自动选择和降级
+- **[网络搜索工具](websearch/)** - 各搜索引擎独立实现
+
+## 定时任务
+
+- **[定时任务工具](cron_tool.md)** - 基于 cron 表达式的定时提示执行
 
 ## 其他工具
 

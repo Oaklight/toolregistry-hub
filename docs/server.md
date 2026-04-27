@@ -49,6 +49,8 @@ toolregistry-server --mode mcp --mcp-transport stdio
 - `--port`: 服务器绑定的端口 (默认: 8000)
 - `--mode`: 服务器模式，可选值为 `openapi` 或 `mcp` (默认: openapi)
 - `--mcp-transport`: MCP 传输模式，可选值为 `streamable-http`、`sse` 或 `stdio` (默认: streamable-http)
+- `--tool-discovery` / `--no-tool-discovery`: 启用或禁用工具发现与渐进式披露（默认：启用）。启用后，低频工具标记为延迟加载，可通过 `discover_tools` 工具发现
+- `--think-augment` / `--no-think-augment`: 启用或禁用思维增强工具调用（默认：启用）。启用后，向工具 schema 注入 `thought` 属性用于链式思维推理
 
 ### 程序内启动
 
@@ -100,11 +102,13 @@ mcp_app.run()
 #### 网络工具
 
 - `POST /tools/web/fetch/fetch_content` - 提取网页内容
-- `POST /tools/web/brave_search/search` - 使用 Brave 进行网络搜索
-- `POST /tools/web/searxng_search/search` - 使用 SearXNG 进行网络搜索
-- `POST /tools/web/tavily_search/search` - 使用 Tavily 进行网络搜索
-- `POST /tools/web/scrapeless_search/search` - 使用 Scrapeless 进行网络搜索
-- `POST /tools/web/brightdata_search/search` - 使用 BrightData 进行网络搜索
+- `POST /tools/web/websearch/search` - 统一网络搜索，支持引擎选择器（auto、brave、tavily 等）
+- `POST /tools/web/websearch/list_engines` - 列出可用搜索引擎及其配置状态
+- `POST /tools/web/brave_search/search` - 使用 Brave 进行网络搜索 *（延迟加载）*
+- `POST /tools/web/searxng_search/search` - 使用 SearXNG 进行网络搜索 *（延迟加载）*
+- `POST /tools/web/tavily_search/search` - 使用 Tavily 进行网络搜索 *（延迟加载）*
+- `POST /tools/web/scrapeless_search/search` - 使用 Scrapeless 进行网络搜索 *（延迟加载）*
+- `POST /tools/web/brightdata_search/search` - 使用 BrightData 进行网络搜索 *（延迟加载）*
 
 #### 日期时间工具
 
@@ -114,6 +118,12 @@ mcp_app.run()
 #### 待办事项工具
 
 - `POST /tools/todolist/update` - 更新待办事项列表
+
+#### 定时任务工具
+
+- `POST /tools/cron/create` - 创建定时或一次性定时任务 *（延迟加载）*
+- `POST /tools/cron/delete` - 取消已计划的任务 *（延迟加载）*
+- `POST /tools/cron/list` - 列出所有定时任务 *（延迟加载）*
 
 #### 单位转换工具
 
@@ -383,6 +393,9 @@ TOOLS_CONFIG=path/to/tools.jsonc toolregistry-server
 | `SEARXNG_URL` | SearXNG 搜索 | SearXNG 实例 URL（如 `http://localhost:8080`） |
 | `BRIGHTDATA_API_KEY` | BrightData 搜索 | Bright Data API 密钥（[获取](https://brightdata.com/)） |
 | `SCRAPELESS_API_KEY` | Scrapeless 搜索 | Scrapeless API 密钥（[获取](https://scrapeless.com/)） |
+| `SERPER_API_KEY` | Serper 搜索 | Serper API 密钥（[获取](https://serper.dev/)） |
+| `JINA_API_KEY` | Fetch（Jina Reader） | 可选的 Jina Reader API 密钥，用于认证请求（逗号分隔支持多密钥轮转） |
+| `WEBSEARCH_PRIORITY` | 统一网络搜索 | 自动模式下的引擎优先级（逗号分隔，如 `searxng,brave,tavily`） |
 
 !!! note "自动禁用行为"
     服务器启动时会检查每个工具所需的环境变量。缺少变量的工具会被自动注册但禁用，不会出现在返回给客户端的工具列表中。您可以通过设置所需的环境变量并重启服务器来启用它们。

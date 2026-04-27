@@ -45,7 +45,7 @@ output = BashTool.execute("ls -la", timeout=10)
 print(output["stdout"])
 ```
 
-所有工具类使用**静态方法** — 无需实例化、无需管理状态。
+所有工具类大部分使用**静态方法** — 无需实例化、无需管理状态。部分工具如 `Fetch`、`WebSearch` 和各搜索引擎为实例化使用，以支持配置灵活性。
 
 ## 可用工具
 
@@ -125,14 +125,51 @@ BashTool 内置拒绝列表，会阻止危险命令（`rm -rf /`、`sudo`、fork
 
 ```python
 from toolregistry_hub import Fetch, BraveSearch, TavilySearch
+from toolregistry_hub.websearch import WebSearch
 
 # 抓取并提取 URL 内容
-content = Fetch.fetch_content("https://example.com")
+content = Fetch().fetch_content("https://example.com")
 
-# 网络搜索（需要通过环境变量设置 API 密钥）
+# 使用 Jina Reader API 密钥抓取（可选，用于认证访问）
+fetcher = Fetch(api_keys=["jina_key1", "jina_key2"])
+content = fetcher.fetch_content("https://example.com")
+
+# 统一网络搜索 — 自动选择最佳可用引擎
+ws = WebSearch()
+results = ws.search("Python 3.12 新特性", max_results=5)
+for r in results:
+    print(f"{r.title}: {r.url}")
+
+# 指定特定引擎
+results = ws.search("Python 异步编程", engine="brave", max_results=5)
+
+# 列出可用引擎及其配置状态
+engines = ws.list_engines()
+
+# 直接使用引擎（需要通过环境变量设置 API 密钥）
 results = BraveSearch().search("Python 3.12 new features", max_results=5)
 for r in results:
     print(f"{r.title}: {r.url}")
+```
+
+### 定时任务
+
+```python
+from toolregistry_hub import CronTool
+
+# 创建定时任务（每 5 分钟执行）
+job = CronTool.create(cron="*/5 * * * *", prompt="检查服务器健康状态")
+
+# 创建一次性提醒
+job = CronTool.create(
+    cron="30 14 28 4 *",
+    prompt="部署发布到预生产环境",
+    recurring=False,
+)
+
+# 列出和管理定时任务
+jobs = CronTool.list()
+CronTool.delete(job_id="abc123")
 ```
 
 ### 认知工具
@@ -191,7 +228,10 @@ registry = get_registry()  # 所有工具已注册就绪
 | `TAVILY_API_KEY` | TavilySearch | Tavily 搜索 |
 | `SERPER_API_KEY` | SerperSearch | Serper 搜索 |
 | `BRIGHTDATA_API_KEY` | BrightDataSearch | BrightData 搜索 |
-| `SEARXNG_BASE_URL` | SearXNGSearch | 自托管 SearXNG |
+| `SCRAPELESS_API_KEY` | ScrapelessSearch | Scrapeless 搜索 |
+| `SEARXNG_URL` | SearXNGSearch | 自托管 SearXNG |
+| `JINA_API_KEY` | Fetch（Jina Reader） | 可选，用于认证 Jina Reader 访问（逗号分隔支持多密钥轮转） |
+| `WEBSEARCH_PRIORITY` | WebSearch（auto 模式） | 自动模式下引擎优先级（逗号分隔，如 `searxng,brave,tavily`） |
 
 无需 API 密钥的工具（Calculator、DateTime、FileOps、BashTool 等）开箱即用，零配置。
 

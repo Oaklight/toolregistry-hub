@@ -27,15 +27,17 @@
 
 ## 模块概览
 
-网络搜索工具主要包含以下两个版本：
+网络搜索工具主要包含以下部分：
 
-1. **新版网络搜索模块** (`websearch`) - 提供统一的搜索引擎抽象层和更先进的功能
-2. **旧版网络搜索模块** (`websearch_legacy`) - 提供基础的网络搜索功能
+1. **统一网络搜索** (`WebSearch`) - 所有搜索引擎的统一入口，支持自动选择、降级和动态引擎发现。参见 [统一网络搜索](websearch_unified.md)
+2. **独立搜索引擎** (`websearch`) - 直接访问特定搜索引擎（Brave、Tavily、SearXNG 等）
+3. **旧版网络搜索模块** (`websearch_legacy`) - 提供基础的网络搜索功能
 
 ## 搜索引擎支持
 
 当前支持的搜索引擎包括：
 
+- [统一网络搜索](websearch_unified.md) - 一体化入口，支持自动引擎选择和降级
 - [Brave 搜索](brave.md) - 使用 Brave 搜索引擎
 - [Serper 搜索](serper.md) - 使用 Serper API 获取 Google 搜索结果
 - [Tavily 搜索](tavily.md) - 使用 Tavily 搜索 API（AI 优化）
@@ -45,6 +47,29 @@
 - [Bing 搜索](bing.md) - **已移除** - 曾使用 Bing 搜索引擎（v0.6.0 中移除）
 
 ## 基本使用
+
+### 统一入口（推荐）
+
+```python
+from toolregistry_hub.websearch import WebSearch
+
+# 自动选择最佳可用引擎
+ws = WebSearch()
+results = ws.search("Python 编程", max_results=5)
+for result in results:
+    print(f"标题: {result.title}")
+    print(f"URL: {result.url}")
+    print(f"内容: {result.content}")
+    print("-" * 50)
+
+# 指定特定引擎
+results = ws.search("机器学习", engine="brave", max_results=5)
+
+# 列出可用引擎
+engines = ws.list_engines()
+```
+
+### 直接使用引擎
 
 ```python
 from toolregistry_hub.websearch import BraveSearch, SearXNGSearch, TavilySearch, BrightDataSearch, ScrapelessSearch, SerperSearch
@@ -111,6 +136,7 @@ for result in results:
 
 ## 详细文档
 
+- [统一网络搜索](websearch_unified.md) - 一体化入口，支持自动引擎选择和降级
 - [搜索结果类型](search_result.md) - 搜索结果的数据结构
 - [基础搜索类](base_search.md) - 所有搜索引擎的基类
 - [Brave 搜索](brave.md) - Brave 搜索引擎的实现
