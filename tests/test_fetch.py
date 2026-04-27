@@ -10,6 +10,7 @@ from toolregistry_hub.fetch import (
     _JINA_WAIT_SELECTORS,
     _MIN_CONTENT_LENGTH,
     _SPA_SHELL_INDICATORS,
+    Fetch,
     _extract,
     _extract_with_readability,
     _extract_with_soup,
@@ -20,6 +21,7 @@ from toolregistry_hub.fetch import (
     _is_content_sufficient,
     _jina_reader_request,
 )
+from toolregistry_hub.utils.api_key_parser import APIKeyParser
 
 
 # ============================================================
@@ -587,3 +589,122 @@ class TestExtract:
 
         result = _extract("https://example.com")
         assert result == "Unable to fetch content"
+
+
+# ============================================================
+# Jina API key tests
+# ============================================================
+
+
+class TestJinaApiKey:
+    """Tests for Jina API key support in Fetch."""
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_api_key_in_authorization_header(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"code": 200, "data": {"content": "test"}}
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        _jina_reader_request("https://example.com", api_key="test-key-123")
+
+        call_kwargs = mock_post.call_args
+        headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
+        assert headers["Authorization"] == "Bearer test-key-123"
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_no_api_key_no_authorization_header(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"code": 200, "data": {"content": "test"}}
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        _jina_reader_request("https://example.com")
+
+        call_kwargs = mock_post.call_args
+        headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
+        assert "Authorization" not in headers
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_401_marks_key_failed(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Unauthorized", request=MagicMock(), response=mock_response
+        )
+        mock_post.return_value = mock_response
+
+        parser = APIKeyParser(api_keys="key1,key2")
+        _jina_reader_request(
+            "https://example.com",
+            api_key="key1",
+            api_key_parser=parser,
+        )
+
+        assert "key1" in parser._failed_keys
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_429_marks_key_rate_limited(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Too Many Requests", request=MagicMock(), response=mock_response
+        )
+        mock_post.return_value = mock_response
+
+        parser = APIKeyParser(api_keys="key1,key2")
+        _jina_reader_request(
+            "https://example.com",
+            api_key="key1",
+            api_key_parser=parser,
+        )
+
+        assert "key1" in parser._failed_keys
+        reason, _, ttl = parser._failed_keys["key1"]
+        assert reason == "rate limited"
+        assert ttl == 300.0
+
+    @patch("toolregistry_hub.fetch.httpx.post")
+    def test_500_does_not_mark_key_failed(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Server Error", request=MagicMock(), response=mock_response
+        )
+        mock_post.return_value = mock_response
+
+        parser = APIKeyParser(api_keys="key1")
+        _jina_reader_request(
+            "https://example.com",
+            api_key="key1",
+            api_key_parser=parser,
+        )
+
+        assert "key1" not in parser._failed_keys
+
+    def test_fetch_instance_with_api_keys(self):
+        fetcher = Fetch(api_keys="key1,key2,key3")
+        assert fetcher.api_key_parser is not None
+        assert len(fetcher.api_key_parser.api_keys) == 3
+
+    def test_fetch_instance_without_api_keys(self):
+        with patch.dict("os.environ", {}, clear=False):
+            import os
+
+            os.environ.pop("JINA_API_KEY", None)
+            fetcher = Fetch()
+            assert fetcher.api_key_parser is None
+
+    @patch.dict("os.environ", {"JINA_API_KEY": "env-key-1,env-key-2"})
+    def test_fetch_instance_from_env(self):
+        fetcher = Fetch()
+        assert fetcher.api_key_parser is not None
+        assert len(fetcher.api_key_parser.api_keys) == 2
+
+    def test_is_configured_always_true(self):
+        fetcher = Fetch()
+        assert fetcher._is_configured() is True
+
+    def test_is_configured_true_with_keys(self):
+        fetcher = Fetch(api_keys="key1")
+        assert fetcher._is_configured() is True

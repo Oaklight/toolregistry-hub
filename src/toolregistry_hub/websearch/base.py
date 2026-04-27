@@ -123,7 +123,7 @@ class BaseSearch(ABC):
             raise ValueError("Result missing URL")
 
         try:
-            content = Fetch.fetch_content(
+            content = Fetch().fetch_content(
                 url,
                 timeout=timeout,
                 proxy=proxy,
