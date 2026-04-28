@@ -3,7 +3,7 @@ from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 
 from .._vendor.httpclient import HTTPError, HttpClientError, get as _http_get
-import ua_generator
+from .._vendor.useragent import generate as _ua_generate
 
 from .._vendor.structlog import get_logger
 from .filter import filter_search_results
@@ -144,7 +144,7 @@ class WebSearchSearXNG(WebSearchGeneral):
         """
         Perform a search using SearXNG and return the results.
         """
-        ua = ua_generator.generate(browser=["chrome", "edge"])
+        ua = _ua_generate(browser=["chrome", "edge"])
         ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
         response = _http_get(
             searxng_base_url,

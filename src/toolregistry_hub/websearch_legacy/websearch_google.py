@@ -6,7 +6,7 @@ from time import sleep
 from urllib.parse import unquote  # to decode the url
 
 from .._vendor.httpclient import Client, HTTPError, HttpClientError
-import ua_generator
+from .._vendor.useragent import generate as _ua_generate
 from .._vendor.soup import Soup, Tag
 
 from .._vendor.structlog import get_logger
@@ -138,7 +138,7 @@ class WebSearchGoogle(WebSearchGeneral):
         fetched_links: set[str] = set()
 
         # Create a persistent client with connection pooling
-        ua = ua_generator.generate(device="mobile")
+        ua = _ua_generate(device="mobile")
         ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
         with Client(
             proxy=proxy,
