@@ -7,8 +7,6 @@ import time
 import unicodedata
 from typing import TYPE_CHECKING, Literal
 
-import ua_generator
-
 from ._vendor.httpclient import (
     HTTPError,
     HttpConnectionError,
@@ -19,6 +17,7 @@ from ._vendor.httpclient import (
 from ._vendor.readability import extract as readability_extract
 from ._vendor.soup import Soup
 from ._vendor.structlog import get_logger
+from ._vendor.useragent import generate
 
 if TYPE_CHECKING:
     from .utils.api_key_parser import APIKeyParser
@@ -345,7 +344,7 @@ def _get_content_with_markdown_negotiation(
         str: Markdown content if the server supports it, otherwise empty string.
     """
     try:
-        ua = ua_generator.generate(browser=["chrome", "edge"])
+        ua = generate(browser=["chrome", "edge"])
         ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
         headers = ua.headers.get()
         headers["Accept"] = "text/markdown"
@@ -550,7 +549,7 @@ def _fetch_raw(
     last_exception: Exception | None = None
     for attempt in range(_FETCH_MAX_RETRIES):
         try:
-            ua = ua_generator.generate(browser=["chrome", "edge"])
+            ua = generate(browser=["chrome", "edge"])
             ua.headers.accept_ch(
                 "Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List"
             )

@@ -33,9 +33,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = [
-    "ua-generator>=1.0.6",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = [
