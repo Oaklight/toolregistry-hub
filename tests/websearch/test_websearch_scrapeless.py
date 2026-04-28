@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-import httpx
+from toolregistry_hub._vendor.httpclient import HTTPError, HttpTimeoutError
 
 from toolregistry_hub.websearch.search_result import SearchResult
 from toolregistry_hub.websearch.websearch_scrapeless import ScrapelessSearch
@@ -46,7 +46,7 @@ class TestScrapelessSearch:
         assert headers["Content-Type"] == "application/json"
         assert headers["X-API-Key"] == "test_key"
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_scrapeless.Client")
     def test_search_basic(self, mock_client):
         """Test basic search functionality."""
         mock_response = MagicMock()
@@ -80,7 +80,7 @@ class TestScrapelessSearch:
         assert results[0].title == "Test Result 1"
         assert results[0].url == "https://example1.com"
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_scrapeless.Client")
     def test_search_empty_query(self, mock_client):
         """Test search with empty query."""
         search = ScrapelessSearch(api_keys="test_key")
@@ -89,13 +89,13 @@ class TestScrapelessSearch:
         assert results == []
         mock_client.assert_not_called()
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_scrapeless.Client")
     def test_search_timeout_error(self, mock_client):
         """Test search with timeout error."""
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.post.side_effect = httpx.TimeoutException("Timeout")
+        mock_client_instance.post.side_effect = HttpTimeoutError("Timeout")
         mock_client.return_value = mock_client_instance
 
         search = ScrapelessSearch(api_keys="test_key")
@@ -103,7 +103,7 @@ class TestScrapelessSearch:
 
         assert results == []
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_scrapeless.Client")
     def test_search_http_401_error(self, mock_client):
         """Test search with 401 authentication error."""
         mock_response = MagicMock()
@@ -113,8 +113,8 @@ class TestScrapelessSearch:
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.post.side_effect = httpx.HTTPStatusError(
-            "Unauthorized", request=MagicMock(), response=mock_response
+        mock_client_instance.post.side_effect = HTTPError(
+            401, "Unauthorized", "https://api.scrapeless.com/api/v1/scraper/request"
         )
         mock_client.return_value = mock_client_instance
 
@@ -123,7 +123,7 @@ class TestScrapelessSearch:
 
         assert results == []
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_scrapeless.Client")
     def test_search_http_429_error(self, mock_client):
         """Test search with 429 rate limit error."""
         mock_response = MagicMock()
@@ -133,8 +133,10 @@ class TestScrapelessSearch:
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.post.side_effect = httpx.HTTPStatusError(
-            "Rate limit", request=MagicMock(), response=mock_response
+        mock_client_instance.post.side_effect = HTTPError(
+            429,
+            "Rate limit exceeded",
+            "https://api.scrapeless.com/api/v1/scraper/request",
         )
         mock_client.return_value = mock_client_instance
 
@@ -175,7 +177,7 @@ class TestScrapelessSearch:
 
         assert results == []
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_scrapeless.Client")
     def test_search_request_payload(self, mock_client):
         """Test that request payload is correctly formatted."""
         mock_response = MagicMock()
@@ -199,7 +201,7 @@ class TestScrapelessSearch:
         assert payload["input"]["q"] == "test query"
         assert payload["async"] is False
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_scrapeless.Client")
     def test_search_with_language_and_country(self, mock_client):
         """Test search with custom language and country."""
         mock_response = MagicMock()
@@ -221,7 +223,7 @@ class TestScrapelessSearch:
         assert payload["input"]["hl"] == "zh-CN"
         assert payload["input"]["gl"] == "cn"
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_scrapeless.Client")
     def test_search_max_results_cap(self, mock_client):
         """Test that max_results is properly handled."""
         mock_response = MagicMock()

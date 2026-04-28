@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-import httpx
+from toolregistry_hub._vendor.httpclient import HTTPError
 
 from toolregistry_hub.websearch.websearch_brave import BraveSearch
 
@@ -14,7 +14,7 @@ class TestWebSearchFailover:
         keys = ",".join(f"key{i}" for i in range(1, num_keys + 1))
         return BraveSearch(api_keys=keys, rate_limit_delay=0)
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brave.Client")
     def test_retry_on_401(self, mock_client_cls):
         """First key returns 401, second key succeeds."""
         search = self._make_search(2)
@@ -22,8 +22,8 @@ class TestWebSearchFailover:
         response_401 = MagicMock()
         response_401.status_code = 401
         response_401.text = "Unauthorized"
-        response_401.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "401", request=MagicMock(), response=response_401
+        response_401.raise_for_status.side_effect = HTTPError(
+            401, "Unauthorized", "https://api.search.brave.com/res/v1/web/search"
         )
 
         response_ok = MagicMock()
@@ -54,7 +54,7 @@ class TestWebSearchFailover:
         # First key should be marked as failed
         assert "key1" in search.api_key_parser.failed_keys
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brave.Client")
     def test_retry_on_429(self, mock_client_cls):
         """Rate-limited key is marked failed with shorter TTL."""
         search = self._make_search(2)
@@ -62,8 +62,8 @@ class TestWebSearchFailover:
         response_429 = MagicMock()
         response_429.status_code = 429
         response_429.text = "Too Many Requests"
-        response_429.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "429", request=MagicMock(), response=response_429
+        response_429.raise_for_status.side_effect = HTTPError(
+            429, "Too Many Requests", "https://api.search.brave.com/res/v1/web/search"
         )
 
         response_ok = MagicMock()
@@ -90,7 +90,7 @@ class TestWebSearchFailover:
         assert "key1" in failed
         assert failed["key1"] == "rate limited"
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brave.Client")
     def test_all_keys_fail(self, mock_client_cls):
         """All keys return 401 -> empty results."""
         search = self._make_search(2)
@@ -98,8 +98,8 @@ class TestWebSearchFailover:
         response_401 = MagicMock()
         response_401.status_code = 401
         response_401.text = "Unauthorized"
-        response_401.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "401", request=MagicMock(), response=response_401
+        response_401.raise_for_status.side_effect = HTTPError(
+            401, "Unauthorized", "https://api.search.brave.com/res/v1/web/search"
         )
 
         client_instance = MagicMock()
@@ -113,7 +113,7 @@ class TestWebSearchFailover:
         assert results == []
         assert len(search.api_key_parser.failed_keys) == 2
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brave.Client")
     def test_failed_key_skipped_on_subsequent_call(self, mock_client_cls):
         """A key marked failed is skipped in subsequent search calls."""
         search = self._make_search(2)
@@ -122,8 +122,8 @@ class TestWebSearchFailover:
         response_401 = MagicMock()
         response_401.status_code = 401
         response_401.text = "Unauthorized"
-        response_401.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "401", request=MagicMock(), response=response_401
+        response_401.raise_for_status.side_effect = HTTPError(
+            401, "Unauthorized", "https://api.search.brave.com/res/v1/web/search"
         )
 
         def make_ok_response():

@@ -1,7 +1,7 @@
 import os
 import time
 
-import httpx
+from .._vendor.httpclient import Client, HttpTimeoutError
 from .._vendor.structlog import get_logger
 
 logger = get_logger()
@@ -83,7 +83,7 @@ def fetch_and_cache_blocklist(
 
     # Fetch the blocklist from the URL
     try:
-        with httpx.Client(timeout=2.0) as client:
+        with Client(timeout=2.0) as client:
             response = client.get(url)
             response.raise_for_status()
             content = response.text
@@ -99,7 +99,7 @@ def fetch_and_cache_blocklist(
 
             parse_blocklist_content(content)
             return content
-    except httpx.TimeoutException as e:
+    except HttpTimeoutError as e:
         logger.error(f"Timeout when fetching blocklist from {url}: {e}")
         if url.startswith("https://raw.githubusercontent.com"):
             return _try_fetch_from_proxy(url, cache_path)
@@ -122,7 +122,7 @@ def _try_fetch_from_proxy(url: str, cache_path: str) -> str | None:
     proxy_url = url.replace("https://raw.githubusercontent.com", GITHUB_RAW_PROXY)
     logger.debug(f"Attempting to fetch blocklist from proxy: {proxy_url}")
     try:
-        with httpx.Client(timeout=10.0) as client:
+        with Client(timeout=10.0) as client:
             response = client.get(proxy_url)
             response.raise_for_status()
             content = response.text

@@ -7,9 +7,15 @@ import time
 import unicodedata
 from typing import TYPE_CHECKING, Literal
 
-import httpx
 import ua_generator
 
+from ._vendor.httpclient import (
+    HTTPError,
+    HttpConnectionError,
+    HttpTimeoutError,
+    get as _http_get,
+    post as _http_post,
+)
 from ._vendor.readability import extract as readability_extract
 from ._vendor.soup import Soup
 from ._vendor.structlog import get_logger
@@ -317,11 +323,10 @@ def _get_content_with_markdown_negotiation(
         ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
         headers = ua.headers.get()
         headers["Accept"] = "text/markdown"
-        response = httpx.get(
+        response = _http_get(
             url,
             headers=headers,
             timeout=timeout,
-            follow_redirects=True,
             proxy=proxy,
         )
         response.raise_for_status()
@@ -463,7 +468,7 @@ def _jina_reader_request(
         # abort the HTTP connection before Jina finishes.
         transport_timeout = timeout + _JINA_TIMEOUT_BUFFER
         logger.debug(f"Jina Reader request for {url} (engine: {engine})")
-        response = httpx.post(
+        response = _http_post(
             jina_reader_url,
             json={"url": url},
             headers=headers,
@@ -481,8 +486,8 @@ def _jina_reader_request(
         else:
             logger.debug(f"Jina Reader ({engine}) returned empty content for {url}")
         return content
-    except httpx.HTTPStatusError as e:
-        status = e.response.status_code
+    except HTTPError as e:
+        status = e.status_code
         logger.debug(f"Jina Reader ({engine}) HTTP Error [{status}]: {e}")
         if api_key and api_key_parser:
             if status in (401, 403):
@@ -523,11 +528,10 @@ def _fetch_raw(
             ua.headers.accept_ch(
                 "Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List"
             )
-            response = httpx.get(
+            response = _http_get(
                 url,
                 headers=ua.headers.get(),
                 timeout=timeout,
-                follow_redirects=True,
                 proxy=proxy,
             )
             response.raise_for_status()
@@ -535,8 +539,8 @@ def _fetch_raw(
             raw_ct = response.headers.get("content-type", "")
             content_type = raw_ct.split(";")[0].strip().lower()
             return response.text, content_type
-        except httpx.HTTPStatusError as e:
-            status = e.response.status_code
+        except HTTPError as e:
+            status = e.status_code
             if 400 <= status < 500:
                 # Client errors are definitive — do not retry.
                 logger.debug(f"HTTP Error [{status}]: {e}")
@@ -547,7 +551,7 @@ def _fetch_raw(
                 f"HTTP Error [{status}] on attempt {attempt + 1}/{_FETCH_MAX_RETRIES} "
                 f"for {url}: {e}"
             )
-        except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as e:
+        except (HttpTimeoutError, HttpConnectionError) as e:
             last_exception = e
             logger.debug(
                 f"Transient error on attempt {attempt + 1}/{_FETCH_MAX_RETRIES} "

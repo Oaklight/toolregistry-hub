@@ -2,7 +2,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 
-import httpx
+from .._vendor.httpclient import HTTPError, HttpClientError, get as _http_get
 import ua_generator
 
 from .._vendor.structlog import get_logger
@@ -126,11 +126,11 @@ class WebSearchSearXNG(WebSearchGeneral):
                     )
                 )
             return enriched_results
-        except httpx.RequestError as e:
-            logger.debug(f"Request error: {e}")
+        except HTTPError as e:
+            logger.debug(f"HTTP error: {e.status_code}")
             return []
-        except httpx.HTTPStatusError as e:
-            logger.debug(f"HTTP error: {e.response.status_code}")
+        except HttpClientError as e:
+            logger.debug(f"Request error: {e}")
             return []
 
     @staticmethod
@@ -146,7 +146,7 @@ class WebSearchSearXNG(WebSearchGeneral):
         """
         ua = ua_generator.generate(browser=["chrome", "edge"])
         ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
-        response = httpx.get(
+        response = _http_get(
             searxng_base_url,
             params={
                 "q": query,

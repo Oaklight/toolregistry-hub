@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-import httpx
+from toolregistry_hub._vendor.httpclient import HTTPError, HttpTimeoutError
 
 from toolregistry_hub.websearch.search_result import SearchResult
 from toolregistry_hub.websearch.websearch_searxng import SearXNGSearch
@@ -97,7 +97,7 @@ class TestSearXNGSearch:
 
         assert headers["X-API-Key"] == "override-key"
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_searxng.Client")
     def test_search_success(self, mock_client):
         """Test successful search operation."""
         mock_response = MagicMock()
@@ -134,7 +134,7 @@ class TestSearXNGSearch:
         assert results[0].score == 0.8
         assert results[1].score == 0.6
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_searxng.Client")
     def test_search_empty_query(self, mock_client):
         """Test search with empty query."""
         searcher = SearXNGSearch("http://localhost:8080")
@@ -142,13 +142,13 @@ class TestSearXNGSearch:
 
         assert results == []
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_searxng.Client")
     def test_search_timeout_error(self, mock_client):
         """Test search with timeout error."""
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.get.side_effect = httpx.TimeoutException("Timeout")
+        mock_client_instance.get.side_effect = HttpTimeoutError("Timeout")
         mock_client.return_value = mock_client_instance
 
         searcher = SearXNGSearch("http://localhost:8080")
@@ -156,7 +156,7 @@ class TestSearXNGSearch:
 
         assert results == []
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_searxng.Client")
     def test_search_http_error(self, mock_client):
         """Test search with HTTP error."""
         mock_response = MagicMock()
@@ -166,10 +166,8 @@ class TestSearXNGSearch:
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.get.side_effect = httpx.HTTPStatusError(
-            "Internal Server Error",
-            request=MagicMock(),
-            response=mock_response,
+        mock_client_instance.get.side_effect = HTTPError(
+            500, "Internal Server Error", "http://localhost:8080/search"
         )
         mock_client.return_value = mock_client_instance
 
@@ -178,7 +176,7 @@ class TestSearXNGSearch:
 
         assert results == []
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_searxng.Client")
     def test_search_max_results_cap(self, mock_client):
         """Test that max_results exceeding 50 is capped."""
         mock_response = MagicMock()
@@ -265,7 +263,9 @@ class TestSearXNGSearchIntegration:
         """Test search method accepts all expected parameters."""
         searcher = SearXNGSearch("http://localhost:8080")
 
-        with patch("httpx.Client") as mock_client:
+        with patch(
+            "toolregistry_hub.websearch.websearch_searxng.Client"
+        ) as mock_client:
             mock_response = MagicMock()
             mock_response.json.return_value = {"results": []}
             mock_response.raise_for_status = MagicMock()
@@ -288,7 +288,7 @@ class TestSearXNGSearchIntegration:
         assert searcher1.search_url == searcher2.search_url
         assert searcher1.search_url == "http://localhost:8080/search"
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_searxng.Client")
     def test_score_sorting(self, mock_client):
         """Test that results are properly sorted by score."""
         mock_response = MagicMock()
