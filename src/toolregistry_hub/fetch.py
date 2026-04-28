@@ -49,7 +49,7 @@ _FETCH_RETRY_BASE_DELAY = 1.0
 # CSS selectors tried in order by _extract_with_soup to locate the main
 # content container.  Each entry is a ``(tag, attrs)`` tuple compatible
 # with ``Soup.find(tag, attrs)``.  The first match wins.
-_SOUP_CONTENT_SELECTORS: list[tuple[str, dict[str, str] | None]] = [
+_SOUP_CONTENT_SELECTORS: list[tuple[str, dict[str, str | bool] | None]] = [
     ("main", None),
     ("article", None),
     ("div", {"class": "content"}),
