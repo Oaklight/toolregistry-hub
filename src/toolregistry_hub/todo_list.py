@@ -1,10 +1,10 @@
 import re
+from dataclasses import dataclass
 from typing import Literal
 
-from pydantic import BaseModel, ValidationError
 
-
-class Todo(BaseModel):
+@dataclass
+class Todo:
     """Todo item model with status constraints.
 
     Status values:
@@ -17,6 +17,15 @@ class Todo(BaseModel):
     id: str  # short description of the todo item
     content: str  # detailed description of the todo item
     status: Literal["planned", "pending", "done", "cancelled"]
+
+    _VALID_STATUSES = frozenset({"planned", "pending", "done", "cancelled"})
+
+    def __post_init__(self) -> None:
+        if self.status not in self._VALID_STATUSES:
+            raise ValueError(
+                f"Invalid status '{self.status}'. "
+                f"Must be one of: {', '.join(sorted(self._VALID_STATUSES))}"
+            )
 
 
 class TodoList:
@@ -180,11 +189,10 @@ class TodoList:
                         f"got {type(todo_item)}"
                     )
 
-                # Parse simple format
+                # Parse simple format (_parse_simple_format validates
+                # format and status, so no additional validation needed)
                 todo_dict = TodoList._parse_simple_format(todo_item)
-
-                # Validate using Pydantic model
-                todo = Todo.model_validate(todo_dict)
+                todo = Todo(**todo_dict)
 
                 rows.append(
                     {
@@ -194,8 +202,6 @@ class TodoList:
                     }
                 )
 
-            except ValidationError as e:
-                raise TypeError(f"Invalid todo item at index {i}: {e}") from e
             except ValueError as e:
                 raise ValueError(f"Invalid todo format at index {i}: {e}") from e
 
