@@ -46,6 +46,17 @@ _FETCH_MAX_RETRIES = 3
 # Base delay (in seconds) for exponential backoff between retries.
 _FETCH_RETRY_BASE_DELAY = 1.0
 
+# Navigation-only content detection thresholds.
+# These are used by _is_content_sufficient() to detect pages that consist
+# mostly of short navigation links/menu items rather than real content.
+_NAV_MIN_LINES = 5  # Minimum lines before applying structure analysis
+_NAV_SHORT_LINE_THRESHOLD = 30  # Characters; lines shorter are "short"
+_NAV_SHORT_LINE_RATIO = 0.7  # Fraction of short lines to trigger check
+_NAV_LONG_LINE_THRESHOLD = (
+    80  # Characters; lines at least this long are "real paragraphs"
+)
+_NAV_MIN_LONG_LINES = 2  # Minimum long lines required to pass the check
+
 # Content types that should be returned directly without HTML extraction.
 # When the server responds with one of these MIME types, the body is already
 # usable text/data — running it through readability or soup would be wasteful
@@ -171,6 +182,21 @@ def _is_content_sufficient(text: str) -> bool:
     for indicator in _SPA_SHELL_INDICATORS:
         if indicator in text_lower:
             return False
+
+    # Text structure analysis: detect navigation-only content.
+    lines = [line for line in text.split("\n") if line.strip()]
+    if len(lines) > _NAV_MIN_LINES:
+        short_lines = sum(
+            1 for line in lines if len(line.strip()) < _NAV_SHORT_LINE_THRESHOLD
+        )
+        short_ratio = short_lines / len(lines)
+        if short_ratio > _NAV_SHORT_LINE_RATIO:
+            # Mostly short lines — check for real paragraphs
+            long_lines = sum(
+                1 for line in lines if len(line.strip()) >= _NAV_LONG_LINE_THRESHOLD
+            )
+            if long_lines < _NAV_MIN_LONG_LINES:
+                return False
 
     return True
 

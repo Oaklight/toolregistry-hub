@@ -71,6 +71,59 @@ class TestIsContentSufficient:
         )
         assert _is_content_sufficient(text) is True
 
+    def test_navigation_only_text_rejected(self):
+        """Navigation-only content with many short lines should be rejected."""
+        nav_text = "\n".join(
+            [
+                "产品",
+                "文档",
+                "快速入门",
+                "产品简介",
+                "计费说明",
+                "使用指南",
+                "API参考",
+                "常见问题",
+                "联系我们",
+                "技术支持",
+                "帮助中心",
+                "开发者工具",
+                "SDK下载",
+                "版本更新",
+            ]
+        )
+        assert not _is_content_sufficient(nav_text)
+
+    def test_real_article_content_accepted(self):
+        """Content with real paragraphs should be accepted."""
+        article = (
+            "This is a comprehensive guide to using the API.\n\n"
+            "The API provides several endpoints for managing resources. "
+            "Each endpoint accepts standard HTTP methods and returns JSON "
+            "responses with appropriate status codes.\n\n"
+            "For authentication, include your API key in the Authorization header."
+        )
+        assert _is_content_sufficient(article)
+
+    def test_short_valid_content_accepted(self):
+        """Short content with fewer than threshold lines should pass."""
+        short = "Error: Connection refused\nPlease check your network settings.\nRetry later."
+        # Pad to meet minimum length
+        short = short + " " * (101 - len(short)) if len(short) < 101 else short
+        assert _is_content_sufficient(short)
+
+    def test_mixed_changelog_content_accepted(self):
+        """Mixed content with both short and long lines should pass."""
+        changelog = (
+            "## v2.0.0\n"
+            "- Added new authentication system with OAuth 2.0 support and "
+            "token refresh capabilities\n"
+            "- Fixed critical bug in data processing pipeline that caused "
+            "memory leaks under heavy load\n"
+            "## v1.9.0\n"
+            "- Minor updates"
+        )
+        assert _is_content_sufficient(changelog)
+
 
 # ============================================================
 # _format_text tests
