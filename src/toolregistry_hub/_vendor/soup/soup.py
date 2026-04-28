@@ -2,7 +2,7 @@
 # version = "0.6.0"
 # deps = []
 # tier = "medium"
-# category = "data"
+# category = "text"
 # note = "Install/update via `zerodep add soup`"
 # ///
 

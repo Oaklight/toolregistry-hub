@@ -1,18 +1,39 @@
+# /// zerodep
+# version = "0.1.0"
+# deps = []
+# tier = "simple"
+# category = "network"
+# note = "Install/update via `zerodep add useragent`"
+# ///
+
 """Lightweight User-Agent generator for Chrome/Edge with Client Hints.
+
+Part of zerodep: https://github.com/Oaklight/zerodep
+Copyright (c) 2026 Peng Ding. MIT License.
 
 Generates realistic browser UA strings and matching ``Sec-CH-UA-*`` headers.
 Covers Windows, macOS, Linux (desktop) and Android (mobile) platforms with
-Chrome and Edge browsers only – this is intentionally minimal.
+Chrome and Edge browsers only -- this is intentionally minimal.
 
 Inspired by `ua-generator <https://github.com/iamdual/ua-generator>`_ (Apache-2.0).
 
-Zero external dependencies – stdlib ``random`` only.
+Zero external dependencies -- stdlib ``random`` only.
+
+Basic usage::
+
+    from useragent import generate
+
+    ua = generate(browser="chrome", device="desktop")
+    print(ua.text)        # full User-Agent string
+    print(ua.headers.get())  # dict with UA + Client Hints headers
 """
 
 from __future__ import annotations
 
 import random
 from typing import Sequence, Union
+
+__all__ = ["UserAgent", "generate"]
 
 __version__ = "0.1.0"
 
@@ -22,8 +43,8 @@ __version__ = "0.1.0"
 
 # (major, build) pairs.  Patch is randomised at generation time.
 # Sources:
-#   Chrome – https://chromereleases.googleblog.com/search/label/Stable%20updates
-#   Edge   – https://learn.microsoft.com/en-us/deployedge/microsoft-edge-release-schedule
+#   Chrome -- https://chromereleases.googleblog.com/search/label/Stable%20updates
+#   Edge   -- https://learn.microsoft.com/en-us/deployedge/microsoft-edge-release-schedule
 
 _CHROME_VERSIONS: list[tuple[int, int]] = [
     (120, 6099),
@@ -114,7 +135,7 @@ _MACOS_VERSIONS: list[tuple[int, int, int]] = [
     (26, 3, 2),
 ]
 
-# Android model strings (Samsung subset – most common vendor)
+# Android model strings (Samsung subset -- most common vendor)
 _ANDROID_MODELS: tuple[str, ...] = (
     "SM-G991B",
     "SM-G996B",
@@ -188,7 +209,11 @@ def _build_ua_string(
     if platform == "windows":
         nt = random.choice(_WINDOWS_VERSIONS)
         nt_str = f"{nt[0]:.1f}".replace(".0", ".0")  # "10.0"
-        base = f"Mozilla/5.0 (Windows NT {nt_str}; Win64; x64) AppleWebKit/{_WEBKIT} (KHTML, like Gecko) Chrome/{chrome_str} Safari/{_WEBKIT}"
+        base = (
+            f"Mozilla/5.0 (Windows NT {nt_str}; Win64; x64) "
+            f"AppleWebKit/{_WEBKIT} (KHTML, like Gecko) "
+            f"Chrome/{chrome_str} Safari/{_WEBKIT}"
+        )
         if browser == "edge":
             base += f" Edg/{chrome_str}"
         return base
@@ -196,8 +221,10 @@ def _build_ua_string(
     if platform == "linux":
         tpl = random.choice(
             (
-                f"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/{_WEBKIT} (KHTML, like Gecko) Chrome/{chrome_str} Safari/{_WEBKIT}",
-                f"Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/{_WEBKIT} (KHTML, like Gecko) Chrome/{chrome_str} Safari/{_WEBKIT}",
+                f"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/{_WEBKIT} "
+                f"(KHTML, like Gecko) Chrome/{chrome_str} Safari/{_WEBKIT}",
+                f"Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/{_WEBKIT} "
+                f"(KHTML, like Gecko) Chrome/{chrome_str} Safari/{_WEBKIT}",
             )
         )
         if browser == "edge":
@@ -210,7 +237,11 @@ def _build_ua_string(
         mac_str = f"{mv[0]}_{mv[1]}"
         if build:
             mac_str += f"_{build}"
-        base = f"Mozilla/5.0 (Macintosh; Intel Mac OS X {mac_str}) AppleWebKit/{_WEBKIT} (KHTML, like Gecko) Chrome/{chrome_str} Safari/{_WEBKIT}"
+        base = (
+            f"Mozilla/5.0 (Macintosh; Intel Mac OS X {mac_str}) "
+            f"AppleWebKit/{_WEBKIT} (KHTML, like Gecko) "
+            f"Chrome/{chrome_str} Safari/{_WEBKIT}"
+        )
         if browser == "edge":
             base += f" Edg/{chrome_str}"
         return base
@@ -220,7 +251,8 @@ def _build_ua_string(
         model = random.choice(_ANDROID_MODELS)
         base = (
             f"Mozilla/5.0 (Linux; Android {android_ver}; {model}) "
-            f"AppleWebKit/{_WEBKIT} (KHTML, like Gecko) Chrome/{chrome_str} Mobile Safari/{_WEBKIT}"
+            f"AppleWebKit/{_WEBKIT} (KHTML, like Gecko) "
+            f"Chrome/{chrome_str} Mobile Safari/{_WEBKIT}"
         )
         if browser == "edge":
             base += f" EdgA/{chrome_str}"
@@ -254,10 +286,18 @@ def _ch_brand_list(brands: list[dict[str, str]]) -> str:
 class UserAgent:
     """A generated user-agent with matching Client Hints headers.
 
-    Usage::
+    Attributes:
+        browser: Browser name (``"chrome"`` or ``"edge"``).
+        platform: Platform name (``"windows"``, ``"macos"``, ``"linux"``,
+            or ``"android"``).
+        version: 4-tuple ``(major, minor, build, patch)``.
+        text: The full User-Agent string.
+        headers: A :class:`_Headers` instance for Client Hints.
+
+    Example::
 
         ua = generate(browser=["chrome", "edge"])
-        ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
+        ua.headers.accept_ch("Sec-CH-UA-Platform-Version")
         headers = ua.headers.get()
     """
 
@@ -291,7 +331,6 @@ class UserAgent:
 
     def _ch_platform_version(self) -> str:
         if self.platform == "windows":
-            # Client Hints reports a different version for Windows
             lo, hi = random.choice(_WINDOWS_VERSIONS)[1]
             return f"{random.randint(lo, hi)}.0.0"
         if self.platform == "macos":
@@ -374,7 +413,12 @@ class _Headers:
             self._headers[key] = _ch_string(ua._ch_model())
 
     def accept_ch(self, val: str) -> None:
-        """Process an ``Accept-CH`` header value and populate matching hints."""
+        """Process an ``Accept-CH`` header value and populate matching hints.
+
+        Args:
+            val: Comma-separated list of hint names
+                (e.g. ``"Sec-CH-UA-Platform-Version, Sec-CH-UA-Arch"``).
+        """
         self._reset()
         for hint in val.split(","):
             self._add(hint.strip().lower())
@@ -396,11 +440,14 @@ def generate(
     Args:
         browser: Browser name or list of names to pick from.
             Supported: ``"chrome"``, ``"edge"``. Defaults to both.
-        device: Device type – ``"desktop"`` or ``"mobile"``.
+        device: Device type -- ``"desktop"`` or ``"mobile"``.
             Defaults to random selection across all platforms.
 
     Returns:
         A :class:`UserAgent` instance.
+
+    Raises:
+        ValueError: If *browser* is not ``"chrome"`` or ``"edge"``.
     """
     # Resolve browser
     if browser is None:
