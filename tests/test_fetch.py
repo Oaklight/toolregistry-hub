@@ -9,6 +9,7 @@ from toolregistry_hub.fetch import (
     _JINA_TIMEOUT_BUFFER,
     _JINA_WAIT_SELECTORS,
     _MIN_CONTENT_LENGTH,
+    _SOUP_CONTENT_SELECTORS,
     _SPA_SHELL_INDICATORS,
     Fetch,
     _extract,
@@ -350,7 +351,8 @@ class TestFetchHtml:
         assert result == "<html><body>Hello</body></html>"
 
     @patch("toolregistry_hub.fetch.httpx.get")
-    def test_http_error_returns_empty(self, mock_get):
+    def test_http_4xx_error_returns_empty_no_retry(self, mock_get):
+        """4xx errors are definitive and must not be retried."""
         mock_response = MagicMock()
         mock_response.status_code = 403
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
@@ -362,13 +364,98 @@ class TestFetchHtml:
 
         result = _fetch_html("https://example.com")
         assert result == ""
+        # Should only be called once — no retry on 4xx
+        assert mock_get.call_count == 1
 
     @patch("toolregistry_hub.fetch.httpx.get")
-    def test_connection_error_returns_empty(self, mock_get):
+    def test_http_404_no_retry(self, mock_get):
+        """404 Not Found is a client error and must not be retried."""
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Not Found",
+            request=MagicMock(),
+            response=mock_response,
+        )
+        mock_get.return_value = mock_response
+
+        result = _fetch_html("https://example.com")
+        assert result == ""
+        assert mock_get.call_count == 1
+
+    @patch("toolregistry_hub.fetch.time.sleep")
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_http_500_retries(self, mock_get, mock_sleep):
+        """5xx errors should be retried with exponential backoff."""
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Internal Server Error",
+            request=MagicMock(),
+            response=mock_response,
+        )
+        mock_get.return_value = mock_response
+
+        result = _fetch_html("https://example.com")
+        assert result == ""
+        # Should retry _FETCH_MAX_RETRIES times (3)
+        assert mock_get.call_count == 3
+        # Backoff sleeps between attempts (2 sleeps for 3 attempts)
+        assert mock_sleep.call_count == 2
+
+    @patch("toolregistry_hub.fetch.time.sleep")
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_http_503_retries_then_succeeds(self, mock_get, mock_sleep):
+        """Retry succeeds on second attempt after a 5xx error."""
+        mock_error_response = MagicMock()
+        mock_error_response.status_code = 503
+        mock_error_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Service Unavailable",
+            request=MagicMock(),
+            response=mock_error_response,
+        )
+
+        mock_ok_response = MagicMock()
+        mock_ok_response.text = "<html><body>Success</body></html>"
+        mock_ok_response.raise_for_status = MagicMock()
+
+        mock_get.side_effect = [mock_error_response, mock_ok_response]
+
+        result = _fetch_html("https://example.com")
+        assert result == "<html><body>Success</body></html>"
+        assert mock_get.call_count == 2
+
+    @patch("toolregistry_hub.fetch.time.sleep")
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_timeout_retries(self, mock_get, mock_sleep):
+        """Timeout errors should be retried."""
+        mock_get.side_effect = httpx.ReadTimeout("Read timed out")
+
+        result = _fetch_html("https://example.com")
+        assert result == ""
+        assert mock_get.call_count == 3
+
+    @patch("toolregistry_hub.fetch.time.sleep")
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_connect_error_retries(self, mock_get, mock_sleep):
+        """Connection errors should be retried."""
         mock_get.side_effect = httpx.ConnectError("Connection refused")
 
         result = _fetch_html("https://example.com")
         assert result == ""
+        assert mock_get.call_count == 3
+
+    @patch("toolregistry_hub.fetch.time.sleep")
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_exponential_backoff_delays(self, mock_get, mock_sleep):
+        """Verify exponential backoff delays between retries."""
+        mock_get.side_effect = httpx.ConnectError("Connection refused")
+
+        _fetch_html("https://example.com")
+
+        # Base delay = 1.0; delays should be 1.0, 2.0
+        delays = [call.args[0] for call in mock_sleep.call_args_list]
+        assert delays == [1.0, 2.0]
 
     @patch("toolregistry_hub.fetch.httpx.get")
     def test_passes_proxy(self, mock_get):
@@ -463,6 +550,97 @@ class TestSoupExtraction:
         result = _extract_with_soup(html)
         # Should not raise, may return content or empty
         assert isinstance(result, str)
+
+    @pytest.mark.parametrize(
+        "tag,attrs,html_template",
+        [
+            ("main", None, "<main>{content}</main>"),
+            ("article", None, "<article>{content}</article>"),
+            ("div", {"class": "content"}, '<div class="content">{content}</div>'),
+            (
+                "div",
+                {"class": "post-content"},
+                '<div class="post-content">{content}</div>',
+            ),
+            (
+                "div",
+                {"class": "entry-content"},
+                '<div class="entry-content">{content}</div>',
+            ),
+            (
+                "div",
+                {"class": "article-body"},
+                '<div class="article-body">{content}</div>',
+            ),
+            (
+                "div",
+                {"class": "article-content"},
+                '<div class="article-content">{content}</div>',
+            ),
+            ("div", {"id": "content"}, '<div id="content">{content}</div>'),
+            (
+                "section",
+                {"class": "content"},
+                '<section class="content">{content}</section>',
+            ),
+            (
+                "div",
+                {"class": "markdown-body"},
+                '<div class="markdown-body">{content}</div>',
+            ),
+            ("div", {"class": "post"}, '<div class="post">{content}</div>'),
+            ("div", {"class": "entry"}, '<div class="entry">{content}</div>'),
+            (
+                "div",
+                {"class": "page-content"},
+                '<div class="page-content">{content}</div>',
+            ),
+            (
+                "div",
+                {"class": "main-content"},
+                '<div class="main-content">{content}</div>',
+            ),
+            (
+                "div",
+                {"id": "main-content"},
+                '<div id="main-content">{content}</div>',
+            ),
+            (
+                "div",
+                {"class": "blog-post"},
+                '<div class="blog-post">{content}</div>',
+            ),
+            (
+                "div",
+                {"class": "post-body"},
+                '<div class="post-body">{content}</div>',
+            ),
+            (
+                "div",
+                {"class": "story-body"},
+                '<div class="story-body">{content}</div>',
+            ),
+        ],
+    )
+    def test_soup_selector_finds_content(self, tag, attrs, html_template):
+        """Each selector in _SOUP_CONTENT_SELECTORS should extract content."""
+        inner = "<p>Target content from this container.</p>"
+        container = html_template.format(content=inner)
+        html = f"""
+        <html><body>
+            <div class="sidebar">Sidebar noise</div>
+            {container}
+        </body></html>
+        """
+        result = _extract_with_soup(html)
+        assert "Target content" in result
+
+    def test_soup_selectors_constant_is_used(self):
+        """Verify _SOUP_CONTENT_SELECTORS is a non-empty list of tuples."""
+        assert len(_SOUP_CONTENT_SELECTORS) > 3
+        for entry in _SOUP_CONTENT_SELECTORS:
+            assert isinstance(entry, tuple)
+            assert len(entry) == 2
 
 
 # ============================================================
