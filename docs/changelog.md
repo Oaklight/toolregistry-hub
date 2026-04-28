@@ -42,6 +42,16 @@ This page documents all notable changes to the toolregistry-hub project since th
     - HTML fetched once and shared across both local strategies; readability preferred unless soup extracts >2x more content
     - Vendor readability and soup modules from [zerodep](https://github.com/Oaklight/zerodep) into `_vendor/` with nested layout
 
+- **Fetch: Content-Type detection for non-HTML responses** ([#93](https://github.com/Oaklight/toolregistry-hub/pull/93), [#92](https://github.com/Oaklight/toolregistry-hub/issues/92))
+    - Rename `_fetch_html` → `_fetch_raw` returning `(body, content_type)` tuple
+    - Short-circuit non-HTML content types (JSON, plain text, CSV, Markdown, XML, YAML) before the HTML extraction pipeline
+    - Prevents mangling of structured data that was previously run through readability/soup extraction
+
+- **Fetch: SPA content quality detection** ([#96](https://github.com/Oaklight/toolregistry-hub/pull/96), [#94](https://github.com/Oaklight/toolregistry-hub/issues/94))
+    - Add text structure analysis to `_is_content_sufficient()` to detect navigation-only extractions
+    - Heuristic inspired by [jusText](https://github.com/miso-belica/jusText): if >70% of lines are short (<30 chars) and fewer than 2 paragraph-length lines (>80 chars) exist, content is rejected as navigation garbage
+    - Conservative: only triggers when text has >5 lines, so short valid content is unaffected
+
 - **WebSearch: Unified entry point with dynamic engine selection**
     - New `WebSearch` class registered at `web/websearch` namespace; the 6 individual provider tools (`web/brave_search`, `web/tavily_search`, etc.) are now deferred and discoverable via `discover_tools`
     - `search(query, engine="auto", fallback=False, ...)` — `engine="auto"` tries configured providers in priority order; specific engines fail loudly when their key is missing, or fall through to auto when `fallback=True`
