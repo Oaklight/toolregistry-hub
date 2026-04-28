@@ -9,13 +9,14 @@ from toolregistry_hub.fetch import (
     _JINA_TIMEOUT_BUFFER,
     _JINA_WAIT_SELECTORS,
     _MIN_CONTENT_LENGTH,
+    _NON_HTML_CONTENT_TYPES,
     _SOUP_CONTENT_SELECTORS,
     _SPA_SHELL_INDICATORS,
     Fetch,
     _extract,
     _extract_with_readability,
     _extract_with_soup,
-    _fetch_html,
+    _fetch_raw,
     _format_text,
     _get_content_with_jina_reader,
     _get_content_with_markdown_negotiation,
@@ -333,22 +334,47 @@ class TestJinaReader:
 
 
 # ============================================================
-# _fetch_html tests
+# _fetch_raw tests
 # ============================================================
 
 
-class TestFetchHtml:
-    """Tests for the _fetch_html function."""
+class TestFetchRaw:
+    """Tests for the _fetch_raw function."""
 
     @patch("toolregistry_hub.fetch.httpx.get")
-    def test_success_returns_html(self, mock_get):
+    def test_success_returns_body_and_content_type(self, mock_get):
         mock_response = MagicMock()
         mock_response.text = "<html><body>Hello</body></html>"
+        mock_response.headers = {"content-type": "text/html; charset=utf-8"}
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        result = _fetch_html("https://example.com")
-        assert result == "<html><body>Hello</body></html>"
+        body, ct = _fetch_raw("https://example.com")
+        assert body == "<html><body>Hello</body></html>"
+        assert ct == "text/html"
+
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_content_type_stripped_and_lowercased(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.text = '{"key": "value"}'
+        mock_response.headers = {"content-type": "Application/JSON ; charset=utf-8"}
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        _, ct = _fetch_raw("https://example.com/api")
+        assert ct == "application/json"
+
+    @patch("toolregistry_hub.fetch.httpx.get")
+    def test_missing_content_type_header(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.text = "some content"
+        mock_response.headers = {}
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        body, ct = _fetch_raw("https://example.com")
+        assert body == "some content"
+        assert ct == ""
 
     @patch("toolregistry_hub.fetch.httpx.get")
     def test_http_4xx_error_returns_empty_no_retry(self, mock_get):
@@ -362,9 +388,9 @@ class TestFetchHtml:
         )
         mock_get.return_value = mock_response
 
-        result = _fetch_html("https://example.com")
-        assert result == ""
-        # Should only be called once — no retry on 4xx
+        body, ct = _fetch_raw("https://example.com")
+        assert body == ""
+        assert ct == ""
         assert mock_get.call_count == 1
 
     @patch("toolregistry_hub.fetch.httpx.get")
@@ -379,8 +405,9 @@ class TestFetchHtml:
         )
         mock_get.return_value = mock_response
 
-        result = _fetch_html("https://example.com")
-        assert result == ""
+        body, ct = _fetch_raw("https://example.com")
+        assert body == ""
+        assert ct == ""
         assert mock_get.call_count == 1
 
     @patch("toolregistry_hub.fetch.time.sleep")
@@ -396,11 +423,10 @@ class TestFetchHtml:
         )
         mock_get.return_value = mock_response
 
-        result = _fetch_html("https://example.com")
-        assert result == ""
-        # Should retry _FETCH_MAX_RETRIES times (3)
+        body, ct = _fetch_raw("https://example.com")
+        assert body == ""
+        assert ct == ""
         assert mock_get.call_count == 3
-        # Backoff sleeps between attempts (2 sleeps for 3 attempts)
         assert mock_sleep.call_count == 2
 
     @patch("toolregistry_hub.fetch.time.sleep")
@@ -417,12 +443,14 @@ class TestFetchHtml:
 
         mock_ok_response = MagicMock()
         mock_ok_response.text = "<html><body>Success</body></html>"
+        mock_ok_response.headers = {"content-type": "text/html"}
         mock_ok_response.raise_for_status = MagicMock()
 
         mock_get.side_effect = [mock_error_response, mock_ok_response]
 
-        result = _fetch_html("https://example.com")
-        assert result == "<html><body>Success</body></html>"
+        body, ct = _fetch_raw("https://example.com")
+        assert body == "<html><body>Success</body></html>"
+        assert ct == "text/html"
         assert mock_get.call_count == 2
 
     @patch("toolregistry_hub.fetch.time.sleep")
@@ -431,8 +459,9 @@ class TestFetchHtml:
         """Timeout errors should be retried."""
         mock_get.side_effect = httpx.ReadTimeout("Read timed out")
 
-        result = _fetch_html("https://example.com")
-        assert result == ""
+        body, ct = _fetch_raw("https://example.com")
+        assert body == ""
+        assert ct == ""
         assert mock_get.call_count == 3
 
     @patch("toolregistry_hub.fetch.time.sleep")
@@ -441,8 +470,9 @@ class TestFetchHtml:
         """Connection errors should be retried."""
         mock_get.side_effect = httpx.ConnectError("Connection refused")
 
-        result = _fetch_html("https://example.com")
-        assert result == ""
+        body, ct = _fetch_raw("https://example.com")
+        assert body == ""
+        assert ct == ""
         assert mock_get.call_count == 3
 
     @patch("toolregistry_hub.fetch.time.sleep")
@@ -451,9 +481,8 @@ class TestFetchHtml:
         """Verify exponential backoff delays between retries."""
         mock_get.side_effect = httpx.ConnectError("Connection refused")
 
-        _fetch_html("https://example.com")
+        _fetch_raw("https://example.com")
 
-        # Base delay = 1.0; delays should be 1.0, 2.0
         delays = [call.args[0] for call in mock_sleep.call_args_list]
         assert delays == [1.0, 2.0]
 
@@ -461,10 +490,11 @@ class TestFetchHtml:
     def test_passes_proxy(self, mock_get):
         mock_response = MagicMock()
         mock_response.text = "<html></html>"
+        mock_response.headers = {"content-type": "text/html"}
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        _fetch_html("https://example.com", proxy="http://proxy:8080")
+        _fetch_raw("https://example.com", proxy="http://proxy:8080")
 
         call_kwargs = mock_get.call_args
         assert call_kwargs.kwargs.get("proxy") == "http://proxy:8080"
@@ -654,7 +684,7 @@ class TestExtract:
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
     @patch("toolregistry_hub.fetch._extract_with_soup")
     @patch("toolregistry_hub.fetch._extract_with_readability")
-    @patch("toolregistry_hub.fetch._fetch_html")
+    @patch("toolregistry_hub.fetch._fetch_raw")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
     def test_markdown_negotiation_success(
         self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
@@ -668,13 +698,13 @@ class TestExtract:
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
     @patch("toolregistry_hub.fetch._extract_with_soup")
     @patch("toolregistry_hub.fetch._extract_with_readability")
-    @patch("toolregistry_hub.fetch._fetch_html")
+    @patch("toolregistry_hub.fetch._fetch_raw")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
     def test_readability_sufficient_content(
         self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
     ):
         mock_md.return_value = ""
-        mock_fetch.return_value = "<html>...</html>"
+        mock_fetch.return_value = ("<html>...</html>", "text/html")
         mock_readability.return_value = "This is a long enough article. " * 10
         mock_soup.return_value = "Short soup."
         result = _extract("https://example.com")
@@ -684,13 +714,13 @@ class TestExtract:
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
     @patch("toolregistry_hub.fetch._extract_with_soup")
     @patch("toolregistry_hub.fetch._extract_with_readability")
-    @patch("toolregistry_hub.fetch._fetch_html")
+    @patch("toolregistry_hub.fetch._fetch_raw")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
     def test_readability_fails_soup_sufficient(
         self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
     ):
         mock_md.return_value = ""
-        mock_fetch.return_value = "<html>...</html>"
+        mock_fetch.return_value = ("<html>...</html>", "text/html")
         mock_readability.return_value = ""
         mock_soup.return_value = "Soup extracted content is good enough. " * 10
         result = _extract("https://example.com")
@@ -700,13 +730,13 @@ class TestExtract:
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
     @patch("toolregistry_hub.fetch._extract_with_soup")
     @patch("toolregistry_hub.fetch._extract_with_readability")
-    @patch("toolregistry_hub.fetch._fetch_html")
+    @patch("toolregistry_hub.fetch._fetch_raw")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
     def test_local_spa_shell_triggers_jina(
         self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
     ):
         mock_md.return_value = ""
-        mock_fetch.return_value = "<html>...</html>"
+        mock_fetch.return_value = ("<html>...</html>", "text/html")
         mock_readability.return_value = (
             "Loading... Please enable JavaScript to continue." + "x" * 200
         )
@@ -722,13 +752,13 @@ class TestExtract:
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
     @patch("toolregistry_hub.fetch._extract_with_soup")
     @patch("toolregistry_hub.fetch._extract_with_readability")
-    @patch("toolregistry_hub.fetch._fetch_html")
+    @patch("toolregistry_hub.fetch._fetch_raw")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
     def test_no_html_triggers_jina(
         self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
     ):
         mock_md.return_value = ""
-        mock_fetch.return_value = ""
+        mock_fetch.return_value = ("", "")
         mock_jina.return_value = "# Jina Content\nFetched via Jina. " * 10
 
         result = _extract("https://example.com")
@@ -739,13 +769,13 @@ class TestExtract:
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
     @patch("toolregistry_hub.fetch._extract_with_soup")
     @patch("toolregistry_hub.fetch._extract_with_readability")
-    @patch("toolregistry_hub.fetch._fetch_html")
+    @patch("toolregistry_hub.fetch._fetch_raw")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
     def test_jina_failure_falls_back_to_local(
         self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
     ):
         mock_md.return_value = ""
-        mock_fetch.return_value = "<html>...</html>"
+        mock_fetch.return_value = ("<html>...</html>", "text/html")
         mock_readability.return_value = "Short low quality"
         mock_soup.return_value = ""
         mock_jina.return_value = ""
@@ -756,17 +786,98 @@ class TestExtract:
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
     @patch("toolregistry_hub.fetch._extract_with_soup")
     @patch("toolregistry_hub.fetch._extract_with_readability")
-    @patch("toolregistry_hub.fetch._fetch_html")
+    @patch("toolregistry_hub.fetch._fetch_raw")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
     def test_all_strategies_fail(
         self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
     ):
         mock_md.return_value = ""
-        mock_fetch.return_value = ""
+        mock_fetch.return_value = ("", "")
         mock_jina.return_value = ""
 
         result = _extract("https://example.com")
         assert result == "Unable to fetch content"
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_non_html_content_type_short_circuits(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
+    ):
+        """Non-HTML content types should be returned directly."""
+        mock_md.return_value = ""
+        json_body = '{"results": [{"id": 1, "title": "Test"}]}'
+        mock_fetch.return_value = (json_body, "application/json")
+
+        result = _extract("https://api.example.com/data")
+        assert "results" in result
+        # HTML extraction should be skipped entirely
+        mock_readability.assert_not_called()
+        mock_soup.assert_not_called()
+        mock_jina.assert_not_called()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_plain_text_content_type_short_circuits(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
+    ):
+        """text/plain should be returned directly without HTML extraction."""
+        mock_md.return_value = ""
+        plain_body = "This is a plain text file with enough content. " * 5
+        mock_fetch.return_value = (plain_body, "text/plain")
+
+        result = _extract("https://example.com/readme.txt")
+        assert "plain text file" in result
+        mock_readability.assert_not_called()
+        mock_soup.assert_not_called()
+        mock_jina.assert_not_called()
+
+    @pytest.mark.parametrize("content_type", sorted(_NON_HTML_CONTENT_TYPES))
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_all_non_html_types_short_circuit(
+        self,
+        mock_md,
+        mock_fetch,
+        mock_readability,
+        mock_soup,
+        mock_jina,
+        content_type,
+    ):
+        """Every registered non-HTML content type should bypass extraction."""
+        mock_md.return_value = ""
+        mock_fetch.return_value = ("some content body", content_type)
+
+        result = _extract("https://example.com/file")
+        assert "some content body" in result
+        mock_readability.assert_not_called()
+        mock_soup.assert_not_called()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_html_content_type_uses_extraction_pipeline(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
+    ):
+        """text/html should go through the normal extraction pipeline."""
+        mock_md.return_value = ""
+        mock_fetch.return_value = ("<html><body>Page</body></html>", "text/html")
+        mock_readability.return_value = "Extracted article content. " * 10
+        mock_soup.return_value = ""
+
+        result = _extract("https://example.com")
+        assert "Extracted article" in result
+        mock_readability.assert_called_once()
 
 
 # ============================================================

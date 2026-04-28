@@ -46,6 +46,23 @@ _FETCH_MAX_RETRIES = 3
 # Base delay (in seconds) for exponential backoff between retries.
 _FETCH_RETRY_BASE_DELAY = 1.0
 
+# Content types that should be returned directly without HTML extraction.
+# When the server responds with one of these MIME types, the body is already
+# usable text/data — running it through readability or soup would be wasteful
+# or destructive.
+_NON_HTML_CONTENT_TYPES: frozenset[str] = frozenset(
+    {
+        "text/plain",
+        "text/csv",
+        "text/markdown",
+        "application/json",
+        "application/xml",
+        "text/xml",
+        "application/x-yaml",
+        "text/yaml",
+    }
+)
+
 # CSS selectors tried in order by _extract_with_soup to locate the main
 # content container.  Each entry is a ``(tag, attrs)`` tuple compatible
 # with ``Soup.find(tag, attrs)``.  The first match wins.
@@ -193,9 +210,19 @@ def _extract(
         logger.info(f"Successfully fetched {url} using strategy: markdown_negotiation")
         return _format_text(content)
 
-    # Fetch HTML once for local extraction strategies
-    html = _fetch_html(url, timeout=timeout, proxy=proxy)
+    # Fetch content once for local extraction strategies
+    body, content_type = _fetch_raw(url, timeout=timeout, proxy=proxy)
 
+    # Short-circuit: non-HTML content types (JSON, plain text, XML, etc.)
+    # can be returned directly without running HTML extraction.
+    if body and content_type in _NON_HTML_CONTENT_TYPES:
+        logger.info(
+            f"Successfully fetched {url} using strategy: direct "
+            f"(content_type: {content_type})"
+        )
+        return _format_text(body)
+
+    html = body  # treat as HTML for remaining extraction stages
     local_content = ""
     if html:
         # 2. Try Readability extraction (intelligent article detection)
@@ -468,12 +495,12 @@ def _jina_reader_request(
         return ""
 
 
-def _fetch_html(
+def _fetch_raw(
     url: str,
     timeout: float = TIMEOUT_DEFAULT,
     proxy: str | None = None,
-) -> str:
-    """Fetch raw HTML from a URL with retry for transient failures.
+) -> tuple[str, str]:
+    """Fetch raw content from a URL with retry for transient failures.
 
     Retries up to ``_FETCH_MAX_RETRIES`` times with exponential backoff
     for server errors (5xx), timeouts, and network errors.  Client errors
@@ -485,7 +512,9 @@ def _fetch_html(
         proxy: Optional proxy URL.
 
     Returns:
-        HTML string, or empty string on failure.
+        A ``(body, content_type)`` tuple.  ``content_type`` is the MIME
+        type portion of the ``Content-Type`` header (e.g. ``"text/html"``),
+        lowercased.  On failure both elements are empty strings.
     """
     last_exception: Exception | None = None
     for attempt in range(_FETCH_MAX_RETRIES):
@@ -502,13 +531,16 @@ def _fetch_html(
                 proxy=proxy,
             )
             response.raise_for_status()
-            return response.text
+            # Extract the MIME type (drop charset and parameters).
+            raw_ct = response.headers.get("content-type", "")
+            content_type = raw_ct.split(";")[0].strip().lower()
+            return response.text, content_type
         except httpx.HTTPStatusError as e:
             status = e.response.status_code
             if 400 <= status < 500:
                 # Client errors are definitive — do not retry.
                 logger.debug(f"HTTP Error [{status}]: {e}")
-                return ""
+                return "", ""
             # 5xx server error — retryable
             last_exception = e
             logger.debug(
@@ -524,7 +556,7 @@ def _fetch_html(
         except Exception as e:
             # Unexpected errors are not retried.
             logger.debug(f"Error fetching {url}: {e}")
-            return ""
+            return "", ""
 
         # Exponential backoff before next retry
         if attempt < _FETCH_MAX_RETRIES - 1:
@@ -535,7 +567,7 @@ def _fetch_html(
     logger.debug(
         f"All {_FETCH_MAX_RETRIES} attempts failed for {url}: {last_exception}"
     )
-    return ""
+    return "", ""
 
 
 def _extract_with_readability(html: str, url: str) -> str:
