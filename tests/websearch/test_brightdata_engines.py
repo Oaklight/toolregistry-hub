@@ -15,7 +15,7 @@ import json
 import os
 from urllib.parse import quote_plus
 
-import httpx
+from toolregistry_hub._vendor.httpclient import Client, HTTPError
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -75,7 +75,7 @@ def run_engine_format(engine: str, data_format: str, query: str = "python progra
     print(f"Payload: {json.dumps(payload, indent=2)}")
 
     try:
-        with httpx.Client(timeout=30.0) as client:
+        with Client(timeout=30.0) as client:
             response = client.post(
                 "https://api.brightdata.com/request",
                 headers=headers,
@@ -132,9 +132,9 @@ def run_engine_format(engine: str, data_format: str, query: str = "python progra
 
             return result_text
 
-    except httpx.HTTPStatusError as e:
-        print(f"\n❌ HTTP Error {e.response.status_code}")
-        print(f"Response: {e.response.text}")
+    except HTTPError as e:
+        print(f"\n❌ HTTP Error {e.status_code}")
+        print(f"Response: {e.body}")
         return None
     except Exception as e:
         print(f"\n❌ Error: {e}")

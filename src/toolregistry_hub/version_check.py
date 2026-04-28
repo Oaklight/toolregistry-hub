@@ -4,7 +4,7 @@ This module provides functionality to check for available updates
 on PyPI and compare versions.
 """
 
-import httpx
+from ._vendor.httpclient import AsyncClient
 
 from . import __version__
 from ._vendor.structlog import get_logger
@@ -24,7 +24,7 @@ async def get_latest_pypi_version(
         Latest version string if successful, None if failed
     """
     try:
-        async with httpx.AsyncClient() as client:
+        async with AsyncClient() as client:
             response = await client.get(
                 f"https://pypi.org/pypi/{package_name}/json",
                 headers={

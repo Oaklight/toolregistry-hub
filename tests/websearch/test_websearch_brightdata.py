@@ -3,7 +3,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-import httpx
+from toolregistry_hub._vendor.httpclient import HTTPError, HttpTimeoutError
 
 from toolregistry_hub.websearch.search_result import SearchResult
 from toolregistry_hub.websearch.websearch_brightdata import BrightDataSearch
@@ -72,7 +72,7 @@ class TestBrightDataSearch:
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
     )
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brightdata.Client")
     def test_search_basic(self, mock_client, mock_ensure):
         """Test basic search functionality."""
         # Mock response
@@ -117,7 +117,7 @@ class TestBrightDataSearch:
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
     )
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brightdata.Client")
     def test_search_with_pagination(self, mock_client, mock_ensure):
         """Test search with pagination cursor."""
         mock_response = MagicMock()
@@ -141,7 +141,7 @@ class TestBrightDataSearch:
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
     )
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brightdata.Client")
     def test_search_empty_query(self, mock_client, mock_ensure):
         """Test search with empty query."""
         search = BrightDataSearch(api_keys="test_token")
@@ -153,13 +153,13 @@ class TestBrightDataSearch:
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
     )
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brightdata.Client")
     def test_search_timeout_error(self, mock_client, mock_ensure):
         """Test search with timeout error."""
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.post.side_effect = httpx.TimeoutException("Timeout")
+        mock_client_instance.post.side_effect = HttpTimeoutError("Timeout")
         mock_client.return_value = mock_client_instance
 
         search = BrightDataSearch(api_keys="test_token")
@@ -170,7 +170,7 @@ class TestBrightDataSearch:
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
     )
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brightdata.Client")
     def test_search_http_401_error(self, mock_client, mock_ensure):
         """Test search with 401 authentication error."""
         mock_response = MagicMock()
@@ -180,8 +180,8 @@ class TestBrightDataSearch:
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.post.side_effect = httpx.HTTPStatusError(
-            "Unauthorized", request=MagicMock(), response=mock_response
+        mock_client_instance.post.side_effect = HTTPError(
+            401, "Unauthorized", "https://api.brightdata.com/request"
         )
         mock_client.return_value = mock_client_instance
 
@@ -193,7 +193,7 @@ class TestBrightDataSearch:
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
     )
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brightdata.Client")
     def test_search_http_422_error(self, mock_client, mock_ensure):
         """Test search with 422 zone error."""
         mock_response = MagicMock()
@@ -203,8 +203,8 @@ class TestBrightDataSearch:
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.post.side_effect = httpx.HTTPStatusError(
-            "Zone error", request=MagicMock(), response=mock_response
+        mock_client_instance.post.side_effect = HTTPError(
+            422, "Zone not found", "https://api.brightdata.com/request"
         )
         mock_client.return_value = mock_client_instance
 
@@ -216,7 +216,7 @@ class TestBrightDataSearch:
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
     )
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brightdata.Client")
     def test_search_http_429_error(self, mock_client, mock_ensure):
         """Test search with 429 rate limit error."""
         mock_response = MagicMock()
@@ -226,8 +226,8 @@ class TestBrightDataSearch:
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.post.side_effect = httpx.HTTPStatusError(
-            "Rate limit", request=MagicMock(), response=mock_response
+        mock_client_instance.post.side_effect = HTTPError(
+            429, "Rate limit exceeded", "https://api.brightdata.com/request"
         )
         mock_client.return_value = mock_client_instance
 
@@ -239,7 +239,7 @@ class TestBrightDataSearch:
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
     )
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brightdata.Client")
     def test_search_json_decode_error(self, mock_client, mock_ensure):
         """Test search with invalid JSON response."""
         mock_response = MagicMock()
@@ -322,7 +322,7 @@ class TestBrightDataSearch:
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
     )
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brightdata.Client")
     def test_search_max_results_pagination(self, mock_client, mock_ensure):
         """Test search with max_results > 20 triggers pagination."""
         mock_response = MagicMock()
@@ -344,7 +344,7 @@ class TestBrightDataSearch:
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
     )
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_brightdata.Client")
     def test_search_max_results_cap(self, mock_client, mock_ensure):
         """Test that max_results is capped at 180."""
         mock_response = MagicMock()

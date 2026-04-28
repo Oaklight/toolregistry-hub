@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-import httpx
+from toolregistry_hub._vendor.httpclient import HTTPError, HttpTimeoutError
 
 from toolregistry_hub.websearch.search_result import SearchResult
 from toolregistry_hub.websearch.websearch_serper import SerperSearch
@@ -38,7 +38,7 @@ class TestSerperSearch:
         assert headers["Content-Type"] == "application/json"
         assert headers["X-API-KEY"] == "test_key"
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_serper.Client")
     def test_search_basic(self, mock_client):
         """Test basic search functionality."""
         mock_response = MagicMock()
@@ -75,7 +75,7 @@ class TestSerperSearch:
         assert results[0].url == "https://example1.com"
         assert results[0].content == "Description 1"
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_serper.Client")
     def test_search_empty_query(self, mock_client):
         """Test search with empty query."""
         search = SerperSearch(api_keys="test_key")
@@ -84,13 +84,13 @@ class TestSerperSearch:
         assert results == []
         mock_client.assert_not_called()
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_serper.Client")
     def test_search_timeout_error(self, mock_client):
         """Test search with timeout error."""
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.post.side_effect = httpx.TimeoutException("Timeout")
+        mock_client_instance.post.side_effect = HttpTimeoutError("Timeout")
         mock_client.return_value = mock_client_instance
 
         search = SerperSearch(api_keys="test_key")
@@ -98,7 +98,7 @@ class TestSerperSearch:
 
         assert results == []
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_serper.Client")
     def test_search_http_401_error(self, mock_client):
         """Test search with 401 authentication error."""
         mock_response = MagicMock()
@@ -108,8 +108,8 @@ class TestSerperSearch:
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.post.side_effect = httpx.HTTPStatusError(
-            "Unauthorized", request=MagicMock(), response=mock_response
+        mock_client_instance.post.side_effect = HTTPError(
+            401, "Unauthorized", "https://google.serper.dev/search"
         )
         mock_client.return_value = mock_client_instance
 
@@ -118,7 +118,7 @@ class TestSerperSearch:
 
         assert results == []
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_serper.Client")
     def test_search_http_429_error(self, mock_client):
         """Test search with 429 rate limit error."""
         mock_response = MagicMock()
@@ -128,8 +128,8 @@ class TestSerperSearch:
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.post.side_effect = httpx.HTTPStatusError(
-            "Rate limit", request=MagicMock(), response=mock_response
+        mock_client_instance.post.side_effect = HTTPError(
+            429, "Rate limit exceeded", "https://google.serper.dev/search"
         )
         mock_client.return_value = mock_client_instance
 
@@ -192,7 +192,7 @@ class TestSerperSearch:
         assert results[0].url == "https://example.com"
         assert results[0].content == "No content available"
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_serper.Client")
     def test_search_request_payload(self, mock_client):
         """Test that request payload is correctly formatted."""
         mock_response = MagicMock()
@@ -213,7 +213,7 @@ class TestSerperSearch:
 
         assert payload["q"] == "test query"
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_serper.Client")
     def test_search_with_gl_and_hl(self, mock_client):
         """Test search with country and language parameters."""
         mock_response = MagicMock()
@@ -235,7 +235,7 @@ class TestSerperSearch:
         assert payload["gl"] == "cn"
         assert payload["hl"] == "zh"
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_serper.Client")
     def test_search_with_location(self, mock_client):
         """Test search with location parameter."""
         mock_response = MagicMock()
@@ -256,7 +256,7 @@ class TestSerperSearch:
 
         assert payload["location"] == "Austin, Texas"
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_serper.Client")
     def test_search_max_results_cap(self, mock_client):
         """Test that max_results is properly handled."""
         mock_response = MagicMock()
@@ -283,7 +283,7 @@ class TestSerperSearch:
 
         assert len(results) <= 3
 
-    @patch("httpx.Client")
+    @patch("toolregistry_hub.websearch.websearch_serper.Client")
     def test_search_posts_to_correct_endpoint(self, mock_client):
         """Test that the search uses POST method to the correct endpoint."""
         mock_response = MagicMock()

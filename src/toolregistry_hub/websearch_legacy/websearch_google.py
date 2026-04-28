@@ -5,7 +5,7 @@ from functools import partial
 from time import sleep
 from urllib.parse import unquote  # to decode the url
 
-import httpx
+from .._vendor.httpclient import Client, HTTPError, HttpClientError
 import ua_generator
 from .._vendor.soup import Soup, Tag
 
@@ -115,11 +115,11 @@ class WebSearchGoogle(WebSearchGeneral):
                     )
                 )
             return enriched_results
-        except httpx.RequestError as e:
-            logger.debug(f"Request error: {e}")
+        except HTTPError as e:
+            logger.debug(f"HTTP error: {e.status_code}")
             return []
-        except httpx.HTTPStatusError as e:
-            logger.debug(f"HTTP error: {e.response.status_code}")
+        except HttpClientError as e:
+            logger.debug(f"Request error: {e}")
             return []
 
     @staticmethod
@@ -140,11 +140,10 @@ class WebSearchGoogle(WebSearchGeneral):
         # Create a persistent client with connection pooling
         ua = ua_generator.generate(device="mobile")
         ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
-        with httpx.Client(
+        with Client(
             proxy=proxy,
             headers=ua.headers.get(),
             timeout=timeout,
-            follow_redirects=True,
         ) as client:
             start = start_num
             while fetched_results < num_results:

@@ -34,7 +34,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "httpx>=0.28.1",
     "ua-generator>=1.0.6",
 ]
 

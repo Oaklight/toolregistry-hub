@@ -29,7 +29,7 @@ API Documentation: https://serper.dev/playground
 import json
 from typing import Any
 
-import httpx
+from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError
 
 from .._vendor.structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
@@ -186,7 +186,7 @@ class SerperSearch(BaseSearch):
             self.api_key_parser.wait_for_rate_limit(api_key=api_key)
 
             try:
-                with httpx.Client(timeout=timeout) as client:
+                with Client(timeout=timeout) as client:
                     response = client.post(
                         f"{self.base_url}/search",
                         headers=self._build_headers(api_key),
@@ -202,11 +202,11 @@ class SerperSearch(BaseSearch):
                     )
                     return results
 
-            except httpx.TimeoutException:
+            except HttpTimeoutError:
                 logger.error(f"Serper API request timed out after {timeout}s")
                 return []
-            except httpx.HTTPStatusError as e:
-                status = e.response.status_code
+            except HTTPError as e:
+                status = e.status_code
                 if status in (401, 403):
                     self.api_key_parser.mark_key_failed(
                         api_key, f"HTTP {status}", ttl=3600.0
@@ -221,7 +221,7 @@ class SerperSearch(BaseSearch):
                     )
                     logger.warning("Serper API rate limit exceeded, trying next key")
                     continue
-                logger.error(f"Serper API HTTP error {status}: {e.response.text}")
+                logger.error(f"Serper API HTTP error {status}: {e.body}")
                 return []
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse Serper API response: {e}")

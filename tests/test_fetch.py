@@ -2,8 +2,13 @@
 
 from unittest.mock import MagicMock, patch
 
-import httpx
 import pytest
+
+from toolregistry_hub._vendor.httpclient import (
+    HTTPError,
+    HttpConnectionError,
+    HttpTimeoutError,
+)
 
 from toolregistry_hub.fetch import (
     _JINA_TIMEOUT_BUFFER,
@@ -158,7 +163,7 @@ class TestFormatText:
 class TestMarkdownNegotiation:
     """Tests for the _get_content_with_markdown_negotiation function."""
 
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_success_with_markdown_content_type(self, mock_get):
         mock_response = MagicMock()
         mock_response.headers = {
@@ -172,7 +177,7 @@ class TestMarkdownNegotiation:
         result = _get_content_with_markdown_negotiation("https://example.com")
         assert result == "# Hello\nThis is markdown."
 
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_not_supported_returns_empty(self, mock_get):
         mock_response = MagicMock()
         mock_response.headers = {"content-type": "text/html; charset=utf-8"}
@@ -182,14 +187,14 @@ class TestMarkdownNegotiation:
         result = _get_content_with_markdown_negotiation("https://example.com")
         assert result == ""
 
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_http_error_returns_empty(self, mock_get):
-        mock_get.side_effect = httpx.ConnectError("Connection refused")
+        mock_get.side_effect = HttpConnectionError("Connection refused")
 
         result = _get_content_with_markdown_negotiation("https://example.com")
         assert result == ""
 
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_accept_header_is_text_markdown(self, mock_get):
         mock_response = MagicMock()
         mock_response.headers = {"content-type": "text/html"}
@@ -211,7 +216,7 @@ class TestMarkdownNegotiation:
 class TestJinaReaderRequest:
     """Tests for the _jina_reader_request low-level function."""
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_success_returns_content(self, mock_post):
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -227,7 +232,7 @@ class TestJinaReaderRequest:
         result = _jina_reader_request("https://example.com")
         assert result == "# Article Title\nSome article content here."
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_empty_content_returns_empty(self, mock_post):
         mock_response = MagicMock()
         mock_response.json.return_value = {"code": 200, "data": {"content": ""}}
@@ -237,21 +242,19 @@ class TestJinaReaderRequest:
         result = _jina_reader_request("https://example.com")
         assert result == ""
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_http_error_returns_empty(self, mock_post):
         mock_response = MagicMock()
         mock_response.status_code = 400
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Bad Request",
-            request=MagicMock(),
-            response=mock_response,
+        mock_response.raise_for_status.side_effect = HTTPError(
+            400, "Bad Request", "https://r.jina.ai/"
         )
         mock_post.return_value = mock_response
 
         result = _jina_reader_request("https://example.com")
         assert result == ""
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_uses_post_method(self, mock_post):
         mock_response = MagicMock()
         mock_response.json.return_value = {"code": 200, "data": {"content": "test"}}
@@ -261,7 +264,7 @@ class TestJinaReaderRequest:
         _jina_reader_request("https://example.com")
         mock_post.assert_called_once()
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_headers_include_expected_fields(self, mock_post):
         mock_response = MagicMock()
         mock_response.json.return_value = {"code": 200, "data": {"content": "test"}}
@@ -278,7 +281,7 @@ class TestJinaReaderRequest:
         assert headers["X-Remove-Selector"] == "header, footer, nav, aside"
         assert headers["X-Wait-For-Selector"] == _JINA_WAIT_SELECTORS
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_sends_url_in_json_body(self, mock_post):
         mock_response = MagicMock()
         mock_response.json.return_value = {"code": 200, "data": {"content": "test"}}
@@ -291,14 +294,14 @@ class TestJinaReaderRequest:
         json_body = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
         assert json_body == {"url": "https://example.com/page"}
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_timeout_error_returns_empty(self, mock_post):
-        mock_post.side_effect = httpx.ReadTimeout("Read timed out")
+        mock_post.side_effect = HttpTimeoutError("Read timed out")
 
         result = _jina_reader_request("https://example.com")
         assert result == ""
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_httpx_timeout_exceeds_jina_timeout(self, mock_post):
         """httpx transport timeout must be larger than Jina X-Timeout."""
         mock_response = MagicMock()
@@ -318,7 +321,7 @@ class TestJinaReaderRequest:
         assert jina_timeout == int(custom_timeout)
         assert httpx_timeout > jina_timeout
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_custom_engine(self, mock_post):
         mock_response = MagicMock()
         mock_response.json.return_value = {"code": 200, "data": {"content": "test"}}
@@ -394,7 +397,7 @@ class TestJinaReader:
 class TestFetchRaw:
     """Tests for the _fetch_raw function."""
 
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_success_returns_body_and_content_type(self, mock_get):
         mock_response = MagicMock()
         mock_response.text = "<html><body>Hello</body></html>"
@@ -406,7 +409,7 @@ class TestFetchRaw:
         assert body == "<html><body>Hello</body></html>"
         assert ct == "text/html"
 
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_content_type_stripped_and_lowercased(self, mock_get):
         mock_response = MagicMock()
         mock_response.text = '{"key": "value"}'
@@ -417,7 +420,7 @@ class TestFetchRaw:
         _, ct = _fetch_raw("https://example.com/api")
         assert ct == "application/json"
 
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_missing_content_type_header(self, mock_get):
         mock_response = MagicMock()
         mock_response.text = "some content"
@@ -429,15 +432,13 @@ class TestFetchRaw:
         assert body == "some content"
         assert ct == ""
 
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_http_4xx_error_returns_empty_no_retry(self, mock_get):
         """4xx errors are definitive and must not be retried."""
         mock_response = MagicMock()
         mock_response.status_code = 403
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Forbidden",
-            request=MagicMock(),
-            response=mock_response,
+        mock_response.raise_for_status.side_effect = HTTPError(
+            403, "Forbidden", "https://example.com"
         )
         mock_get.return_value = mock_response
 
@@ -446,15 +447,13 @@ class TestFetchRaw:
         assert ct == ""
         assert mock_get.call_count == 1
 
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_http_404_no_retry(self, mock_get):
         """404 Not Found is a client error and must not be retried."""
         mock_response = MagicMock()
         mock_response.status_code = 404
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Not Found",
-            request=MagicMock(),
-            response=mock_response,
+        mock_response.raise_for_status.side_effect = HTTPError(
+            404, "Not Found", "https://example.com"
         )
         mock_get.return_value = mock_response
 
@@ -464,15 +463,13 @@ class TestFetchRaw:
         assert mock_get.call_count == 1
 
     @patch("toolregistry_hub.fetch.time.sleep")
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_http_500_retries(self, mock_get, mock_sleep):
         """5xx errors should be retried with exponential backoff."""
         mock_response = MagicMock()
         mock_response.status_code = 500
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Internal Server Error",
-            request=MagicMock(),
-            response=mock_response,
+        mock_response.raise_for_status.side_effect = HTTPError(
+            500, "Internal Server Error", "https://example.com"
         )
         mock_get.return_value = mock_response
 
@@ -483,15 +480,13 @@ class TestFetchRaw:
         assert mock_sleep.call_count == 2
 
     @patch("toolregistry_hub.fetch.time.sleep")
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_http_503_retries_then_succeeds(self, mock_get, mock_sleep):
         """Retry succeeds on second attempt after a 5xx error."""
         mock_error_response = MagicMock()
         mock_error_response.status_code = 503
-        mock_error_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Service Unavailable",
-            request=MagicMock(),
-            response=mock_error_response,
+        mock_error_response.raise_for_status.side_effect = HTTPError(
+            503, "Service Unavailable", "https://example.com"
         )
 
         mock_ok_response = MagicMock()
@@ -507,10 +502,10 @@ class TestFetchRaw:
         assert mock_get.call_count == 2
 
     @patch("toolregistry_hub.fetch.time.sleep")
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_timeout_retries(self, mock_get, mock_sleep):
         """Timeout errors should be retried."""
-        mock_get.side_effect = httpx.ReadTimeout("Read timed out")
+        mock_get.side_effect = HttpTimeoutError("Read timed out")
 
         body, ct = _fetch_raw("https://example.com")
         assert body == ""
@@ -518,10 +513,10 @@ class TestFetchRaw:
         assert mock_get.call_count == 3
 
     @patch("toolregistry_hub.fetch.time.sleep")
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_connect_error_retries(self, mock_get, mock_sleep):
         """Connection errors should be retried."""
-        mock_get.side_effect = httpx.ConnectError("Connection refused")
+        mock_get.side_effect = HttpConnectionError("Connection refused")
 
         body, ct = _fetch_raw("https://example.com")
         assert body == ""
@@ -529,17 +524,17 @@ class TestFetchRaw:
         assert mock_get.call_count == 3
 
     @patch("toolregistry_hub.fetch.time.sleep")
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_exponential_backoff_delays(self, mock_get, mock_sleep):
         """Verify exponential backoff delays between retries."""
-        mock_get.side_effect = httpx.ConnectError("Connection refused")
+        mock_get.side_effect = HttpConnectionError("Connection refused")
 
         _fetch_raw("https://example.com")
 
         delays = [call.args[0] for call in mock_sleep.call_args_list]
         assert delays == [1.0, 2.0]
 
-    @patch("toolregistry_hub.fetch.httpx.get")
+    @patch("toolregistry_hub.fetch._http_get")
     def test_passes_proxy(self, mock_get):
         mock_response = MagicMock()
         mock_response.text = "<html></html>"
@@ -941,7 +936,7 @@ class TestExtract:
 class TestJinaApiKey:
     """Tests for Jina API key support in Fetch."""
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_api_key_in_authorization_header(self, mock_post):
         mock_response = MagicMock()
         mock_response.json.return_value = {"code": 200, "data": {"content": "test"}}
@@ -954,7 +949,7 @@ class TestJinaApiKey:
         headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
         assert headers["Authorization"] == "Bearer test-key-123"
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_no_api_key_no_authorization_header(self, mock_post):
         mock_response = MagicMock()
         mock_response.json.return_value = {"code": 200, "data": {"content": "test"}}
@@ -967,12 +962,12 @@ class TestJinaApiKey:
         headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
         assert "Authorization" not in headers
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_401_marks_key_failed(self, mock_post):
         mock_response = MagicMock()
         mock_response.status_code = 401
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Unauthorized", request=MagicMock(), response=mock_response
+        mock_response.raise_for_status.side_effect = HTTPError(
+            401, "Unauthorized", "https://r.jina.ai/"
         )
         mock_post.return_value = mock_response
 
@@ -985,12 +980,12 @@ class TestJinaApiKey:
 
         assert "key1" in parser._failed_keys
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_429_marks_key_rate_limited(self, mock_post):
         mock_response = MagicMock()
         mock_response.status_code = 429
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Too Many Requests", request=MagicMock(), response=mock_response
+        mock_response.raise_for_status.side_effect = HTTPError(
+            429, "Too Many Requests", "https://r.jina.ai/"
         )
         mock_post.return_value = mock_response
 
@@ -1006,12 +1001,12 @@ class TestJinaApiKey:
         assert reason == "rate limited"
         assert ttl == 300.0
 
-    @patch("toolregistry_hub.fetch.httpx.post")
+    @patch("toolregistry_hub.fetch._http_post")
     def test_500_does_not_mark_key_failed(self, mock_post):
         mock_response = MagicMock()
         mock_response.status_code = 500
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Server Error", request=MagicMock(), response=mock_response
+        mock_response.raise_for_status.side_effect = HTTPError(
+            500, "Server Error", "https://r.jina.ai/"
         )
         mock_post.return_value = mock_response
 

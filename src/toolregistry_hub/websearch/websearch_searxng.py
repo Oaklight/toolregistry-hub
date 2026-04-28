@@ -31,7 +31,7 @@ SearXNG Setup: https://docs.searxng.org/admin/installation.html
 
 import os
 
-import httpx
+from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError
 
 from .._vendor.structlog import get_logger
 from ..utils.requirements import requires_env
@@ -177,7 +177,7 @@ class SearXNGSearch(BaseSearch):
         timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
         assert self.search_url is not None  # validated in search()
         try:
-            with httpx.Client(timeout=timeout) as client:
+            with Client(timeout=timeout) as client:
                 response = client.get(
                     self.search_url, headers=self._build_headers(), params=params
                 )
@@ -191,13 +191,11 @@ class SearXNGSearch(BaseSearch):
                 )
                 return results
 
-        except httpx.TimeoutException:
+        except HttpTimeoutError:
             logger.error(f"SearXNG API request timed out after {timeout}s")
             return []
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                f"SearXNG API HTTP error {e.response.status_code}: {e.response.text}"
-            )
+        except HTTPError as e:
+            logger.error(f"SearXNG API HTTP error {e.status_code}: {e.body}")
             return []
         except Exception as e:
             logger.error(f"SearXNG API request failed: {e}")
