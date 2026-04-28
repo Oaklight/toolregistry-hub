@@ -109,3 +109,4 @@ exclude = ["src/toolregistry_hub/_vendor"]
 [tool.ty.rules]
 unresolved-import = "ignore"
 invalid-assignment = "ignore"
+unresolved-attribute = "warn"
