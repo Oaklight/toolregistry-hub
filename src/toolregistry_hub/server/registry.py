@@ -17,7 +17,7 @@ import importlib
 from toolregistry import ToolRegistry
 from toolregistry.tool import ToolTag
 
-from .._vendor.structlog import get_logger
+from .._structlog import get_logger
 from ..utils.configurable import Configurable
 from ..utils.fn_namespace import _is_all_static_methods
 
