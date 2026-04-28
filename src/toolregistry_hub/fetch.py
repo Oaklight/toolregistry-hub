@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import time
 import unicodedata
 from typing import TYPE_CHECKING, Literal
 
@@ -37,6 +38,37 @@ _SPA_SHELL_INDICATORS = [
     "doesn't work properly without javascript",
     "requires a modern browser",
     "enable cookies",
+]
+
+# Maximum number of retry attempts for transient HTTP failures in _fetch_html.
+_FETCH_MAX_RETRIES = 3
+
+# Base delay (in seconds) for exponential backoff between retries.
+_FETCH_RETRY_BASE_DELAY = 1.0
+
+# CSS selectors tried in order by _extract_with_soup to locate the main
+# content container.  Each entry is a ``(tag, attrs)`` tuple compatible
+# with ``Soup.find(tag, attrs)``.  The first match wins.
+_SOUP_CONTENT_SELECTORS: list[tuple[str, dict[str, str] | None]] = [
+    ("main", None),
+    ("article", None),
+    ("div", {"class": "content"}),
+    ("div", {"class": "post-content"}),
+    ("div", {"class": "entry-content"}),
+    ("div", {"class": "article-body"}),
+    ("div", {"class": "article-content"}),
+    ("div", {"id": "content"}),
+    ("section", {"class": "content"}),
+    ("div", {"class": "markdown-body"}),
+    ("div", {"class": "post"}),
+    ("div", {"class": "entry"}),
+    ("div", {"class": "page-content"}),
+    ("div", {"class": "main-content"}),
+    ("div", {"id": "main-content"}),
+    ("div", {"role": "main"}),
+    ("div", {"class": "blog-post"}),
+    ("div", {"class": "post-body"}),
+    ("div", {"class": "story-body"}),
 ]
 
 
@@ -441,7 +473,11 @@ def _fetch_html(
     timeout: float = TIMEOUT_DEFAULT,
     proxy: str | None = None,
 ) -> str:
-    """Fetch raw HTML from a URL.
+    """Fetch raw HTML from a URL with retry for transient failures.
+
+    Retries up to ``_FETCH_MAX_RETRIES`` times with exponential backoff
+    for server errors (5xx), timeouts, and network errors.  Client errors
+    (4xx) are considered definitive and are not retried.
 
     Args:
         url: The URL to fetch.
@@ -451,24 +487,55 @@ def _fetch_html(
     Returns:
         HTML string, or empty string on failure.
     """
-    try:
-        ua = ua_generator.generate(browser=["chrome", "edge"])
-        ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
-        response = httpx.get(
-            url,
-            headers=ua.headers.get(),
-            timeout=timeout,
-            follow_redirects=True,
-            proxy=proxy,
-        )
-        response.raise_for_status()
-        return response.text
-    except httpx.HTTPStatusError as e:
-        logger.debug(f"HTTP Error [{e.response.status_code}]: {e}")
-        return ""
-    except Exception as e:
-        logger.debug(f"Error fetching {url}: {e}")
-        return ""
+    last_exception: Exception | None = None
+    for attempt in range(_FETCH_MAX_RETRIES):
+        try:
+            ua = ua_generator.generate(browser=["chrome", "edge"])
+            ua.headers.accept_ch(
+                "Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List"
+            )
+            response = httpx.get(
+                url,
+                headers=ua.headers.get(),
+                timeout=timeout,
+                follow_redirects=True,
+                proxy=proxy,
+            )
+            response.raise_for_status()
+            return response.text
+        except httpx.HTTPStatusError as e:
+            status = e.response.status_code
+            if 400 <= status < 500:
+                # Client errors are definitive — do not retry.
+                logger.debug(f"HTTP Error [{status}]: {e}")
+                return ""
+            # 5xx server error — retryable
+            last_exception = e
+            logger.debug(
+                f"HTTP Error [{status}] on attempt {attempt + 1}/{_FETCH_MAX_RETRIES} "
+                f"for {url}: {e}"
+            )
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as e:
+            last_exception = e
+            logger.debug(
+                f"Transient error on attempt {attempt + 1}/{_FETCH_MAX_RETRIES} "
+                f"for {url}: {e}"
+            )
+        except Exception as e:
+            # Unexpected errors are not retried.
+            logger.debug(f"Error fetching {url}: {e}")
+            return ""
+
+        # Exponential backoff before next retry
+        if attempt < _FETCH_MAX_RETRIES - 1:
+            delay = _FETCH_RETRY_BASE_DELAY * (2**attempt)
+            logger.debug(f"Retrying {url} in {delay:.1f}s")
+            time.sleep(delay)
+
+    logger.debug(
+        f"All {_FETCH_MAX_RETRIES} attempts failed for {url}: {last_exception}"
+    )
+    return ""
 
 
 def _extract_with_readability(html: str, url: str) -> str:
@@ -499,7 +566,8 @@ def _extract_with_soup(html: str) -> str:
     """Simple content extraction using zerodep soup.
 
     Fallback for when readability fails. Decomposes non-content tags,
-    then looks for main/article/div.content landmarks.
+    then walks ``_SOUP_CONTENT_SELECTORS`` to find the main content
+    container.
 
     Args:
         html: Raw HTML string.
@@ -513,11 +581,13 @@ def _extract_with_soup(html: str) -> str:
             ["script", "style", "nav", "footer", "iframe", "noscript"]
         ):
             element.decompose()
-        main_content = (
-            soup.find("main")
-            or soup.find("article")
-            or soup.find("div", {"class": "content"})
-        )
+
+        main_content = None
+        for tag, attrs in _SOUP_CONTENT_SELECTORS:
+            main_content = soup.find(tag, attrs)
+            if main_content:
+                break
+
         content_source = main_content if main_content else soup.find("body")
         if not content_source:
             return ""
