@@ -42,6 +42,16 @@ author: Oaklight
     - HTML 只获取一次，两个本地策略共用；优先使用 readability，除非 soup 提取内容超过 2 倍
     - 从 [zerodep](https://github.com/Oaklight/zerodep) 引入 readability 和 soup 模块到 `_vendor/`，采用嵌套目录布局
 
+- **Fetch：非 HTML 响应的 Content-Type 检测** ([#93](https://github.com/Oaklight/toolregistry-hub/pull/93), [#92](https://github.com/Oaklight/toolregistry-hub/issues/92))
+    - 将 `_fetch_html` 重命名为 `_fetch_raw`，返回 `(body, content_type)` 元组
+    - 对非 HTML 内容类型（JSON、纯文本、CSV、Markdown、XML、YAML）在 HTML 提取管道前短路返回
+    - 防止结构化数据被 readability/soup 提取管道错误处理
+
+- **Fetch：SPA 内容质量检测** ([#96](https://github.com/Oaklight/toolregistry-hub/pull/96), [#94](https://github.com/Oaklight/toolregistry-hub/issues/94))
+    - 为 `_is_content_sufficient()` 添加文本结构分析，检测仅包含导航内容的提取结果
+    - 启发式算法灵感来自 [jusText](https://github.com/miso-belica/jusText)：若 >70% 的行为短行（<30 字符）且段落级长行（>80 字符）不足 2 行，则判定为导航碎片并拒绝
+    - 保守策略：仅在文本超过 5 行时触发，短内容不受影响
+
 - **WebSearch：统一入口与动态引擎选择**
     - 新增 `WebSearch` 类注册到 `web/websearch` 命名空间；原有 6 个 provider 工具（`web/brave_search`、`web/tavily_search` 等）改为 defer，可通过 `discover_tools` 发现
     - `search(query, engine="auto", fallback=False, ...)` —— `engine="auto"` 按优先级尝试已配置的 provider；指定具体 engine 时若未配置则严格报错，或在 `fallback=True` 时降级到 auto 链
