@@ -110,9 +110,7 @@ class ToolConfig:
 # ---------------------------------------------------------------------------
 
 
-def _parse_tools_field(
-    tools_list: Any, path: Path
-) -> list[ToolEntry] | None:
+def _parse_tools_field(tools_list: Any, path: Path) -> list[ToolEntry] | None:
     """Parse the optional ``tools`` field from a config file.
 
     Args:
@@ -136,17 +134,14 @@ def _parse_tools_field(
     tools: list[ToolEntry] = []
     for i, entry in enumerate(tools_list):
         if not isinstance(entry, dict):
-            logger.warning(
-                f"Invalid tool entry at index {i} in {path}: expected dict"
-            )
+            logger.warning(f"Invalid tool entry at index {i} in {path}: expected dict")
             continue
         entry_dict: dict[str, Any] = entry
         class_path = entry_dict.get("class")
         namespace = entry_dict.get("namespace")
         if not class_path or not namespace:
             logger.warning(
-                f"Tool entry at index {i} missing 'class' or "
-                f"'namespace' in {path}"
+                f"Tool entry at index {i} missing 'class' or 'namespace' in {path}"
             )
             continue
         tools.append(ToolEntry(class_path=class_path, namespace=namespace))

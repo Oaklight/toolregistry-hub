@@ -124,20 +124,14 @@ class BaseSearch(ABC):
         """
         status = error.status_code
         if status in (401, 403):
-            self.api_key_parser.mark_key_failed(
-                api_key, f"HTTP {status}", ttl=3600.0
-            )
+            self.api_key_parser.mark_key_failed(api_key, f"HTTP {status}", ttl=3600.0)
             logger.warning(
                 f"{provider_name} API key auth failed (HTTP {status}), trying next key"
             )
             return True
         if status == 429:
-            self.api_key_parser.mark_key_failed(
-                api_key, "rate limited", ttl=300.0
-            )
-            logger.warning(
-                f"{provider_name} API rate limit exceeded, trying next key"
-            )
+            self.api_key_parser.mark_key_failed(api_key, "rate limited", ttl=300.0)
+            logger.warning(f"{provider_name} API rate limit exceeded, trying next key")
             return True
         logger.error(f"{provider_name} API HTTP error {status}: {error.body}")
         return False
