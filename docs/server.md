@@ -109,6 +109,7 @@ In OpenAPI mode, all tools are provided as REST API endpoints. After starting th
 - `POST /tools/web/tavily_search/search` - Search the web using Tavily *(deferred)*
 - `POST /tools/web/scrapeless_search/search` - Search the web using Scrapeless *(deferred)*
 - `POST /tools/web/brightdata_search/search` - Search the web using BrightData *(deferred)*
+- `POST /tools/web/serper_search/search` - Search the web using Serper *(deferred)*
 
 #### Date Time Tools
 
@@ -147,10 +148,12 @@ In OpenAPI mode, all tools are provided as REST API endpoints. After starting th
 
 - `POST /tools/fs/path_info/info` - Get file/directory metadata (type, size, permissions, modified time)
 
-#### Filesystem Tools (Deprecated)
+#### Filesystem Tools (Removed from Defaults)
 
-!!! warning "Deprecated"
-    FileSystem is deprecated. Use PathInfo, FileSearch, and FileReader instead.
+!!! warning "No longer registered by default"
+    FileSystem has been removed from the default server registry since 0.9.0.
+    Use PathInfo, FileSearch, and FileReader instead.
+    The class remains available for library use and can be re-added via a custom `tools.jsonc` configuration.
 
 - `POST /tools/filesystem/exists` - Check if a path exists
 - `POST /tools/filesystem/is_file` - Check if a path is a file
@@ -391,6 +394,7 @@ The following environment variables are used by specific tools. Tools with missi
 | `BRAVE_API_KEY` | Brave Search | Brave Search API key ([get one](https://api.search.brave.com/)) |
 | `TAVILY_API_KEY` | Tavily Search | Tavily Search API key ([get one](https://tavily.com/)) |
 | `SEARXNG_URL` | SearXNG Search | SearXNG instance URL (e.g., `http://localhost:8080`) |
+| `SEARXNG_API_KEY` | SearXNG Search | Optional API key for protected SearXNG instances (sent as `X-API-Key` header) |
 | `BRIGHTDATA_API_KEY` | BrightData Search | Bright Data API key ([get one](https://brightdata.com/)) |
 | `SCRAPELESS_API_KEY` | Scrapeless Search | Scrapeless API key ([get one](https://scrapeless.com/)) |
 | `SERPER_API_KEY` | Serper Search | Serper API key ([get one](https://serper.dev/)) |
@@ -470,7 +474,7 @@ def my_endpoint(data: MyRequest) -> MyResponse:
 
 ### Testing
 
-You can use `pytest` and `httpx` to test API endpoints:
+You can use `pytest` to test API endpoints:
 
 ```python
 import pytest

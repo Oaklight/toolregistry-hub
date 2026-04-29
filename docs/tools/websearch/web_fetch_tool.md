@@ -18,7 +18,7 @@ The Fetch class offers robust webpage content extraction:
 - **Content Quality Evaluation**: Detects SPA shell pages and insufficient content, triggering automatic fallback
 - **Smart Fallback with Low-Quality Recovery**: If Jina Reader also fails, returns local low-quality content as a last resort (better than nothing)
 - **Content Cleaning**: Removes navigation, ads, and unnecessary elements
-- **User Agent Rotation**: Uses realistic browser user agents via `ua-generator`
+- **User Agent Rotation**: Uses realistic browser user agents via vendored zerodep useragent module
 - **Timeout Handling**: Configurable timeouts (default: 30s) and proxy support
 - **Error Resilience**: Graceful handling of network errors and inaccessible content
 
@@ -27,16 +27,18 @@ The Fetch class offers robust webpage content extraction:
 ```python
 from toolregistry_hub import Fetch
 
+fetcher = Fetch()  # or Fetch(api_keys="key1,key2") for Jina API key rotation
+
 # Basic webpage content extraction
 url = "https://example.com"
-content = Fetch.fetch_content(url)
+content = fetcher.fetch_content(url)
 print(f"Content length: {len(content)} characters")
 # Output: Content length: 127 characters
 print(f"Content preview: {content[:200]}...")
 # Output: Content preview: Example Domain This domain is for use in documentation examples without needing permission. Avoid us...
 
 # With timeout and proxy
-content = Fetch.fetch_content(
+content = fetcher.fetch_content(
     url="https://example.com",
     timeout=15.0,
     proxy="http://proxy.example.com:8080"
@@ -44,6 +46,14 @@ content = Fetch.fetch_content(
 ```
 
 ## API Reference
+
+### `Fetch(api_keys=None)`
+
+Initialize the Fetch content extractor.
+
+**Parameters:**
+
+- `api_keys` (str, optional): Comma-separated Jina API keys. Falls back to `JINA_API_KEY` environment variable. When set, requests to Jina Reader include an `Authorization: Bearer <key>` header with round-robin key rotation.
 
 ### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None) -> str`
 
@@ -161,7 +171,7 @@ The Jina Reader serves as the fallback strategy for pages that local extraction 
 
 **Timeout Separation:**
 
-The httpx transport timeout is set to `timeout + 10s` (buffer), while the Jina `X-Timeout` is set to `timeout`. This prevents the HTTP client from timing out before Jina finishes rendering the page — a common issue with SPA pages that require extra rendering time.
+The HTTP client transport timeout is set to `timeout + 10s` (buffer), while the Jina `X-Timeout` is set to `timeout`. This prevents the HTTP client from timing out before Jina finishes rendering the page — a common issue with SPA pages that require extra rendering time.
 
 The JSON response is parsed to extract the `data.content` field, which contains the rendered page content.
 
@@ -185,7 +195,7 @@ from toolregistry_hub import Fetch
 
 # Extract content from a news article
 news_url = "https://example.com"
-content = Fetch.fetch_content(news_url)
+content = Fetch().fetch_content(news_url)
 
 if content and content != "Unable to fetch content":
     print(f"Successfully extracted {len(content)} characters")
@@ -203,7 +213,7 @@ from toolregistry_hub import Fetch
 
 # Extract blog post content
 blog_url = "https://example.com"
-content = Fetch.fetch_content(blog_url, timeout=15.0)
+content = Fetch().fetch_content(blog_url, timeout=15.0)
 
 # Process the extracted content
 if content:
@@ -226,7 +236,7 @@ from toolregistry_hub import Fetch
 
 # Extract API documentation
 docs_url = "https://docs.example.com/api-reference"
-content = Fetch.fetch_content(docs_url)
+content = Fetch().fetch_content(docs_url)
 
 # Look for specific documentation patterns
 if content:
@@ -253,7 +263,7 @@ research_urls = [
 
 collected_content = []
 for url in research_urls:
-    content = Fetch.fetch_content(url, timeout=20.0)
+    content = Fetch().fetch_content(url, timeout=20.0)
     if content and content != "Unable to fetch content":
         collected_content.append({
             'url': url,
@@ -276,7 +286,7 @@ from toolregistry_hub import Fetch
 proxy_url = "http://corporate-proxy.company.com:8080"
 target_url = "https://external-resource.com/data"
 
-content = Fetch.fetch_content(
+content = Fetch().fetch_content(
     url=target_url,
     timeout=30.0,
     proxy=proxy_url
@@ -299,7 +309,7 @@ def safe_web_fetch(url, retries=3):
     """Safely fetch web content with retry logic."""
     for attempt in range(retries):
         try:
-            content = Fetch.fetch_content(url, timeout=15.0)
+            content = Fetch().fetch_content(url, timeout=15.0)
             if content and content != "Unable to fetch content":
                 return content
             else:
@@ -331,7 +341,7 @@ def batch_fetch(urls, delay=1.0):
     for i, url in enumerate(urls):
         print(f"Processing {i+1}/{len(urls)}: {url}")
 
-        content = Fetch.fetch_content(url, timeout=10.0)
+        content = Fetch().fetch_content(url, timeout=10.0)
         results.append({
             'url': url,
             'content': content,
@@ -379,7 +389,7 @@ def validate_extracted_content(content, min_length=100):
 
 # Usage
 url = "https://example.com"
-content = Fetch.fetch_content(url)
+content = Fetch().fetch_content(url)
 is_valid, message = validate_extracted_content(content)
 
 print(f"Content validation: {message}")
@@ -455,7 +465,7 @@ def assess_content_quality(content):
 
 # Usage
 url = "https://example.com"
-content = Fetch.fetch_content(url)
+content = Fetch().fetch_content(url)
 quality = assess_content_quality(content)
 print(f"Content quality: {quality}")
 ```
