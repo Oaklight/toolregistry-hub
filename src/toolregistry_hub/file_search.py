@@ -195,6 +195,46 @@ class FileSearch:
         return "\n".join(lines)
 
     @staticmethod
+    def _list_entries(
+        directory: Path,
+        show_hidden: bool,
+        file_pattern: str | None,
+    ) -> list[Path]:
+        """List and filter directory entries for tree display.
+
+        Sorts directories first, then by name.  Filters hidden entries
+        and applies optional file glob pattern (directories always pass
+        so the tree structure stays intact).
+
+        Args:
+            directory: Directory to list.
+            show_hidden: Whether to include hidden entries.
+            file_pattern: Optional glob to filter files.
+
+        Returns:
+            Sorted, filtered list of entries, or empty list on
+            permission error.
+        """
+        try:
+            entries = sorted(
+                directory.iterdir(), key=lambda e: (not e.is_dir(), e.name)
+            )
+        except PermissionError:
+            return []
+
+        if not show_hidden:
+            entries = [e for e in entries if not e.name.startswith(".")]
+
+        if file_pattern:
+            entries = [
+                e
+                for e in entries
+                if e.is_dir() or fnmatch.fnmatch(e.name, file_pattern)
+            ]
+
+        return entries
+
+    @staticmethod
     def _build_tree(
         directory: Path,
         prefix: str,
@@ -220,24 +260,7 @@ class FileSearch:
         if current_depth > max_depth:
             return
 
-        try:
-            entries = sorted(
-                directory.iterdir(), key=lambda e: (not e.is_dir(), e.name)
-            )
-        except PermissionError:
-            return
-
-        # Filter hidden
-        if not show_hidden:
-            entries = [e for e in entries if not e.name.startswith(".")]
-
-        # Filter files by pattern (directories always shown so tree structure is intact)
-        if file_pattern:
-            entries = [
-                e
-                for e in entries
-                if e.is_dir() or fnmatch.fnmatch(e.name, file_pattern)
-            ]
+        entries = FileSearch._list_entries(directory, show_hidden, file_pattern)
 
         for i, entry in enumerate(entries):
             if count[0] >= _MAX_TREE_ENTRIES:
