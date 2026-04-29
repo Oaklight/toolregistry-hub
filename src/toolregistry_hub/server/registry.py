@@ -161,6 +161,87 @@ def _import_class(class_path: str) -> type:
     return getattr(module, class_name)
 
 
+def _register_tool(
+    registry: ToolRegistry,
+    class_path: str,
+    namespace: str,
+    kwargs: dict,
+) -> None:
+    """Import, instantiate, and register a single tool class.
+
+    Static-method-only classes are registered directly; others are
+    instantiated first.  Instances that implement the
+    :class:`~toolregistry_hub.utils.Configurable` protocol are checked
+    for readiness, and all tools under their namespace are auto-disabled
+    when configuration is incomplete.
+
+    Args:
+        registry: The registry to add the tool to.
+        class_path: Fully qualified class path to import.
+        namespace: Namespace under which to register.
+        kwargs: Constructor keyword arguments for the tool class.
+    """
+    try:
+        cls = _import_class(class_path)
+    except (ImportError, AttributeError) as e:
+        logger.error(f"Failed to import tool class '{class_path}': {e}")
+        return
+
+    if _is_all_static_methods(cls):
+        registry.register_from_class(cls, namespace=namespace)
+        return
+
+    instance = cls(**kwargs)
+    registry.register_from_class(instance, namespace=namespace)
+
+    if isinstance(instance, Configurable) and not instance._is_configured():
+        _disable_namespace(registry, cls, namespace)
+
+
+def _disable_namespace(
+    registry: ToolRegistry, cls: type, namespace: str
+) -> None:
+    """Disable all tools under *namespace* due to missing configuration.
+
+    Args:
+        registry: The registry containing the tools.
+        cls: The tool class (used to read ``_required_envs``).
+        namespace: Namespace whose tools should be disabled.
+    """
+    required_envs: list[str] = getattr(cls, "_required_envs", [])
+    reason = (
+        f"Missing env: {', '.join(required_envs)}"
+        if required_envs
+        else "Not configured"
+    )
+    for tool_name, tool in registry._tools.items():
+        if tool.namespace == namespace:
+            registry.disable(tool_name, reason=reason)
+    logger.info(f"Disabled {namespace}: {reason}")
+
+
+def _remove_hidden_methods(registry: ToolRegistry) -> None:
+    """Remove explicitly hidden methods from the registry.
+
+    Note: Methods starting with ``_`` are already excluded by toolregistry;
+    this handles any additional methods listed in ``_HIDDEN_METHODS``.
+
+    Args:
+        registry: The registry to clean up.
+    """
+    if not _HIDDEN_METHODS:
+        return
+    to_remove = [
+        name
+        for name, tool in registry._tools.items()
+        if tool.method_name in _HIDDEN_METHODS
+    ]
+    for name in to_remove:
+        del registry._tools[name]
+        registry._disabled.pop(name, None)
+        logger.debug(f"Removed hidden method from registry: {name}")
+
+
 def build_registry(
     tool_kwargs: dict[str, dict] | None = None,
     tools_config_path: str | None = None,
@@ -208,50 +289,12 @@ def build_registry(
     registry = ToolRegistry(name="hub", think_augment=enable_think)
 
     for tool_def in tools_to_register:
-        class_path = tool_def["class"]
         namespace = tool_def["namespace"]
-
-        try:
-            cls = _import_class(class_path)
-        except (ImportError, AttributeError) as e:
-            logger.error(f"Failed to import tool class '{class_path}': {e}")
-            continue
-
-        # For tool_kwargs lookup, use the leaf namespace (after last '/')
         kwargs_key = namespace.rsplit("/", 1)[-1]
         kwargs = (tool_kwargs or {}).get(kwargs_key, {})
+        _register_tool(registry, tool_def["class"], namespace, kwargs)
 
-        if _is_all_static_methods(cls):
-            registry.register_from_class(cls, namespace=namespace)
-        else:
-            instance = cls(**kwargs)
-            registry.register_from_class(instance, namespace=namespace)
-
-            # Check instance readiness via Configurable protocol
-            if isinstance(instance, Configurable) and not instance._is_configured():
-                required_envs: list[str] = getattr(cls, "_required_envs", [])
-                reason = (
-                    f"Missing env: {', '.join(required_envs)}"
-                    if required_envs
-                    else "Not configured"
-                )
-                for tool_name, tool in registry._tools.items():
-                    if tool.namespace == namespace:
-                        registry.disable(tool_name, reason=reason)
-                logger.info(f"Disabled {namespace}: {reason}")
-
-    # Remove hidden methods from the registry (if any are explicitly listed)
-    # Note: Methods starting with "_" are already excluded by toolregistry
-    if _HIDDEN_METHODS:
-        to_remove = [
-            name
-            for name, tool in registry._tools.items()
-            if tool.method_name in _HIDDEN_METHODS
-        ]
-        for name in to_remove:
-            del registry._tools[name]
-            registry._disabled.pop(name, None)
-            logger.debug(f"Removed hidden method from registry: {name}")
+    _remove_hidden_methods(registry)
 
     # Apply startup tool configuration (highest priority)
     if config is not None:
