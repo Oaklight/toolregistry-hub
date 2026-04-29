@@ -198,9 +198,7 @@ def _register_tool(
         _disable_namespace(registry, cls, namespace)
 
 
-def _disable_namespace(
-    registry: ToolRegistry, cls: type, namespace: str
-) -> None:
+def _disable_namespace(registry: ToolRegistry, cls: type, namespace: str) -> None:
     """Disable all tools under *namespace* due to missing configuration.
 
     Args:
