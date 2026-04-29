@@ -493,7 +493,7 @@ class StreamingResponse:
         resp: http.client.HTTPResponse,
         conn: http.client.HTTPConnection,
         content_encoding: str = "",
-    ) -> "StreamingResponse":
+    ) -> StreamingResponse:
         obj = object.__new__(cls)
         obj.status_code = status_code
         obj.headers = headers
@@ -525,7 +525,7 @@ class StreamingResponse:
         content_length: int | None,
         timeout: float,
         content_encoding: str = "",
-    ) -> "StreamingResponse":
+    ) -> StreamingResponse:
         obj = object.__new__(cls)
         obj.status_code = status_code
         obj.headers = headers
@@ -698,13 +698,13 @@ class StreamingResponse:
 
     # ── Context managers ──
 
-    def __enter__(self) -> "StreamingResponse":
+    def __enter__(self) -> StreamingResponse:
         return self
 
     def __exit__(self, *args: Any) -> None:
         self.close()
 
-    async def __aenter__(self) -> "StreamingResponse":
+    async def __aenter__(self) -> StreamingResponse:
         return self
 
     async def __aexit__(self, *args: Any) -> None:
@@ -2040,7 +2040,7 @@ def _encode_multipart(
         parts.append(header.encode("utf-8") + content + b"\r\n")
 
     # Final boundary
-    parts.append(f"--{boundary}--\r\n".encode("utf-8"))
+    parts.append(f"--{boundary}--\r\n".encode())
 
     body = b"".join(parts)
     content_type = f"multipart/form-data; boundary={boundary}"
