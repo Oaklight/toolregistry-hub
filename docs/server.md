@@ -148,27 +148,6 @@ In OpenAPI mode, all tools are provided as REST API endpoints. After starting th
 
 - `POST /tools/fs/path_info/info` - Get file/directory metadata (type, size, permissions, modified time)
 
-#### Filesystem Tools (Removed from Defaults)
-
-!!! warning "No longer registered by default"
-    FileSystem has been removed from the default server registry since 0.9.0.
-    Use PathInfo, FileSearch, and FileReader instead.
-    The class remains available for library use and can be re-added via a custom `tools.jsonc` configuration.
-
-- `POST /tools/filesystem/exists` - Check if a path exists
-- `POST /tools/filesystem/is_file` - Check if a path is a file
-- `POST /tools/filesystem/is_dir` - Check if a path is a directory
-- `POST /tools/filesystem/list_dir` - List directory contents
-- `POST /tools/filesystem/create_file` - Create a file
-- `POST /tools/filesystem/create_dir` - Create a directory
-- `POST /tools/filesystem/copy` - Copy a file or directory
-- `POST /tools/filesystem/move` - Move a file or directory
-- `POST /tools/filesystem/delete` - Delete a file or directory
-- `POST /tools/filesystem/get_size` - Get file or directory size
-- `POST /tools/filesystem/get_last_modified_time` - Get last modified time
-- `POST /tools/filesystem/join_paths` - Join path components
-- `POST /tools/filesystem/get_absolute_path` - Get absolute path
-
 #### File Operations Tools
 
 - `POST /tools/file_ops/edit` - Replace exact string in file (returns unified diff)
@@ -338,7 +317,6 @@ The `mode`, `disabled`, and `enabled` fields control which registered tools are 
 
   // Denylist mode — disable specific tools by namespace
   "disabled": [
-    "filesystem",
     "file_ops"
   ]
 
@@ -363,7 +341,7 @@ The `tools` field allows you to customize which tool classes are registered at s
     // ... add or remove tools as needed
   ],
   "mode": "denylist",
-  "disabled": ["filesystem", "file_ops"]
+  "disabled": ["file_ops"]
 }
 ```
 

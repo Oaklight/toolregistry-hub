@@ -32,7 +32,6 @@ The web search tools mainly include the following:
 
 1. **Unified Web Search** (`WebSearch`) - Single entry point for all search providers with auto-selection, fallback, and dynamic engine discovery. See [Unified Web Search](websearch_unified.md)
 2. **Individual Search Providers** (`websearch`) - Direct access to specific search engines (Brave, Tavily, SearXNG, etc.)
-3. **Legacy Web Search Module** (`websearch_legacy`) - Provides basic web search functionality
 
 ## Search Engine Support
 
@@ -147,4 +146,3 @@ for result in results:
 - [BrightData Search](brightdata.md) - Implementation of BrightData for Google results
 - [Scrapeless Search](scrapeless.md) - Implementation of Scrapeless Universal API
 - [Bing Search](bing.md) - **REMOVED** Implementation of Bing search engine (removed in v0.6.0)
-- [Legacy Web Search](legacy.md) - Documentation of the legacy web search module

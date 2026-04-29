@@ -64,7 +64,6 @@ plugins:
           - tools/file_reader.md
           - tools/file_search.md
           - tools/path_info.md
-          - tools/filesystem.md
           - tools/websearch/web_fetch_tool.md
           - tools/websearch/index.md
           - tools/websearch/websearch_unified.md
@@ -74,6 +73,7 @@ plugins:
           - tools/websearch/serper.md
           - tools/websearch/tavily.md
           - tools/websearch/searxng.md
+          - tools/websearch/bing.md
           - tools/bash_tool.md
           - tools/cron_tool.md
           - tools/think_tool.md
@@ -86,7 +86,6 @@ plugins:
           - dev/helper_functions.md
           - tools/websearch/base_search.md
           - tools/websearch/search_result.md
-          - tools/websearch/legacy.md
           - tools/websearch/bing.md
         Ecosystem:
           - ecosystem.md
@@ -149,7 +148,6 @@ nav:
           - File Reader: tools/file_reader.md
           - File Search: tools/file_search.md
           - Path Info: tools/path_info.md
-          - File System (Deprecated): tools/filesystem.md
       - Web Tools:
           - Web Fetch Tool: tools/websearch/web_fetch_tool.md
           - Web Search Tools:
@@ -177,7 +175,6 @@ nav:
       - Web Search Base Class: tools/websearch/base_search.md
       - Search Result Types: tools/websearch/search_result.md
       - Deprecated:
-          - Legacy Web Search: tools/websearch/legacy.md
           - Bing Search: tools/websearch/bing.md
   - Ecosystem: ecosystem.md
   - Changelog: changelog.md

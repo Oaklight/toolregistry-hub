@@ -361,7 +361,6 @@ registry = get_registry()
 | `Calculator` | `calculator` | Static methods |
 | `DateTime` | `datetime` | Static methods |
 | `Fetch` | `fetch` | Static methods |
-| `FileSystem` | `filesystem` | Static methods |
 | `FileOps` | `file_ops` | Static methods |
 | `ThinkTool` | `think` | Static methods |
 | `TodoList` | `todolist` | Static methods |

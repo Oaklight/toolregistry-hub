@@ -1,6 +1,6 @@
 # Path Info Tool
 
-The PathInfo tool provides a single-call interface to retrieve file and directory metadata, replacing the multiple separate query methods on the legacy FileSystem class.
+The PathInfo tool provides a single-call interface to retrieve file and directory metadata.
 
 ## Class Overview
 
@@ -49,7 +49,7 @@ When the path does not exist, only `{"exists": False}` is returned.
 
 ## Design Rationale
 
-PathInfo replaces five separate methods from the legacy `FileSystem` class (`exists`, `is_file`, `is_dir`, `get_size`, `get_last_modified_time`) with a single call. This reduces the number of tool invocations needed in agent workflows, as LLMs typically need multiple metadata fields at once.
+PathInfo consolidates five separate metadata queries (`exists`, `is_file`, `is_dir`, `get_size`, `get_last_modified_time`) into a single call. This reduces the number of tool invocations needed in agent workflows, as LLMs typically need multiple metadata fields at once.
 
 ## MCP Server Endpoint
 

@@ -33,7 +33,3 @@ from toolregistry_hub.websearch import BraveSearch
 search = BraveSearch()  # Requires BRAVE_API_KEY env var
 results = search.search("query", max_results=5)
 ```
-
-## Legacy Bing Search
-
-Legacy Bing search functionality is still available in the `websearch_legacy` module using the `WebSearchBing` class. For more information, please refer to the [Legacy Web Search](legacy.md) documentation.

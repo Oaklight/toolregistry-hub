@@ -19,7 +19,6 @@
 - **[File Reader](file_reader.md)** - Multi-format file reading (text, notebook, PDF)
 - **[File Search](file_search.md)** - File discovery (glob, grep, tree)
 - **[Path Info](path_info.md)** - Unified file/directory metadata query
-- **[File System](filesystem.md)** - *(Deprecated)* File system operations — use PathInfo, FileSearch, FileReader instead
 
 ## Web Tools
 

@@ -165,7 +165,3 @@ SearXNG is a self-hosted meta search engine that can aggregate results from mult
 2. **Multi-engine Aggregation** - Can get results from multiple search engines simultaneously
 3. **Self-hosted** - Can deploy SearXNG instances on your own server
 4. **Customizable** - Can customize search engines, result presentation, etc.
-
-## Legacy SearXNG Search
-
-Legacy SearXNG search functionality is provided in the `websearch_legacy` module using the `WebSearchSearXNG` class. For more information, please refer to the [Legacy Web Search](legacy.md) documentation.

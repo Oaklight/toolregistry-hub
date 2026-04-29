@@ -88,7 +88,6 @@ You can customize which tools are loaded at startup using a `tools.jsonc` config
       // Denylist mode: all tools enabled except those listed
       "mode": "denylist",
       "disabled": [
-        "filesystem",  // security sensitive
         "file_ops"     // security sensitive
       ]
     }
