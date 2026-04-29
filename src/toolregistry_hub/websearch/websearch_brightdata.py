@@ -264,29 +264,13 @@ class BrightDataSearch(BaseSearch):
                 logger.error(f"Bright Data API request timed out after {timeout}s")
                 return []
             except HTTPError as e:
-                status = e.status_code
-                if status in (401, 403):
-                    self.api_key_parser.mark_key_failed(
-                        api_key, f"HTTP {status}", ttl=3600.0
-                    )
-                    logger.warning(
-                        f"Bright Data API key auth failed (HTTP {status}), trying next key"
-                    )
-                    continue
-                if status == 429:
-                    self.api_key_parser.mark_key_failed(
-                        api_key, "rate limited", ttl=300.0
-                    )
-                    logger.warning(
-                        "Bright Data API rate limit exceeded, trying next key"
-                    )
-                    continue
-                if status == 422:
+                if e.status_code == 422:
                     logger.error(
                         f"Zone '{self.zone}' does not exist. Check your BRIGHTDATA_ZONE configuration"
                     )
                     return []
-                logger.error(f"Bright Data API HTTP error {status}: {e.body}")
+                if self._handle_http_error(e, api_key, "Bright Data"):
+                    continue
                 return []
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse Bright Data API response: {e}")

@@ -139,6 +139,34 @@ class SerperSearch(BaseSearch):
 
         return results[:max_results] if results else []
 
+    def _build_payload(self, query: str, **kwargs) -> dict:
+        """Build request payload for the Serper API.
+
+        Args:
+            query: The search query string.
+            **kwargs: Additional parameters from the caller.
+
+        Returns:
+            Dict payload ready for the POST request.
+        """
+        payload: dict[str, Any] = {"q": query}
+
+        num = kwargs.get("num")
+        if num is not None:
+            payload["num"] = num
+
+        optional_params = ["gl", "hl", "location", "autocorrect", "page"]
+        for param in optional_params:
+            if param in kwargs and kwargs[param] is not None:
+                payload[param] = kwargs[param]
+
+        handled = {"num", "timeout", *optional_params}
+        for key, value in kwargs.items():
+            if key not in handled:
+                payload[key] = value
+
+        return payload
+
     def _search_impl(self, query: str, **kwargs) -> list[SearchResult]:
         """Perform the actual search using Serper API for a single request.
 
@@ -153,25 +181,7 @@ class SerperSearch(BaseSearch):
             logger.warning("Empty query provided")
             return []
 
-        payload: dict[str, Any] = {"q": query}
-
-        # Add num parameter
-        num = kwargs.get("num")
-        if num is not None:
-            payload["num"] = num
-
-        # Add optional parameters
-        optional_params = ["gl", "hl", "location", "autocorrect", "page"]
-        for param in optional_params:
-            if param in kwargs and kwargs[param] is not None:
-                payload[param] = kwargs[param]
-
-        # Add any additional kwargs not already handled
-        handled = {"num", "timeout"} | set(optional_params)
-        for key, value in kwargs.items():
-            if key not in handled:
-                payload[key] = value
-
+        payload = self._build_payload(query, **kwargs)
         timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
 
         max_attempts = max(self.api_key_parser.key_count, 1)
@@ -206,22 +216,8 @@ class SerperSearch(BaseSearch):
                 logger.error(f"Serper API request timed out after {timeout}s")
                 return []
             except HTTPError as e:
-                status = e.status_code
-                if status in (401, 403):
-                    self.api_key_parser.mark_key_failed(
-                        api_key, f"HTTP {status}", ttl=3600.0
-                    )
-                    logger.warning(
-                        f"Serper API key auth failed (HTTP {status}), trying next key"
-                    )
+                if self._handle_http_error(e, api_key, "Serper"):
                     continue
-                if status == 429:
-                    self.api_key_parser.mark_key_failed(
-                        api_key, "rate limited", ttl=300.0
-                    )
-                    logger.warning("Serper API rate limit exceeded, trying next key")
-                    continue
-                logger.error(f"Serper API HTTP error {status}: {e.body}")
                 return []
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse Serper API response: {e}")

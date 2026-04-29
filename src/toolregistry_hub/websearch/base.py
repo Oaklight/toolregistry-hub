@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from .._vendor.httpclient import HTTPError, HttpTimeoutError
 from .._vendor.structlog import get_logger
 from ..fetch import Fetch
 from .search_result import SearchResult
@@ -100,6 +101,46 @@ class BaseSearch(ABC):
         Returns:
             List of SearchResult
         """
+
+    def _handle_http_error(
+        self,
+        error: HTTPError,
+        api_key: str,
+        provider_name: str,
+    ) -> bool:
+        """Handle an HTTPError with API key failover logic.
+
+        Marks the key as failed for auth or rate-limit errors so the
+        caller can retry with the next available key.
+
+        Args:
+            error: The HTTP error to handle.
+            api_key: The API key that was used for the failed request.
+            provider_name: Provider name for log messages.
+
+        Returns:
+            ``True`` if the caller should retry with the next key,
+            ``False`` if the error is terminal.
+        """
+        status = error.status_code
+        if status in (401, 403):
+            self.api_key_parser.mark_key_failed(
+                api_key, f"HTTP {status}", ttl=3600.0
+            )
+            logger.warning(
+                f"{provider_name} API key auth failed (HTTP {status}), trying next key"
+            )
+            return True
+        if status == 429:
+            self.api_key_parser.mark_key_failed(
+                api_key, "rate limited", ttl=300.0
+            )
+            logger.warning(
+                f"{provider_name} API rate limit exceeded, trying next key"
+            )
+            return True
+        logger.error(f"{provider_name} API HTTP error {status}: {error.body}")
+        return False
 
     @staticmethod
     def _fetch_webpage_content(

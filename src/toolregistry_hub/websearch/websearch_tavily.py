@@ -172,22 +172,8 @@ class TavilySearch(BaseSearch):
                 logger.error(f"Tavily API request timed out after {timeout}s")
                 return []
             except HTTPError as e:
-                status = e.status_code
-                if status in (401, 403):
-                    self.api_key_parser.mark_key_failed(
-                        api_key, f"HTTP {status}", ttl=3600.0
-                    )
-                    logger.warning(
-                        f"Tavily API key auth failed (HTTP {status}), trying next key"
-                    )
+                if self._handle_http_error(e, api_key, "Tavily"):
                     continue
-                if status == 429:
-                    self.api_key_parser.mark_key_failed(
-                        api_key, "rate limited", ttl=300.0
-                    )
-                    logger.warning("Tavily API rate limit exceeded, trying next key")
-                    continue
-                logger.error(f"Tavily API HTTP error {status}: {e.body}")
                 return []
             except Exception as e:
                 logger.error(f"Tavily API request failed: {e}")
