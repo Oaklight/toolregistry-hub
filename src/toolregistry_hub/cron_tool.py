@@ -241,32 +241,54 @@ class CronTool:
             if record is None:
                 return
 
-            # TTL check for recurring jobs
-            if record.recurring:
-                created = datetime.fromisoformat(record.created_at)
-                if datetime.now() - created > timedelta(days=_TTL_DAYS):
-                    # Expired — remove the job
-                    with self._lock:
-                        self._jobs.pop(job_id, None)
-                    try:
-                        self._scheduler.remove_job(job_id)
-                    except JobNotFound:
-                        pass
-                    if record.durable:
-                        self._save_durable()
-                    return
+            if record.recurring and self._is_expired(record):
+                self._remove_job(job_id, record)
+                return
 
-            # One-shot cleanup: remove from _jobs after firing
             if not record.recurring:
-                with self._lock:
-                    self._jobs.pop(job_id, None)
-                if record.durable:
-                    self._save_durable()
+                self._remove_job_record(job_id, record)
 
             if self._on_trigger is not None:
                 self._on_trigger(record.prompt)
 
         return _fire
+
+    def _is_expired(self, record: _JobRecord) -> bool:
+        """Check if a recurring job has exceeded its TTL.
+
+        Args:
+            record: The job record to check.
+
+        Returns:
+            True if the job has expired.
+        """
+        created = datetime.fromisoformat(record.created_at)
+        return datetime.now() - created > timedelta(days=_TTL_DAYS)
+
+    def _remove_job(self, job_id: str, record: _JobRecord) -> None:
+        """Remove a job from both the registry and the scheduler.
+
+        Args:
+            job_id: The job identifier.
+            record: The job record (used to check durable flag).
+        """
+        self._remove_job_record(job_id, record)
+        try:
+            self._scheduler.remove_job(job_id)
+        except JobNotFound:
+            pass
+
+    def _remove_job_record(self, job_id: str, record: _JobRecord) -> None:
+        """Remove a job from the internal registry (but not the scheduler).
+
+        Args:
+            job_id: The job identifier.
+            record: The job record (used to check durable flag).
+        """
+        with self._lock:
+            self._jobs.pop(job_id, None)
+        if record.durable:
+            self._save_durable()
 
     def _save_durable(self) -> None:
         """Persist all durable jobs to the JSON file."""
