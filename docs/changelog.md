@@ -73,6 +73,27 @@ author: Oaklight
 
 ### 内部变更
 
+- **零外部运行时依赖** ([#98](https://github.com/Oaklight/toolregistry-hub/issues/98))
+    - 用 zerodep 的 `httpclient` 替换 `httpx`——仅使用标准库的同步+异步 HTTP 客户端
+    - 用 zerodep 的 `useragent` 模块替换 `ua-generator`
+    - 用标准库 `dataclasses` 替换 `TodoList` 中的 `pydantic`
+    - 通过 `zerodep` CLI 重新 vendor 所有模块，确保元数据和版本一致
+    - 结果：`dependencies = []`——基础包零 PyPI 运行时依赖
+
+- **移除 `websearch_legacy` 模块**
+    - 旧版 Bing 和 Google HTML 抓取搜索 provider 已归档至 `archive/websearch-legacy` 分支
+    - 关联的 `filter.py` 屏蔽列表模块也一并移除
+    - 所有搜索功能现由 `websearch/` 中基于 API 的 provider 提供
+
+- **引入 complexipy 认知复杂度分析** ([#103](https://github.com/Oaklight/toolregistry-hub/pull/103))
+    - 添加 `complexipy>=5.2.0` 到开发依赖，阈值设为 15，排除 `_vendor/`
+    - 重构 10 个超过阈值的函数：
+        - `build_registry` (31→7)、`load_tool_config` (24→8)、`compare_versions` (21→1)
+        - `SerperSearch::_search_impl` (21→10)、`BraveSearch::_search_impl` (20→9)、`_extract` (20→11)
+        - `CronTool::_make_callback` (19→9)、`FileSearch::_build_tree` (17→14)
+        - `BrightDataSearch::_search_impl` (17→14)、`TavilySearch::_search_impl` (17→14)
+    - 提取共享的 `_handle_http_error` 到 `BaseSearch`，统一 websearch API 密钥故障转移逻辑
+
 - 将所有 zerodep 模块（structlog、scheduler、readability、soup）整合到 `_vendor/` 嵌套目录布局 ([#87](https://github.com/Oaklight/toolregistry-hub/pull/87))
 - 移除 `beautifulsoup4` 外部依赖；将 `websearch_legacy`（bing、google）迁移至 zerodep soup ([#87](https://github.com/Oaklight/toolregistry-hub/pull/87))
 - 排除 `_vendor/` 目录的 ruff UP035 lint 规则和 ty 类型检查
