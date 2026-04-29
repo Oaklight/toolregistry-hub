@@ -73,6 +73,27 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ### Internal Changes
 
+- **Zero external runtime dependencies** ([#98](https://github.com/Oaklight/toolregistry-hub/issues/98))
+    - Replace `httpx` with vendored `httpclient` from zerodep — sync+async HTTP client using only stdlib
+    - Replace `ua-generator` with vendored `useragent` module from zerodep
+    - Replace `pydantic` with plain `dataclasses` in `TodoList`
+    - Re-vendor all modules via `zerodep` CLI for consistent metadata and versioning
+    - Result: `dependencies = []` — the base package has zero PyPI runtime dependencies
+
+- **Remove `websearch_legacy` module**
+    - Legacy Bing and Google HTML-scraping search providers archived to `archive/websearch-legacy` branch
+    - Associated `filter.py` blocklist module also removed
+    - All search functionality now served by API-based providers in `websearch/`
+
+- **Add cognitive complexity analysis with complexipy** ([#103](https://github.com/Oaklight/toolregistry-hub/pull/103))
+    - Add `complexipy>=5.2.0` to dev dependencies with threshold 15, excluding `_vendor/`
+    - Refactor 10 functions exceeding the threshold:
+        - `build_registry` (31→7), `load_tool_config` (24→8), `compare_versions` (21→1)
+        - `SerperSearch::_search_impl` (21→10), `BraveSearch::_search_impl` (20→9), `_extract` (20→11)
+        - `CronTool::_make_callback` (19→9), `FileSearch::_build_tree` (17→14)
+        - `BrightDataSearch::_search_impl` (17→14), `TavilySearch::_search_impl` (17→14)
+    - Extract shared `_handle_http_error` into `BaseSearch` for websearch API key failover
+
 - Consolidate all zerodep vendored modules (structlog, scheduler, readability, soup) into `_vendor/` with nested layout ([#87](https://github.com/Oaklight/toolregistry-hub/pull/87))
 - Remove `beautifulsoup4` external dependency; migrate `websearch_legacy` (bing, google) to zerodep soup ([#87](https://github.com/Oaklight/toolregistry-hub/pull/87))
 - Exclude `_vendor/` from ruff UP035 lint rule and ty type checking
