@@ -109,6 +109,7 @@ mcp_app.run()
 - `POST /tools/web/tavily_search/search` - 使用 Tavily 进行网络搜索 *（延迟加载）*
 - `POST /tools/web/scrapeless_search/search` - 使用 Scrapeless 进行网络搜索 *（延迟加载）*
 - `POST /tools/web/brightdata_search/search` - 使用 BrightData 进行网络搜索 *（延迟加载）*
+- `POST /tools/web/serper_search/search` - 使用 Serper 进行网络搜索 *（延迟加载）*
 
 #### 日期时间工具
 
@@ -147,10 +148,12 @@ mcp_app.run()
 
 - `POST /tools/fs/path_info/info` - 获取文件/目录元数据（类型、大小、权限、修改时间）
 
-#### 文件系统工具（已弃用）
+#### 文件系统工具（已从默认注册表移除）
 
-!!! warning "已弃用"
-    FileSystem 已弃用。请使用 PathInfo、FileSearch 和 FileReader 替代。
+!!! warning "不再默认注册"
+    FileSystem 自 0.9.0 起已从默认服务端注册表中移除。
+    请使用 PathInfo、FileSearch 和 FileReader 替代。
+    该类仍可用于库模式，也可通过自定义 `tools.jsonc` 配置重新添加。
 
 - `POST /tools/filesystem/exists` - 检查路径是否存在
 - `POST /tools/filesystem/is_file` - 检查路径是否为文件
@@ -391,6 +394,7 @@ TOOLS_CONFIG=path/to/tools.jsonc toolregistry-server
 | `BRAVE_API_KEY` | Brave 搜索 | Brave Search API 密钥（[获取](https://api.search.brave.com/)） |
 | `TAVILY_API_KEY` | Tavily 搜索 | Tavily Search API 密钥（[获取](https://tavily.com/)） |
 | `SEARXNG_URL` | SearXNG 搜索 | SearXNG 实例 URL（如 `http://localhost:8080`） |
+| `SEARXNG_API_KEY` | SearXNG 搜索 | 可选的 API 密钥，用于受保护的 SearXNG 实例（作为 `X-API-Key` 请求头发送） |
 | `BRIGHTDATA_API_KEY` | BrightData 搜索 | Bright Data API 密钥（[获取](https://brightdata.com/)） |
 | `SCRAPELESS_API_KEY` | Scrapeless 搜索 | Scrapeless API 密钥（[获取](https://scrapeless.com/)） |
 | `SERPER_API_KEY` | Serper 搜索 | Serper API 密钥（[获取](https://serper.dev/)） |
@@ -470,7 +474,7 @@ def my_endpoint(data: MyRequest) -> MyResponse:
 
 ### 测试
 
-您可以使用 `pytest` 和 `httpx` 来测试 API 端点：
+您可以使用 `pytest` 来测试 API 端点：
 
 ```python
 import pytest
