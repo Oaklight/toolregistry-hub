@@ -110,6 +110,49 @@ class ToolConfig:
 # ---------------------------------------------------------------------------
 
 
+def _parse_tools_field(
+    tools_list: Any, path: Path
+) -> list[ToolEntry] | None:
+    """Parse the optional ``tools`` field from a config file.
+
+    Args:
+        tools_list: Raw value of the ``"tools"`` key (may be ``None``).
+        path: Config file path, used for log messages.
+
+    Returns:
+        Parsed list of :class:`ToolEntry`, or ``None`` if the field is
+        absent or invalid.
+    """
+    if tools_list is None:
+        return None
+
+    if not isinstance(tools_list, list):
+        logger.warning(
+            f"Invalid 'tools' field in {path}: "
+            f"expected list, got {type(tools_list).__name__}"
+        )
+        return None
+
+    tools: list[ToolEntry] = []
+    for i, entry in enumerate(tools_list):
+        if not isinstance(entry, dict):
+            logger.warning(
+                f"Invalid tool entry at index {i} in {path}: expected dict"
+            )
+            continue
+        entry_dict: dict[str, Any] = entry
+        class_path = entry_dict.get("class")
+        namespace = entry_dict.get("namespace")
+        if not class_path or not namespace:
+            logger.warning(
+                f"Tool entry at index {i} missing 'class' or "
+                f"'namespace' in {path}"
+            )
+            continue
+        tools.append(ToolEntry(class_path=class_path, namespace=namespace))
+    return tools
+
+
 def load_tool_config(config_path: str | None = None) -> ToolConfig | None:
     """Discover and parse a JSONC tool configuration file.
 
@@ -159,33 +202,7 @@ def load_tool_config(config_path: str | None = None) -> ToolConfig | None:
     if not isinstance(enabled, list) or not all(isinstance(x, str) for x in enabled):
         raise ValueError(f"'enabled' in {path} must be a list of strings.")
 
-    # Parse optional 'tools' field
-    tools_list = data.get("tools")
-    tools = None
-    if tools_list is not None:
-        if not isinstance(tools_list, list):
-            logger.warning(
-                f"Invalid 'tools' field in {path}: "
-                f"expected list, got {type(tools_list).__name__}"
-            )
-        else:
-            tools = []
-            for i, entry in enumerate(tools_list):
-                if not isinstance(entry, dict):
-                    logger.warning(
-                        f"Invalid tool entry at index {i} in {path}: expected dict"
-                    )
-                    continue
-                entry_dict: dict[str, Any] = entry
-                class_path = entry_dict.get("class")
-                namespace = entry_dict.get("namespace")
-                if not class_path or not namespace:
-                    logger.warning(
-                        f"Tool entry at index {i} missing 'class' or "
-                        f"'namespace' in {path}"
-                    )
-                    continue
-                tools.append(ToolEntry(class_path=class_path, namespace=namespace))
+    tools = _parse_tools_field(data.get("tools"), path)
 
     return ToolConfig(
         mode=mode,
