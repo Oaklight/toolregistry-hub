@@ -113,6 +113,43 @@ class BraveSearch(BaseSearch):
 
         return results[:max_results] if results else []
 
+    def _build_params(self, query: str, **kwargs) -> dict:
+        """Build query parameters for the Brave Search API.
+
+        Args:
+            query: The search query string.
+            **kwargs: Additional parameters from the caller.
+
+        Returns:
+            Dict of query parameters ready for the request.
+        """
+        params = {
+            "q": query,
+            "count": kwargs.get("count", 20),
+            "offset": kwargs.get("offset", 0),
+        }
+
+        optional_params = [
+            "country",
+            "search_lang",
+            "safesearch",
+            "freshness",
+            "result_filter",
+        ]
+        for param in optional_params:
+            if param in kwargs and kwargs[param] is not None:
+                params[param] = kwargs[param]
+
+        if "safesearch" not in params:
+            params["safesearch"] = "moderate"
+
+        skip = {"count", "offset", "timeout", *optional_params}
+        for key, value in kwargs.items():
+            if key not in skip:
+                params[key] = value
+
+        return params
+
     def _search_impl(self, query: str, **kwargs) -> list[SearchResult]:
         """Perform the actual search using Brave Search API for a single query.
 
@@ -127,33 +164,7 @@ class BraveSearch(BaseSearch):
             logger.warning("Empty query provided")
             return []
 
-        params = {
-            "q": query,
-            "count": kwargs.get("count", 20),
-            "offset": kwargs.get("offset", 0),
-        }
-
-        # Add optional parameters
-        optional_params = [
-            "country",
-            "search_lang",
-            "safesearch",
-            "freshness",
-            "result_filter",
-        ]
-        for param in optional_params:
-            if param in kwargs and kwargs[param] is not None:
-                params[param] = kwargs[param]
-
-        # Set default safesearch if not provided
-        if "safesearch" not in params:
-            params["safesearch"] = "moderate"
-
-        # Add any additional kwargs
-        for key, value in kwargs.items():
-            if key not in ["count", "offset", "timeout"] + optional_params:
-                params[key] = value
-
+        params = self._build_params(query, **kwargs)
         timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
         max_attempts = max(self.api_key_parser.key_count, 1)
 
@@ -187,22 +198,8 @@ class BraveSearch(BaseSearch):
                 logger.error(f"Brave API request timed out after {timeout}s")
                 return []
             except HTTPError as e:
-                status = e.status_code
-                if status in (401, 403):
-                    self.api_key_parser.mark_key_failed(
-                        api_key, f"HTTP {status}", ttl=3600.0
-                    )
-                    logger.warning(
-                        f"Brave API key auth failed (HTTP {status}), trying next key"
-                    )
+                if self._handle_http_error(e, api_key, "Brave"):
                     continue
-                if status == 429:
-                    self.api_key_parser.mark_key_failed(
-                        api_key, "rate limited", ttl=300.0
-                    )
-                    logger.warning("Brave API rate limit exceeded, trying next key")
-                    continue
-                logger.error(f"Brave API HTTP error {status}: {e.body}")
                 return []
             except Exception as e:
                 logger.error(f"Brave API request failed: {e}")
