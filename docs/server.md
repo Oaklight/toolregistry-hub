@@ -148,27 +148,6 @@ mcp_app.run()
 
 - `POST /tools/fs/path_info/info` - 获取文件/目录元数据（类型、大小、权限、修改时间）
 
-#### 文件系统工具（已从默认注册表移除）
-
-!!! warning "不再默认注册"
-    FileSystem 自 0.9.0 起已从默认服务端注册表中移除。
-    请使用 PathInfo、FileSearch 和 FileReader 替代。
-    该类仍可用于库模式，也可通过自定义 `tools.jsonc` 配置重新添加。
-
-- `POST /tools/filesystem/exists` - 检查路径是否存在
-- `POST /tools/filesystem/is_file` - 检查路径是否为文件
-- `POST /tools/filesystem/is_dir` - 检查路径是否为目录
-- `POST /tools/filesystem/list_dir` - 列出目录内容
-- `POST /tools/filesystem/create_file` - 创建文件
-- `POST /tools/filesystem/create_dir` - 创建目录
-- `POST /tools/filesystem/copy` - 复制文件或目录
-- `POST /tools/filesystem/move` - 移动文件或目录
-- `POST /tools/filesystem/delete` - 删除文件或目录
-- `POST /tools/filesystem/get_size` - 获取文件或目录大小
-- `POST /tools/filesystem/get_last_modified_time` - 获取最后修改时间
-- `POST /tools/filesystem/join_paths` - 拼接路径组件
-- `POST /tools/filesystem/get_absolute_path` - 获取绝对路径
-
 #### 文件操作工具
 
 - `POST /tools/file_ops/edit` - 精确字符串替换（返回 unified diff）
@@ -338,7 +317,6 @@ TOOLS_CONFIG=path/to/tools.jsonc toolregistry-server
 
   // 拒绝列表模式 — 按命名空间禁用特定工具
   "disabled": [
-    "filesystem",
     "file_ops"
   ]
 
@@ -363,7 +341,7 @@ TOOLS_CONFIG=path/to/tools.jsonc toolregistry-server
     // ... 根据需要添加或删除工具
   ],
   "mode": "denylist",
-  "disabled": ["filesystem", "file_ops"]
+  "disabled": ["file_ops"]
 }
 ```
 

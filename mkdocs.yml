@@ -64,7 +64,6 @@ plugins:
           - tools/file_reader.md
           - tools/file_search.md
           - tools/path_info.md
-          - tools/filesystem.md
           - tools/websearch/web_fetch_tool.md
           - tools/websearch/index.md
           - tools/websearch/websearch_unified.md
@@ -86,7 +85,6 @@ plugins:
           - dev/helper_functions.md
           - tools/websearch/base_search.md
           - tools/websearch/search_result.md
-          - tools/websearch/legacy.md
           - tools/websearch/bing.md
         生态系统:
           - ecosystem.md
@@ -149,7 +147,6 @@ nav:
           - 文件读取: tools/file_reader.md
           - 文件搜索: tools/file_search.md
           - 路径信息: tools/path_info.md
-          - 文件系统（已弃用）: tools/filesystem.md
       - 网络工具:
           - 网页获取工具: tools/websearch/web_fetch_tool.md
           - 网络搜索工具:
@@ -176,9 +173,7 @@ nav:
       - 辅助函数: dev/helper_functions.md
       - 网络搜索基类: tools/websearch/base_search.md
       - 搜索结果类型: tools/websearch/search_result.md
-      - 已弃用:
-          - 旧版网络搜索: tools/websearch/legacy.md
-          - Bing 搜索 (已弃用): tools/websearch/bing.md
+      - Bing 搜索 (已弃用): tools/websearch/bing.md
   - 生态系统: ecosystem.md
   - 更新日志: changelog.md
   - ToolRegistry: https://toolregistry.readthedocs.io/

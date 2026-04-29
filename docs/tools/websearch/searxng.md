@@ -166,6 +166,3 @@ SearXNG 是一个自托管的元搜索引擎，它可以聚合多个搜索引擎
 3. **自托管** - 可以在自己的服务器上部署 SearXNG 实例
 4. **自定义** - 可以自定义搜索引擎、结果呈现方式等
 
-## 旧版 SearXNG 搜索
-
-旧版 SearXNG 搜索功能在 `websearch_legacy` 模块中提供，使用 `WebSearchSearXNG` 类。详细信息请参阅[旧版网络搜索](legacy.md)文档。

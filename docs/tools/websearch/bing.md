@@ -34,6 +34,3 @@ search = BraveSearch()  # 需要设置 BRAVE_API_KEY 环境变量
 results = search.search("query", max_results=5)
 ```
 
-## 旧版 Bing 搜索
-
-旧版 Bing 搜索功能仍然在 `websearch_legacy` 模块中可用，使用 `WebSearchBing` 类。详细信息请参阅[旧版网络搜索](legacy.md)文档。

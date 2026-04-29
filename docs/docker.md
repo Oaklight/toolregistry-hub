@@ -88,7 +88,6 @@ docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest toolregistry-ser
       // 拒绝列表模式：除列出的工具外，所有工具均启用
       "mode": "denylist",
       "disabled": [
-        "filesystem",  // 安全敏感
         "file_ops"     // 安全敏感
       ]
     }

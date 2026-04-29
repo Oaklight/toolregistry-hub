@@ -352,7 +352,6 @@ registry = get_registry()
 | `Calculator` | `calculator` | 静态方法 |
 | `DateTime` | `datetime` | 静态方法 |
 | `Fetch` | `fetch` | 静态方法 |
-| `FileSystem` | `filesystem` | 静态方法 |
 | `FileOps` | `file_ops` | 静态方法 |
 | `ThinkTool` | `think` | 静态方法 |
 | `TodoList` | `todolist` | 静态方法 |

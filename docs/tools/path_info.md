@@ -1,6 +1,6 @@
 # 路径信息工具
 
-PathInfo 工具提供单次调用获取文件和目录元数据的接口，替代旧版 FileSystem 类中的多个独立查询方法。
+PathInfo 工具提供单次调用获取文件和目录元数据的接口。
 
 ## 类概述
 
@@ -49,7 +49,7 @@ print(info)  # {"exists": False}
 
 ## 设计理念
 
-PathInfo 用单次调用替代了旧版 `FileSystem` 类的五个独立方法（`exists`、`is_file`、`is_dir`、`get_size`、`get_last_modified_time`）。这减少了 Agent 工作流中所需的工具调用次数，因为 LLM 通常需要同时获取多个元数据字段。
+PathInfo 用单次调用返回多个元数据字段（存在性、类型、大小、修改时间、权限），减少了 Agent 工作流中所需的工具调用次数，因为 LLM 通常需要同时获取多个元数据字段。
 
 ## MCP 服务端点
 

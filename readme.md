@@ -11,7 +11,6 @@ ToolRegistry Hub is a Python library that provides various utility tools designe
 - [Calculator Tools](docs/en/calculator.md) - Provides various mathematical calculation functions
 - [Date Time Tools](docs/en/datetime.md) - Handles date, time, and timezone conversions
 - [File Operations Tools](docs/en/file_ops.md) - Provides file content manipulation functions
-- [File System Tools](docs/en/filesystem.md) - Provides file system operation functions
 - [Web Search Tools](docs/en/websearch/index.md) - Provides web search functionality
 - [Unit Converter Tools](docs/en/unit_converter.md) - Provides conversions between various units
 - [Other Tools](docs/en/other_tools.md) - Other utility tools
@@ -33,7 +32,7 @@ pip install toolregistry-hub
 Then, you can import and use the required tools:
 
 ```python
-from toolregistry_hub import Calculator, DateTime, FileOps, FileSystem
+from toolregistry_hub import Calculator, DateTime, FileOps
 
 # Use calculator
 result = Calculator.evaluate("2 + 2 * 3")
