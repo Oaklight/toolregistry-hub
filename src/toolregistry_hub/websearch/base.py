@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from .._vendor.httpclient import HTTPError, HttpTimeoutError
+from .._vendor.httpclient import HTTPError
 from .._vendor.structlog import get_logger
 from ..fetch import Fetch
 from .search_result import SearchResult
