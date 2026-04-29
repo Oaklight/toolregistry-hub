@@ -206,6 +206,47 @@ def _is_content_sufficient(text: str) -> bool:
     return True
 
 
+def _pick_local_content(
+    readability_content: str,
+    soup_content: str,
+    url: str,
+) -> str:
+    """Choose the best local extraction result.
+
+    Prefers readability unless soup produced substantially more content
+    (> 2x). Falls back to the next candidate if the preferred one is
+    insufficient.
+
+    Args:
+        readability_content: Text from readability extraction.
+        soup_content: Text from soup extraction.
+        url: URL being processed (for logging).
+
+    Returns:
+        Best sufficient content string, or empty string if neither qualifies.
+    """
+    candidates = [
+        (readability_content, "readability"),
+        (soup_content, "soup"),
+    ]
+    for candidate, strategy in candidates:
+        if not candidate or not _is_content_sufficient(candidate):
+            continue
+        if (
+            strategy == "readability"
+            and soup_content
+            and len(soup_content) > len(candidate) * 2
+        ):
+            logger.debug(
+                f"Readability result shorter than soup "
+                f"({len(candidate)} vs {len(soup_content)}), trying soup"
+            )
+            continue
+        logger.info(f"Successfully fetched {url} using strategy: {strategy}")
+        return candidate
+    return ""
+
+
 def _extract(
     url: str,
     timeout: float = TIMEOUT_DEFAULT,
@@ -262,29 +303,10 @@ def _extract(
         # 3. Try simple soup extraction (CSS selector fallback)
         soup_content = _extract_with_soup(html)
 
-        # Pick the best local result: prefer whichever is longer and sufficient.
-        # Readability produces cleaner article text; soup captures more structural
-        # content.  When readability returns only a short skeleton (e.g. SPA pages),
-        # soup's broader extraction is usually more useful.
-        for candidate, strategy in [
-            (readability_content, "readability"),
-            (soup_content, "soup"),
-        ]:
-            if candidate and _is_content_sufficient(candidate):
-                # Prefer readability if it extracted substantially more or equal
-                # content; otherwise fall through to soup.
-                if (
-                    strategy == "readability"
-                    and soup_content
-                    and len(soup_content) > len(candidate) * 2
-                ):
-                    logger.debug(
-                        f"Readability result shorter than soup "
-                        f"({len(candidate)} vs {len(soup_content)}), trying soup"
-                    )
-                    continue
-                logger.info(f"Successfully fetched {url} using strategy: {strategy}")
-                return _format_text(candidate)
+        # Pick the best local result
+        best = _pick_local_content(readability_content, soup_content, url)
+        if best:
+            return _format_text(best)
 
         # Stash best local result for final fallback
         local_content = readability_content or soup_content or ""
