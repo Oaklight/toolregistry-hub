@@ -39,6 +39,7 @@ dependencies = []
 dev = [
     "ty>=0.0.21",
     "ruff>=0.1.0",
+    "complexipy>=5.2.0",
     "python-dotenv>=1.0.1",
     "build>=1.2.2.post1",
     "twine>=6.1.0",
@@ -108,3 +109,8 @@ exclude = ["src/toolregistry_hub/_vendor"]
 unresolved-import = "ignore"
 invalid-assignment = "ignore"
 unresolved-attribute = "warn"
+
+[tool.complexipy]
+paths = ["src"]
+max-complexity-allowed = 15
+exclude = ["src/toolregistry_hub/_vendor"]
