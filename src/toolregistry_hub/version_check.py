@@ -41,6 +41,55 @@ async def get_latest_pypi_version(
         return None
 
 
+def _pre_release_weight(pre_release_part: str) -> int:
+    """Map a pre-release suffix to a sort weight.
+
+    Args:
+        pre_release_part: The non-numeric suffix, e.g. ``"a1"``, ``"rc2"``.
+
+    Returns:
+        Negative integer (alpha < beta < rc < other < release).
+    """
+    if "a" in pre_release_part:
+        return -3
+    if "b" in pre_release_part:
+        return -2
+    if "rc" in pre_release_part:
+        return -1
+    return -4
+
+
+def _parse_version_tuple(v: str) -> tuple[int, ...]:
+    """Parse a version string into a comparable tuple of integers.
+
+    Handles standard versions (``"1.2.3"``) and pre-release tags
+    (``"1.0.0a1"``, ``"2.0.0rc1"``).
+
+    Args:
+        v: Version string.
+
+    Returns:
+        Tuple of integers suitable for comparison.
+    """
+    parts: list[int] = []
+    weight = 0
+
+    for segment in v.split("."):
+        numeric = ""
+        for i, char in enumerate(segment):
+            if char.isdigit():
+                numeric += char
+            else:
+                pre = segment[i:]
+                weight = _pre_release_weight(pre)
+                break
+
+        parts.append(int(numeric) if numeric else 0)
+
+    parts.append(weight)
+    return tuple(parts)
+
+
 def compare_versions(current: str, latest: str) -> bool:
     """Compare two version strings to determine if an update is available.
 
@@ -52,42 +101,7 @@ def compare_versions(current: str, latest: str) -> bool:
         True if latest > current, False otherwise
     """
     try:
-        # Use a simple version parsing approach (Python 3.8+ supported)
-        def parse_version_tuple(v):
-            """Parse version string into tuple of integers for comparison."""
-            parts = []
-            pre_release_weight = 0
-
-            for part in v.split("."):
-                # Handle pre-release versions like "1.0.0a1", "1.0.0b2", "1.0.0rc1"
-                numeric_part = ""
-                pre_release_part = ""
-
-                for char in part:
-                    if char.isdigit():
-                        numeric_part += char
-                    else:
-                        pre_release_part = part[len(numeric_part) :]
-                        break
-
-                parts.append(int(numeric_part) if numeric_part else 0)
-
-                # Handle pre-release identifiers
-                if pre_release_part:
-                    if "a" in pre_release_part:  # alpha
-                        pre_release_weight = -3
-                    elif "b" in pre_release_part:  # beta
-                        pre_release_weight = -2
-                    elif "rc" in pre_release_part:  # release candidate
-                        pre_release_weight = -1
-                    else:
-                        pre_release_weight = -4  # other pre-release
-
-            # Add pre-release weight as the last element
-            parts.append(pre_release_weight)
-            return tuple(parts)
-
-        return parse_version_tuple(latest) > parse_version_tuple(current)
+        return _parse_version_tuple(latest) > _parse_version_tuple(current)
     except Exception as e:
         logger.debug(f"Version comparison failed: {e}")
         return False
