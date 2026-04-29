@@ -40,12 +40,6 @@ from .websearch import (
     SerperSearch,
     TavilySearch,
 )
-from .websearch_legacy import (
-    WebSearchBing,
-    WebSearchGeneral,
-    WebSearchGoogle,
-    WebSearchSearXNG,
-)
 
 __all__ = [
     "BashTool",
@@ -67,11 +61,6 @@ __all__ = [
     "SearXNGSearch",
     "SerperSearch",
     "TavilySearch",
-    # ------- Legacy WebSearch tools -------
-    "WebSearchGeneral",
-    "WebSearchGoogle",
-    "WebSearchBing",
-    "WebSearchSearXNG",
     "TodoList",
     "CronTool",
 ]
