@@ -9,7 +9,6 @@ tests/
 ├── __init__.py                    # 测试包初始化
 ├── test_calculator.py             # Calculator 工具测试
 ├── test_file_ops.py              # FileOps 工具测试
-├── test_filesystem.py            # FileSystem 工具测试
 ├── test_unit_converter.py        # UnitConverter 工具测试
 ├── test_utils.py                 # Utils 工具测试
 ├── websearch/                    # WebSearch 模块测试
@@ -86,7 +85,6 @@ pytest -m "not slow"
 - `@pytest.mark.slow` - 慢速测试
 - `@pytest.mark.websearch` - WebSearch 相关测试
 - `@pytest.mark.calculator` - Calculator 相关测试
-- `@pytest.mark.filesystem` - 文件系统相关测试
 
 ## 测试覆盖的功能
 
@@ -103,13 +101,6 @@ pytest -m "not slow"
 - 文件搜索功能
 - Diff 和 Git 冲突格式处理
 - 路径验证
-
-### FileSystem 测试 (`test_filesystem.py`)
-- 文件和目录存在性检查
-- 文件和目录创建、复制、移动、删除
-- 目录列表功能
-- 文件大小和修改时间获取
-- 路径操作
 
 ### UnitConverter 测试 (`test_unit_converter.py`)
 - 温度转换

@@ -15,7 +15,6 @@
     {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
     {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"},
     {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web/fetch"},
-    {"class": "toolregistry_hub.filesystem.FileSystem", "namespace": "filesystem"},
     {"class": "toolregistry_hub.file_ops.FileOps", "namespace": "file_ops"},
     {"class": "toolregistry_hub.think_tool.ThinkTool", "namespace": "think"},
     {"class": "toolregistry_hub.todo_list.TodoList", "namespace": "todolist"},
@@ -37,12 +36,11 @@
   // --- Denylist mode ---
   // List namespaces to disable at startup.
   // Available namespaces:
-  //   calculator, datetime, web/fetch, filesystem, file_ops,
+  //   calculator, datetime, web/fetch, file_ops,
   //   think, todolist, unit_converter,
   //   web/brave_search, web/tavily_search, web/searxng_search,
   //   web/brightdata_search, web/scrapeless_search, web/serper_search
   "disabled": [
-    "filesystem", // filesystem operations — security sensitive
     "file_ops" // file editing — security sensitive
   ]
 

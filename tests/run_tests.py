@@ -71,7 +71,6 @@ def run_specific_module_tests(module, verbose=False):
     module_map = {
         "calculator": "test_calculator.py",
         "fileops": "test_file_ops.py",
-        "filesystem": "test_filesystem.py",
         "unitconverter": "test_unit_converter.py",
         "utils": "test_utils.py",
         "websearch": "websearch/",
@@ -185,7 +184,6 @@ Examples:
         choices=[
             "calculator",
             "fileops",
-            "filesystem",
             "unitconverter",
             "utils",
             "websearch",

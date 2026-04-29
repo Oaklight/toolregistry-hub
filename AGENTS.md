@@ -38,7 +38,6 @@ src/toolregistry_hub/
 ├── file_ops.py              # File manipulation (replace lines, etc.)
 ├── file_reader.py           # PDF/text/image file reading
 ├── file_search.py           # Glob/grep file search
-├── filesystem.py            # File system operations (exists, read, write)
 ├── path_info.py             # Path metadata
 ├── bash_tool.py             # Shell command execution
 ├── cron_tool.py             # Cron scheduling

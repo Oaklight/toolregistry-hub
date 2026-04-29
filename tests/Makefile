@@ -45,11 +45,6 @@ test-fileops:
 	python run_tests.py --module fileops
 	@echo "File operations tests completed."
 
-test-filesystem:
-	@echo "Running filesystem tests..."
-	python run_tests.py --module filesystem
-	@echo "Filesystem tests completed."
-
 test-unitconverter:
 	@echo "Running unit converter tests..."
 	python run_tests.py --module unitconverter
@@ -124,7 +119,6 @@ help:
 	@echo "Module-specific tests:"
 	@echo "  test-calculator   - Run calculator tests"
 	@echo "  test-fileops      - Run file operations tests"
-	@echo "  test-filesystem   - Run filesystem tests"
 	@echo "  test-unitconverter - Run unit converter tests"
 	@echo "  test-utils        - Run utils tests"
 	@echo "  test-websearch    - Run all websearch tests"
@@ -142,6 +136,6 @@ help:
 	@echo "  help              - Show this help message"
 
 .PHONY: all test test-unit test-integration test-fast test-coverage test-verbose \
-        test-calculator test-fileops test-filesystem test-unitconverter test-utils \
+        test-calculator test-fileops test-unitconverter test-utils \
         test-websearch test-websearch-google test-websearch-bing test-websearch-searxng \
         lint format install-deps clean help

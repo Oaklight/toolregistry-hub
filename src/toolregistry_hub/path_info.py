@@ -1,8 +1,7 @@
 """Unified file/directory metadata query.
 
 Provides a single-call interface to retrieve path metadata (existence, type,
-size, modification time, permissions), replacing the five separate query
-methods on the legacy FileSystem class.
+size, modification time, permissions).
 """
 
 import stat

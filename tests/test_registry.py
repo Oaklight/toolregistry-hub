@@ -301,12 +301,6 @@ class TestBuildRegistryWithToolsConfig(unittest.TestCase):
 class TestToolMetadataAndDiscovery(unittest.TestCase):
     """Test cases for tool metadata, discovery, and think-augment features."""
 
-    def test_filesystem_not_in_defaults(self):
-        """Test that deprecated FileSystem is no longer in default tools."""
-        reg = build_registry(enable_discovery=False)
-        namespaces = {tool.namespace for tool in reg._tools.values() if tool.namespace}
-        self.assertNotIn("filesystem", namespaces)
-
     def test_tool_metadata_tags_applied(self):
         """Test that ToolTag metadata is applied to registered tools."""
         reg = build_registry(enable_discovery=False)

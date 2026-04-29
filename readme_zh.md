@@ -43,7 +43,7 @@ pip install toolregistry-hub
 然后，您可以导入并使用所需的工具：
 
 ```python
-from toolregistry_hub import Calculator, DateTime, FileOps, FileSystem
+from toolregistry_hub import Calculator, DateTime, FileOps
 
 # 使用计算器
 result = Calculator.evaluate("2 + 2 * 3")
