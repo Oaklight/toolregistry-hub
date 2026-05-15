@@ -11,13 +11,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from toolregistry.tool import ToolTag
 
+from toolregistry_hub.server import registry as registry_module
 from toolregistry_hub.server.registry import (
     _TOOL_METADATA,
     _import_class,
     build_registry,
     get_registry,
 )
-from toolregistry_hub.server import registry as registry_module
 
 
 class TestBuildRegistry(unittest.TestCase):

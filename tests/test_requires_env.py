@@ -132,9 +132,9 @@ class TestConfigurableProtocol(unittest.TestCase):
 
     def test_unconfigured_websearch_returns_false(self):
         """Test that websearch instances without keys/URL report not configured."""
-        from toolregistry_hub.websearch import BraveSearch, SearXNGSearch
-
         from unittest.mock import patch
+
+        from toolregistry_hub.websearch import BraveSearch, SearXNGSearch
 
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("BRAVE_API_KEY", None)

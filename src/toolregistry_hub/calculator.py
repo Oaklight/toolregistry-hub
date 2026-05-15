@@ -195,7 +195,7 @@ class BaseCalculator:
         if metric == "euclidean":
             return math.dist(p, q)
         else:  # "manhattan"
-            return sum(abs(x - y) for x, y in zip(p, q))
+            return sum(abs(x - y) for x, y in zip(p, q, strict=False))
 
     @staticmethod
     def norm_euclidean(p: list[float]) -> float:
@@ -391,7 +391,7 @@ class Calculator:
             }
             return eval(expression, safe_builtins, allowed_functions)
         except Exception as e:
-            raise ValueError(f"Invalid expression: {e}")
+            raise ValueError(f"Invalid expression: {e}") from e
 
 
 # primarily because they don't have signature or are unsafe

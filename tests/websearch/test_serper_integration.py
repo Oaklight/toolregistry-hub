@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 import pytest
 from dotenv import load_dotenv
+
 from toolregistry_hub._vendor.structlog import setup_logging
 from toolregistry_hub.websearch.websearch_serper import SerperSearch
 

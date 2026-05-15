@@ -8,12 +8,13 @@ and automatic 7-day TTL for recurring jobs.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import threading
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from collections.abc import Callable
 
 from ._vendor.scheduler import (
     CronTrigger,
@@ -165,10 +166,8 @@ class CronTool:
         if record is None:
             raise ValueError(f"Job not found: {job_id!r}")
 
-        try:
+        with contextlib.suppress(JobNotFound):
             self._scheduler.remove_job(job_id)
-        except JobNotFound:
-            pass  # already removed (e.g. one-shot that already fired)
 
         if record.durable:
             self._save_durable()
@@ -273,10 +272,8 @@ class CronTool:
             record: The job record (used to check durable flag).
         """
         self._remove_job_record(job_id, record)
-        try:
+        with contextlib.suppress(JobNotFound):
             self._scheduler.remove_job(job_id)
-        except JobNotFound:
-            pass
 
     def _remove_job_record(self, job_id: str, record: _JobRecord) -> None:
         """Remove a job from the internal registry (but not the scheduler).

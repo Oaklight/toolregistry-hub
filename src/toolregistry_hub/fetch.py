@@ -8,10 +8,14 @@ import unicodedata
 from typing import TYPE_CHECKING, Literal
 
 from ._vendor.httpclient import (
-    HTTPError,
     HttpConnectionError,
+    HTTPError,
     HttpTimeoutError,
+)
+from ._vendor.httpclient import (
     get as _http_get,
+)
+from ._vendor.httpclient import (
     post as _http_post,
 )
 from ._vendor.readability import extract as readability_extract

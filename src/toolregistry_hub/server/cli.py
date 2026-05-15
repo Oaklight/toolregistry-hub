@@ -329,9 +329,9 @@ def main(args: list[str] | None = None) -> NoReturn | None:
         print_hub_banner()
 
     # Build registry with CLI flags before starting the server
-    from .registry import build_registry
-
     import toolregistry_hub.server.registry as _reg_mod
+
+    from .registry import build_registry
 
     _reg_mod._registry = build_registry(
         tools_config_path=getattr(parsed, "config", None),
@@ -390,7 +390,6 @@ def _run_openapi_server(
     """
     try:
         import uvicorn
-
         from toolregistry_server import RouteTable
         from toolregistry_server.auth import BearerTokenAuth, create_bearer_dependency
         from toolregistry_server.openapi import create_openapi_app

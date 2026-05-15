@@ -1,8 +1,8 @@
 """Unit tests for Utils module."""
 
 from toolregistry_hub.utils.fn_namespace import (
-    _is_all_static_methods,
     _determine_namespace,
+    _is_all_static_methods,
     get_all_static_methods,
 )
 

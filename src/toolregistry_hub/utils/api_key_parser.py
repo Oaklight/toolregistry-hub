@@ -148,7 +148,7 @@ class APIKeyParser:
             import logging
 
             logging.error(f"Error reading API tokens from file {file_path}: {e}")
-            raise ValueError(f"Failed to read API tokens from file: {e}")
+            raise ValueError(f"Failed to read API tokens from file: {e}") from e
 
     def get_next_api_key(self) -> str:
         """Get the next API key using round-robin selection.

@@ -4,7 +4,6 @@ import json
 from unittest.mock import MagicMock, patch
 
 from toolregistry_hub._vendor.httpclient import HTTPError, HttpTimeoutError
-
 from toolregistry_hub.websearch.search_result import SearchResult
 from toolregistry_hub.websearch.websearch_brightdata import BrightDataSearch
 

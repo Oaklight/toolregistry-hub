@@ -108,12 +108,12 @@ def test_think_long_thought_process():
     1. Component A does this
     2. Component B does that
     3. They interact through Z
-    
+
     Now, considering the constraints:
     - Time is limited
     - Resources are constrained
     - Quality must be maintained
-    
+
     My conclusion is that we should proceed with approach C because...
     """
     ThinkTool.think(

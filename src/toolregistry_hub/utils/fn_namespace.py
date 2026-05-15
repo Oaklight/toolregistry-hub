@@ -81,12 +81,13 @@ def get_all_static_methods(
 
     static_methods = []
     for name, attr in cls.__dict__.items():
-        if isinstance(attr, staticmethod):
-            # Check if the method is public (does not start with '_')
-            if not name.startswith("_"):
-                # Include the method only if it's in include_list, or if include_list is empty
-                if (not include_list or name in include_list) and name not in skip_list:
-                    static_methods.append(name)
+        if (
+            isinstance(attr, staticmethod)
+            and not name.startswith("_")
+            and (not include_list or name in include_list)
+            and name not in skip_list
+        ):
+            static_methods.append(name)
 
     # Ensure all returned names are valid in the instance or type
     valid_methods = [name for name in static_methods if hasattr(cls_or_instance, name)]
