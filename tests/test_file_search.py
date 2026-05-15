@@ -1,6 +1,7 @@
 """Unit tests for FileSearch module."""
 
 import os
+import re
 import shutil
 import tempfile
 
@@ -115,7 +116,7 @@ class TestFileSearchGrep:
             FileSearch.grep("x", path=os.path.join(self.temp_dir, "nope"))
 
     def test_grep_invalid_regex(self):
-        with pytest.raises(Exception):
+        with pytest.raises(re.error):
             FileSearch.grep("[invalid", path=self.temp_dir)
 
     def test_grep_returns_relative_paths(self):

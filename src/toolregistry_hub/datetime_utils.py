@@ -135,13 +135,15 @@ class DateTime:
             source_tz = DateTime._get_timezone_obj(source_timezone)
             target_tz = DateTime._get_timezone_obj(target_timezone)
         except Exception as e:
-            raise ValueError(f"Invalid timezone: {str(e)}")
+            raise ValueError(f"Invalid timezone: {str(e)}") from e
 
         # Parse time string (HH:MM format)
         try:
             parsed_time = datetime.strptime(time_str, "%H:%M").time()
-        except ValueError:
-            raise ValueError("Invalid time format. Expected HH:MM [24-hour format]")
+        except ValueError as e:
+            raise ValueError(
+                "Invalid time format. Expected HH:MM [24-hour format]"
+            ) from e
 
         # Get current date in source timezone and combine with parsed time
         now = datetime.now(source_tz)

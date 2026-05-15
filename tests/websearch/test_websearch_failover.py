@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock, patch
 
 from toolregistry_hub._vendor.httpclient import HTTPError
-
 from toolregistry_hub.websearch.websearch_brave import BraveSearch
 
 

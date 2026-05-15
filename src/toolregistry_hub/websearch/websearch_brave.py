@@ -26,7 +26,6 @@ API Documentation: https://api-dashboard.search.brave.com/app/documentation/web-
 """
 
 from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError
-
 from .._vendor.structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
 from ..utils.requirements import requires_env
@@ -168,7 +167,7 @@ class BraveSearch(BaseSearch):
         timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
         max_attempts = max(self.api_key_parser.key_count, 1)
 
-        for attempt in range(max_attempts):
+        for _attempt in range(max_attempts):
             try:
                 api_key = self.api_key_parser.get_next_valid_key()
             except ValueError:
@@ -221,7 +220,7 @@ class BraveSearch(BaseSearch):
         # Parse web results
         web_results = raw_results.get("web", {}).get("results", [])
 
-        for i, item in enumerate(web_results):
+        for _i, item in enumerate(web_results):
             result = SearchResult(
                 title=item.get("title", "No title"),
                 url=item.get("url", ""),

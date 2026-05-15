@@ -101,10 +101,7 @@ class FileOps:
             raw = f.read()
 
         encoding, bom = FileOps._detect_encoding(raw)
-        if bom:
-            text = raw[len(bom) :].decode(encoding)
-        else:
-            text = raw.decode(encoding)
+        text = raw[len(bom) :].decode(encoding) if bom else raw.decode(encoding)
 
         line_ending = FileOps._detect_line_ending(text)
 
@@ -197,7 +194,7 @@ class FileOps:
         results = []
         context_radius = 2  # lines before and after match to include as context
 
-        for root, dirs, files in os.walk(path):
+        for root, _dirs, files in os.walk(path):
             for filename in files:
                 if not fnmatch.fnmatch(filename, file_pattern):
                     continue

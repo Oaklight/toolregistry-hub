@@ -8,7 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from toolregistry_hub.cron_tool import CronTool, _TTL_DAYS
+from toolregistry_hub._vendor.scheduler import InvalidCronExpression
+from toolregistry_hub.cron_tool import _TTL_DAYS, CronTool
 
 
 @pytest.fixture
@@ -65,12 +66,12 @@ class TestCreate:
 
     def test_create_invalid_cron(self, cron_tool):
         tool, _ = cron_tool
-        with pytest.raises(Exception):
+        with pytest.raises(InvalidCronExpression):
             tool.create("invalid cron", "test")
 
     def test_create_invalid_cron_wrong_fields(self, cron_tool):
         tool, _ = cron_tool
-        with pytest.raises(Exception):
+        with pytest.raises(InvalidCronExpression):
             tool.create("* * *", "test")  # only 3 fields
 
 

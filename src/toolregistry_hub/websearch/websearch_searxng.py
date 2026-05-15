@@ -32,7 +32,6 @@ SearXNG Setup: https://docs.searxng.org/admin/installation.html
 import os
 
 from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError
-
 from .._vendor.structlog import get_logger
 from ..utils.requirements import requires_env
 from .base import TIMEOUT_DEFAULT, BaseSearch

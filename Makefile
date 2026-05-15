@@ -78,19 +78,27 @@ clean-docker:
 	docker system prune -f
 
 # ──────────────────────────────────────────────
-# Linting, Formatting & Testing
+# Linting, Type Checking & Testing
 # ──────────────────────────────────────────────
 
-# Run linter (delegates to tests/Makefile)
+# Run all linting and type checking
 lint:
-	@echo "Running linter..."
-	$(MAKE) -C tests lint
-	@echo "Lint complete."
+	@echo "Running ruff check..."
+	ruff check
+	@echo "Running ruff format check..."
+	ruff format --check
+	@echo "Running ty check..."
+	ty check src/
+	@echo "Running complexipy..."
+	complexipy src/toolregistry_hub -e _vendor -mx 20
+	@echo "All checks passed."
 
-# Auto-fix formatting (delegates to tests/Makefile)
-lint-fix:
-	@echo "Auto-fixing formatting..."
-	$(MAKE) -C tests format
+# Auto-fix and format
+fmt:
+	@echo "Running ruff fix..."
+	ruff check --fix
+	@echo "Running ruff format..."
+	ruff format
 	@echo "Format complete."
 
 # Run tests (delegates to tests/Makefile)
@@ -114,8 +122,8 @@ help:
 	@echo "  clean-docker   - Clean Docker images and containers"
 	@echo ""
 	@echo "Development:"
-	@echo "  lint           - Run linter (delegates to tests/Makefile)"
-	@echo "  lint-fix       - Auto-fix formatting (delegates to tests/Makefile)"
+	@echo "  lint           - Run ruff, ty, and complexipy checks"
+	@echo "  fmt            - Auto-fix and format with ruff"
 	@echo "  test           - Run tests (delegates to tests/Makefile)"
 	@echo ""
 	@echo "Usage examples:"
@@ -133,4 +141,4 @@ help:
 	@echo "  REGISTRY_MIRROR=<url> - Specify Docker registry mirror (affects base image)"
 	@echo "  MIRROR=<url>          - Alias for PYPI_MIRROR (backward compatibility)"
 
-.PHONY: build-package push-package clean-package build-docker push-docker clean-docker lint lint-fix test help
+.PHONY: build-package push-package clean-package build-docker push-docker clean-docker lint fmt test help

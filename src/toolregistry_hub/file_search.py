@@ -102,10 +102,7 @@ class FileSearch:
             return results
 
         # Directory search
-        if recursive:
-            files = target.rglob("*")
-        else:
-            files = target.iterdir()
+        files = target.rglob("*") if recursive else target.iterdir()
 
         for filepath in sorted(files):
             if len(results) >= effective_max:

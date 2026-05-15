@@ -15,8 +15,9 @@ import json
 import os
 from urllib.parse import quote_plus
 
-from toolregistry_hub._vendor.httpclient import Client, HTTPError
 from dotenv import load_dotenv
+
+from toolregistry_hub._vendor.httpclient import Client, HTTPError
 
 # Load environment variables
 load_dotenv()

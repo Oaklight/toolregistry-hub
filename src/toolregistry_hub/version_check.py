@@ -4,9 +4,8 @@ This module provides functionality to check for available updates
 on PyPI and compare versions.
 """
 
-from ._vendor.httpclient import AsyncClient
-
 from . import __version__
+from ._vendor.httpclient import AsyncClient
 from ._vendor.structlog import get_logger
 
 logger = get_logger()

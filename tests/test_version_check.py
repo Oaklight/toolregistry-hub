@@ -1,7 +1,8 @@
 """Tests for version checking functionality."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from toolregistry_hub.version_check import (
     compare_versions,
@@ -81,42 +82,48 @@ class TestGetVersionCheckSync:
             "install_command": "pip install --upgrade test-package",
         }
 
-        with patch("toolregistry_hub.version_check.__version__", "1.0.0"):
-            with patch(
+        with (
+            patch("toolregistry_hub.version_check.__version__", "1.0.0"),
+            patch(
                 "asyncio.get_running_loop", side_effect=RuntimeError("No running loop")
-            ):
-                with patch("asyncio.new_event_loop") as mock_new_loop:
-                    with patch("asyncio.set_event_loop"):
-                        mock_loop = MagicMock()
-                        mock_new_loop.return_value = mock_loop
-                        mock_loop.run_until_complete.return_value = mock_result
+            ),
+            patch("asyncio.new_event_loop") as mock_new_loop,
+            patch("asyncio.set_event_loop"),
+        ):
+            mock_loop = MagicMock()
+            mock_new_loop.return_value = mock_loop
+            mock_loop.run_until_complete.return_value = mock_result
 
-                        result = get_version_check_sync("test-package")
+            result = get_version_check_sync("test-package")
 
-                        expected = "1.0.0\nNew version available: 1.1.0\nUpdate with `pip install --upgrade test-package`"
-                        assert result == expected
+            expected = "1.0.0\nNew version available: 1.1.0\nUpdate with `pip install --upgrade test-package`"
+            assert result == expected
 
     def test_sync_version_check_with_running_loop(self):
         """Test sync version check when event loop is already running."""
         mock_loop = MagicMock()
 
-        with patch("toolregistry_hub.version_check.__version__", "1.0.0"):
-            with patch("asyncio.get_running_loop", return_value=mock_loop):
-                result = get_version_check_sync("test-package")
-                assert result == "1.0.0"
+        with (
+            patch("toolregistry_hub.version_check.__version__", "1.0.0"),
+            patch("asyncio.get_running_loop", return_value=mock_loop),
+        ):
+            result = get_version_check_sync("test-package")
+            assert result == "1.0.0"
 
     def test_sync_version_check_error_handling(self):
         """Test sync version check error handling."""
-        with patch("toolregistry_hub.version_check.__version__", "1.0.0"):
-            with patch(
+        with (
+            patch("toolregistry_hub.version_check.__version__", "1.0.0"),
+            patch(
                 "asyncio.get_running_loop", side_effect=RuntimeError("No running loop")
-            ):
-                with patch(
-                    "asyncio.new_event_loop",
-                    side_effect=Exception("Loop creation failed"),
-                ):
-                    result = get_version_check_sync("test-package")
-                    assert result == "1.0.0"
+            ),
+            patch(
+                "asyncio.new_event_loop",
+                side_effect=Exception("Loop creation failed"),
+            ),
+        ):
+            result = get_version_check_sync("test-package")
+            assert result == "1.0.0"
 
 
 class TestVersionCheckIntegration:
@@ -155,25 +162,27 @@ class TestVersionCheckIntegration:
 
     def test_mock_update_check(self):
         """Test update checking with mocked PyPI response."""
-        with patch("toolregistry_hub.version_check.__version__", "1.0.0"):
-            # Test when update is available
-            with patch(
+        # Test when update is available
+        with (
+            patch("toolregistry_hub.version_check.__version__", "1.0.0"),
+            patch(
                 "asyncio.get_running_loop", side_effect=RuntimeError("No running loop")
-            ):
-                with patch("asyncio.new_event_loop") as mock_new_loop:
-                    with patch("asyncio.set_event_loop"):
-                        mock_loop = MagicMock()
-                        mock_new_loop.return_value = mock_loop
-                        mock_loop.run_until_complete.return_value = {
-                            "latest_version": "1.1.0",
-                            "update_available": True,
-                            "install_command": "pip install --upgrade toolregistry-hub",
-                        }
+            ),
+            patch("asyncio.new_event_loop") as mock_new_loop,
+            patch("asyncio.set_event_loop"),
+        ):
+            mock_loop = MagicMock()
+            mock_new_loop.return_value = mock_loop
+            mock_loop.run_until_complete.return_value = {
+                "latest_version": "1.1.0",
+                "update_available": True,
+                "install_command": "pip install --upgrade toolregistry-hub",
+            }
 
-                        result = get_version_check_sync()
-                        assert "1.0.0" in result
-                        assert "1.1.0" in result
-                        assert "pip install --upgrade toolregistry-hub" in result
+            result = get_version_check_sync()
+            assert "1.0.0" in result
+            assert "1.1.0" in result
+            assert "pip install --upgrade toolregistry-hub" in result
 
 
 if __name__ == "__main__":

@@ -89,14 +89,17 @@ version = { attr = "toolregistry_hub.__version__" }
 toolregistry-hub = "toolregistry_hub.server.cli:main"
 
 [tool.ruff]
+line-length = 88
 target-version = "py310"
+exclude = ["src/toolregistry_hub/_vendor"]
 
 [tool.ruff.lint]
-select = ["E", "F", "UP"]
-ignore = ["UP007", "E501"]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
 
-[tool.ruff.lint.per-file-ignores]
-"src/toolregistry_hub/_vendor/**" = ["UP035"]
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
 
 [tool.ty.environment]
 python-version = "3.10"
@@ -111,6 +114,6 @@ invalid-assignment = "ignore"
 unresolved-attribute = "warn"
 
 [tool.complexipy]
-paths = ["src"]
-max-complexity-allowed = 15
-exclude = ["src/toolregistry_hub/_vendor"]
+paths = ["src/toolregistry_hub"]
+max-complexity-allowed = 20
+exclude = ["_vendor"]

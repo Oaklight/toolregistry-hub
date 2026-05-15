@@ -5,11 +5,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from toolregistry_hub._vendor.httpclient import (
-    HTTPError,
     HttpConnectionError,
+    HTTPError,
     HttpTimeoutError,
 )
-
 from toolregistry_hub.fetch import (
     _JINA_TIMEOUT_BUFFER,
     _JINA_WAIT_SELECTORS,
@@ -29,7 +28,6 @@ from toolregistry_hub.fetch import (
     _jina_reader_request,
 )
 from toolregistry_hub.utils.api_key_parser import APIKeyParser
-
 
 # ============================================================
 # _is_content_sufficient tests
