@@ -5,9 +5,17 @@
 [![CI](https://github.com/Oaklight/toolregistry-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/Oaklight/toolregistry-hub/actions/workflows/ci.yml)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Oaklight/toolregistry-hub)
 
-[中文版](readme_zh.md) | [English version](readme_en.md)
+[中文版](readme_zh.md) | English version
 
 Welcome to the ToolRegistry Hub documentation! This document provides detailed descriptions of all tools in the project.
+
+## Ecosystem
+
+| Package | Description | PyPI | Docs |
+|---------|-------------|------|------|
+| [**toolregistry**](https://github.com/Oaklight/ToolRegistry) | Core library — tool registration, schema generation, execution | [![PyPI](https://img.shields.io/pypi/v/toolregistry?color=green)](https://pypi.org/project/toolregistry/) | [Docs](https://toolregistry.readthedocs.io/) |
+| [**toolregistry-server**](https://github.com/Oaklight/toolregistry-server) | Server adapters — expose tools via OpenAPI & MCP | [![PyPI](https://img.shields.io/pypi/v/toolregistry-server?color=green)](https://pypi.org/project/toolregistry-server/) | [Docs](https://toolregistry-server.readthedocs.io/) |
+| [**toolregistry-hub**](https://github.com/Oaklight/toolregistry-hub) | Ready-to-use tools — calculator, web search, file ops, etc. | [![PyPI](https://img.shields.io/pypi/v/toolregistry-hub?color=green)](https://pypi.org/project/toolregistry-hub/) | [Docs](https://toolregistry-hub.readthedocs.io/) |
 
 ## 📚 Documentation
 

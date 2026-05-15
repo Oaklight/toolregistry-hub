@@ -5,9 +5,17 @@
 [![CI](https://github.com/Oaklight/toolregistry-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/Oaklight/toolregistry-hub/actions/workflows/ci.yml)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Oaklight/toolregistry-hub)
 
-[English version](readme_en.md) | [中文版](readme_zh.md)
+[English version](readme_en.md) | 中文版
 
 欢迎使用 ToolRegistry Hub 文档！本文档提供了对项目中所有工具的详细说明。
+
+## 生态系统
+
+| 包 | 描述 | PyPI | 文档 |
+|---|------|------|------|
+| [**toolregistry**](https://github.com/Oaklight/ToolRegistry) | 核心库 — 工具注册、Schema 生成、执行 | [![PyPI](https://img.shields.io/pypi/v/toolregistry?color=green)](https://pypi.org/project/toolregistry/) | [文档](https://toolregistry.readthedocs.io/) |
+| [**toolregistry-server**](https://github.com/Oaklight/toolregistry-server) | 服务端适配器 — 通过 OpenAPI 和 MCP 暴露工具 | [![PyPI](https://img.shields.io/pypi/v/toolregistry-server?color=green)](https://pypi.org/project/toolregistry-server/) | [文档](https://toolregistry-server.readthedocs.io/) |
+| [**toolregistry-hub**](https://github.com/Oaklight/toolregistry-hub) | 即用工具集 — 计算器、网页搜索、文件操作等 | [![PyPI](https://img.shields.io/pypi/v/toolregistry-hub?color=green)](https://pypi.org/project/toolregistry-hub/) | [文档](https://toolregistry-hub.readthedocs.io/) |
 
 ## 📚 文档
 
