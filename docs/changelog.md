@@ -12,6 +12,10 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ## [Unreleased] - since 0.8.0
 
+### Dependencies
+
+- Update vendored `httpclient` module from 0.3.1 to 0.4.1 (zerodep)
+
 ### New Features
 
 - **Tool discovery with progressive disclosure**
