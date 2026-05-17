@@ -52,6 +52,14 @@ jobs:
               echo "::error::Invalid version format: '$VERSION'"
               exit 1
             fi
+            # Wait for the version to appear on PyPI (may lag behind GitHub release)
+            for i in 1 2 3 4 5 6; do
+              if pip install --dry-run "$PACKAGE==$VERSION" >/dev/null 2>&1; then
+                break
+              fi
+              echo "$PACKAGE==$VERSION not yet on PyPI, retrying in 30s... ($i/6)"
+              sleep 30
+            done
             pip install "$PACKAGE==$VERSION"
           else
             pip install --upgrade "$PACKAGE"
