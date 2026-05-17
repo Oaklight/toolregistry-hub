@@ -89,15 +89,16 @@ docker/                      # Dockerfile and Docker docs
 ```bash
 conda activate toolregistry_hub
 pip install -e ".[dev,server]"
+pre-commit install
 ```
+
+Pre-commit hooks configured (ruff, ty, complexipy) — run `pre-commit install` after setup.
 
 Key commands:
 
 ```bash
-# Lint
-ruff check src/ && ruff format --check src/
-ty check src/
-complexipy src/ -e "_vendor"
+# Lint (single source of truth — same as CI)
+pre-commit run --all-files
 
 # Test
 pytest tests/ -v
@@ -111,9 +112,8 @@ make build-docker           # Docker image build
 
 ## Definition of done
 
-1. `ruff check src/` and `ruff format --check src/` pass
-2. `ty check src/` passes
-3. `pytest tests/ -v` passes
+1. `pre-commit run --all-files` passes (ruff, ty, complexipy)
+2. `pytest tests/ -v` passes
 4. New code has tests in `tests/`
 5. Google-style docstrings on public APIs; comments in English
 6. No manual edits to `_vendor/` — update upstream in zerodep, re-vendor via CLI
