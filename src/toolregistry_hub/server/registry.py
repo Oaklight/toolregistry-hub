@@ -76,6 +76,13 @@ _HIDDEN_METHODS: set[str] = set()
 
 # Metadata overrides for registered tools, keyed by namespace.
 # Sets ToolTag and defer flags after register_from_class().
+# Tags that identify tools as "local-only" — they access the server's own
+# filesystem or process space, so they have no value when the server is
+# deployed remotely (they'd touch the server's fs, not the user's machine).
+_LOCAL_ONLY_TAGS: frozenset[ToolTag] = frozenset(
+    {ToolTag.FILE_SYSTEM, ToolTag.DESTRUCTIVE, ToolTag.PRIVILEGED}
+)
+
 _TOOL_METADATA: dict[str, dict] = {
     # Core tools (always visible in initial schema)
     "calculator": {"tags": {ToolTag.READ_ONLY}},
@@ -119,6 +126,33 @@ _TOOL_METADATA: dict[str, dict] = {
     "todolist": {"defer": True, "tags": {ToolTag.READ_ONLY}},
     "unit_converter": {"defer": True, "tags": {ToolTag.READ_ONLY}},
 }
+
+
+def _apply_profile_filter(registry: ToolRegistry, profile: str) -> None:
+    """Disable tools that do not match the deployment profile.
+
+    Tools tagged with :attr:`~toolregistry.tool.ToolTag.FILE_SYSTEM`,
+    :attr:`~toolregistry.tool.ToolTag.DESTRUCTIVE`, or
+    :attr:`~toolregistry.tool.ToolTag.PRIVILEGED` are considered
+    *local-only*: they access the server's own filesystem or process space
+    and have no practical value when the server runs on a remote machine.
+
+    Args:
+        registry: The registry to filter in-place.
+        profile: ``"remote"`` disables local-only tools; ``"local"`` disables
+            all other tools (keeps only local-only ones).
+    """
+    for tool_name, tool in registry._tools.items():
+        tags: set[ToolTag] = tool.metadata.tags or set()
+        is_local_tool = bool(tags & _LOCAL_ONLY_TAGS)
+        if (
+            profile == "remote"
+            and is_local_tool
+            or profile == "local"
+            and not is_local_tool
+        ):
+            registry.disable(tool_name, reason=f"Not available in '{profile}' profile")
+    logger.info(f"Applied profile filter: profile={profile}")
 
 
 def _apply_tool_metadata(registry: ToolRegistry) -> None:
@@ -245,6 +279,7 @@ def build_registry(
     tools_config_path: str | None = None,
     enable_discovery: bool = True,
     enable_think: bool = True,
+    profile: str | None = None,
 ) -> ToolRegistry:
     """Build the hub tool registry with all tools registered and auto-disabled
     based on instance configuration state.
@@ -262,6 +297,10 @@ def build_registry(
         enable_think: Enable think-augmented function calling.
             When ``True``, injects a ``thought`` property into tool schemas
             for chain-of-thought reasoning.
+        profile: Optional deployment profile filter. ``"remote"`` disables
+            tools that only make sense on the local machine (filesystem,
+            shell, cron). ``"local"`` disables network-only tools and keeps
+            only local-machine tools. ``None`` applies no filter.
 
     Returns:
         A fully configured ToolRegistry instance with all tools registered.
@@ -300,6 +339,10 @@ def build_registry(
 
     # Apply metadata (tags, defer flags) to registered tools
     _apply_tool_metadata(registry)
+
+    # Apply deployment profile filter (after metadata so tags are set)
+    if profile is not None:
+        _apply_profile_filter(registry, profile)
 
     # Enable tool discovery (registers discover_tools, indexes all tools)
     if enable_discovery:

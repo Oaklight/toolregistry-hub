@@ -369,6 +369,119 @@ class TestToolMetadataAndDiscovery(unittest.TestCase):
         self.assertFalse(reg._think_augment)
 
 
+class TestBuildRegistryProfile(unittest.TestCase):
+    """Test deployment profile filter in build_registry()."""
+
+    def _enabled_namespaces(self, reg):
+        return {
+            tool.namespace
+            for name, tool in reg._tools.items()
+            if reg.is_enabled(name) and tool.namespace
+        }
+
+    def _disabled_namespaces(self, reg):
+        return {
+            tool.namespace
+            for name, tool in reg._tools.items()
+            if not reg.is_enabled(name) and tool.namespace
+        }
+
+    def test_remote_profile_disables_local_tools(self):
+        """Test that remote profile disables filesystem/shell/cron tools."""
+        reg = build_registry(enable_discovery=False, profile="remote")
+        disabled = self._disabled_namespaces(reg)
+        local_namespaces = (
+            "file_ops",
+            "bash",
+            "cron",
+            "reader",
+            "fs/file_search",
+            "fs/path_info",
+        )
+        for ns in local_namespaces:
+            self.assertIn(
+                ns,
+                disabled,
+                f"'{ns}' should be disabled in remote profile",
+            )
+
+    def test_remote_profile_keeps_network_and_compute_tools(self):
+        """Test that remote profile keeps calculator, datetime, web/fetch, think."""
+        reg = build_registry(enable_discovery=False, profile="remote")
+        enabled = self._enabled_namespaces(reg)
+        # These tools have no LOCAL_ONLY tags so remote profile must not disable them.
+        # (web/websearch may still be env-disabled, so we only assert the ones
+        # that never need API keys.)
+        always_remote_safe = ("calculator", "datetime", "think", "web/fetch")
+        for ns in always_remote_safe:
+            self.assertIn(
+                ns,
+                enabled,
+                f"'{ns}' should be enabled in remote profile",
+            )
+
+    def test_remote_profile_does_not_add_profile_reason_to_network_tools(self):
+        """Test that web/websearch (if disabled) is not disabled by profile filter."""
+        reg = build_registry(enable_discovery=False, profile="remote")
+        for name, tool in reg._tools.items():
+            if tool.namespace == "web/websearch":
+                reason = str(reg._disabled.get(name, ""))
+                self.assertNotIn(
+                    "profile",
+                    reason,
+                    "web/websearch should not be disabled by profile filter in remote mode",
+                )
+
+    def test_local_profile_disables_network_and_compute_tools(self):
+        """Test that local profile disables calculator, datetime, web tools."""
+        reg = build_registry(enable_discovery=False, profile="local")
+        disabled = self._disabled_namespaces(reg)
+        remote_namespaces = (
+            "calculator",
+            "datetime",
+            "think",
+            "web/fetch",
+            "web/websearch",
+            "todolist",
+            "unit_converter",
+        )
+        for ns in remote_namespaces:
+            self.assertIn(
+                ns,
+                disabled,
+                f"'{ns}' should be disabled in local profile",
+            )
+
+    def test_local_profile_does_not_add_profile_reason_to_local_tools(self):
+        """Test that local profile doesn't disable file_ops/bash via profile filter."""
+        reg = build_registry(enable_discovery=False, profile="local")
+        for name, tool in reg._tools.items():
+            if tool.namespace == "file_ops":
+                reason = reg._disabled.get(name, "")
+                self.assertNotIn(
+                    "profile",
+                    str(reason),
+                    f"'{name}' should not be disabled by profile filter in local mode",
+                )
+
+    def test_no_profile_no_additional_disables(self):
+        """Test that no profile means no profile-based disabling."""
+        reg_none = build_registry(enable_discovery=False, profile=None)
+        reg_remote = build_registry(enable_discovery=False, profile="remote")
+        # Without profile, at least as many tools are enabled as with remote
+        none_enabled = sum(1 for n in reg_none._tools if reg_none.is_enabled(n))
+        remote_enabled = sum(1 for n in reg_remote._tools if reg_remote.is_enabled(n))
+        self.assertGreaterEqual(none_enabled, remote_enabled)
+
+    def test_profile_reason_string(self):
+        """Test that disabled tools show the profile reason."""
+        reg = build_registry(enable_discovery=False, profile="remote")
+        for name, tool in reg._tools.items():
+            if tool.namespace == "bash":
+                reason = reg._disabled.get(name, "")
+                self.assertIn("remote", str(reason))
+
+
 class TestGetRegistry(unittest.TestCase):
     """Test cases for get_registry singleton function."""
 
