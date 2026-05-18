@@ -14,11 +14,12 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ### Added
 - `--profile {remote,local}` CLI flag for deployment context filtering. `remote` disables filesystem/shell/cron tools (they access the server's own filesystem, not the user's machine); `local` keeps only those local-machine tools and disables network/compute tools. Default: no filter.
-- `_apply_profile_filter()` in `registry.py` with `_LOCAL_ONLY_TAGS` constant (`FILE_SYSTEM | DESTRUCTIVE | PRIVILEGED`).
 
 ### Changed
-- `_run_openapi_server()` and `_run_mcp_server()` in `cli.py` now delegate to `toolregistry-server`'s `run_openapi_server(registry=...)` / `run_mcp_server(registry=...)`, eliminating ~80 lines of duplicated startup logic.
-- Bumped `toolregistry-server` requirement to `>=0.2.2`.
+- **Converged server layer to upstream APIs** (resolves #109): deleted hub-specific `tool_config.py` (~355 lines) and its tests, replaced by `toolregistry.config.{load_config, PythonSource, ToolConfig}` from core. Hub now re-uses `toolregistry-server`'s `run_openapi_server(registry=, profile=)` and `run_mcp_server(registry=, profile=)` directly for profile filtering.
+- `_DEFAULT_TOOLS` in `registry.py` migrated to `list[PythonSource]`; post-register hook wired via `ToolRegistry.add_post_register_hook()`.
+- Config auto-discovery checks `TOOLS_CONFIG` env var, then `tools.jsonc` / `tools.yaml` / `tools.yml` in the current directory.
+- Bumped `toolregistry-server` requirement to `>=0.3.0` across all extras.
 
 ### Dependencies
 
