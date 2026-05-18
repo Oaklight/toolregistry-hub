@@ -2,7 +2,7 @@
 
 import os
 import sys
-import textwrap
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -14,7 +14,6 @@ from toolregistry.tool import ToolTag
 from toolregistry_hub.server import registry as registry_module
 from toolregistry_hub.server.registry import (
     _TOOL_METADATA,
-    _import_class,
     build_registry,
     get_registry,
 )
@@ -25,7 +24,6 @@ class TestBuildRegistry(unittest.TestCase):
 
     def test_build_registry_succeeds_without_env_vars(self):
         """Test that build_registry succeeds even without any environment variables."""
-        # Clear all relevant env vars to ensure clean state
         env_vars_to_clear = [
             "BRAVE_API_KEY",
             "TAVILY_API_KEY",
@@ -34,13 +32,11 @@ class TestBuildRegistry(unittest.TestCase):
             "SCRAPELESS_API_KEY",
         ]
         with patch.dict(os.environ, {}, clear=True):
-            # Preserve PATH and other essential vars but clear API keys
             for var in env_vars_to_clear:
                 os.environ.pop(var, None)
 
             reg = build_registry()
             self.assertIsNotNone(reg)
-            # Should have tools registered
             self.assertGreater(len(reg._tools), 0)
 
     def test_build_registry_has_core_tools(self):
@@ -48,12 +44,9 @@ class TestBuildRegistry(unittest.TestCase):
         reg = build_registry()
         tool_names = list(reg._tools.keys())
 
-        # Check that some core tools are registered (with namespace prefix)
-        # Calculator tools should be present
         calc_tools = [t for t in tool_names if t.startswith("calc")]
         self.assertGreater(len(calc_tools), 0, "Calculator tools should be registered")
 
-        # DateTime tools should be present
         dt_tools = [t for t in tool_names if t.startswith("datetime")]
         self.assertGreater(len(dt_tools), 0, "DateTime tools should be registered")
 
@@ -72,7 +65,6 @@ class TestBuildRegistry(unittest.TestCase):
 
             reg = build_registry()
 
-            # Find brave_search tools and check they are disabled
             brave_tools = [
                 t for t in reg._tools if reg._tools[t].namespace == "web/brave_search"
             ]
@@ -82,7 +74,6 @@ class TestBuildRegistry(unittest.TestCase):
                     f"Tool {tool_name} should be disabled without BRAVE_API_KEY",
                 )
 
-            # Find searxng_search tools and check they are disabled
             searxng_tools = [
                 t for t in reg._tools if reg._tools[t].namespace == "web/searxng_search"
             ]
@@ -94,19 +85,13 @@ class TestBuildRegistry(unittest.TestCase):
 
     def test_websearch_tools_enabled_with_env(self):
         """Test that websearch tools are enabled when env vars are set."""
-        with patch.dict(
-            os.environ,
-            {"BRAVE_API_KEY": "test-key-for-brave"},
-        ):
+        with patch.dict(os.environ, {"BRAVE_API_KEY": "test-key-for-brave"}):
             reg = build_registry()
 
-            # Find brave_search tools and check they are enabled
             brave_tools = [
                 t for t in reg._tools if reg._tools[t].namespace == "web/brave_search"
             ]
-            self.assertGreater(
-                len(brave_tools), 0, "Brave search tools should be registered"
-            )
+            self.assertGreater(len(brave_tools), 0)
             for tool_name in brave_tools:
                 self.assertTrue(
                     reg.is_enabled(tool_name),
@@ -116,7 +101,6 @@ class TestBuildRegistry(unittest.TestCase):
     def test_websearch_tools_enabled_with_tool_kwargs(self):
         """Test that websearch tools are enabled when API keys are passed via tool_kwargs."""
         with patch.dict(os.environ, {}, clear=True):
-            # Clear all API key env vars
             for var in [
                 "BRAVE_API_KEY",
                 "TAVILY_API_KEY",
@@ -126,12 +110,10 @@ class TestBuildRegistry(unittest.TestCase):
             ]:
                 os.environ.pop(var, None)
 
-            # Pass API key directly via tool_kwargs
             reg = build_registry(
                 tool_kwargs={"brave_search": {"api_keys": "direct-test-key"}}
             )
 
-            # Brave search tools should be enabled (configured via tool_kwargs)
             brave_tools = [
                 t for t in reg._tools if reg._tools[t].namespace == "web/brave_search"
             ]
@@ -142,7 +124,6 @@ class TestBuildRegistry(unittest.TestCase):
                     f"Tool {tool_name} should be enabled with tool_kwargs API key",
                 )
 
-            # Tavily should still be disabled (no env var, no tool_kwargs)
             tavily_tools = [
                 t for t in reg._tools if reg._tools[t].namespace == "web/tavily_search"
             ]
@@ -175,7 +156,6 @@ class TestBuildRegistry(unittest.TestCase):
         """Test that core tools (without env requirements) are always enabled."""
         reg = build_registry()
 
-        # Calculator tools should always be enabled
         calc_tools = [t for t in reg._tools if reg._tools[t].namespace == "calculator"]
         for tool_name in calc_tools:
             self.assertTrue(
@@ -184,81 +164,45 @@ class TestBuildRegistry(unittest.TestCase):
             )
 
 
-class TestImportClass(unittest.TestCase):
-    """Test cases for _import_class dynamic import function."""
-
-    def test_import_known_class(self):
-        """Test importing a known class succeeds."""
-        cls = _import_class("toolregistry_hub.calculator.Calculator")
-        from toolregistry_hub.calculator import Calculator
-
-        self.assertIs(cls, Calculator)
-
-    def test_import_nested_class(self):
-        """Test importing a class from a nested module."""
-        cls = _import_class("toolregistry_hub.websearch.websearch_brave.BraveSearch")
-        from toolregistry_hub.websearch.websearch_brave import BraveSearch
-
-        self.assertIs(cls, BraveSearch)
-
-    def test_import_nonexistent_module(self):
-        """Test importing from a nonexistent module raises ImportError."""
-        with self.assertRaises(ImportError):
-            _import_class("nonexistent.module.ClassName")
-
-    def test_import_nonexistent_class(self):
-        """Test importing a nonexistent class raises AttributeError."""
-        with self.assertRaises(AttributeError):
-            _import_class("toolregistry_hub.calculator.NonExistentClass")
-
-
 class TestBuildRegistryWithToolsConfig(unittest.TestCase):
-    """Test cases for build_registry with tools field in config."""
+    """Test cases for build_registry with a JSONC/YAML config file."""
 
     def test_config_driven_tool_list(self):
-        """Test that build_registry uses tools from config file."""
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonc", delete=False) as f:
-            f.write(
-                textwrap.dedent("""\
-                {
-                    "tools": [
-                        {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
-                        {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"}
-                    ]
-                }""")
-            )
-            f.flush()
+        """Test that build_registry uses tools from config file (server format)."""
+        config_content = """\
+tools:
+  - type: python
+    class: toolregistry_hub.calculator.Calculator
+    namespace: calculator
+  - type: python
+    class: toolregistry_hub.datetime_utils.DateTime
+    namespace: datetime
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(config_content)
             config_path = f.name
 
         try:
             reg = build_registry(tools_config_path=config_path)
-            # Should have calculator and datetime tools
             namespaces = {
                 tool.namespace for tool in reg._tools.values() if tool.namespace
             }
             self.assertIn("calculator", namespaces)
             self.assertIn("datetime", namespaces)
-            # Should NOT have other tools like web/fetch, filesystem, etc.
             self.assertNotIn("web/fetch", namespaces)
-            self.assertNotIn("filesystem", namespaces)
             self.assertNotIn("web/brave_search", namespaces)
         finally:
             os.unlink(config_path)
 
     def test_config_without_tools_uses_defaults(self):
         """Test that build_registry uses defaults when tools field is absent."""
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonc", delete=False) as f:
-            f.write('{"mode": "denylist", "disabled": []}')
-            f.flush()
+        config_content = "mode: denylist\ndisabled: []\n"
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(config_content)
             config_path = f.name
 
         try:
             reg = build_registry(tools_config_path=config_path)
-            # Should have all default tools
             namespaces = {
                 tool.namespace for tool in reg._tools.values() if tool.namespace
             }
@@ -270,19 +214,17 @@ class TestBuildRegistryWithToolsConfig(unittest.TestCase):
 
     def test_config_with_invalid_class_skips_tool(self):
         """Test that invalid class paths are skipped gracefully."""
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonc", delete=False) as f:
-            f.write(
-                textwrap.dedent("""\
-                {
-                    "tools": [
-                        {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
-                        {"class": "nonexistent.module.FakeClass", "namespace": "fake"}
-                    ]
-                }""")
-            )
-            f.flush()
+        config_content = """\
+tools:
+  - type: python
+    class: toolregistry_hub.calculator.Calculator
+    namespace: calculator
+  - type: python
+    class: nonexistent.module.FakeClass
+    namespace: fake
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(config_content)
             config_path = f.name
 
         try:
@@ -290,9 +232,7 @@ class TestBuildRegistryWithToolsConfig(unittest.TestCase):
             namespaces = {
                 tool.namespace for tool in reg._tools.values() if tool.namespace
             }
-            # Calculator should be registered
             self.assertIn("calculator", namespaces)
-            # Fake tool should be skipped
             self.assertNotIn("fake", namespaces)
         finally:
             os.unlink(config_path)
@@ -305,18 +245,15 @@ class TestToolMetadataAndDiscovery(unittest.TestCase):
         """Test that ToolTag metadata is applied to registered tools."""
         reg = build_registry(enable_discovery=False)
 
-        # Calculator should have READ_ONLY tag
         calc_tools = [t for t in reg._tools.values() if t.namespace == "calculator"]
         for tool in calc_tools:
             self.assertIn(ToolTag.READ_ONLY, tool.metadata.tags)
 
-        # BashTool should have DESTRUCTIVE and PRIVILEGED
         bash_tools = [t for t in reg._tools.values() if t.namespace == "bash"]
         for tool in bash_tools:
             self.assertIn(ToolTag.DESTRUCTIVE, tool.metadata.tags)
             self.assertIn(ToolTag.PRIVILEGED, tool.metadata.tags)
 
-        # FileOps should have FILE_SYSTEM and DESTRUCTIVE
         fileops_tools = [t for t in reg._tools.values() if t.namespace == "file_ops"]
         for tool in fileops_tools:
             self.assertIn(ToolTag.FILE_SYSTEM, tool.metadata.tags)
@@ -367,119 +304,6 @@ class TestToolMetadataAndDiscovery(unittest.TestCase):
         """Test that enable_think=False deactivates think-augmented calling."""
         reg = build_registry(enable_discovery=False, enable_think=False)
         self.assertFalse(reg._think_augment)
-
-
-class TestBuildRegistryProfile(unittest.TestCase):
-    """Test deployment profile filter in build_registry()."""
-
-    def _enabled_namespaces(self, reg):
-        return {
-            tool.namespace
-            for name, tool in reg._tools.items()
-            if reg.is_enabled(name) and tool.namespace
-        }
-
-    def _disabled_namespaces(self, reg):
-        return {
-            tool.namespace
-            for name, tool in reg._tools.items()
-            if not reg.is_enabled(name) and tool.namespace
-        }
-
-    def test_remote_profile_disables_local_tools(self):
-        """Test that remote profile disables filesystem/shell/cron tools."""
-        reg = build_registry(enable_discovery=False, profile="remote")
-        disabled = self._disabled_namespaces(reg)
-        local_namespaces = (
-            "file_ops",
-            "bash",
-            "cron",
-            "reader",
-            "fs/file_search",
-            "fs/path_info",
-        )
-        for ns in local_namespaces:
-            self.assertIn(
-                ns,
-                disabled,
-                f"'{ns}' should be disabled in remote profile",
-            )
-
-    def test_remote_profile_keeps_network_and_compute_tools(self):
-        """Test that remote profile keeps calculator, datetime, web/fetch, think."""
-        reg = build_registry(enable_discovery=False, profile="remote")
-        enabled = self._enabled_namespaces(reg)
-        # These tools have no LOCAL_ONLY tags so remote profile must not disable them.
-        # (web/websearch may still be env-disabled, so we only assert the ones
-        # that never need API keys.)
-        always_remote_safe = ("calculator", "datetime", "think", "web/fetch")
-        for ns in always_remote_safe:
-            self.assertIn(
-                ns,
-                enabled,
-                f"'{ns}' should be enabled in remote profile",
-            )
-
-    def test_remote_profile_does_not_add_profile_reason_to_network_tools(self):
-        """Test that web/websearch (if disabled) is not disabled by profile filter."""
-        reg = build_registry(enable_discovery=False, profile="remote")
-        for name, tool in reg._tools.items():
-            if tool.namespace == "web/websearch":
-                reason = str(reg._disabled.get(name, ""))
-                self.assertNotIn(
-                    "profile",
-                    reason,
-                    "web/websearch should not be disabled by profile filter in remote mode",
-                )
-
-    def test_local_profile_disables_network_and_compute_tools(self):
-        """Test that local profile disables calculator, datetime, web tools."""
-        reg = build_registry(enable_discovery=False, profile="local")
-        disabled = self._disabled_namespaces(reg)
-        remote_namespaces = (
-            "calculator",
-            "datetime",
-            "think",
-            "web/fetch",
-            "web/websearch",
-            "todolist",
-            "unit_converter",
-        )
-        for ns in remote_namespaces:
-            self.assertIn(
-                ns,
-                disabled,
-                f"'{ns}' should be disabled in local profile",
-            )
-
-    def test_local_profile_does_not_add_profile_reason_to_local_tools(self):
-        """Test that local profile doesn't disable file_ops/bash via profile filter."""
-        reg = build_registry(enable_discovery=False, profile="local")
-        for name, tool in reg._tools.items():
-            if tool.namespace == "file_ops":
-                reason = reg._disabled.get(name, "")
-                self.assertNotIn(
-                    "profile",
-                    str(reason),
-                    f"'{name}' should not be disabled by profile filter in local mode",
-                )
-
-    def test_no_profile_no_additional_disables(self):
-        """Test that no profile means no profile-based disabling."""
-        reg_none = build_registry(enable_discovery=False, profile=None)
-        reg_remote = build_registry(enable_discovery=False, profile="remote")
-        # Without profile, at least as many tools are enabled as with remote
-        none_enabled = sum(1 for n in reg_none._tools if reg_none.is_enabled(n))
-        remote_enabled = sum(1 for n in reg_remote._tools if reg_remote.is_enabled(n))
-        self.assertGreaterEqual(none_enabled, remote_enabled)
-
-    def test_profile_reason_string(self):
-        """Test that disabled tools show the profile reason."""
-        reg = build_registry(enable_discovery=False, profile="remote")
-        for name, tool in reg._tools.items():
-            if tool.namespace == "bash":
-                reason = reg._disabled.get(name, "")
-                self.assertIn("remote", str(reason))
 
 
 class TestGetRegistry(unittest.TestCase):

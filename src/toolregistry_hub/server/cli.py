@@ -350,11 +350,12 @@ def main(args: list[str] | None = None) -> NoReturn | None:
         tools_config_path=getattr(parsed, "config", None),
         enable_discovery=getattr(parsed, "tool_discovery", True),
         enable_think=getattr(parsed, "think_augment", True),
-        profile=getattr(parsed, "profile", None),
     )
 
     # Dispatch to appropriate command handler
     admin_port = getattr(parsed, "admin_port", None)
+
+    profile = getattr(parsed, "profile", None)
 
     if parsed.command == "openapi":
         _run_openapi_server(
@@ -363,6 +364,7 @@ def main(args: list[str] | None = None) -> NoReturn | None:
             tokens_path=getattr(parsed, "tokens", None),
             reload=getattr(parsed, "reload", False),
             admin_port=admin_port,
+            profile=profile,
         )
     elif parsed.command == "mcp":
         _run_mcp_server(
@@ -370,6 +372,7 @@ def main(args: list[str] | None = None) -> NoReturn | None:
             host=parsed.host,
             port=parsed.port,
             admin_port=admin_port,
+            profile=profile,
         )
 
     return None
@@ -393,6 +396,7 @@ def _run_openapi_server(
     tokens_path: str | None = None,
     reload: bool = False,
     admin_port: int | None = None,
+    profile: str | None = None,
 ) -> None:
     """Run the OpenAPI server.
 
@@ -402,6 +406,7 @@ def _run_openapi_server(
         tokens_path: Path to tokens file for authentication.
         reload: Enable auto-reload for development.
         admin_port: Port for the admin panel, or None to disable.
+        profile: Deployment profile filter passed to server.
     """
     try:
         from toolregistry_server.cli.openapi import run_openapi_server
@@ -427,11 +432,16 @@ def _run_openapi_server(
         tokens_path=tokens_path,
         reload=reload,
         registry=registry,
+        profile=profile,
     )
 
 
 def _run_mcp_server(
-    host: str, port: int, transport: str, admin_port: int | None = None
+    host: str,
+    port: int,
+    transport: str,
+    admin_port: int | None = None,
+    profile: str | None = None,
 ) -> None:
     """Run the MCP server.
 
@@ -440,6 +450,7 @@ def _run_mcp_server(
         port: Port to bind the server to.
         transport: MCP transport type ('stdio', 'sse', or 'streamable-http').
         admin_port: Port for the admin panel, or None to disable.
+        profile: Deployment profile filter passed to server.
     """
     try:
         from toolregistry_server.cli.mcp import run_mcp_server
@@ -468,6 +479,7 @@ def _run_mcp_server(
         host=host,
         port=port,
         registry=registry,
+        profile=profile,
     )
 
 
