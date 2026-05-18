@@ -12,6 +12,14 @@ author: Oaklight
 
 ## [未发布] - 自 0.8.0 以来
 
+### 新增
+- CLI 新增 `--profile {remote,local}` 部署环境过滤参数。`remote` 模式禁用文件系统/Shell/定时任务类工具（它们访问的是服务器自身的文件系统，远程部署时对用户无实际价值）；`local` 模式仅保留本机工具，禁用网络/计算类工具。默认不过滤。
+- `registry.py` 新增 `_apply_profile_filter()` 函数及 `_LOCAL_ONLY_TAGS` 常量（`FILE_SYSTEM | DESTRUCTIVE | PRIVILEGED`）。
+
+### 变更
+- `cli.py` 中的 `_run_openapi_server()` 和 `_run_mcp_server()` 现在委托给 `toolregistry-server` 的 `run_openapi_server(registry=...)` / `run_mcp_server(registry=...)`，消除了约 80 行重复的启动逻辑。
+- `toolregistry-server` 依赖版本要求提升至 `>=0.2.2`。
+
 ### 依赖
 
 - 更新内置 `httpclient` 模块从 0.3.1 至 0.4.1（zerodep）
