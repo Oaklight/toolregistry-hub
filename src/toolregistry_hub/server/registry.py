@@ -14,6 +14,7 @@ Deployment-context filtering (``--profile``) is handled by
 """
 
 import importlib
+from collections.abc import Callable
 
 from toolregistry import ToolRegistry
 from toolregistry.config import MCPSource, OpenAPISource, PythonSource, ToolConfig
@@ -263,7 +264,7 @@ def _resolve_config(
 def _register_python_class_source(
     registry: ToolRegistry,
     source: PythonSource,
-    _register_python_source_fn: object,
+    _register_python_source_fn: Callable[..., None],
 ) -> None:
     """Register a single PythonSource with a ``class_path``.
 
@@ -293,7 +294,7 @@ def _register_python_class_source(
         logger.info(f"Loaded class tools from {source.class_path}")
         return
 
-    _register_python_source_fn(registry, source)  # type: ignore[operator]
+    _register_python_source_fn(registry, source)
 
 
 def _register_sources(registry: ToolRegistry, config: ToolConfig) -> None:
