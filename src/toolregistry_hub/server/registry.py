@@ -3,18 +3,20 @@
 This module provides a centralized registry that registers all available tools
 and automatically disables tools whose configuration is incomplete.
 
-The registry supports two usage patterns:
+Hub-specific concerns (content, not infrastructure):
 
-1. **Server mode** (default): Relies on environment variables for configuration.
-   Tools missing required env vars are auto-disabled.
+- ``_DEFAULT_TOOLS``: built-in tool list as ``PythonSource`` entries
+- ``_TOOL_METADATA``: namespace → tag/defer overrides applied post-registration
+- ``configurable_hook``: post-register hook that auto-disables unconfigured tools
 
-2. **Custom configuration**: Pass ``tool_kwargs`` to ``build_registry()`` to
-   provide API keys or other config directly, without environment variables.
+Deployment-context filtering (``--profile``) is handled by
+``toolregistry-server >= 0.3.0`` and is not reimplemented here.
 """
 
 import importlib
 
 from toolregistry import ToolRegistry
+from toolregistry.config import MCPSource, OpenAPISource, PythonSource, ToolConfig
 from toolregistry.tool import ToolTag
 
 from .._vendor.structlog import get_logger
@@ -23,80 +25,75 @@ from ..utils.fn_namespace import _is_all_static_methods
 
 logger = get_logger()
 
-_DEFAULT_TOOLS: list[dict[str, str]] = [
-    {"class": "toolregistry_hub.bash_tool.BashTool", "namespace": "bash"},
-    {"class": "toolregistry_hub.cron_tool.CronTool", "namespace": "cron"},
-    {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
-    {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"},
-    {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web/fetch"},
-    {"class": "toolregistry_hub.file_ops.FileOps", "namespace": "file_ops"},
-    {"class": "toolregistry_hub.file_reader.FileReader", "namespace": "reader"},
-    {"class": "toolregistry_hub.file_search.FileSearch", "namespace": "fs/file_search"},
-    {"class": "toolregistry_hub.path_info.PathInfo", "namespace": "fs/path_info"},
-    {"class": "toolregistry_hub.think_tool.ThinkTool", "namespace": "think"},
-    {"class": "toolregistry_hub.todo_list.TodoList", "namespace": "todolist"},
-    {
-        "class": "toolregistry_hub.unit_converter.UnitConverter",
-        "namespace": "unit_converter",
-    },
-    {
-        "class": "toolregistry_hub.websearch.websearch_unified.WebSearch",
-        "namespace": "web/websearch",
-    },
-    {
-        "class": "toolregistry_hub.websearch.websearch_brave.BraveSearch",
-        "namespace": "web/brave_search",
-    },
-    {
-        "class": "toolregistry_hub.websearch.websearch_tavily.TavilySearch",
-        "namespace": "web/tavily_search",
-    },
-    {
-        "class": "toolregistry_hub.websearch.websearch_searxng.SearXNGSearch",
-        "namespace": "web/searxng_search",
-    },
-    {
-        "class": "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch",
-        "namespace": "web/brightdata_search",
-    },
-    {
-        "class": "toolregistry_hub.websearch.websearch_scrapeless.ScrapelessSearch",
-        "namespace": "web/scrapeless_search",
-    },
-    {
-        "class": "toolregistry_hub.websearch.websearch_serper.SerperSearch",
-        "namespace": "web/serper_search",
-    },
+# Hub's built-in tool list expressed as PythonSource entries.
+_DEFAULT_TOOLS: list[PythonSource] = [
+    PythonSource(class_path="toolregistry_hub.bash_tool.BashTool", namespace="bash"),
+    PythonSource(class_path="toolregistry_hub.cron_tool.CronTool", namespace="cron"),
+    PythonSource(
+        class_path="toolregistry_hub.calculator.Calculator", namespace="calculator"
+    ),
+    PythonSource(
+        class_path="toolregistry_hub.datetime_utils.DateTime", namespace="datetime"
+    ),
+    PythonSource(class_path="toolregistry_hub.fetch.Fetch", namespace="web/fetch"),
+    PythonSource(class_path="toolregistry_hub.file_ops.FileOps", namespace="file_ops"),
+    PythonSource(
+        class_path="toolregistry_hub.file_reader.FileReader", namespace="reader"
+    ),
+    PythonSource(
+        class_path="toolregistry_hub.file_search.FileSearch",
+        namespace="fs/file_search",
+    ),
+    PythonSource(
+        class_path="toolregistry_hub.path_info.PathInfo", namespace="fs/path_info"
+    ),
+    PythonSource(class_path="toolregistry_hub.think_tool.ThinkTool", namespace="think"),
+    PythonSource(
+        class_path="toolregistry_hub.todo_list.TodoList", namespace="todolist"
+    ),
+    PythonSource(
+        class_path="toolregistry_hub.unit_converter.UnitConverter",
+        namespace="unit_converter",
+    ),
+    PythonSource(
+        class_path="toolregistry_hub.websearch.websearch_unified.WebSearch",
+        namespace="web/websearch",
+    ),
+    PythonSource(
+        class_path="toolregistry_hub.websearch.websearch_brave.BraveSearch",
+        namespace="web/brave_search",
+    ),
+    PythonSource(
+        class_path="toolregistry_hub.websearch.websearch_tavily.TavilySearch",
+        namespace="web/tavily_search",
+    ),
+    PythonSource(
+        class_path="toolregistry_hub.websearch.websearch_searxng.SearXNGSearch",
+        namespace="web/searxng_search",
+    ),
+    PythonSource(
+        class_path="toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch",
+        namespace="web/brightdata_search",
+    ),
+    PythonSource(
+        class_path="toolregistry_hub.websearch.websearch_scrapeless.ScrapelessSearch",
+        namespace="web/scrapeless_search",
+    ),
+    PythonSource(
+        class_path="toolregistry_hub.websearch.websearch_serper.SerperSearch",
+        namespace="web/serper_search",
+    ),
 ]
 
-# Methods to exclude from route generation (internal/protocol methods)
-# Note: Methods starting with "_" are already excluded by toolregistry,
-# but we keep this for any other internal methods that need hiding.
-_HIDDEN_METHODS: set[str] = set()
-
 # Metadata overrides for registered tools, keyed by namespace.
-# Sets ToolTag and defer flags after register_from_class().
-# Tags that identify tools as "local-only" — they access the server's own
-# filesystem or process space, so they have no value when the server is
-# deployed remotely (they'd touch the server's fs, not the user's machine).
-_LOCAL_ONLY_TAGS: frozenset[ToolTag] = frozenset(
-    {ToolTag.FILE_SYSTEM, ToolTag.DESTRUCTIVE, ToolTag.PRIVILEGED}
-)
-
 _TOOL_METADATA: dict[str, dict] = {
-    # Core tools (always visible in initial schema)
     "calculator": {"tags": {ToolTag.READ_ONLY}},
     "datetime": {"tags": {ToolTag.READ_ONLY}},
     "think": {"tags": {ToolTag.READ_ONLY}},
     "file_ops": {"tags": {ToolTag.FILE_SYSTEM, ToolTag.DESTRUCTIVE}},
     "web/fetch": {"tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
-    # Unified websearch entry (visible by default)
     "web/websearch": {"tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
-    # Provider-specific search engines (deferred — discoverable via discover_tools)
-    "web/brave_search": {
-        "defer": True,
-        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
-    },
+    "web/brave_search": {"defer": True, "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
     "web/tavily_search": {
         "defer": True,
         "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
@@ -117,10 +114,15 @@ _TOOL_METADATA: dict[str, dict] = {
         "defer": True,
         "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
     },
-    # Deferred tools (discoverable via discover_tools)
     "reader": {"defer": True, "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY}},
-    "fs/file_search": {"defer": True, "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY}},
-    "fs/path_info": {"defer": True, "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY}},
+    "fs/file_search": {
+        "defer": True,
+        "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
+    },
+    "fs/path_info": {
+        "defer": True,
+        "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
+    },
     "bash": {"defer": True, "tags": {ToolTag.DESTRUCTIVE, ToolTag.PRIVILEGED}},
     "cron": {"defer": True, "tags": {ToolTag.PRIVILEGED}},
     "todolist": {"defer": True, "tags": {ToolTag.READ_ONLY}},
@@ -128,38 +130,33 @@ _TOOL_METADATA: dict[str, dict] = {
 }
 
 
-def _apply_profile_filter(registry: ToolRegistry, profile: str) -> None:
-    """Disable tools that do not match the deployment profile.
-
-    Tools tagged with :attr:`~toolregistry.tool.ToolTag.FILE_SYSTEM`,
-    :attr:`~toolregistry.tool.ToolTag.DESTRUCTIVE`, or
-    :attr:`~toolregistry.tool.ToolTag.PRIVILEGED` are considered
-    *local-only*: they access the server's own filesystem or process space
-    and have no practical value when the server runs on a remote machine.
+def configurable_hook(name: str, tool: object, registry: ToolRegistry) -> str | None:
+    """Post-registration hook: auto-disable tools that fail ``_is_configured()``.
 
     Args:
-        registry: The registry to filter in-place.
-        profile: ``"remote"`` disables local-only tools; ``"local"`` disables
-            all other tools (keeps only local-only ones).
+        name: The tool name just registered.
+        tool: The ``Tool`` object (carries the bound instance via ``.callable.__self__``).
+        registry: The registry the tool was added to.
+
+    Returns:
+        A disable reason string if the tool is not configured, else ``None``.
     """
-    for tool_name, tool in registry._tools.items():
-        tags: set[ToolTag] = tool.metadata.tags or set()
-        is_local_tool = bool(tags & _LOCAL_ONLY_TAGS)
-        if (
-            profile == "remote"
-            and is_local_tool
-            or profile == "local"
-            and not is_local_tool
-        ):
-            registry.disable(tool_name, reason=f"Not available in '{profile}' profile")
-    logger.info(f"Applied profile filter: profile={profile}")
+    callable_ = getattr(tool, "callable", None)
+    instance = getattr(callable_, "__self__", None)
+    if instance is None:
+        return None
+    if isinstance(instance, Configurable) and not instance._is_configured():
+        required_envs: list[str] = getattr(instance, "_required_envs", [])
+        return (
+            f"Missing env: {', '.join(required_envs)}"
+            if required_envs
+            else "Not configured"
+        )
+    return None
 
 
 def _apply_tool_metadata(registry: ToolRegistry) -> None:
-    """Apply tags, defer flags, and search hints to registered tools.
-
-    Iterates all tools in the registry and applies metadata overrides
-    from ``_TOOL_METADATA`` based on each tool's namespace.
+    """Apply tag and defer overrides from ``_TOOL_METADATA`` to all tools.
 
     Args:
         registry: The registry whose tools should be annotated.
@@ -176,102 +173,156 @@ def _apply_tool_metadata(registry: ToolRegistry) -> None:
                 tool.metadata.search_hint = overrides["search_hint"]
 
 
-def _import_class(class_path: str) -> type:
-    """Dynamically import a class from a dotted path string.
+def _discover_config_path() -> str | None:
+    """Auto-discover a tool config file path.
 
-    Args:
-        class_path: Fully qualified class path,
-            e.g. ``"toolregistry_hub.calculator.Calculator"``.
+    Checks ``TOOLS_CONFIG`` env var, then ``tools.jsonc``, ``tools.yaml``,
+    and ``tools.yml`` in the current directory.
 
     Returns:
-        The imported class object.
-
-    Raises:
-        ImportError: If the module cannot be imported.
-        AttributeError: If the class is not found in the module.
+        A file path string if a config file is found, else ``None``.
     """
-    module_path, class_name = class_path.rsplit(".", 1)
-    module = importlib.import_module(module_path)
-    return getattr(module, class_name)
+    import os
+    from pathlib import Path
+
+    env_path = os.environ.get("TOOLS_CONFIG")
+    if env_path and Path(env_path).is_file():
+        return env_path
+    for candidate in ("tools.jsonc", "tools.yaml", "tools.yml"):
+        if Path(candidate).is_file():
+            return candidate
+    return None
 
 
-def _register_tool(
-    registry: ToolRegistry,
-    class_path: str,
-    namespace: str,
-    kwargs: dict,
-) -> None:
-    """Import, instantiate, and register a single tool class.
-
-    Static-method-only classes are registered directly; others are
-    instantiated first.  Instances that implement the
-    :class:`~toolregistry_hub.utils.Configurable` protocol are checked
-    for readiness, and all tools under their namespace are auto-disabled
-    when configuration is incomplete.
+def _merge_kwargs_into_source(
+    src: PythonSource,
+    tool_kwargs: dict[str, dict],
+) -> PythonSource:
+    """Return a copy of *src* with *tool_kwargs* merged in, or *src* unchanged.
 
     Args:
-        registry: The registry to add the tool to.
-        class_path: Fully qualified class path to import.
-        namespace: Namespace under which to register.
-        kwargs: Constructor keyword arguments for the tool class.
+        src: The original ``PythonSource``.
+        tool_kwargs: Namespace-tail → constructor kwargs map.
+
+    Returns:
+        A new ``PythonSource`` with merged kwargs, or the original if no match.
     """
-    try:
-        cls = _import_class(class_path)
-    except (ImportError, AttributeError) as e:
-        logger.error(f"Failed to import tool class '{class_path}': {e}")
-        return
+    if not src.namespace:
+        return src
+    key = src.namespace.rsplit("/", 1)[-1]
+    extra = tool_kwargs.get(key, {})
+    if not extra:
+        return src
+    return PythonSource(
+        class_path=src.class_path,
+        namespace=src.namespace,
+        kwargs=dict(extra),
+    )
+
+
+def _resolve_config(
+    tools_config_path: str | None,
+    tool_kwargs: dict[str, dict] | None,
+) -> ToolConfig:
+    """Load or build the tool config to register from.
+
+    Priority: explicit path > ``toolregistry.config`` auto-discovery
+    (``TOOLS_CONFIG`` env var / ``tools.jsonc``) > hub ``_DEFAULT_TOOLS``.
+
+    Args:
+        tools_config_path: Explicit config file path, or ``None``.
+        tool_kwargs: Namespace-tail → constructor kwargs overrides.
+
+    Returns:
+        A ``ToolConfig`` ready for registration.
+    """
+    from toolregistry.config import load_config
+
+    path = tools_config_path or _discover_config_path()
+    config = load_config(path) if path else None
+
+    if config is None or not config.tools:
+        sources = [
+            _merge_kwargs_into_source(src, tool_kwargs) if tool_kwargs else src
+            for src in _DEFAULT_TOOLS
+        ]
+        return ToolConfig(tools=tuple(sources))
+
+    # File config present — merge tool_kwargs into matching PythonSource entries
+    if tool_kwargs:
+        for src in config.tools:
+            if isinstance(src, PythonSource) and src.namespace:
+                key = src.namespace.rsplit("/", 1)[-1]
+                extra = tool_kwargs.get(key, {})
+                if extra:
+                    src.kwargs.update(extra)
+
+    return config
+
+
+def _register_python_class_source(
+    registry: ToolRegistry,
+    source: PythonSource,
+    _register_python_source_fn: object,
+) -> None:
+    """Register a single PythonSource with a ``class_path``.
+
+    Handles three cases in order:
+    1. Static-method-only class → register class directly (no hook).
+    2. Class with constructor kwargs → instantiate with kwargs, then register.
+    3. Otherwise → delegate to the server's ``_register_python_source`` helper.
+
+    Args:
+        registry: Destination registry.
+        source: A ``PythonSource`` with a non-empty ``class_path``.
+        _register_python_source_fn: The server helper function reference.
+    """
+    module_path, class_name = source.class_path.rsplit(".", 1)  # type: ignore[union-attr]
+    cls = getattr(importlib.import_module(module_path), class_name)
+    ns: bool | str = source.namespace or False
 
     if _is_all_static_methods(cls):
-        registry.register_from_class(cls, namespace=namespace)
+        registry.register_from_class(cls, namespace=ns)
         return
 
-    instance = cls(**kwargs)
-    registry.register_from_class(instance, namespace=namespace)
+    if source.kwargs:
+        # Server helper ignores source.kwargs; instantiate ourselves so that
+        # Configurable checks in the post-register hook see the right state.
+        instance = cls(**source.kwargs)
+        registry.register_from_class(instance, namespace=ns)
+        logger.info(f"Loaded class tools from {source.class_path}")
+        return
 
-    if isinstance(instance, Configurable) and not instance._is_configured():
-        _disable_namespace(registry, cls, namespace)
+    _register_python_source_fn(registry, source)  # type: ignore[operator]
 
 
-def _disable_namespace(registry: ToolRegistry, cls: type, namespace: str) -> None:
-    """Disable all tools under *namespace* due to missing configuration.
+def _register_sources(registry: ToolRegistry, config: ToolConfig) -> None:
+    """Register all enabled sources from *config* into *registry*.
 
     Args:
-        registry: The registry containing the tools.
-        cls: The tool class (used to read ``_required_envs``).
-        namespace: Namespace whose tools should be disabled.
+        registry: Destination registry (hooks must be attached beforehand).
+        config: Tool config whose sources to register.
     """
-    required_envs: list[str] = getattr(cls, "_required_envs", [])
-    reason = (
-        f"Missing env: {', '.join(required_envs)}"
-        if required_envs
-        else "Not configured"
+    from toolregistry_server.cli.openapi import (
+        _register_mcp_source,
+        _register_openapi_source,
+        _register_python_source,
     )
-    for tool_name, tool in registry._tools.items():
-        if tool.namespace == namespace:
-            registry.disable(tool_name, reason=reason)
-    logger.info(f"Disabled {namespace}: {reason}")
 
-
-def _remove_hidden_methods(registry: ToolRegistry) -> None:
-    """Remove explicitly hidden methods from the registry.
-
-    Note: Methods starting with ``_`` are already excluded by toolregistry;
-    this handles any additional methods listed in ``_HIDDEN_METHODS``.
-
-    Args:
-        registry: The registry to clean up.
-    """
-    if not _HIDDEN_METHODS:
-        return
-    to_remove = [
-        name
-        for name, tool in registry._tools.items()
-        if tool.method_name in _HIDDEN_METHODS
-    ]
-    for name in to_remove:
-        del registry._tools[name]
-        registry._disabled.pop(name, None)
-        logger.debug(f"Removed hidden method from registry: {name}")
+    for source in config.tools:
+        if not source.enabled:
+            continue
+        try:
+            if isinstance(source, PythonSource) and source.class_path:
+                _register_python_class_source(registry, source, _register_python_source)
+            elif isinstance(source, PythonSource):
+                _register_python_source(registry, source)
+            elif isinstance(source, MCPSource):
+                _register_mcp_source(registry, source)
+            elif isinstance(source, OpenAPISource):
+                _register_openapi_source(registry, source)
+        except Exception as e:
+            logger.warning(f"Failed to load tool source {source}: {e}")
 
 
 def build_registry(
@@ -279,72 +330,28 @@ def build_registry(
     tools_config_path: str | None = None,
     enable_discovery: bool = True,
     enable_think: bool = True,
-    profile: str | None = None,
 ) -> ToolRegistry:
-    """Build the hub tool registry with all tools registered and auto-disabled
-    based on instance configuration state.
+    """Build the hub tool registry.
 
     Args:
-        tool_kwargs: Optional mapping of namespace to constructor kwargs.
-            Allows passing API keys or other config without env vars.
+        tool_kwargs: Namespace-tail → constructor kwargs.
             Example: ``{"brave_search": {"api_keys": "my-key"}}``
-        tools_config_path: Optional path to a JSONC tool configuration file.
-            If ``None``, the default discovery order is used (env var, then
-            ``./tools.jsonc``).
-        enable_discovery: Enable tool discovery (progressive disclosure).
-            When ``True``, registers a ``discover_tools`` tool and marks
-            selected tools as deferred.
-        enable_think: Enable think-augmented function calling.
-            When ``True``, injects a ``thought`` property into tool schemas
-            for chain-of-thought reasoning.
-        profile: Optional deployment profile filter. ``"remote"`` disables
-            tools that only make sense on the local machine (filesystem,
-            shell, cron). ``"local"`` disables network-only tools and keeps
-            only local-machine tools. ``None`` applies no filter.
+        tools_config_path: Path to a JSONC/YAML config file, or ``None`` for
+            auto-discovery (``TOOLS_CONFIG`` env var / ``tools.jsonc``).
+        enable_discovery: Register ``discover_tools`` and mark deferred tools.
+        enable_think: Inject ``toolcall_reason`` into tool schemas.
 
     Returns:
-        A fully configured ToolRegistry instance with all tools registered.
-        Tools whose configuration is incomplete (as reported by the
-        :class:`~toolregistry_hub.utils.Configurable` protocol) will be
-        automatically disabled.  Additional disable/enable rules from the
-        tool configuration file are applied afterwards.
+        A fully configured ``ToolRegistry`` instance.
     """
-    from .tool_config import apply_tool_config, load_tool_config
-
-    # Load config early so we can read the tools list from it
-    config = load_tool_config(tools_config_path)
-
-    # Determine tool list: config file > default
-    tool_entries = config.tools if (config and config.tools is not None) else None
-    if tool_entries is not None:
-        tools_to_register = [
-            {"class": e.class_path, "namespace": e.namespace} for e in tool_entries
-        ]
-    else:
-        tools_to_register = _DEFAULT_TOOLS
+    config = _resolve_config(tools_config_path, tool_kwargs)
 
     registry = ToolRegistry(name="hub", think_augment=enable_think)
+    registry.add_post_register_hook(configurable_hook)
 
-    for tool_def in tools_to_register:
-        namespace = tool_def["namespace"]
-        kwargs_key = namespace.rsplit("/", 1)[-1]
-        kwargs = (tool_kwargs or {}).get(kwargs_key, {})
-        _register_tool(registry, tool_def["class"], namespace, kwargs)
-
-    _remove_hidden_methods(registry)
-
-    # Apply startup tool configuration (highest priority)
-    if config is not None:
-        apply_tool_config(registry, config)
-
-    # Apply metadata (tags, defer flags) to registered tools
+    _register_sources(registry, config)
     _apply_tool_metadata(registry)
 
-    # Apply deployment profile filter (after metadata so tags are set)
-    if profile is not None:
-        _apply_profile_filter(registry, profile)
-
-    # Enable tool discovery (registers discover_tools, indexes all tools)
     if enable_discovery:
         registry.enable_tool_discovery()
 
