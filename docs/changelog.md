@@ -14,11 +14,12 @@ author: Oaklight
 
 ### 新增
 - CLI 新增 `--profile {remote,local}` 部署环境过滤参数。`remote` 模式禁用文件系统/Shell/定时任务类工具（它们访问的是服务器自身的文件系统，远程部署时对用户无实际价值）；`local` 模式仅保留本机工具，禁用网络/计算类工具。默认不过滤。
-- `registry.py` 新增 `_apply_profile_filter()` 函数及 `_LOCAL_ONLY_TAGS` 常量（`FILE_SYSTEM | DESTRUCTIVE | PRIVILEGED`）。
 
 ### 变更
-- `cli.py` 中的 `_run_openapi_server()` 和 `_run_mcp_server()` 现在委托给 `toolregistry-server` 的 `run_openapi_server(registry=...)` / `run_mcp_server(registry=...)`，消除了约 80 行重复的启动逻辑。
-- `toolregistry-server` 依赖版本要求提升至 `>=0.2.2`。
+- **服务层收敛至上游 API**（解决 #109）：删除 hub 自有的 `tool_config.py`（约 355 行）及其测试，改用 core 层的 `toolregistry.config.{load_config, PythonSource, ToolConfig}`。profile 过滤现在直接委托给 `toolregistry-server` 的 `run_openapi_server(registry=, profile=)` / `run_mcp_server(registry=, profile=)`。
+- `registry.py` 中的 `_DEFAULT_TOOLS` 迁移为 `list[PythonSource]`；注册后钩子通过 `ToolRegistry.add_post_register_hook()` 注入。
+- 配置文件自动发现：依次检查 `TOOLS_CONFIG` 环境变量、当前目录下的 `tools.jsonc` / `tools.yaml` / `tools.yml`。
+- 所有 extras 中 `toolregistry-server` 依赖版本要求提升至 `>=0.3.0`。
 
 ### 依赖
 
