@@ -210,6 +210,19 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
         default=True,
         help="Enable/disable think-augmented function calling (default: enabled)",
     )
+    parser.add_argument(
+        "--profile",
+        type=str,
+        choices=["remote", "local"],
+        default=None,
+        help=(
+            "Deployment profile filter. "
+            "'remote': disable filesystem/shell/cron tools (they access the server's "
+            "own filesystem, not the user's). "
+            "'local': keep only filesystem/shell/cron tools, disable network tools. "
+            "Default: no filter, all tools enabled."
+        ),
+    )
 
 
 def _add_openapi_arguments(parser: argparse.ArgumentParser) -> None:
@@ -337,6 +350,7 @@ def main(args: list[str] | None = None) -> NoReturn | None:
         tools_config_path=getattr(parsed, "config", None),
         enable_discovery=getattr(parsed, "tool_discovery", True),
         enable_think=getattr(parsed, "think_augment", True),
+        profile=getattr(parsed, "profile", None),
     )
 
     # Dispatch to appropriate command handler
@@ -387,12 +401,10 @@ def _run_openapi_server(
         port: Port to bind the server to.
         tokens_path: Path to tokens file for authentication.
         reload: Enable auto-reload for development.
+        admin_port: Port for the admin panel, or None to disable.
     """
     try:
-        import uvicorn
-        from toolregistry_server import RouteTable
-        from toolregistry_server.auth import BearerTokenAuth, create_bearer_dependency
-        from toolregistry_server.openapi import create_openapi_app
+        from toolregistry_server.cli.openapi import run_openapi_server
     except ImportError as e:
         logger.error(f"OpenAPI server dependencies not installed: {e}")
         logger.info("Installation options:")
@@ -400,61 +412,22 @@ def _run_openapi_server(
         logger.info("  Full server:  pip install toolregistry-hub[server]")
         sys.exit(1)
 
-    from .auth import get_valid_tokens
     from .registry import get_registry
-    from .routes.version import router as version_router
 
-    # Log server info
     logger.info("Server mode: OpenAPI")
 
-    # Get the hub registry
     registry = get_registry()
 
-    # Enable admin panel if requested
     if admin_port is not None:
         _enable_admin_panel(registry, admin_port)
 
-    # Create route table from registry
-    route_table = RouteTable(registry)
-
-    # Setup authentication
-    valid_tokens = get_valid_tokens(tokens_path)
-    dependencies = None
-
-    if valid_tokens:
-        auth = BearerTokenAuth(tokens=list(valid_tokens))
-        dependency = create_bearer_dependency(auth)
-        from fastapi import Depends
-
-        dependencies = [Depends(dependency)]
-        logger.info("Token authentication enabled for OpenAPI server")
-    else:
-        logger.info(
-            "No tokens configured - OpenAPI server running without authentication"
-        )
-
-    # Create the OpenAPI app using toolregistry-server
-    app = create_openapi_app(
-        route_table,
-        title="ToolRegistry-Hub Server",
-        version=__version__,
-        description="A server for accessing various tools like calculators, "
-        "unit converters, and web search engines.",
-        dependencies=dependencies,
+    run_openapi_server(
+        host=host,
+        port=port,
+        tokens_path=tokens_path,
+        reload=reload,
+        registry=registry,
     )
-
-    # Add hub-specific routes (version endpoint)
-    app.include_router(version_router)
-    logger.info("Included version router at /version")
-
-    logger.info("OpenAPI app initialized with toolregistry-server")
-    logger.info(f"Registered {len(route_table.list_routes())} tool(s)")
-
-    # Run the server
-    if reload:
-        logger.warning("Reload mode is not fully supported with dynamic configuration")
-
-    uvicorn.run(app, host=host, port=port, reload=reload)
 
 
 def _run_mcp_server(
@@ -466,15 +439,10 @@ def _run_mcp_server(
         host: Host to bind the server to.
         port: Port to bind the server to.
         transport: MCP transport type ('stdio', 'sse', or 'streamable-http').
+        admin_port: Port for the admin panel, or None to disable.
     """
     try:
-        from toolregistry_server import RouteTable
-        from toolregistry_server.mcp import (
-            create_mcp_server,
-            run_sse,
-            run_stdio,
-            run_streamable_http,
-        )
+        from toolregistry_server.cli.mcp import run_mcp_server
     except ImportError as e:
         logger.error(f"MCP server dependencies not installed: {e}")
         logger.info("Installation options:")
@@ -486,38 +454,21 @@ def _run_mcp_server(
         )
         sys.exit(1)
 
-    import asyncio
-
     from .registry import get_registry
 
-    # Log server info
     logger.info(f"Server mode: MCP (transport: {transport})")
 
-    # Get the hub registry
     registry = get_registry()
 
-    # Enable admin panel if requested
     if admin_port is not None:
         _enable_admin_panel(registry, admin_port)
 
-    # Create route table from registry
-    route_table = RouteTable(registry)
-
-    # Create MCP server using toolregistry-server
-    mcp_server = create_mcp_server(route_table, name="ToolRegistry-Hub")
-
-    logger.info("MCP server initialized with toolregistry-server")
-    logger.info(f"Registered {len(route_table.list_routes())} tool(s)")
-
-    # Run the appropriate transport
-    if transport == "stdio":
-        asyncio.run(run_stdio(mcp_server))
-    elif transport == "sse":
-        logger.info(f"SSE endpoint: http://{host}:{port}/sse")
-        asyncio.run(run_sse(mcp_server, host=host, port=port))
-    else:  # streamable-http
-        logger.info(f"HTTP endpoint: http://{host}:{port}/mcp")
-        asyncio.run(run_streamable_http(mcp_server, host=host, port=port))
+    run_mcp_server(
+        transport=transport,
+        host=host,
+        port=port,
+        registry=registry,
+    )
 
 
 if __name__ == "__main__":
