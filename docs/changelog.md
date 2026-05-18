@@ -12,6 +12,14 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 ## [Unreleased] - since 0.8.0
 
+### Added
+- `--profile {remote,local}` CLI flag for deployment context filtering. `remote` disables filesystem/shell/cron tools (they access the server's own filesystem, not the user's machine); `local` keeps only those local-machine tools and disables network/compute tools. Default: no filter.
+- `_apply_profile_filter()` in `registry.py` with `_LOCAL_ONLY_TAGS` constant (`FILE_SYSTEM | DESTRUCTIVE | PRIVILEGED`).
+
+### Changed
+- `_run_openapi_server()` and `_run_mcp_server()` in `cli.py` now delegate to `toolregistry-server`'s `run_openapi_server(registry=...)` / `run_mcp_server(registry=...)`, eliminating ~80 lines of duplicated startup logic.
+- Bumped `toolregistry-server` requirement to `>=0.2.2`.
+
 ### Dependencies
 
 - Update vendored `httpclient` module from 0.3.1 to 0.4.1 (zerodep)
