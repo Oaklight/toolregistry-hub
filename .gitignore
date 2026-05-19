@@ -218,4 +218,15 @@ references/
 .cline/
 .vscode/settings.json
 
-./docs_*
+# Git worktrees for docs branches
+docs_en/
+docs_zh/
+
+# Playwright MCP snapshots
+.playwright-mcp/
+
+# Local research / planning notes
+plans/
+
+# Temporary screenshots
+*.png
