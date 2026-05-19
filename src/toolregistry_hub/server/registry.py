@@ -156,22 +156,61 @@ def configurable_hook(name: str, tool: object, registry: ToolRegistry) -> str | 
     return None
 
 
+def _apply_overrides(tool: object, overrides: dict) -> None:
+    """Apply a single overrides dict to a tool's metadata.
+
+    Supported keys: ``defer``, ``tags``, ``search_hint``.
+
+    Args:
+        tool: A ``Tool`` instance (duck-typed via ``.metadata``).
+        overrides: Dict with optional ``defer``, ``tags``, and/or
+            ``search_hint`` keys.
+    """
+    meta = getattr(tool, "metadata", None)
+    if meta is None:
+        return
+    if "defer" in overrides:
+        meta.defer = overrides["defer"]
+    if "tags" in overrides:
+        meta.tags = overrides["tags"]
+    if "search_hint" in overrides:
+        meta.search_hint = overrides["search_hint"]
+
+
 def _apply_tool_metadata(registry: ToolRegistry) -> None:
     """Apply tag and defer overrides from ``_TOOL_METADATA`` to all tools.
+
+    Namespace-level overrides are applied first; method-level overrides
+    (nested under the ``methods`` key) are applied afterwards and take
+    precedence for the matched tool.  Method lookup is by
+    ``tool.method_name`` so it is independent of the name separator.
+
+    Example ``_TOOL_METADATA`` entry with method-level override::
+
+        "calculator": {
+            "tags": {ToolTag.READ_ONLY},
+            "methods": {
+                "evaluate": {"defer": True},
+            },
+        }
 
     Args:
         registry: The registry whose tools should be annotated.
     """
     for tool in registry._tools.values():
         ns = tool.namespace
-        if ns and ns in _TOOL_METADATA:
-            overrides = _TOOL_METADATA[ns]
-            if "defer" in overrides:
-                tool.metadata.defer = overrides["defer"]
-            if "tags" in overrides:
-                tool.metadata.tags = overrides["tags"]
-            if "search_hint" in overrides:
-                tool.metadata.search_hint = overrides["search_hint"]
+        if not ns or ns not in _TOOL_METADATA:
+            continue
+        ns_meta = _TOOL_METADATA[ns]
+        _apply_overrides(tool, ns_meta)
+        # Method-level override — keyed by method_name, separator-independent
+        method_overrides: dict[str, dict] = ns_meta.get("methods", {})
+        if (
+            method_overrides
+            and tool.method_name
+            and tool.method_name in method_overrides
+        ):
+            _apply_overrides(tool, method_overrides[tool.method_name])
 
 
 def _discover_config_path() -> str | None:
