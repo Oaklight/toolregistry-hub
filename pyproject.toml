@@ -80,7 +80,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "toolregistry.hub" = ["py.typed"]
-"toolregistry_hub" = ["py.typed"]
+"toolregistry_hub" = ["py.typed", "data/*.yaml"]
 
 [tool.setuptools.dynamic]
 version = { attr = "toolregistry_hub.__version__" }

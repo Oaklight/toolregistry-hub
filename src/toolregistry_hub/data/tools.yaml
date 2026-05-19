@@ -1,0 +1,109 @@
+# ToolRegistry Hub — default tool list
+#
+# This file is the built-in tool manifest shipped with the package.
+# Users can override it entirely by passing --config / TOOLS_CONFIG env var
+# or placing their own tools.yaml in the current directory.
+#
+# Supported fields per tool entry:
+#   type:      python | mcp | openapi
+#   class:     fully-qualified class path (python type)
+#   namespace: tool namespace (used for routing and profile filtering)
+#   tags:      semantic labels (read_only, network, file_system, destructive, privileged, slow)
+#   kwargs:    constructor keyword arguments (e.g. api_keys, base_url)
+#   enabled:   false to disable this entry
+
+tools:
+  - type: python
+    class: toolregistry_hub.bash_tool.BashTool
+    namespace: bash
+    tags: [destructive, privileged]
+
+  - type: python
+    class: toolregistry_hub.cron_tool.CronTool
+    namespace: cron
+    tags: [privileged]
+
+  - type: python
+    class: toolregistry_hub.calculator.Calculator
+    namespace: calculator
+    tags: [read_only]
+
+  - type: python
+    class: toolregistry_hub.datetime_utils.DateTime
+    namespace: datetime
+    tags: [read_only]
+
+  - type: python
+    class: toolregistry_hub.fetch.Fetch
+    namespace: web/fetch
+    tags: [network, read_only]
+
+  - type: python
+    class: toolregistry_hub.file_ops.FileOps
+    namespace: file_ops
+    tags: [file_system, destructive]
+
+  - type: python
+    class: toolregistry_hub.file_reader.FileReader
+    namespace: reader
+    tags: [file_system, read_only]
+
+  - type: python
+    class: toolregistry_hub.file_search.FileSearch
+    namespace: fs/file_search
+    tags: [file_system, read_only]
+
+  - type: python
+    class: toolregistry_hub.path_info.PathInfo
+    namespace: fs/path_info
+    tags: [file_system, read_only]
+
+  - type: python
+    class: toolregistry_hub.think_tool.ThinkTool
+    namespace: think
+    tags: [read_only]
+
+  - type: python
+    class: toolregistry_hub.todo_list.TodoList
+    namespace: todolist
+    tags: [read_only]
+
+  - type: python
+    class: toolregistry_hub.unit_converter.UnitConverter
+    namespace: unit_converter
+    tags: [read_only]
+
+  - type: python
+    class: toolregistry_hub.websearch.websearch_unified.WebSearch
+    namespace: web/websearch
+    tags: [network, read_only]
+
+  - type: python
+    class: toolregistry_hub.websearch.websearch_brave.BraveSearch
+    namespace: web/brave_search
+    tags: [network, read_only]
+
+  - type: python
+    class: toolregistry_hub.websearch.websearch_tavily.TavilySearch
+    namespace: web/tavily_search
+    tags: [network, read_only]
+
+  - type: python
+    class: toolregistry_hub.websearch.websearch_searxng.SearXNGSearch
+    namespace: web/searxng_search
+    tags: [network, read_only]
+
+  - type: python
+    class: toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch
+    namespace: web/brightdata_search
+    tags: [network, read_only]
+
+  - type: python
+    class: toolregistry_hub.websearch.websearch_scrapeless.ScrapelessSearch
+    namespace: web/scrapeless_search
+    tags: [network, read_only]
+
+  - type: python
+    class: toolregistry_hub.websearch.websearch_serper.SerperSearch
+    namespace: web/serper_search
+    tags: [network, read_only]
