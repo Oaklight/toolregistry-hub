@@ -391,6 +391,8 @@ def build_registry(
 
     _register_sources(registry, config)
     _apply_tool_metadata(registry)
+    if config.tool_metadata:
+        registry.apply_metadata_config(config.tool_metadata)
 
     if enable_discovery:
         registry.enable_tool_discovery()
