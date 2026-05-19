@@ -60,5 +60,5 @@ __all__ = [
     "CronTool",
 ]
 
-__version__ = "0.8.0"  # version convention
+__version__ = "0.8.1"  # version convention
 version = __version__  # I made mistake. But here kept for backward compatibility
