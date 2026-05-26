@@ -134,6 +134,8 @@ make build-docker           # Docker image build
 - **Merge strategy: rebase** — keep commits atomic and well-messaged.
 - Branch naming: `feature/...`, `fix/...`, `refactor/...`, `test/...`, `docs/...`
 - Never force-push to `master` unless the user explicitly requests it.
+- **No AI co-author tags in commits.** Do not add `Co-authored-by` lines for AI
+  tools in git commit messages. Disclose AI usage in PR descriptions instead.
 
 ## Documentation
 
