@@ -10,20 +10,43 @@ author: Oaklight
 
 本页面记录了 toolregistry-hub 项目从首个正式发布版本 0.4.14 以来的所有重要变更。
 
-## [未发布] - 自 0.8.0 以来
+格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并在需要时保留项目自身的分类方式。
+
+## [未发布]
+
+## [0.8.2] - 2026-05-28
+
+### 变更
+
+- 构建 hub 注册表时应用 `tool_metadata` 配置覆盖。
+- 支持从 `_TOOL_METADATA` 读取方法级 tag 与 defer 覆盖。
+- server extras 中 `toolregistry-server` 依赖版本要求提升至 `>=0.3.2`。
+- 修复包元数据中的 README 路径，改为使用 `README_en.md`。
+- 将 complexipy pre-commit 钩子切换为官方 `complexipy-pre-commit`，并使用明确的文件过滤。
+
+## [0.8.1] - 2026-05-19
 
 ### 新增
 - CLI 新增 `--profile {remote,local}` 部署环境过滤参数。`remote` 模式禁用文件系统/Shell/定时任务类工具（它们访问的是服务器自身的文件系统，远程部署时对用户无实际价值）；`local` 模式仅保留本机工具，禁用网络/计算类工具。默认不过滤。
+- 随 hub 打包默认 `tools.yaml` manifest，用于配置驱动部署。
 
 ### 变更
 - **服务层收敛至上游 API**（解决 #109）：删除 hub 自有的 `tool_config.py`（约 355 行）及其测试，改用 core 层的 `toolregistry.config.{load_config, PythonSource, ToolConfig}`。profile 过滤现在直接委托给 `toolregistry-server` 的 `run_openapi_server(registry=, profile=)` / `run_mcp_server(registry=, profile=)`。
 - `registry.py` 中的 `_DEFAULT_TOOLS` 迁移为 `list[PythonSource]`；注册后钩子通过 `ToolRegistry.add_post_register_hook()` 注入。
 - 配置文件自动发现：依次检查 `TOOLS_CONFIG` 环境变量、当前目录下的 `tools.jsonc` / `tools.yaml` / `tools.yml`。
-- 所有 extras 中 `toolregistry-server` 依赖版本要求提升至 `>=0.3.0`。
+- server extras 中 `toolregistry-server` 依赖版本要求提升至 `>=0.3.1`。
+- README 文件改为大写命名，以匹配包元数据和仓库约定。
+
+### 修复
+
+- 将 `_register_python_source_fn` 类型改为 `Callable[..., None]`，以满足类型检查。
+- CI 在安装上游 release 前等待 PyPI 可用，避免发布传播延迟导致失败。
 
 ### 依赖
 
 - 更新内置 `httpclient` 模块从 0.3.1 至 0.4.1（zerodep）
+
+## [0.8.0] - 2026-04-06
 
 ### 新功能
 
