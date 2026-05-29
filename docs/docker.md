@@ -50,16 +50,16 @@ The Docker container supports all server modes:
 docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest
 ```
 
-### MCP Mode with HTTP Transport
+### MCP Mode with Streamable HTTP Transport
 
 ```bash
-docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest toolregistry-server --host=0.0.0.0 --port=8000 --mode=mcp
+docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest toolregistry-hub mcp --transport=streamable-http --host=0.0.0.0 --port=8000
 ```
 
 ### MCP Mode with SSE Transport
 
 ```bash
-docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest toolregistry-server --host=0.0.0.0 --port=8000 --mode=mcp --mcp-transport=sse
+docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest toolregistry-hub mcp --transport=sse --host=0.0.0.0 --port=8000
 ```
 
 ## Tool Configuration

@@ -40,10 +40,10 @@ hide:
     pip install toolregistry-hub[server]
 
     # REST API server
-    toolregistry-server --mode openapi --port 8000
+    toolregistry-hub openapi --port 8000
 
     # MCP server (for AI agents)
-    toolregistry-server --mode mcp --port 8000
+    toolregistry-hub mcp --transport streamable-http --port 8000
     ```
 
     All tools are auto-exposed as API endpoints. **[Learn more →](server.md)**

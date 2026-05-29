@@ -14,7 +14,7 @@ ToolRegistry Hub is first and foremost a **Python library**. Every tool can be i
     | | Library | Server |
     |---|---------|--------|
     | **Install** | `pip install toolregistry-hub` | `pip install toolregistry-hub[server]` |
-    | **Usage** | `from toolregistry_hub import ...` | `toolregistry-server --mode openapi` |
+    | **Usage** | `from toolregistry_hub import ...` | `toolregistry-hub openapi` |
     | **Best for** | Scripts, notebooks, AI agents, embedding in your app | Remote access, multi-client, MCP integration |
     | **Latency** | Direct function call | HTTP / stdio round-trip |
     | **Dependencies** | Minimal (mostly stdlib) | FastAPI, uvicorn, or MCP SDK |

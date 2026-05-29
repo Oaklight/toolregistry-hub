@@ -30,48 +30,52 @@ pip install toolregistry-hub[server_mcp]
 
 ### Command Line Startup
 
-After installation, you can use the `toolregistry-server` command to start the server:
+After installation, use the `toolregistry-hub` command with either the `openapi` or `mcp` subcommand:
 
 ```bash
-# Start OpenAPI server (default mode)
-toolregistry-server --mode openapi --host 0.0.0.0 --port 8000
+# Start OpenAPI server
+toolregistry-hub openapi --host 0.0.0.0 --port 8000
 
-# Start MCP server
-toolregistry-server --mode mcp --host 0.0.0.0 --port 8000
+# Start MCP server with streamable HTTP transport
+toolregistry-hub mcp --transport streamable-http --host 0.0.0.0 --port 8000
 
-# Start MCP server (stdio mode)
-toolregistry-server --mode mcp --mcp-transport stdio
+# Start MCP server with SSE transport
+toolregistry-hub mcp --transport sse --host 0.0.0.0 --port 8000
+
+# Start MCP server with stdio transport
+toolregistry-hub mcp --transport stdio
 ```
 
-### Parameter Description
+### Common Options
 
-- `--host`: Host address to bind the server to (default: 0.0.0.0)
-- `--port`: Port to bind the server to (default: 8000)
-- `--mode`: Server mode, options are `openapi` or `mcp` (default: openapi)
-- `--mcp-transport`: MCP transport mode, options are `streamable-http`, `sse`, or `stdio` (default: streamable-http)
+Top-level options:
+
+- `--version` / `-V`: Show version and exit
+- `--no-banner`: Disable the startup banner
+
+Options shared by `openapi` and `mcp`:
+
+- `--env PATH`: Path to `.env` file (default: `.env` in the current directory)
+- `--no-env`: Skip loading `.env`
+- `--admin-port PORT`: Enable the admin panel on the specified port
 - `--tool-discovery` / `--no-tool-discovery`: Enable or disable tool discovery with progressive disclosure (default: enabled). When enabled, less-used tools are deferred and discoverable via the `discover_tools` tool
 - `--think-augment` / `--no-think-augment`: Enable or disable think-augmented function calling (default: enabled). When enabled, injects a `thought` property into tool schemas for chain-of-thought reasoning
+- `--profile {remote,local}`: Apply deployment profile filtering. `remote` disables server-local filesystem/shell/cron tools; `local` keeps only those local-machine tools and disables network tools. Default: no filter.
 
-### In-Code Startup
+OpenAPI-specific options:
 
-You can also start the server directly in Python code:
+- `--host HOST`: Host address to bind the server to (default: `0.0.0.0`)
+- `--port PORT`: Port to bind the server to (default: `8000`)
+- `--config PATH`: Path to a JSON, JSONC, or YAML tool configuration file
+- `--tokens PATH`: File containing bearer tokens, one per line
+- `--reload`: Enable auto-reload for development
 
-```python
-# Start OpenAPI server
-from toolregistry_hub.server.server_openapi import app
-import uvicorn
+MCP-specific options:
 
-uvicorn.run(app, host="0.0.0.0", port=8000)
-
-# Start MCP server
-from toolregistry_hub.server.server_mcp import mcp_app
-
-# HTTP transport mode
-mcp_app.run(transport="streamable-http", host="0.0.0.0", port=8000)
-
-# stdio transport mode
-mcp_app.run()
-```
+- `--transport {stdio,sse,streamable-http}`: MCP transport type (default: `stdio`)
+- `--host HOST`: Host for SSE/HTTP transports (default: `127.0.0.1`)
+- `--port PORT`: Port for SSE/HTTP transports (default: `8000`)
+- `--config PATH`: Path to a JSON, JSONC, or YAML tool configuration file
 
 ## API Endpoints
 
@@ -297,10 +301,10 @@ Create a `tools.jsonc` file in the working directory, or specify a custom path:
 cp tools.jsonc.example tools.jsonc
 
 # Or specify via CLI option
-toolregistry-server --tools-config path/to/tools.jsonc
+toolregistry-hub openapi --config path/to/tools.jsonc
 
 # Or specify via environment variable
-TOOLS_CONFIG=path/to/tools.jsonc toolregistry-server
+TOOLS_CONFIG=path/to/tools.jsonc toolregistry-hub openapi
 ```
 
 ### Configuration Fields
