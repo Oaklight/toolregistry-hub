@@ -50,16 +50,16 @@ Docker 容器支持所有服务器模式：
 docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest
 ```
 
-### MCP 模式与 HTTP 传输
+### MCP 模式与可流式 HTTP 传输
 
 ```bash
-docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest toolregistry-server --host=0.0.0.0 --port=8000 --mode=mcp
+docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest toolregistry-hub mcp --transport=streamable-http --host=0.0.0.0 --port=8000
 ```
 
 ### MCP 模式与 SSE 传输
 
 ```bash
-docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest toolregistry-server --host=0.0.0.0 --port=8000 --mode=mcp --mcp-transport=sse
+docker run -p 8000:8000 oaklight/toolregistry-hub-server:latest toolregistry-hub mcp --transport=sse --host=0.0.0.0 --port=8000
 ```
 
 ## 工具配置

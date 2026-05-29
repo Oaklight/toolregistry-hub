@@ -30,48 +30,52 @@ pip install toolregistry-hub[server_mcp]
 
 ### 命令行启动
 
-安装完成后，您可以使用 `toolregistry-server` 命令启动服务器：
+安装完成后，使用 `toolregistry-hub` 命令，并选择 `openapi` 或 `mcp` 子命令：
 
 ```bash
-# 启动 OpenAPI 服务器 (默认模式)
-toolregistry-server --mode openapi --host 0.0.0.0 --port 8000
-
-# 启动 MCP 服务器
-toolregistry-server --mode mcp --host 0.0.0.0 --port 8000
-
-# 启动 MCP 服务器 (stdio 模式)
-toolregistry-server --mode mcp --mcp-transport stdio
-```
-
-### 参数说明
-
-- `--host`: 服务器绑定的主机地址 (默认: 0.0.0.0)
-- `--port`: 服务器绑定的端口 (默认: 8000)
-- `--mode`: 服务器模式，可选值为 `openapi` 或 `mcp` (默认: openapi)
-- `--mcp-transport`: MCP 传输模式，可选值为 `streamable-http`、`sse` 或 `stdio` (默认: streamable-http)
-- `--tool-discovery` / `--no-tool-discovery`: 启用或禁用工具发现与渐进式披露（默认：启用）。启用后，低频工具标记为延迟加载，可通过 `discover_tools` 工具发现
-- `--think-augment` / `--no-think-augment`: 启用或禁用思维增强工具调用（默认：启用）。启用后，向工具 schema 注入 `thought` 属性用于链式思维推理
-
-### 程序内启动
-
-您也可以在 Python 代码中直接启动服务器：
-
-```python
 # 启动 OpenAPI 服务器
-from toolregistry_hub.server.server_openapi import app
-import uvicorn
+toolregistry-hub openapi --host 0.0.0.0 --port 8000
 
-uvicorn.run(app, host="0.0.0.0", port=8000)
+# 使用可流式 HTTP 传输启动 MCP 服务器
+toolregistry-hub mcp --transport streamable-http --host 0.0.0.0 --port 8000
 
-# 启动 MCP 服务器
-from toolregistry_hub.server.server_mcp import mcp_app
+# 使用 SSE 传输启动 MCP 服务器
+toolregistry-hub mcp --transport sse --host 0.0.0.0 --port 8000
 
-# HTTP 传输模式
-mcp_app.run(transport="streamable-http", host="0.0.0.0", port=8000)
-
-# stdio 传输模式
-mcp_app.run()
+# 使用 stdio 传输启动 MCP 服务器
+toolregistry-hub mcp --transport stdio
 ```
+
+### 通用选项
+
+顶层选项：
+
+- `--version` / `-V`：显示版本并退出
+- `--no-banner`：禁用启动横幅
+
+`openapi` 和 `mcp` 共享的选项：
+
+- `--env PATH`：`.env` 文件路径（默认：当前目录下的 `.env`）
+- `--no-env`：跳过加载 `.env`
+- `--admin-port PORT`：在指定端口启用管理面板
+- `--tool-discovery` / `--no-tool-discovery`：启用或禁用工具发现与渐进式披露（默认：启用）。启用后，低频工具标记为延迟加载，可通过 `discover_tools` 工具发现
+- `--think-augment` / `--no-think-augment`：启用或禁用思维增强工具调用（默认：启用）。启用后，向工具 schema 注入 `thought` 属性用于链式思维推理
+- `--profile {remote,local}`：应用部署 profile 过滤。`remote` 禁用访问服务器本地文件系统的文件/Shell/定时任务工具；`local` 仅保留这些本机工具并禁用网络工具。默认不过滤。
+
+OpenAPI 专用选项：
+
+- `--host HOST`：绑定主机地址（默认：`0.0.0.0`）
+- `--port PORT`：绑定端口（默认：`8000`）
+- `--config PATH`：JSON、JSONC 或 YAML 工具配置文件路径
+- `--tokens PATH`：Bearer 令牌文件（每行一个）
+- `--reload`：启用开发自动重载
+
+MCP 专用选项：
+
+- `--transport {stdio,sse,streamable-http}`：MCP 传输类型（默认：`stdio`）
+- `--host HOST`：SSE/HTTP 传输使用的主机地址（默认：`127.0.0.1`）
+- `--port PORT`：SSE/HTTP 传输使用的端口（默认：`8000`）
+- `--config PATH`：JSON、JSONC 或 YAML 工具配置文件路径
 
 ## API 端点
 
@@ -297,10 +301,10 @@ print(f"搜索结果: {json.dumps(search_results, indent=2)}")
 cp tools.jsonc.example tools.jsonc
 
 # 或通过 CLI 选项指定
-toolregistry-server --tools-config path/to/tools.jsonc
+toolregistry-hub openapi --config path/to/tools.jsonc
 
 # 或通过环境变量指定
-TOOLS_CONFIG=path/to/tools.jsonc toolregistry-server
+TOOLS_CONFIG=path/to/tools.jsonc toolregistry-hub openapi
 ```
 
 ### 配置字段

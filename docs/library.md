@@ -14,7 +14,7 @@ ToolRegistry Hub 首先是一个 **Python 库**。每个工具都可以直接在
     | | 库模式 | 服务器模式 |
     |---|---------|--------|
     | **安装** | `pip install toolregistry-hub` | `pip install toolregistry-hub[server]` |
-    | **使用** | `from toolregistry_hub import ...` | `toolregistry-server --mode openapi` |
+    | **使用** | `from toolregistry_hub import ...` | `toolregistry-hub openapi` |
     | **适用场景** | 脚本、Notebook、AI Agent、嵌入你的应用 | 远程访问、多客户端、MCP 集成 |
     | **延迟** | 直接函数调用 | HTTP / stdio 往返 |
     | **依赖** | 极少（主要是标准库） | FastAPI、uvicorn 或 MCP SDK |
