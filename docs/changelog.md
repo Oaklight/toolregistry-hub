@@ -10,20 +10,43 @@ author: Oaklight
 
 This page documents all notable changes to the toolregistry-hub project since the first official release version 0.4.14.
 
-## [Unreleased] - since 0.8.0
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with project-specific grouping where useful.
+
+## [Unreleased]
+
+## [0.8.2] - 2026-05-28
+
+### Changed
+
+- Apply `tool_metadata` config overrides when building the hub registry.
+- Support method-level tag and defer overrides from `_TOOL_METADATA`.
+- Bump server extras to require `toolregistry-server>=0.3.2`.
+- Fix package README metadata path to use `README_en.md`.
+- Switch the complexipy pre-commit hook to the official `complexipy-pre-commit` hook with explicit file filtering.
+
+## [0.8.1] - 2026-05-19
 
 ### Added
 - `--profile {remote,local}` CLI flag for deployment context filtering. `remote` disables filesystem/shell/cron tools (they access the server's own filesystem, not the user's machine); `local` keeps only those local-machine tools and disables network/compute tools. Default: no filter.
+- Default `tools.yaml` manifest packaged with the hub for config-driven deployments.
 
 ### Changed
 - **Converged server layer to upstream APIs** (resolves #109): deleted hub-specific `tool_config.py` (~355 lines) and its tests, replaced by `toolregistry.config.{load_config, PythonSource, ToolConfig}` from core. Hub now re-uses `toolregistry-server`'s `run_openapi_server(registry=, profile=)` and `run_mcp_server(registry=, profile=)` directly for profile filtering.
 - `_DEFAULT_TOOLS` in `registry.py` migrated to `list[PythonSource]`; post-register hook wired via `ToolRegistry.add_post_register_hook()`.
 - Config auto-discovery checks `TOOLS_CONFIG` env var, then `tools.jsonc` / `tools.yaml` / `tools.yml` in the current directory.
-- Bumped `toolregistry-server` requirement to `>=0.3.0` across all extras.
+- Bumped `toolregistry-server` requirement to `>=0.3.1` across server extras.
+- Renamed README files to uppercase names used by package metadata and repository conventions.
+
+### Fixed
+
+- Use `Callable[..., None]` for `_register_python_source_fn` to satisfy type checking.
+- Wait for upstream PyPI availability before installing upstream releases in CI.
 
 ### Dependencies
 
 - Update vendored `httpclient` module from 0.3.1 to 0.4.1 (zerodep)
+
+## [0.8.0] - 2026-04-06
 
 ### New Features
 
