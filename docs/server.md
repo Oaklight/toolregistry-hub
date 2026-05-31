@@ -59,7 +59,7 @@ toolregistry-hub mcp --transport stdio
 - `--no-env`：跳过加载 `.env`
 - `--admin-port PORT`：在指定端口启用管理面板
 - `--tool-discovery` / `--no-tool-discovery`：启用或禁用工具发现与渐进式披露（默认：启用）。启用后，低频工具标记为延迟加载，可通过 `discover_tools` 工具发现
-- `--think-augment` / `--no-think-augment`：启用或禁用思维增强工具调用（默认：启用）。启用后，向工具 schema 注入 `thought` 属性用于链式思维推理
+- `--think-augment` / `--no-think-augment`：启用或禁用理由增强工具调用（默认：启用）。启用后，向工具 schema 注入 `toolcall_reason` 属性，供客户端说明工具选择理由
 - `--profile {remote,local}`：应用部署 profile 过滤。`remote` 禁用访问服务器本地文件系统的文件/Shell/定时任务工具；`local` 仅保留这些本机工具并禁用网络工具。默认不过滤。
 
 OpenAPI 专用选项：
