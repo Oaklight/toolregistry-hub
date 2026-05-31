@@ -59,7 +59,7 @@ Options shared by `openapi` and `mcp`:
 - `--no-env`: Skip loading `.env`
 - `--admin-port PORT`: Enable the admin panel on the specified port
 - `--tool-discovery` / `--no-tool-discovery`: Enable or disable tool discovery with progressive disclosure (default: enabled). When enabled, less-used tools are deferred and discoverable via the `discover_tools` tool
-- `--think-augment` / `--no-think-augment`: Enable or disable think-augmented function calling (default: enabled). When enabled, injects a `thought` property into tool schemas for chain-of-thought reasoning
+- `--think-augment` / `--no-think-augment`: Enable or disable rationale-augmented function calling (default: enabled). When enabled, injects a `toolcall_reason` property into tool schemas so clients can explain why they chose a tool
 - `--profile {remote,local}`: Apply deployment profile filtering. `remote` disables server-local filesystem/shell/cron tools; `local` keeps only those local-machine tools and disables network tools. Default: no filter.
 
 OpenAPI-specific options:
