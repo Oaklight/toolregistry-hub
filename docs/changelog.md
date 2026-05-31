@@ -14,6 +14,10 @@ author: Oaklight
 
 ## [未发布]
 
+### 变更
+
+- 重新构建并推送 `oaklight/toolregistry-hub-server:0.8.2` 和 `latest`，镜像内使用 `toolregistry==0.11.1` 与 `toolregistry-server==0.3.3`，以获得 MCP 部署相关的 schema 规范化修复。
+
 ## [0.8.2] - 2026-05-28
 
 ### 变更
