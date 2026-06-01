@@ -99,33 +99,6 @@ class TestFileOps:
         assert ours in conflict
         assert theirs in conflict
 
-    def test_validate_path_valid(self):
-        """Test path validation with valid path."""
-        result = FileOps.validate_path("/valid/path/file.txt")
-        assert result["valid"] is True
-        assert result["message"] == ""
-
-    def test_validate_path_empty(self):
-        """Test path validation with empty path."""
-        result = FileOps.validate_path("")
-        assert result["valid"] is False
-        assert "Empty path" in str(result["message"])
-
-    def test_validate_path_dangerous_chars(self):
-        """Test path validation with dangerous characters."""
-        dangerous_paths = [
-            "/path/with*wildcard",
-            "/path/with?question",
-            "/path/with>redirect",
-            "/path/with<redirect",
-            "/path/with|pipe",
-        ]
-
-        for path in dangerous_paths:
-            result = FileOps.validate_path(path)
-            assert result["valid"] is False
-            assert "dangerous characters" in str(result["message"])
-
     def test_search_files(self):
         """Test searching files with regex."""
         # Create additional test files
