@@ -323,30 +323,3 @@ class FileOps:
             stacklevel=2,
         )
         return f"<<<<<<< HEAD\n{ours}\n=======\n{theirs}\n>>>>>>> incoming\n"
-
-    @staticmethod
-    def validate_path(path: str) -> dict[str, bool | str]:
-        """Validate file path safety (checks for empty paths, dangerous characters).
-
-        .. deprecated:: This utility method will be removed in a future release.
-
-        Args:
-            path: The path string to validate.
-
-        Returns:
-            Dictionary with keys:
-            - valid (bool): Path safety status
-            - message (str): Description if invalid
-        """
-        warnings.warn(
-            "FileOps.validate_path() is deprecated and will be removed.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if not path:
-            return {"valid": False, "message": "Empty path"}
-        if "~" in path:
-            path = os.path.expanduser(path)
-        if any(c in path for c in '*?"><|'):
-            return {"valid": False, "message": "Contains dangerous characters"}
-        return {"valid": True, "message": ""}
