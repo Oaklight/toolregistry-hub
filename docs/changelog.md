@@ -14,9 +14,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- New `toolregistry_hub.utils.bind_literal()` helper that returns a copy of a function with one parameter's annotation rewritten to `Literal[*choices]`. Used by tools that need to surface a runtime-derived enum in their MCP / JSON input schema without hand-rolling `FunctionType` shenanigans.
+
 ### Fixed
 
 - **SearXNG: switch JSON API requests from GET to POST** ([#115](https://github.com/Oaklight/toolregistry-hub/issues/115)). Modern SearXNG instances with `limiter: true` block GET requests for `format=json` via `Sec-Fetch-*` header checks; POST bypasses the limiter and matches the upstream-documented JSON API usage. Also replaces silent `return []` on HTTP errors with a typed `SearchBackendError` so callers can distinguish "no results" from "backend rejected the request".
+- `unit_converter-convert` input schema now exposes `conversion` as a closed enum of all 41 conversion function names instead of a free-form string (#117). MCP clients can validate locally and no longer need a discovery round-trip via `list_conversions`.
+- `todolist-update` accepts `in_progress` (also `in-progress`, `inprogress`) as an alias for `pending` (#116). The status enum is also now spelled out explicitly in the `update` docstring so it shows up in the generated tool description.
 
 ### Changed
 
