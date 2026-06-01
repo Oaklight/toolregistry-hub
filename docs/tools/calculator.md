@@ -116,7 +116,7 @@ print(functions)
 #### 方法
 
 - `list_allowed_fns(with_help: bool = False) -> str`: 列出所有允许的函数
-- `help(fn_name: str) -> str`: 获取特定函数的帮助信息
+- `help(fn_name: str | None = None) -> str`: 获取特定函数的帮助信息。省略 `fn_name` 时，返回所有允许函数的概览。
 - `evaluate(expression: str) -> Union[float, int, bool]`: 计算数学表达式的值
 
 ## 示例

@@ -76,6 +76,10 @@ print(f"温度转换: {temp_conversions}")
 # 获取特定转换函数的帮助
 help_text = UnitConverter.help("celsius_to_fahrenheit")
 print(help_text)
+
+# 或者不传参数调用 help()，获取所有转换函数的概览
+overview = UnitConverter.help()
+print(overview)
 ```
 
 ## 转换类别
