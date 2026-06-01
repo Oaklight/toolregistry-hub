@@ -18,6 +18,10 @@ author: Oaklight
 
 - 重新构建并推送 `oaklight/toolregistry-hub-server:0.8.2` 和 `latest`，镜像内使用 `toolregistry==0.11.1` 与 `toolregistry-server==0.3.3`，以获得 MCP 部署相关的 schema 规范化修复。
 
+### 移除
+
+- `FileOps.validate_path()`（#113）。该方法只检查空字符串和少量 shell 通配符，但函数名暗示进行真正的路径校验，导致 MCP/LLM 调用方把不存在的路径当作有效路径。如需真正的路径检查，请使用 `fs/path_info-info`。
+
 ## [0.8.2] - 2026-05-28
 
 ### 变更

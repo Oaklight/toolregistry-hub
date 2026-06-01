@@ -161,7 +161,6 @@ MCP 专用选项：
 - `POST /tools/file_ops/search_files` - 搜索匹配模式的文件
 - `POST /tools/file_ops/make_diff` - 生成内容差异
 - `POST /tools/file_ops/make_git_conflict` - 生成 git 冲突标记
-- `POST /tools/file_ops/validate_path` - 验证文件路径
 
 ## 认证
 

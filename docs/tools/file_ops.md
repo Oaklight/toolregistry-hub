@@ -49,7 +49,6 @@ for result in results:
 - `append_file(path: str, content: str) -> None`: 追加内容到文件
 - `make_diff(ours: str, theirs: str) -> str`: 创建两个字符串之间的差异
 - `make_git_conflict(ours: str, theirs: str) -> str`: 创建 Git 风格的冲突标记
-- `validate_path(path: str) -> Dict[str, Union[bool, str]]`: 验证路径是否有效
 
 ## 示例
 
@@ -124,26 +123,4 @@ FileOps.edit("example.py", "TODO", "DONE", replace_all=True)
 
 # 多匹配时使用 start_line 消歧，选择最接近第 42 行的匹配
 FileOps.edit("example.py", "return result", "return modified", start_line=42)
-```
-
-### 验证路径
-
-```python
-from toolregistry_hub import FileOps
-
-# Validate file path
-result = FileOps.validate_path("example.txt")
-if result["valid"]:
-    print("Path is valid")
-else:
-    print(f"Path is invalid: {result['message']}")
-# 输出: Path is valid
-
-# Validate directory path
-result = FileOps.validate_path("non_existent_directory/")
-if result["valid"]:
-    print("Path is valid")
-else:
-    print(f"Path is invalid: {result['message']}")
-# 输出: Path is valid
 ```
