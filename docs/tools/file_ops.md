@@ -49,7 +49,6 @@ for result in results:
 - `append_file(path: str, content: str) -> None`: Append content to file
 - `make_diff(ours: str, theirs: str) -> str`: Create diff between two strings
 - `make_git_conflict(ours: str, theirs: str) -> str`: Create Git-style conflict markers
-- `validate_path(path: str) -> Dict[str, Union[bool, str]]`: Validate if path is valid
 
 ## Examples
 
@@ -125,26 +124,4 @@ FileOps.edit("example.py", "TODO", "DONE", replace_all=True)
 # Disambiguate with start_line when multiple matches exist
 # Selects the match closest to line 42
 FileOps.edit("example.py", "return result", "return modified", start_line=42)
-```
-
-### Validating Paths
-
-```python
-from toolregistry_hub import FileOps
-
-# Validate file path
-result = FileOps.validate_path("example.txt")
-if result["valid"]:
-    print("Path is valid")
-else:
-    print(f"Path is invalid: {result['message']}")
-# Output: Path is valid
-
-# Validate directory path
-result = FileOps.validate_path("non_existent_directory/")
-if result["valid"]:
-    print("Path is valid")
-else:
-    print(f"Path is invalid: {result['message']}")
-# Output: Path is valid
 ```

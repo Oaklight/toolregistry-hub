@@ -161,7 +161,6 @@ In OpenAPI mode, all tools are provided as REST API endpoints. After starting th
 - `POST /tools/file_ops/search_files` - Search for files matching a pattern
 - `POST /tools/file_ops/make_diff` - Generate a diff between contents
 - `POST /tools/file_ops/make_git_conflict` - Generate git conflict markers
-- `POST /tools/file_ops/validate_path` - Validate a file path
 
 ## Authentication
 
