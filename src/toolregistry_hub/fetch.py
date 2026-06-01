@@ -30,6 +30,21 @@ logger = get_logger()
 
 TIMEOUT_DEFAULT = 30.0
 
+# Minimum remaining budget (in seconds) before attempting another network
+# strategy.  Strategies are skipped when the deadline is closer than this so
+# callers with very small ``timeout`` values get an answer quickly.
+_MIN_STRATEGY_BUDGET = 0.05
+
+
+class FetchError(RuntimeError):
+    """Raised when ``Fetch.fetch_content`` cannot retrieve any usable content.
+
+    Surfacing this as an exception (rather than returning a sentinel string)
+    lets MCP and other tool harnesses set the ``isError`` flag on the
+    response automatically.
+    """
+
+
 # Minimum content length (in characters) to consider extraction sufficient.
 # Content shorter than this triggers the next fallback strategy.
 _MIN_CONTENT_LENGTH = 100
@@ -151,25 +166,36 @@ class Fetch:
     ) -> str:
         """Fetch and extract content from a given URL.
 
+        The ``timeout`` is treated as a wall-clock budget for the whole
+        operation, including internal retries and fallback strategies.
+        Calls that exceed the budget abort early instead of running on
+        for many multiples of the requested timeout.
+
         Args:
             url (str): The URL to fetch content from.
-            timeout (float, optional): Request timeout in seconds. Defaults to TIMEOUT_DEFAULT.
+            timeout (float, optional): Total wall-clock timeout in seconds.
+                Defaults to TIMEOUT_DEFAULT.
             proxy (str, optional): Proxy to use for the request. Defaults to None.
 
         Returns:
-            str: Extracted content from the URL, or a message indicating failure if extraction fails.
+            str: Extracted content from the URL.
+
+        Raises:
+            FetchError: If every extraction strategy fails or the deadline
+                is exceeded before any content can be retrieved.
         """
         try:
-            content = _extract(
+            return _extract(
                 url,
                 timeout=timeout,
                 proxy=proxy,
                 api_key_parser=self.api_key_parser,
             )
-            return content
+        except FetchError:
+            raise
         except Exception as e:
             logger.error(f"Failed to fetch content from {url}: {e}")
-            return "Unable to fetch content"
+            raise FetchError(f"Failed to fetch content from {url}: {e}") from e
 
 
 def _is_content_sufficient(text: str) -> bool:
@@ -265,29 +291,50 @@ def _extract(
     3. Simple soup extraction (CSS selector fallback, local)
     4. Jina Reader (external API fallback for SPA / JS-heavy pages)
 
-    HTML is fetched once and reused by stages 2 and 3.
+    HTML is fetched once and reused by stages 2 and 3.  ``timeout`` is a
+    wall-clock budget for the *whole* operation; strategies are skipped once
+    the deadline is exceeded.
 
     Args:
         url: The URL to extract content from.
-        timeout: Request timeout in seconds. Defaults to TIMEOUT_DEFAULT.
+        timeout: Total wall-clock timeout in seconds. Defaults to TIMEOUT_DEFAULT.
         proxy: Proxy to use for the request. Defaults to None.
         api_key_parser: Optional API key parser for Jina Reader authentication.
 
     Returns:
-        Extracted content, or ``"Unable to fetch content"`` if all strategies fail.
+        Extracted content.
+
+    Raises:
+        FetchError: If every extraction strategy fails or the deadline is
+            exceeded before any content is retrieved.
     """
+    deadline = time.monotonic() + max(0.0, timeout)
+
+    def _remaining() -> float:
+        return max(0.0, deadline - time.monotonic())
+
     # 1. Try Cloudflare Content Negotiation (zero-cost, high quality if supported)
-    content = _get_content_with_markdown_negotiation(
-        url,
-        timeout=timeout,
-        proxy=proxy,
-    )
-    if content:
-        logger.info(f"Successfully fetched {url} using strategy: markdown_negotiation")
-        return _format_text(content)
+    if _remaining() > _MIN_STRATEGY_BUDGET:
+        content = _get_content_with_markdown_negotiation(
+            url,
+            timeout=min(timeout, _remaining()),
+            proxy=proxy,
+        )
+        if content:
+            logger.info(
+                f"Successfully fetched {url} using strategy: markdown_negotiation"
+            )
+            return _format_text(content)
 
     # Fetch content once for local extraction strategies
-    body, content_type = _fetch_raw(url, timeout=timeout, proxy=proxy)
+    body, content_type = "", ""
+    if _remaining() > _MIN_STRATEGY_BUDGET:
+        body, content_type = _fetch_raw(
+            url,
+            timeout=min(timeout, _remaining()),
+            proxy=proxy,
+            deadline=deadline,
+        )
 
     # Short-circuit: non-HTML content types (JSON, plain text, XML, etc.)
     # can be returned directly without running HTML extraction.
@@ -317,24 +364,32 @@ def _extract(
 
     # 4. Local extraction insufficient — try Jina Reader
     reason = "low_quality_content" if local_content else "no_content"
-    logger.debug(
-        f"Local extraction insufficient for {url} (reason: {reason}, "
-        f"length: {len(local_content)}), trying Jina Reader"
-    )
-
-    jina_content = _get_content_with_jina_reader(
-        url,
-        timeout=timeout,
-        proxy=proxy,
-        api_key_parser=api_key_parser,
-    )
-
-    if jina_content and _is_content_sufficient(jina_content):
-        logger.info(
-            f"Successfully fetched {url} using strategy: jina_reader "
-            f"(local reason: {reason})"
+    jina_content = ""
+    if _remaining() > _MIN_STRATEGY_BUDGET:
+        logger.debug(
+            f"Local extraction insufficient for {url} (reason: {reason}, "
+            f"length: {len(local_content)}), trying Jina Reader"
         )
-        return _format_text(jina_content)
+
+        jina_content = _get_content_with_jina_reader(
+            url,
+            timeout=min(timeout, _remaining()),
+            proxy=proxy,
+            api_key_parser=api_key_parser,
+            deadline=deadline,
+        )
+
+        if jina_content and _is_content_sufficient(jina_content):
+            logger.info(
+                f"Successfully fetched {url} using strategy: jina_reader "
+                f"(local reason: {reason})"
+            )
+            return _format_text(jina_content)
+    else:
+        logger.debug(
+            f"Skipping Jina Reader for {url}: deadline exceeded "
+            f"(reason: {reason}, length: {len(local_content)})"
+        )
 
     # 5. Fall back to best local result if available
     if local_content:
@@ -345,7 +400,7 @@ def _extract(
         return _format_text(local_content)
 
     logger.warning(f"All extraction strategies failed for {url}")
-    return "Unable to fetch content"
+    raise FetchError(f"Unable to fetch content from {url}")
 
 
 def _get_content_with_markdown_negotiation(
@@ -425,6 +480,7 @@ def _get_content_with_jina_reader(
     timeout: float = TIMEOUT_DEFAULT,
     proxy: str | None = None,
     api_key_parser: APIKeyParser | None = None,
+    deadline: float | None = None,
 ) -> str:
     """Fetch parsed content from Jina AI Reader for a given URL.
 
@@ -435,6 +491,8 @@ def _get_content_with_jina_reader(
     The Jina ``X-Timeout`` header is set to *timeout* while the httpx
     transport timeout is set to ``timeout + _JINA_TIMEOUT_BUFFER`` so
     that the HTTP client never races against the Jina rendering deadline.
+    When ``deadline`` is supplied, engine iteration stops once the deadline
+    has been reached.
 
     Args:
         url: The URL to fetch content from.
@@ -444,11 +502,16 @@ def _get_content_with_jina_reader(
             Defaults to TIMEOUT_DEFAULT.
         proxy: Proxy to use for the HTTP request.  Defaults to ``None``.
         api_key_parser: Optional API key parser for authentication.
+        deadline: Optional shared ``time.monotonic()`` deadline.
 
     Returns:
         Parsed content from Jina AI, or empty string on failure.
     """
+    content = ""
     for engine in _JINA_ENGINES:
+        if deadline is not None and time.monotonic() >= deadline:
+            logger.debug(f"Deadline exceeded before Jina engine '{engine}' for {url}")
+            break
         # Get next valid API key for this attempt (if available)
         api_key: str | None = None
         if api_key_parser:
@@ -467,6 +530,7 @@ def _get_content_with_jina_reader(
             proxy=proxy,
             api_key=api_key,
             api_key_parser=api_key_parser,
+            deadline=deadline,
         )
         if content and _is_content_sufficient(content):
             return content
@@ -486,6 +550,7 @@ def _jina_reader_request(
     proxy: str | None = None,
     api_key: str | None = None,
     api_key_parser: APIKeyParser | None = None,
+    deadline: float | None = None,
 ) -> str:
     """Send a single request to the Jina Reader API.
 
@@ -498,16 +563,31 @@ def _jina_reader_request(
         proxy: Optional HTTP proxy URL.
         api_key: Optional Jina API key for the ``Authorization`` header.
         api_key_parser: Optional parser for marking failed keys.
+        deadline: Optional ``time.monotonic()`` deadline.  When provided,
+            both the X-Timeout header and the httpx transport timeout
+            are clamped so the request cannot run past the deadline.
 
     Returns:
         Extracted content string, or empty string on failure.
     """
     try:
+        if deadline is not None:
+            remaining = max(0.0, deadline - time.monotonic())
+            if remaining <= 0:
+                return ""
+            effective_timeout = min(timeout, remaining)
+            transport_timeout = min(effective_timeout + _JINA_TIMEOUT_BUFFER, remaining)
+        else:
+            effective_timeout = timeout
+            # httpx timeout must exceed Jina's rendering timeout so we don't
+            # abort the HTTP connection before Jina finishes.
+            transport_timeout = timeout + _JINA_TIMEOUT_BUFFER
+
         headers: dict[str, str] = {
             "Accept": "application/json",
             "X-Return-Format": return_format,
             "X-Engine": engine,
-            "X-Timeout": str(int(timeout)),
+            "X-Timeout": str(max(1, int(effective_timeout))),
             "X-Remove-Selector": "header, footer, nav, aside",
             "X-Wait-For-Selector": _JINA_WAIT_SELECTORS,
         }
@@ -515,9 +595,6 @@ def _jina_reader_request(
             headers["Authorization"] = f"Bearer {api_key}"
 
         jina_reader_url = "https://r.jina.ai/"
-        # httpx timeout must exceed Jina's rendering timeout so we don't
-        # abort the HTTP connection before Jina finishes.
-        transport_timeout = timeout + _JINA_TIMEOUT_BUFFER
         logger.debug(f"Jina Reader request for {url} (engine: {engine})")
         response = _http_post(
             jina_reader_url,
@@ -555,25 +632,42 @@ def _fetch_raw(
     url: str,
     timeout: float = TIMEOUT_DEFAULT,
     proxy: str | None = None,
+    deadline: float | None = None,
 ) -> tuple[str, str]:
     """Fetch raw content from a URL with retry for transient failures.
 
     Retries up to ``_FETCH_MAX_RETRIES`` times with exponential backoff
     for server errors (5xx), timeouts, and network errors.  Client errors
-    (4xx) are considered definitive and are not retried.
+    (4xx) are considered definitive and are not retried.  When ``deadline``
+    is provided, both the per-attempt HTTP timeout and the backoff sleep
+    are capped so the total wall-clock time never exceeds the caller's
+    budget.
 
     Args:
         url: The URL to fetch.
-        timeout: Request timeout in seconds.
+        timeout: Per-attempt request timeout in seconds.  Also used as the
+            implicit deadline when ``deadline`` is ``None``.
         proxy: Optional proxy URL.
+        deadline: Optional ``time.monotonic()`` value past which no further
+            attempts or backoff sleeps should be made.  When ``None``, a
+            deadline equal to ``time.monotonic() + timeout`` is assumed so
+            standalone callers also get bounded behaviour.
 
     Returns:
         A ``(body, content_type)`` tuple.  ``content_type`` is the MIME
         type portion of the ``Content-Type`` header (e.g. ``"text/html"``),
         lowercased.  On failure both elements are empty strings.
     """
+    effective_deadline = (
+        deadline if deadline is not None else time.monotonic() + max(0.0, timeout)
+    )
     last_exception: Exception | None = None
     for attempt in range(_FETCH_MAX_RETRIES):
+        remaining = max(0.0, effective_deadline - time.monotonic())
+        if remaining <= 0:
+            logger.debug(f"Deadline exceeded before attempt {attempt + 1} for {url}")
+            break
+        per_attempt_timeout = min(timeout, remaining)
         try:
             ua = generate(browser=["chrome", "edge"])
             ua.headers.accept_ch(
@@ -582,7 +676,7 @@ def _fetch_raw(
             response = _http_get(
                 url,
                 headers=ua.headers.get(),
-                timeout=timeout,
+                timeout=per_attempt_timeout,
                 proxy=proxy,
             )
             response.raise_for_status()
@@ -613,11 +707,19 @@ def _fetch_raw(
             logger.debug(f"Error fetching {url}: {e}")
             return "", ""
 
-        # Exponential backoff before next retry
+        # Exponential backoff before next retry, capped by remaining budget.
         if attempt < _FETCH_MAX_RETRIES - 1:
             delay = _FETCH_RETRY_BASE_DELAY * (2**attempt)
-            logger.debug(f"Retrying {url} in {delay:.1f}s")
-            time.sleep(delay)
+            remaining_after = max(0.0, effective_deadline - time.monotonic())
+            if remaining_after <= 0:
+                logger.debug(
+                    f"Deadline exceeded after attempt {attempt + 1} for {url}; "
+                    f"skipping backoff"
+                )
+                break
+            sleep_for = min(delay, remaining_after)
+            logger.debug(f"Retrying {url} in {sleep_for:.1f}s")
+            time.sleep(sleep_for)
 
     logger.debug(
         f"All {_FETCH_MAX_RETRIES} attempts failed for {url}: {last_exception}"
