@@ -8,12 +8,24 @@ hide:
   - navigation
 ---
 
-# ToolRegistry Hub
+<section class="tr-hero" markdown>
+<p class="tr-kicker">Curated tools, ready to run</p>
 
-[![PyPI version](https://img.shields.io/pypi/v/toolregistry-hub?color=green)](https://pypi.org/project/toolregistry-hub/)
-[![Docker Image](https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=docker&color=green)](https://hub.docker.com/r/oaklight/toolregistry-hub-server)
+# Useful tools without rebuilding the stack.
 
-**Ready-to-use tool collection for LLM agents** — web search, file ops, code execution, and more. Use as a Python library or deploy as a server. Part of the [ToolRegistry](https://toolregistry.readthedocs.io/) ecosystem.
+<p class="tr-hero__desc">ToolRegistry Hub packages search, fetch, datetime, calculator, file, shell, and workflow tools for local imports or hosted MCP/OpenAPI servers.</p>
+
+<p class="tr-badges">
+  <a href="https://pypi.org/project/toolregistry-hub/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/toolregistry-hub?labelColor=475569&color=4d7c0f"></a>
+  <a href="https://hub.docker.com/r/oaklight/toolregistry-hub-server"><img alt="Docker Image" src="https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=docker&labelColor=475569&color=365314"></a>
+  <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-365314?labelColor=475569"></a>
+</p>
+
+<div class="tr-actions" markdown>
+[Browse Tools](tools/){ .tr-button .tr-button--primary }
+[Docker](docker.md){ .tr-button .tr-button--secondary }
+</div>
+</section>
 
 ## Two Ways to Use
 

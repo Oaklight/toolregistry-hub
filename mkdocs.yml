@@ -11,31 +11,49 @@ theme:
   custom_dir: overrides
   language: en
   palette:
-    - media: "(prefers-color-scheme)"
-      toggle:
-        icon: material/brightness-auto
-        name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
+      primary: light green
+      accent: light green
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
+      primary: light green
+      accent: light green
       toggle:
         icon: material/brightness-4
         name: Switch to system preference
+    - media: "(prefers-color-scheme)"
+      primary: light green
+      accent: light green
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
   features:
     - navigation.tabs
     - navigation.sections
-    - navigation.expand
     - navigation.top
     - navigation.indexes
+    - navigation.footer
+    - navigation.path
+    - navigation.tracking
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.prune
+    - header.autohide
+    - toc.follow
     - search.highlight
     - search.share
     - search.suggest
     - content.code.copy
-    - content.action.edit
+    - content.code.annotate
+    - content.code.select
+    - content.tabs.link
+    - content.tooltips
+    - content.footnote.tooltips
 
 plugins:
   - search:
@@ -130,6 +148,9 @@ extra:
     - name: 中文
       link: /zh-cn/latest/
       lang: zh
+
+extra_css:
+  - stylesheets/toolregistry-hub.css
 
 extra_javascript:
   - https://polyfill.io/v3/polyfill.min.js?features=es6
