@@ -21,7 +21,7 @@ from .bash_tool import BashTool
 from .calculator import BaseCalculator, Calculator
 from .cron_tool import CronTool
 from .datetime_utils import DateTime
-from .fetch import Fetch
+from .fetch import Fetch, FetchError
 from .file_ops import FileOps
 from .file_reader import FileReader
 from .file_search import FileSearch
@@ -50,6 +50,7 @@ __all__ = [
     "UnitConverter",
     # WebSearch related tools
     "Fetch",
+    "FetchError",
     # ------- WebSearch tools -------
     "SearchResult",
     "BraveSearch",

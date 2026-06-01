@@ -1,5 +1,6 @@
 """Tests for the fetch module."""
 
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -17,6 +18,7 @@ from toolregistry_hub.fetch import (
     _SOUP_CONTENT_SELECTORS,
     _SPA_SHELL_INDICATORS,
     Fetch,
+    FetchError,
     _extract,
     _extract_with_readability,
     _extract_with_soup,
@@ -834,15 +836,16 @@ class TestExtract:
     @patch("toolregistry_hub.fetch._extract_with_readability")
     @patch("toolregistry_hub.fetch._fetch_raw")
     @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
-    def test_all_strategies_fail(
+    def test_all_strategies_fail_raises(
         self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
     ):
+        """When every strategy fails, _extract must raise FetchError."""
         mock_md.return_value = ""
         mock_fetch.return_value = ("", "")
         mock_jina.return_value = ""
 
-        result = _extract("https://example.com")
-        assert result == "Unable to fetch content"
+        with pytest.raises(FetchError):
+            _extract("https://example.com")
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
     @patch("toolregistry_hub.fetch._extract_with_soup")
@@ -1043,3 +1046,189 @@ class TestJinaApiKey:
     def test_is_configured_true_with_keys(self):
         fetcher = Fetch(api_keys="key1")
         assert fetcher._is_configured() is True
+
+
+# ============================================================
+# Fetch.fetch_content failure-signaling tests (issue #111)
+# ============================================================
+
+
+class TestFetchContentErrorSignaling:
+    """`fetch_content` must raise on failure so MCP can set isError=true."""
+
+    @patch("toolregistry_hub.fetch._extract")
+    def test_raises_fetch_error_on_unrecoverable_failure(self, mock_extract):
+        mock_extract.side_effect = FetchError("Unable to fetch content from x")
+        with pytest.raises(FetchError):
+            Fetch().fetch_content("https://this-domain-does-not-exist-12345.com")
+
+    @patch("toolregistry_hub.fetch._extract")
+    def test_wraps_unexpected_exceptions_as_fetch_error(self, mock_extract):
+        """Non-FetchError exceptions still surface as FetchError."""
+        mock_extract.side_effect = RuntimeError("boom")
+        with pytest.raises(FetchError) as excinfo:
+            Fetch().fetch_content("https://example.com")
+        assert isinstance(excinfo.value.__cause__, RuntimeError)
+
+    @patch("toolregistry_hub.fetch._extract")
+    def test_returns_string_on_success(self, mock_extract):
+        mock_extract.return_value = "hello world"
+        assert Fetch().fetch_content("https://example.com") == "hello world"
+
+
+# ============================================================
+# Wall-clock timeout-budget tests (issue #111)
+# ============================================================
+
+
+class TestFetchRawDeadline:
+    """`_fetch_raw` must respect a shared wall-clock deadline."""
+
+    @patch("toolregistry_hub.fetch.time.sleep")
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_deadline_caps_backoff_sleep(self, mock_get, mock_sleep):
+        """Backoff sleep is clamped to the time remaining before the deadline."""
+        import time as _time
+
+        mock_get.side_effect = HttpConnectionError("Connection refused")
+        # Deadline = now + 0.5s, so backoff (1s then 2s) must be clamped.
+        deadline = _time.monotonic() + 0.5
+        _fetch_raw("https://example.com", timeout=0.5, deadline=deadline)
+
+        # All sleep durations must fit within the remaining budget.
+        for call in mock_sleep.call_args_list:
+            assert call.args[0] <= 0.5 + 1e-6
+
+    @patch("toolregistry_hub.fetch.time.sleep")
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_deadline_stops_retry_loop(self, mock_get, mock_sleep):
+        """No further attempts once the deadline is past."""
+        import time as _time
+
+        mock_get.side_effect = HttpConnectionError("Connection refused")
+        # Already-past deadline → zero attempts.
+        deadline = _time.monotonic() - 1.0
+        body, ct = _fetch_raw("https://example.com", timeout=10.0, deadline=deadline)
+        assert (body, ct) == ("", "")
+        assert mock_get.call_count == 0
+        assert mock_sleep.call_count == 0
+
+    @patch("toolregistry_hub.fetch.time.sleep")
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_per_attempt_timeout_clamped_by_remaining(self, mock_get, mock_sleep):
+        """Per-attempt HTTP timeout never exceeds the remaining budget."""
+        import time as _time
+
+        mock_response = MagicMock()
+        mock_response.text = "<html></html>"
+        mock_response.headers = {"content-type": "text/html"}
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        deadline = _time.monotonic() + 0.5
+        _fetch_raw("https://example.com", timeout=30.0, deadline=deadline)
+
+        call_kwargs = mock_get.call_args
+        per_attempt = call_kwargs.kwargs.get("timeout")
+        assert per_attempt is not None
+        assert per_attempt <= 0.5 + 1e-6
+
+
+class TestJinaReaderDeadline:
+    """Jina path must respect a shared wall-clock deadline."""
+
+    @patch("toolregistry_hub.fetch._jina_reader_request")
+    def test_engine_loop_aborts_when_deadline_past(self, mock_request):
+        import time as _time
+
+        mock_request.return_value = ""
+        deadline = _time.monotonic() - 1.0
+        result = _get_content_with_jina_reader("https://example.com", deadline=deadline)
+        assert result == ""
+        assert mock_request.call_count == 0
+
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_transport_timeout_clamped_by_remaining(self, mock_post):
+        """Transport timeout is reduced to the remaining budget under a deadline."""
+        import time as _time
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"code": 200, "data": {"content": "ok"}}
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        deadline = _time.monotonic() + 0.5
+        _jina_reader_request("https://example.com", timeout=30.0, deadline=deadline)
+
+        call_kwargs = mock_post.call_args
+        transport_timeout = call_kwargs.kwargs.get("timeout")
+        assert transport_timeout is not None
+        assert transport_timeout <= 0.5 + 1e-6
+
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_returns_empty_when_deadline_already_passed(self, mock_post):
+        import time as _time
+
+        deadline = _time.monotonic() - 1.0
+        result = _jina_reader_request(
+            "https://example.com", timeout=30.0, deadline=deadline
+        )
+        assert result == ""
+        mock_post.assert_not_called()
+
+
+class TestExtractBudget:
+    """`_extract` respects a wall-clock budget across strategies."""
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_tiny_timeout_skips_strategies_and_raises(
+        self, mock_md, mock_fetch, mock_jina
+    ):
+        """With timeout=0, no network strategies run; FetchError is raised."""
+        mock_md.return_value = ""
+        mock_fetch.return_value = ("", "")
+        mock_jina.return_value = ""
+
+        with pytest.raises(FetchError):
+            _extract("https://example.com", timeout=0.0)
+
+        mock_md.assert_not_called()
+        mock_fetch.assert_not_called()
+        mock_jina.assert_not_called()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_jina_skipped_when_deadline_exceeded_before_it(
+        self, mock_md, mock_fetch, mock_jina
+    ):
+        """If local extraction exhausts the budget, Jina is not invoked."""
+        mock_md.return_value = ""
+
+        def _slow_fetch(*args, **kwargs):
+            # Simulate local fetch consuming all available time.
+            time.sleep(0.05)
+            return ("<html><body>hi</body></html>", "text/html")
+
+        mock_fetch.side_effect = _slow_fetch
+
+        with pytest.raises(FetchError):
+            _extract("https://example.com", timeout=0.02)
+        mock_jina.assert_not_called()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_deadline_propagated_to_fetch_raw(self, mock_md, mock_fetch, mock_jina):
+        mock_md.return_value = ""
+        mock_fetch.return_value = ("", "")
+        mock_jina.return_value = ""
+
+        with pytest.raises(FetchError):
+            _extract("https://example.com", timeout=5.0)
+
+        call_kwargs = mock_fetch.call_args
+        assert "deadline" in call_kwargs.kwargs
+        assert isinstance(call_kwargs.kwargs["deadline"], float)
