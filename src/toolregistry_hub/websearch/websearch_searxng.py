@@ -30,7 +30,6 @@ SearXNG Setup: https://docs.searxng.org/admin/installation.html
 """
 
 import os
-from urllib.parse import urlencode
 
 from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError
 from .._vendor.structlog import get_logger
@@ -181,7 +180,7 @@ class SearXNGSearch(BaseSearch):
                 response = client.post(
                     self.search_url,
                     headers=self._build_headers(),
-                    data=urlencode(params),
+                    data=params,
                 )
                 response.raise_for_status()
 
