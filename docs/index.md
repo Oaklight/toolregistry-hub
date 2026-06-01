@@ -13,7 +13,7 @@ hide:
 
 # 不必重建整套工具栈。
 
-<p class="tr-hero__desc">ToolRegistry Hub 打包搜索、网页获取、日期时间、计算器、文件、Shell 与工作流工具，可本地 import 使用，也可部署为 MCP/OpenAPI 服务器。</p>
+<p class="tr-hero__desc">将精选的搜索、网页获取、日期时间、计算器、文件、Shell 与工作流工具作为本地 Python import 使用，也可搭配 ToolRegistry Core，或部署为 MCP/OpenAPI 服务。</p>
 
 <p class="tr-badges">
   <a href="https://pypi.org/project/toolregistry-hub/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/toolregistry-hub?labelColor=475569&color=4d7c0f"></a>
@@ -23,7 +23,8 @@ hide:
 
 <div class="tr-actions" markdown>
 [浏览工具](tools/){ .tr-button .tr-button--primary }
-[Docker](docker.md){ .tr-button .tr-button--secondary }
+[库使用方式](library.md){ .tr-button .tr-button--secondary }
+[部署服务](server.md){ .tr-button .tr-button--secondary }
 </div>
 </section>
 
