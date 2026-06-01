@@ -42,7 +42,7 @@ for result in results:
 
 #### 方法
 
-- `edit(file_path: str, old_string: str, new_string: str, replace_all: bool = False, start_line: int | None = None) -> str`: 精确字符串替换。返回 unified diff 格式的变更内容。支持 `replace_all` 批量替换和 `start_line` 多匹配消歧。
+- `edit(path: str, old_string: str, new_string: str, replace_all: bool = False, start_line: int | None = None) -> str`: 精确字符串替换。返回 unified diff 格式的变更内容。支持 `replace_all` 批量替换和 `start_line` 多匹配消歧。
 - `search_files(path: str, regex: str, file_pattern: str = "*") -> List[dict]`: 在文件中搜索匹配正则表达式的内容，返回包含 file, line_num, line, context 键的字典列表
 - `read_file(path: str) -> str`: 读取文件内容
 - `write_file(path: str, content: str) -> None`: 写入内容到文件

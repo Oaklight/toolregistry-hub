@@ -18,6 +18,8 @@ author: Oaklight
 
 - 重新构建并推送 `oaklight/toolregistry-hub-server:0.8.2` 和 `latest`，镜像内使用 `toolregistry==0.11.1` 与 `toolregistry-server==0.3.3`，以获得 MCP 部署相关的 schema 规范化修复。
 - `unit_converter-help` 和 `calculator-help` 现在支持不带 `fn_name` 调用，返回所有可用函数的概览（#120）。
+- `cron-list` 列表头由 `ID` 改为 `Job ID`，与 `cron-delete` 的 `job_id` 参数保持一致（#118）。
+- **不兼容变更：** `file_ops-edit` 的首个参数由 `file_path` 重命名为 `path`，与其它 `file_ops-*` 方法以及 `reader-*` 系列保持一致（#119）。通过关键字传 `file_path=` 的调用方需要改为 `path=`；按位置传参不受影响。
 
 ### 移除
 
