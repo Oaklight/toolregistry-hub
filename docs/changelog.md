@@ -14,9 +14,15 @@ author: Oaklight
 
 ## [未发布]
 
+### 新增
+
+- 新增 `toolregistry_hub.utils.bind_literal()` 辅助函数：返回一个函数的拷贝，并将指定参数的注解改写为 `Literal[*choices]`。供需要在 MCP / JSON 输入 schema 中把运行期才能确定的取值集合以 enum 形式暴露出来的工具使用，避免每个工具手写 `FunctionType` 拼接逻辑。
+
 ### 修复
 
 - **SearXNG：JSON API 请求从 GET 切换为 POST**（[#115](https://github.com/Oaklight/toolregistry-hub/issues/115)）。启用 `limiter: true` 的现代 SearXNG 实例会通过 `Sec-Fetch-*` 请求头检查阻止 `format=json` 的 GET 请求；POST 方式可绕过 limiter，且符合上游文档中的 JSON API 用法。同时将 HTTP 错误时静默返回 `[]` 替换为抛出类型化的 `SearchBackendError`，使调用方能区分"无结果"和"后端拒绝请求"。
+- `unit_converter-convert` 的输入 schema 现在把 `conversion` 暴露为包含全部 41 个转换函数名的闭合 enum，而不是任意字符串（#117）。MCP 客户端可以本地校验入参，无需再先调用 `list_conversions` 来发现可选值。
+- `todolist-update` 现在接受 `in_progress`（以及 `in-progress`、`inprogress`）作为 `pending` 的别名（#116）。`update` 的 docstring 也明确列出了 status 枚举，使其出现在生成的工具描述中。
 
 ### 变更
 
