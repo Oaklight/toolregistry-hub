@@ -14,6 +14,10 @@ author: Oaklight
 
 ## [未发布]
 
+### 修复
+
+- **SearXNG：JSON API 请求从 GET 切换为 POST**（[#115](https://github.com/Oaklight/toolregistry-hub/issues/115)）。启用 `limiter: true` 的现代 SearXNG 实例会通过 `Sec-Fetch-*` 请求头检查阻止 `format=json` 的 GET 请求；POST 方式可绕过 limiter，且符合上游文档中的 JSON API 用法。同时将 HTTP 错误时静默返回 `[]` 替换为抛出类型化的 `SearchBackendError`，使调用方能区分"无结果"和"后端拒绝请求"。
+
 ### 变更
 
 - 重新构建并推送 `oaklight/toolregistry-hub-server:0.8.2` 和 `latest`，镜像内使用 `toolregistry==0.11.1` 与 `toolregistry-server==0.3.3`，以获得 MCP 部署相关的 schema 规范化修复。

@@ -157,6 +157,19 @@ if results:
     print(f"Web page content preview: {content[:200]}...")
 ```
 
+## 实例配置
+
+Hub 通过 HTTP POST 发送 JSON API 请求。您的 SearXNG 实例必须在 `settings.yml` 的 `search.formats` 中包含 `json`：
+
+```yaml
+search:
+  formats:
+    - html
+    - json    # hub 正常工作所必需
+```
+
+使用 POST 可以绕过 SearXNG 内置 limiter 对 GET 请求的 `Sec-Fetch-*` 请求头检查，确保与启用 `limiter: true`（自 SearXNG 2023.x 起的默认配置）的实例兼容。
+
 ## SearXNG 简介
 
 SearXNG 是一个自托管的元搜索引擎，它可以聚合多个搜索引擎的结果，提供隐私保护的搜索体验。使用 SearXNG 的主要优势包括：
