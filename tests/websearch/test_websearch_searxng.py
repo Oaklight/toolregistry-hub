@@ -2,7 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from toolregistry_hub._vendor.httpclient import HTTPError, HttpTimeoutError
+from toolregistry_hub.websearch.base import SearchBackendError
 from toolregistry_hub.websearch.search_result import SearchResult
 from toolregistry_hub.websearch.websearch_searxng import SearXNGSearch
 
@@ -121,7 +124,7 @@ class TestSearXNGSearch:
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.get.return_value = mock_response
+        mock_client_instance.post.return_value = mock_response
         mock_client.return_value = mock_client_instance
 
         searcher = SearXNGSearch("http://localhost:8080")
@@ -147,7 +150,7 @@ class TestSearXNGSearch:
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.get.side_effect = HttpTimeoutError("Timeout")
+        mock_client_instance.post.side_effect = HttpTimeoutError("Timeout")
         mock_client.return_value = mock_client_instance
 
         searcher = SearXNGSearch("http://localhost:8080")
@@ -157,7 +160,7 @@ class TestSearXNGSearch:
 
     @patch("toolregistry_hub.websearch.websearch_searxng.Client")
     def test_search_http_error(self, mock_client):
-        """Test search with HTTP error."""
+        """Test search with HTTP error raises SearchBackendError."""
         mock_response = MagicMock()
         mock_response.status_code = 500
         mock_response.text = "Internal Server Error"
@@ -165,15 +168,14 @@ class TestSearXNGSearch:
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.get.side_effect = HTTPError(
+        mock_client_instance.post.side_effect = HTTPError(
             500, "Internal Server Error", "http://localhost:8080/search"
         )
         mock_client.return_value = mock_client_instance
 
         searcher = SearXNGSearch("http://localhost:8080")
-        results = searcher.search("test query")
-
-        assert results == []
+        with pytest.raises(SearchBackendError, match="HTTP 500"):
+            searcher.search("test query")
 
     @patch("toolregistry_hub.websearch.websearch_searxng.Client")
     def test_search_max_results_cap(self, mock_client):
@@ -185,7 +187,7 @@ class TestSearXNGSearch:
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.get.return_value = mock_response
+        mock_client_instance.post.return_value = mock_response
         mock_client.return_value = mock_client_instance
 
         searcher = SearXNGSearch("http://localhost:8080")
@@ -272,12 +274,12 @@ class TestSearXNGSearchIntegration:
             mock_client_instance = MagicMock()
             mock_client_instance.__enter__.return_value = mock_client_instance
             mock_client_instance.__exit__.return_value = None
-            mock_client_instance.get.return_value = mock_response
+            mock_client_instance.post.return_value = mock_response
             mock_client.return_value = mock_client_instance
 
             searcher.search(query="test", max_results=5, timeout=10)
 
-            assert mock_client_instance.get.called
+            assert mock_client_instance.post.called
 
     def test_url_normalization(self):
         """Test that base URL is properly normalized."""
@@ -318,7 +320,7 @@ class TestSearXNGSearchIntegration:
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
-        mock_client_instance.get.return_value = mock_response
+        mock_client_instance.post.return_value = mock_response
         mock_client.return_value = mock_client_instance
 
         searcher = SearXNGSearch("http://localhost:8080")

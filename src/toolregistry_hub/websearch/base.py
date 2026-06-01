@@ -14,6 +14,15 @@ _UNABLE_TO_FETCH_TITLE = "Unable to fetch title"
 TIMEOUT_DEFAULT = 10.0
 
 
+class SearchBackendError(Exception):
+    """Raised when a search backend returns an error instead of results.
+
+    This replaces the previous pattern of silently returning ``[]`` on
+    HTTP errors, which made it impossible for callers to distinguish
+    "no results" from "backend rejected the request".
+    """
+
+
 class BaseSearch(ABC):
     def _is_configured(self) -> bool:
         """Check if the search engine has valid configuration.

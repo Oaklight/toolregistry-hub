@@ -1,3 +1,4 @@
+from .base import SearchBackendError
 from .search_result import SearchResult
 from .websearch_brave import BraveSearch
 from .websearch_brightdata import BrightDataSearch
@@ -11,6 +12,7 @@ __all__ = [
     "BraveSearch",
     "BrightDataSearch",
     "ScrapelessSearch",
+    "SearchBackendError",
     "SearchResult",
     "SearXNGSearch",
     "SerperSearch",
