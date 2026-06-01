@@ -13,7 +13,7 @@ hide:
 
 # Useful tools without rebuilding the stack.
 
-<p class="tr-hero__desc">ToolRegistry Hub packages search, fetch, datetime, calculator, file, shell, and workflow tools for local imports or hosted MCP/OpenAPI servers.</p>
+<p class="tr-hero__desc">Use curated search, fetch, datetime, calculator, file, shell, and workflow tools as local Python imports, with ToolRegistry Core, or as hosted MCP/OpenAPI services.</p>
 
 <p class="tr-badges">
   <a href="https://pypi.org/project/toolregistry-hub/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/toolregistry-hub?labelColor=475569&color=4d7c0f"></a>
@@ -23,7 +23,8 @@ hide:
 
 <div class="tr-actions" markdown>
 [Browse Tools](tools/){ .tr-button .tr-button--primary }
-[Docker](docker.md){ .tr-button .tr-button--secondary }
+[Use as Library](library.md){ .tr-button .tr-button--secondary }
+[Deploy Server](server.md){ .tr-button .tr-button--secondary }
 </div>
 </section>
 
