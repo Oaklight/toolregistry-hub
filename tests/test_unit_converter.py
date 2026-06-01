@@ -371,6 +371,25 @@ class TestUnitConverter:
         with pytest.raises(ValueError, match="not recognized"):
             UnitConverter.help("invalid_function")
 
+    def test_help_no_arg_returns_overview(self):
+        """Test that help() with no argument returns an overview of all conversions."""
+        overview = UnitConverter.help()
+        assert isinstance(overview, str)
+        assert overview.strip() != ""
+        assert "Available conversions" in overview
+        # Should mention multiple known conversion functions.
+        assert "celsius_to_fahrenheit" in overview
+        assert "meters_to_feet" in overview
+        assert "kilograms_to_pounds" in overview
+        # Signature should appear next to the function name.
+        assert "celsius_to_fahrenheit(celsius: float)" in overview
+        # First line of docstring should appear.
+        assert "Convert Celsius to Fahrenheit." in overview
+
+    def test_help_explicit_none_returns_overview(self):
+        """Test that help(None) is equivalent to help() with no argument."""
+        assert UnitConverter.help(None) == UnitConverter.help()
+
     # Test round-trip conversions using convert method
     def test_temperature_round_trip(self):
         """Test round-trip temperature conversions."""

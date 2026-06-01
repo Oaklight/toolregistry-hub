@@ -262,6 +262,23 @@ class TestCalculator:
         ):
             Calculator.help("invalid_func")
 
+    def test_help_no_arg_returns_overview(self):
+        """Test that help() with no argument returns an overview of all allowed functions."""
+        overview = Calculator.help()
+        assert isinstance(overview, str)
+        assert overview.strip() != ""
+        assert "Available functions" in overview
+        # Should mention multiple known functions from BaseCalculator and math.
+        assert "add" in overview
+        assert "sqrt" in overview
+        assert "factorial" in overview
+        # First line of docstring should appear.
+        assert "Adds two numbers." in overview
+
+    def test_help_explicit_none_returns_overview(self):
+        """Test that help(None) is equivalent to help() with no argument."""
+        assert Calculator.help(None) == Calculator.help()
+
     def test_evaluate_basic_arithmetic(self):
         """Test evaluation of basic arithmetic expressions."""
         assert Calculator.evaluate("2 + 3") == 5

@@ -379,18 +379,29 @@ class UnitConverter:
         return json.dumps(conversion_help)
 
     @staticmethod
-    def help(fn_name: str) -> str:
-        """Returns the help documentation for a specific conversion function.
+    def help(fn_name: str | None = None) -> str:
+        """Returns help documentation for conversion functions.
+
+        When ``fn_name`` is omitted, returns an overview document listing every
+        available conversion with its signature and one-line description. When
+        ``fn_name`` is provided, returns the detailed help for that single
+        function (signature plus full docstring).
 
         Args:
-            fn_name (str): Name of the conversion function to get help for.
+            fn_name (str | None, optional): Name of the conversion function to
+                get help for. If ``None`` (the default), an overview of all
+                available conversions is returned instead.
 
         Returns:
-            str: Help documentation for the specified function.
+            str: Either the overview document for all conversions, or the help
+                documentation for the specified function.
 
         Raises:
-            ValueError: If the function name is not recognized.
+            ValueError: If ``fn_name`` is provided but not recognized.
         """
+        if fn_name is None:
+            return UnitConverter._overview()
+
         if fn_name not in UnitConverter._all_conversions() + [
             "convert",
             "list_conversions",
@@ -411,6 +422,28 @@ class UnitConverter:
             )
         else:
             raise ValueError(f"'{fn_name}' is not a callable function.")
+
+    @staticmethod
+    def _overview() -> str:
+        """Builds an overview document of every available conversion.
+
+        Each entry includes the function name with its signature and the first
+        line of its docstring, indented for readability.
+
+        Returns:
+            str: A human-readable overview listing all conversion functions.
+        """
+        names = UnitConverter._all_conversions()
+        lines = [f"Available conversions ({len(names)}):", ""]
+        for name in names:
+            target = getattr(BaseUnitConverter, name)
+            signature = inspect.signature(target)
+            docstring = inspect.getdoc(target) or ""
+            first_line = docstring.strip().splitlines()[0] if docstring.strip() else ""
+            lines.append(f"  {name}{signature}")
+            if first_line:
+                lines.append(f"      {first_line}")
+        return "\n".join(lines)
 
     @staticmethod
     def convert(

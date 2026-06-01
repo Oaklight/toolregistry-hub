@@ -302,18 +302,29 @@ class Calculator:
         return json.dumps(function_help)
 
     @staticmethod
-    def help(fn_name: str) -> str:
-        """Returns the help documentation for a specific function used in the evaluate method.
+    def help(fn_name: str | None = None) -> str:
+        """Returns help documentation for functions used in the evaluate method.
+
+        When ``fn_name`` is omitted, returns an overview document listing every
+        allowed function with its signature (when available) and one-line
+        description. When ``fn_name`` is provided, returns the detailed help
+        for that single function or constant.
 
         Args:
-            fn_name (str): Name of the function to get help for.
+            fn_name (str | None, optional): Name of the function to get help
+                for. If ``None`` (the default), an overview of all allowed
+                functions is returned instead.
 
         Returns:
-            str: Help documentation for the specified function.
+            str: Either the overview document for all allowed functions, or the
+                help documentation for the specified function/constant.
 
         Raises:
-            ValueError: If the function name is not recognized.
+            ValueError: If ``fn_name`` is provided but not recognized.
         """
+        if fn_name is None:
+            return Calculator._overview()
+
         # Check if the function is in Calculator or math
         if fn_name not in Calculator._allowed_functions() + [
             "evaluate",
@@ -343,6 +354,44 @@ class Calculator:
         else:
             docstring = f"Constant value: {target!r}"
             return f"constant: {fn_name}\n{textwrap.indent(docstring, ' ' * 4)}"
+
+    @staticmethod
+    def _overview() -> str:
+        """Builds an overview document of every allowed function/constant.
+
+        Each entry includes the function name with its signature (when
+        introspectable) and the first line of its docstring. Constants and
+        functions whose signatures cannot be retrieved are listed without a
+        signature.
+
+        Returns:
+            str: A human-readable overview listing all allowed functions.
+        """
+        names = Calculator._allowed_functions()
+        lines = [f"Available functions ({len(names)}):", ""]
+        for name in names:
+            if hasattr(BaseCalculator, name):
+                target = getattr(BaseCalculator, name)
+            elif hasattr(math, name):
+                target = getattr(math, name)
+            else:
+                continue
+
+            if callable(target):
+                try:
+                    signature = str(inspect.signature(target))
+                except (TypeError, ValueError):
+                    signature = "(...)"
+                header = f"  {name}{signature}"
+            else:
+                header = f"  {name} = {target!r}"
+
+            lines.append(header)
+            docstring = inspect.getdoc(target) or ""
+            first_line = docstring.strip().splitlines()[0] if docstring.strip() else ""
+            if first_line:
+                lines.append(f"      {first_line}")
+        return "\n".join(lines)
 
     @staticmethod
     def evaluate(expression: str) -> float | int | bool:
