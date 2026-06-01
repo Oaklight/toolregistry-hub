@@ -8,12 +8,24 @@ hide:
   - navigation
 ---
 
-# ToolRegistry Hub
+<section class="tr-hero" markdown>
+<p class="tr-kicker">精选工具，即取即用</p>
 
-[![PyPI version](https://img.shields.io/pypi/v/toolregistry-hub?color=green)](https://pypi.org/project/toolregistry-hub/)
-[![Docker Image](https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=docker&color=green)](https://hub.docker.com/r/oaklight/toolregistry-hub-server)
+# 不必重建整套工具栈。
 
-**面向 LLM Agent 的即用工具集合** — 网络搜索、文件操作、代码执行等。可作为 Python 库直接使用，也可部署为服务器。[ToolRegistry](https://toolregistry.readthedocs.io/) 生态系统的一部分。
+<p class="tr-hero__desc">ToolRegistry Hub 打包搜索、网页获取、日期时间、计算器、文件、Shell 与工作流工具，可本地 import 使用，也可部署为 MCP/OpenAPI 服务器。</p>
+
+<p class="tr-badges">
+  <a href="https://pypi.org/project/toolregistry-hub/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/toolregistry-hub?labelColor=475569&color=4d7c0f"></a>
+  <a href="https://hub.docker.com/r/oaklight/toolregistry-hub-server"><img alt="Docker Image" src="https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=docker&labelColor=475569&color=365314"></a>
+  <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-365314?labelColor=475569"></a>
+</p>
+
+<div class="tr-actions" markdown>
+[浏览工具](tools/){ .tr-button .tr-button--primary }
+[Docker](docker.md){ .tr-button .tr-button--secondary }
+</div>
+</section>
 
 ## 两种使用方式
 
