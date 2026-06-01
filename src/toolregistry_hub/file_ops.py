@@ -66,7 +66,7 @@ class FileOps:
 
     @staticmethod
     def edit(
-        file_path: str,
+        path: str,
         old_string: str,
         new_string: str,
         replace_all: bool = False,
@@ -75,7 +75,7 @@ class FileOps:
         """Replace exact string in file.
 
         Args:
-            file_path: Absolute path to file.
+            path: Absolute path to file.
             old_string: Exact text to find. Must not be empty.
             new_string: Replacement text (must differ from old_string).
             replace_all: Replace all occurrences instead of just one.
@@ -89,7 +89,7 @@ class FileOps:
         Raises:
             ValueError: If old_string is empty, identical to new_string,
                 not found, or ambiguous without start_line/replace_all.
-            FileNotFoundError: If file_path does not exist.
+            FileNotFoundError: If path does not exist.
         """
         if not old_string:
             raise ValueError("old_string must not be empty")
@@ -97,7 +97,7 @@ class FileOps:
             raise ValueError("old_string and new_string are identical")
 
         # Read file as bytes to preserve encoding
-        with open(file_path, "rb") as f:
+        with open(path, "rb") as f:
             raw = f.read()
 
         encoding, bom = FileOps._detect_encoding(raw)
@@ -159,10 +159,10 @@ class FileOps:
         encoded = bom + new_content.encode(encoding)
 
         # Atomic write (binary)
-        tmp_path = f"{file_path}.tmp"
+        tmp_path = f"{path}.tmp"
         with open(tmp_path, "wb") as f:
             f.write(encoded)
-        os.replace(tmp_path, file_path)
+        os.replace(tmp_path, path)
 
         return diff_output
 
