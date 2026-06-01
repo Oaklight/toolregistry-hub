@@ -117,6 +117,14 @@ class TestList:
         assert "*/5 * * * *" in output
         assert "0 9 * * *" in output
 
+    def test_list_header_uses_job_id_label(self, cron_tool):
+        tool, _ = cron_tool
+        tool.create("*/5 * * * *", "job one")
+
+        output = tool.list()
+        # Header should say "Job ID" so LLM callers don't try cron-delete(id=...).
+        assert "Job ID" in output
+
     def test_list_after_delete(self, cron_tool):
         tool, _ = cron_tool
         tool.create("*/5 * * * *", "keep this")

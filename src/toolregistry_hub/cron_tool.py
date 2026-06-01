@@ -193,7 +193,7 @@ class CronTool:
             return "No scheduled jobs."
 
         lines = [
-            f"{'ID':<10} {'Cron':<20} {'Recurring':<10} {'Durable':<8} {'Next Fire':<25} Prompt"
+            f"{'Job ID':<10} {'Cron':<20} {'Recurring':<10} {'Durable':<8} {'Next Fire':<25} Prompt"
         ]
         lines.append("-" * 100)
 
