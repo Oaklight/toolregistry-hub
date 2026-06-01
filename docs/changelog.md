@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Rebuilt and pushed `oaklight/toolregistry-hub-server:0.8.2` and `latest` with `toolregistry==0.11.1` and `toolregistry-server==0.3.3` to pick up schema-normalization fixes for MCP deployments.
 - `unit_converter-help` and `calculator-help` now accept calls without `fn_name`, returning an overview of all available functions (#120).
+- `cron-list` column header is now `Job ID` instead of `ID`, matching the `job_id` parameter on `cron-delete` (#118).
+- **Breaking:** `file_ops-edit` first parameter renamed from `file_path` to `path` for consistency with every other `file_ops-*` method and the `reader-*` family (#119). Callers using `file_path=` by keyword must switch to `path=`; positional usage is unaffected.
 
 ### Removed
 

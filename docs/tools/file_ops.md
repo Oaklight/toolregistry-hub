@@ -42,7 +42,7 @@ for result in results:
 
 #### Methods
 
-- `edit(file_path: str, old_string: str, new_string: str, replace_all: bool = False, start_line: int | None = None) -> str`: Replace exact string in file. Returns unified diff of changes. Supports `replace_all` for bulk replacement and `start_line` for disambiguation when multiple matches exist.
+- `edit(path: str, old_string: str, new_string: str, replace_all: bool = False, start_line: int | None = None) -> str`: Replace exact string in file. Returns unified diff of changes. Supports `replace_all` for bulk replacement and `start_line` for disambiguation when multiple matches exist.
 - `search_files(path: str, regex: str, file_pattern: str = "*") -> List[dict]`: Search for content matching regex in files, returns list of dicts with file, line_num, line, context keys
 - `read_file(path: str) -> str`: Read file content
 - `write_file(path: str, content: str) -> None`: Write content to file
