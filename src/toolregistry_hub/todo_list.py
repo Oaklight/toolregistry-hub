@@ -107,6 +107,16 @@ class TodoList:
         lines.append(separator)
         return "\n".join(lines)
 
+    # Common LLM-side spellings normalized to one of the four canonical
+    # statuses. ``in_progress`` is by far the most common foreign value
+    # because it is the convention in Claude Code's TaskCreate/TaskUpdate
+    # and most third-party TODO tooling — see issue #116.
+    _STATUS_ALIASES = {
+        "in_progress": "pending",
+        "in-progress": "pending",
+        "inprogress": "pending",
+    }
+
     @staticmethod
     def _parse_simple_format(todo_str: str) -> dict:
         """Parse simple format string into todo dict.
@@ -123,7 +133,8 @@ class TodoList:
 
         Valid status values:
         - planned: Task is scheduled but not yet started
-        - pending: Task is currently being worked on (in progress)
+        - pending: Task is currently being worked on (in progress). Aliases:
+          ``in_progress``, ``in-progress``, ``inprogress``.
         - done: Task has been completed successfully
         - cancelled: Task has been cancelled or abandoned
         """
@@ -138,6 +149,10 @@ class TodoList:
             )
 
         id_part, content_part, status_part = match.groups()
+
+        # Apply alias normalization (e.g. in_progress -> pending) before
+        # validating, so foreign-but-recognized spellings just work.
+        status_part = TodoList._STATUS_ALIASES.get(status_part, status_part)
 
         # Validate status
         valid_statuses = ["planned", "pending", "done", "cancelled"]
@@ -160,6 +175,18 @@ class TodoList:
             todos: List of todo entries as "[id] content (status)" strings.
                 Example: ["[create-test] write a simple test case (planned)"]
                 Order matters - todos will be maintained in the input order.
+
+                ``status`` MUST be one of the closed set
+                ``planned | pending | done | cancelled``. The alias
+                ``in_progress`` (also ``in-progress`` / ``inprogress``) is
+                accepted and normalized to ``pending``; any other value is
+                rejected. Definitions:
+
+                - planned: scheduled but not yet started
+                - pending: currently in progress
+                - done: completed successfully
+                - cancelled: abandoned
+
             format: Output format - 'simple' (no output), 'markdown', or 'ascii'.
 
         Returns:
