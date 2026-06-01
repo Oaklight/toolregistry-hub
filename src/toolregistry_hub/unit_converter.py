@@ -3,7 +3,7 @@ import json
 import textwrap
 from typing import Literal
 
-from .utils import get_all_static_methods
+from .utils import bind_literal, get_all_static_methods
 
 
 class BaseUnitConverter:
@@ -499,3 +499,23 @@ class UnitConverter:
                 )
 
         return func(*args)
+
+
+# ============================================================================
+# Schema enum injection
+# ============================================================================
+# Rewrite ``UnitConverter.convert``'s ``conversion`` annotation so the
+# generated MCP / JSON schema lists every available conversion function as a
+# closed enum instead of a free-form string. This eliminates a discovery
+# round-trip for LLM callers (see issue #117).
+#
+# The list is derived from ``BaseUnitConverter``'s static methods at import
+# time, so it stays in sync with whatever conversions are actually defined.
+_conversion_names = tuple(get_all_static_methods(BaseUnitConverter))
+UnitConverter.convert = staticmethod(
+    bind_literal(
+        UnitConverter.convert,
+        "conversion",
+        _conversion_names,
+    )
+)
