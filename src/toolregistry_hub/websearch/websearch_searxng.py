@@ -30,11 +30,12 @@ SearXNG Setup: https://docs.searxng.org/admin/installation.html
 """
 
 import os
+from urllib.parse import urlencode
 
 from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError
 from .._vendor.structlog import get_logger
 from ..utils.requirements import requires_env
-from .base import TIMEOUT_DEFAULT, BaseSearch
+from .base import TIMEOUT_DEFAULT, BaseSearch, SearchBackendError
 from .search_result import SearchResult
 
 logger = get_logger()
@@ -177,8 +178,10 @@ class SearXNGSearch(BaseSearch):
         assert self.search_url is not None  # validated in search()
         try:
             with Client(timeout=timeout) as client:
-                response = client.get(
-                    self.search_url, headers=self._build_headers(), params=params
+                response = client.post(
+                    self.search_url,
+                    headers=self._build_headers(),
+                    data=urlencode(params),
                 )
                 response.raise_for_status()
 
@@ -194,11 +197,15 @@ class SearXNGSearch(BaseSearch):
             logger.error(f"SearXNG API request timed out after {timeout}s")
             return []
         except HTTPError as e:
-            logger.error(f"SearXNG API HTTP error {e.status_code}: {e.body}")
-            return []
+            raise SearchBackendError(
+                f"SearXNG instance {self.base_url} returned HTTP {e.status_code}: "
+                f"{str(e.body)[:200]}. The instance may not enable JSON format, "
+                "may require POST, or may require an X-API-Key."
+            ) from e
         except Exception as e:
-            logger.error(f"SearXNG API request failed: {e}")
-            return []
+            raise SearchBackendError(
+                f"SearXNG API request to {self.base_url} failed: {e}"
+            ) from e
 
     def _parse_results(self, raw_results: dict) -> list[SearchResult]:
         """Parse SearXNG API response into standardized format.
