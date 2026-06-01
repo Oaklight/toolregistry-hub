@@ -116,7 +116,7 @@ The calculator supports the following operations:
 #### Methods
 
 - `list_allowed_fns(with_help: bool = False) -> str`: Lists all allowed functions
-- `help(fn_name: str) -> str`: Gets help information for a specific function
+- `help(fn_name: str | None = None) -> str`: Gets help information for a specific function. When `fn_name` is omitted, returns an overview of all allowed functions.
 - `evaluate(expression: str) -> Union[float, int, bool]`: Evaluates the value of a mathematical expression
 
 ## Examples

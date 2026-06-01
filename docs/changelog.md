@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - Rebuilt and pushed `oaklight/toolregistry-hub-server:0.8.2` and `latest` with `toolregistry==0.11.1` and `toolregistry-server==0.3.3` to pick up schema-normalization fixes for MCP deployments.
+- `unit_converter-help` and `calculator-help` now accept calls without `fn_name`, returning an overview of all available functions (#120).
 
 ### Removed
 

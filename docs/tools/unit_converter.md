@@ -79,6 +79,10 @@ print(f"Temperature conversions: {temp_conversions}")
 # Get help for a specific conversion
 help_text = UnitConverter.help("celsius_to_fahrenheit")
 print(help_text)
+
+# Or call help() with no argument to get an overview of every conversion
+overview = UnitConverter.help()
+print(overview)
 ```
 
 ## Conversion Categories
