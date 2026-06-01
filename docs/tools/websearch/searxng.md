@@ -157,6 +157,19 @@ if results:
     print(f"Web page content preview: {content[:200]}...")
 ```
 
+## Instance Configuration
+
+The hub sends JSON API requests via HTTP POST. Your SearXNG instance must have `json` listed in its `settings.yml` under `search.formats`:
+
+```yaml
+search:
+  formats:
+    - html
+    - json    # required for the hub to work
+```
+
+Using POST avoids the `Sec-Fetch-*` header checks that SearXNG's built-in limiter enforces on GET requests, ensuring compatibility with instances that have `limiter: true` (the default since SearXNG 2023.x).
+
 ## Introduction to SearXNG
 
 SearXNG is a self-hosted meta search engine that can aggregate results from multiple search engines, providing a privacy-protected search experience. The main advantages of using SearXNG include:

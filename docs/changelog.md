@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **SearXNG: switch JSON API requests from GET to POST** ([#115](https://github.com/Oaklight/toolregistry-hub/issues/115)). Modern SearXNG instances with `limiter: true` block GET requests for `format=json` via `Sec-Fetch-*` header checks; POST bypasses the limiter and matches the upstream-documented JSON API usage. Also replaces silent `return []` on HTTP errors with a typed `SearchBackendError` so callers can distinguish "no results" from "backend rejected the request".
+
 ### Changed
 
 - Rebuilt and pushed `oaklight/toolregistry-hub-server:0.8.2` and `latest` with `toolregistry==0.11.1` and `toolregistry-server==0.3.3` to pick up schema-normalization fixes for MCP deployments.
