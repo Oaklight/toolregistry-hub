@@ -31,7 +31,9 @@ SearXNG Setup: https://docs.searxng.org/admin/installation.html
 
 import os
 
-from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError
+from typing import cast
+
+from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError, Response
 from .._vendor.structlog import get_logger
 from ..utils.requirements import requires_env
 from .base import TIMEOUT_DEFAULT, BaseSearch, SearchBackendError
@@ -177,10 +179,13 @@ class SearXNGSearch(BaseSearch):
         assert self.search_url is not None  # validated in search()
         try:
             with Client(timeout=timeout) as client:
-                response = client.post(
-                    self.search_url,
-                    headers=self._build_headers(),
-                    data=params,
+                response = cast(
+                    Response,
+                    client.post(
+                        self.search_url,
+                        headers=self._build_headers(),
+                        data=params,
+                    ),
                 )
                 response.raise_for_status()
 
