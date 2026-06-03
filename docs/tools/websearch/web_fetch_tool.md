@@ -8,13 +8,13 @@ author: Oaklight
 
 # 网页获取工具
 
-网页获取工具提供从 URL 智能提取网页内容的功能。它采用四级策略链 — Cloudflare 内容协商、Readability 提取、zerodep soup 解析和 Jina Reader API — 并结合**内容质量评估**和**智能回退**机制，从网页中提取干净、可读的内容，同时处理各种网站结构和格式，包括 JavaScript 密集型的单页应用（SPA）。
+网页获取工具提供从 URL 智能提取网页内容的功能。它采用五级策略链 — Cloudflare 内容协商、Readability 提取、zerodep soup 解析、CDP 浏览器渲染和 Jina Reader API — 并结合**内容质量评估**和**智能回退**机制，从网页中提取干净、可读的内容，同时处理各种网站结构和格式，包括 JavaScript 密集型的单页应用（SPA）。
 
 ## 概览
 
 Fetch 类提供强大的网页内容提取功能：
 
-- **四级策略链**：Cloudflare 内容协商 → Readability 提取 → Soup 解析 → Jina Reader API
+- **五级策略链**：Cloudflare 内容协商 → Readability 提取 → Soup 解析 → CDP 浏览器渲染 → Jina Reader API
 - **内容质量评估**：检测 SPA 空壳页面和内容不足的情况，自动触发回退
 - **智能回退与低质量恢复**：如果 Jina Reader 也失败，返回本地低质量内容作为最后手段（有总比没有好）
 - **内容清理**：移除导航、广告和不必要的元素
@@ -47,13 +47,14 @@ content = fetcher.fetch_content(
 
 ## API 参考
 
-### `Fetch(api_keys=None)`
+### `Fetch(api_keys=None, cdp_endpoint=None)`
 
 初始化 Fetch 内容提取器。
 
 **参数：**
 
 - `api_keys` (str, 可选): 逗号分隔的 Jina API 密钥。回退到 `JINA_API_KEY` 环境变量。设置后，Jina Reader 请求会包含 `Authorization: Bearer <key>` 头部，并使用轮询式密钥轮换。
+- `cdp_endpoint` (str, 可选): CDP 兼容浏览器的 WebSocket URL（例如 `ws://localhost:9222`）。回退到 `CDP_ENDPOINT` 环境变量。设置后，启用 CDP 浏览器渲染阶段以提取 SPA 内容。
 
 ### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None) -> str`
 
@@ -75,16 +76,17 @@ content = fetcher.fetch_content(
 
 ## 工作原理
 
-### 四级策略链
+### 五级策略链
 
-网页获取工具使用四阶段提取方法，每一步都进行**内容质量评估**：
+网页获取工具使用五阶段提取方法，每一步都进行**内容质量评估**：
 
 1. **Cloudflare 内容协商**：零成本尝试，直接从源站获取 markdown 内容
 2. **Readability 提取**：使用 Mozilla Readability 风格的文章评分算法，识别并提取主要内容
 3. **Soup 解析**：使用 zerodep soup（零外部依赖）进行轻量级 HTML 解析与 CSS 选择器回退
-4. **Jina Reader（降级方案）**：外部 API，使用多引擎重试（`browser` → `cf-browser-rendering`）进行 JavaScript 渲染（SPA 支持）
+4. **CDP 浏览器渲染**：通过 Chrome DevTools Protocol 使用自托管无头浏览器渲染 SPA 页面（需配置 `CDP_ENDPOINT`）
+5. **Jina Reader（降级方案）**：外部 API，使用多引擎重试（`browser` → `cf-browser-rendering`）进行 JavaScript 渲染（SPA 支持）
 
-工具只获取一次原始 HTML，然后复用于 Readability 和 Soup 两种提取策略。它会比较两种本地策略的结果，选择更好的一个，再决定是否需要回退到 Jina Reader。
+工具只获取一次原始 HTML，然后复用于 Readability 和 Soup 两种提取策略。它会比较两种本地策略的结果，选择更好的一个。如果本地提取不足且配置了 CDP 端点，工具会在无头浏览器中渲染页面并从渲染后的 HTML 中重新提取内容。如果 CDP 不可用或仍然产生不足的内容，则回退到 Jina Reader。
 
 ### 提取过程
 
@@ -97,7 +99,12 @@ flowchart TD
     C --> E[Soup 提取]
     D & E --> F{选择最佳本地结果}
     F -->|质量充足| Z
-    F -->|太短或 SPA 空壳| G[Jina Reader - browser 引擎]
+    F -->|太短或 SPA 空壳| CDP{配置了 CDP 端点？}
+    CDP -->|是| CDP1[CDP 浏览器渲染]
+    CDP1 --> CDP2[使用 Readability + Soup 重新提取]
+    CDP2 -->|质量充足| Z
+    CDP2 -->|不足| G[Jina Reader - browser 引擎]
+    CDP -->|否| G
     G -->|内容良好| Z
     G -->|内容不足| G2[Jina Reader - cf-browser-rendering 引擎]
     G2 -->|内容良好| Z
@@ -152,9 +159,32 @@ flowchart TD
 - 保留原始文档结构（标题、列表、代码块等）
 - Cloudflare 还会提供 `x-markdown-tokens` 响应头，指示 markdown 内容的 token 数量
 
+### CDP 浏览器渲染
+
+当本地提取产生不足的内容（SPA 空壳或内容太短）且配置了 CDP 端点时，工具会通过 Chrome DevTools Protocol 在无头浏览器中渲染页面，然后再回退到 Jina Reader。
+
+**工作机制：**
+
+- 通过 WebSocket 连接到 CDP 兼容的浏览器（无头 Chrome、Chromium、[Lightpanda](https://github.com/nichochar/lightpanda) 等）
+- 导航到 URL 并等待页面完全渲染（包括 JavaScript 执行）
+- 从 DOM 中提取渲染后的 HTML
+- 对渲染后的 HTML 重新运行 Readability 和 Soup 提取，生成结构化内容
+
+**配置：**
+
+- 设置 `CDP_ENDPOINT` 环境变量（例如 `ws://localhost:9222`），或将 `cdp_endpoint` 传递给 `Fetch()` 构造函数
+- CDP 阶段**完全可选** — 如果未配置，工具直接跳到 Jina Reader
+- 所有 CDP 错误都会被静默捕获；CDP 尝试失败不会中断管道
+
+**优势：**
+
+- 自托管 SPA 渲染，无需依赖外部 API
+- 无速率限制或 API 配额 — 渲染数量取决于浏览器实例的处理能力
+- 兼容任何 CDP 兼容的浏览器
+
 ### Jina Reader API
 
-Jina Reader 作为本地提取无法良好处理的页面（如 JavaScript 密集型 SPA）的降级策略。实现采用**多引擎重试**方式：
+Jina Reader 作为本地提取和 CDP 渲染无法良好处理的页面（如 JavaScript 密集型 SPA）的降级策略。实现采用**多引擎重试**方式：
 
 **请求配置：**
 
@@ -408,7 +438,7 @@ if is_valid:
 
 ### 技术限制
 
-- **JavaScript 密集型网站**：通过 Jina Reader 的多引擎重试（`browser` → `cf-browser-rendering`）配合 `X-Wait-For-Selector` 处理动态内容，但某些复杂 SPA 可能仍无法完全渲染
+- **JavaScript 密集型网站**：通过 CDP 浏览器渲染（自托管）或 Jina Reader 的多引擎重试（`browser` → `cf-browser-rendering`）配合 `X-Wait-For-Selector` 处理动态内容，但某些复杂 SPA 可能仍无法完全渲染
 - **认证**：无法访问密码保护的内容
 - **大文件**：非常大的页面可能超时或被截断
 - **复杂布局**：某些网站可能需要自定义解析

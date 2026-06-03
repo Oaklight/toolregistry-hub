@@ -231,6 +231,7 @@ registry = get_registry()  # 所有工具已注册就绪
 | `SCRAPELESS_API_KEY` | ScrapelessSearch | Scrapeless 搜索 |
 | `SEARXNG_URL` | SearXNGSearch | 自托管 SearXNG |
 | `JINA_API_KEY` | Fetch（Jina Reader） | 可选，用于认证 Jina Reader 访问（逗号分隔支持多密钥轮转） |
+| `CDP_ENDPOINT` | Fetch（CDP 渲染） | 可选，CDP 兼容浏览器的 WebSocket URL，用于自托管 SPA 渲染（例如 `ws://localhost:9222`） |
 | `WEBSEARCH_PRIORITY` | WebSearch（auto 模式） | 自动模式下引擎优先级（逗号分隔，如 `searxng,brave,tavily`） |
 
 无需 API 密钥的工具（Calculator、DateTime、FileOps、BashTool 等）开箱即用，零配置。

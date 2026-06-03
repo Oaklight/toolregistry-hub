@@ -380,6 +380,7 @@ TOOLS_CONFIG=path/to/tools.jsonc toolregistry-hub openapi
 | `SCRAPELESS_API_KEY` | Scrapeless 搜索 | Scrapeless API 密钥（[获取](https://scrapeless.com/)） |
 | `SERPER_API_KEY` | Serper 搜索 | Serper API 密钥（[获取](https://serper.dev/)） |
 | `JINA_API_KEY` | Fetch（Jina Reader） | 可选的 Jina Reader API 密钥，用于认证请求（逗号分隔支持多密钥轮转） |
+| `CDP_ENDPOINT` | Fetch（CDP 渲染） | 可选的 CDP 兼容浏览器 WebSocket URL，用于自托管 SPA 渲染（例如 `ws://localhost:9222`） |
 | `WEBSEARCH_PRIORITY` | 统一网络搜索 | 自动模式下的引擎优先级（逗号分隔，如 `searxng,brave,tavily`） |
 
 !!! note "自动禁用行为"
