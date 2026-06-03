@@ -30,7 +30,6 @@ SearXNG Setup: https://docs.searxng.org/admin/installation.html
 """
 
 import os
-
 from typing import cast
 
 from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError, Response
