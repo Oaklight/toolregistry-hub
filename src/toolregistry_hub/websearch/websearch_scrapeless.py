@@ -30,17 +30,23 @@ API Documentation: https://docs.scrapeless.com/
 """
 
 import json
-from typing import Any
+from typing import Any, cast
 
-from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError
+from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError, Response
 from .._vendor.structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
 from ..utils.requirements import requires_env
-from .base import TIMEOUT_DEFAULT, BaseSearch
+from .base import BaseSearch
 from .google_parser import SCRAPELESS_CONFIG, GoogleResultParser
 from .search_result import SearchResult
 
 logger = get_logger()
+
+# Scrapeless DeepSERP API routes through a proxy/scraping layer, so it is
+# significantly slower than direct API services like Serper or Brave.
+# 60 seconds gives enough headroom for slow responses while still
+# catching stuck requests.
+_SCRAPELESS_TIMEOUT_DEFAULT: float = 60.0
 
 
 @requires_env("SCRAPELESS_API_KEY")
@@ -91,7 +97,7 @@ class ScrapelessSearch(BaseSearch):
         query: str,
         *,
         max_results: int = 5,
-        timeout: float = TIMEOUT_DEFAULT,
+        timeout: float = _SCRAPELESS_TIMEOUT_DEFAULT,
         language: str = "en",
         country: str = "us",
         start: int = 0,
@@ -161,7 +167,7 @@ class ScrapelessSearch(BaseSearch):
         self,
         query: str,
         start: int = 0,
-        timeout: float = TIMEOUT_DEFAULT,
+        timeout: float = _SCRAPELESS_TIMEOUT_DEFAULT,
         language: str = "en",
         country: str = "us",
         **kwargs,
@@ -209,10 +215,13 @@ class ScrapelessSearch(BaseSearch):
 
             try:
                 with Client(timeout=timeout) as client:
-                    response = client.post(
-                        self.endpoint,
-                        headers=self._build_headers(api_key),
-                        json=payload,
+                    response = cast(
+                        Response,
+                        client.post(
+                            self.endpoint,
+                            headers=self._build_headers(api_key),
+                            json=payload,
+                        ),
                     )
                     response.raise_for_status()
 

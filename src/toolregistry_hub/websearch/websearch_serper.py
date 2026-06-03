@@ -27,9 +27,9 @@ API Documentation: https://serper.dev/playground
 """
 
 import json
-from typing import Any
+from typing import Any, cast
 
-from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError
+from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError, Response
 from .._vendor.structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
 from ..utils.requirements import requires_env
@@ -196,10 +196,13 @@ class SerperSearch(BaseSearch):
 
             try:
                 with Client(timeout=timeout) as client:
-                    response = client.post(
-                        f"{self.base_url}/search",
-                        headers=self._build_headers(api_key),
-                        json=payload,
+                    response = cast(
+                        Response,
+                        client.post(
+                            f"{self.base_url}/search",
+                            headers=self._build_headers(api_key),
+                            json=payload,
+                        ),
                     )
                     response.raise_for_status()
 
