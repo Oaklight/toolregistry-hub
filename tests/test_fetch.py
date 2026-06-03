@@ -28,6 +28,7 @@ from toolregistry_hub.fetch import (
     _get_content_with_markdown_negotiation,
     _is_content_sufficient,
     _jina_reader_request,
+    _render_with_cdp,
 )
 from toolregistry_hub.utils.api_key_parser import APIKeyParser
 
@@ -1232,3 +1233,193 @@ class TestExtractBudget:
         call_kwargs = mock_fetch.call_args
         assert "deadline" in call_kwargs.kwargs
         assert isinstance(call_kwargs.kwargs["deadline"], float)
+
+
+# ============================================================
+# _render_with_cdp tests
+# ============================================================
+
+
+class TestRenderWithCDP:
+    """Tests for the _render_with_cdp helper."""
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    def test_success_returns_html(self, mock_cdp_cls):
+        ctx = MagicMock()
+        ctx.get_rendered_html.return_value = "<html><body>Rendered</body></html>"
+        mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
+        mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = _render_with_cdp("https://spa.example.com", "ws://localhost:9222")
+        assert result == "<html><body>Rendered</body></html>"
+        ctx.get_rendered_html.assert_called_once_with(
+            "https://spa.example.com", timeout=15.0
+        )
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    def test_connection_error_returns_empty(self, mock_cdp_cls):
+        mock_cdp_cls.return_value.__enter__ = MagicMock(
+            side_effect=ConnectionError("refused")
+        )
+        mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = _render_with_cdp("https://spa.example.com", "ws://localhost:9222")
+        assert result == ""
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    def test_timeout_returns_empty(self, mock_cdp_cls):
+        ctx = MagicMock()
+        ctx.get_rendered_html.side_effect = TimeoutError("page load timed out")
+        mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
+        mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = _render_with_cdp("https://spa.example.com", "ws://localhost:9222")
+        assert result == ""
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    def test_none_html_returns_empty(self, mock_cdp_cls):
+        ctx = MagicMock()
+        ctx.get_rendered_html.return_value = None
+        mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
+        mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = _render_with_cdp("https://spa.example.com", "ws://localhost:9222")
+        assert result == ""
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    def test_custom_timeout(self, mock_cdp_cls):
+        ctx = MagicMock()
+        ctx.get_rendered_html.return_value = "<html>OK</html>"
+        mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
+        mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        _render_with_cdp("https://example.com", "ws://localhost:9222", timeout=5.0)
+        mock_cdp_cls.assert_called_once_with("ws://localhost:9222", timeout=5.0)
+        ctx.get_rendered_html.assert_called_once_with(
+            "https://example.com", timeout=5.0
+        )
+
+
+# ============================================================
+# CDP integration in _extract tests
+# ============================================================
+
+
+class TestExtractWithCDP:
+    """Tests for CDP rendering stage in _extract."""
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._try_cdp_extraction")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_cdp_renders_spa_successfully(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_cdp, mock_jina
+    ):
+        """CDP renders a SPA shell into usable content."""
+        mock_md.return_value = ""
+        mock_fetch.return_value = ("<html><div id='root'></div></html>", "text/html")
+        mock_readability.return_value = ""
+        mock_soup.return_value = ""
+
+        # _try_cdp_extraction returns (best_content, local_content)
+        mock_cdp.return_value = ("Full article content. " * 10, "")
+
+        result = _extract("https://spa.example.com", cdp_endpoint="ws://localhost:9222")
+        assert "Full article content" in result
+        mock_cdp.assert_called_once()
+        mock_jina.assert_not_called()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._try_cdp_extraction")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_cdp_fails_falls_through_to_jina(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_cdp, mock_jina
+    ):
+        """When CDP fails, pipeline falls through to Jina."""
+        mock_md.return_value = ""
+        mock_fetch.return_value = ("<html></html>", "text/html")
+        mock_readability.return_value = ""
+        mock_soup.return_value = ""
+        mock_cdp.return_value = ("", "")  # CDP failed
+        mock_jina.return_value = "# Jina Content\nFull article from Jina. " * 10
+
+        result = _extract("https://spa.example.com", cdp_endpoint="ws://localhost:9222")
+        assert "Jina Content" in result
+        mock_cdp.assert_called_once()
+        mock_jina.assert_called_once()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._try_cdp_extraction")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_cdp_unconfigured_skips_to_jina(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_cdp, mock_jina
+    ):
+        """When cdp_endpoint is None, CDP is skipped entirely."""
+        mock_md.return_value = ""
+        mock_fetch.return_value = ("<html></html>", "text/html")
+        mock_readability.return_value = ""
+        mock_soup.return_value = ""
+        # Must be long enough to pass _is_content_sufficient
+        sufficient = (
+            "# Jina Content\nThis is a full article with detailed information "
+            "about the topic at hand, providing comprehensive coverage. " * 5
+        )
+        mock_jina.return_value = sufficient
+
+        result = _extract("https://spa.example.com")  # No cdp_endpoint
+        assert "Jina Content" in result
+        mock_cdp.assert_not_called()
+        mock_jina.assert_called_once()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._try_cdp_extraction")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._get_content_with_markdown_negotiation")
+    def test_cdp_renders_but_content_still_insufficient(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_cdp, mock_jina
+    ):
+        """CDP renders HTML but content is still insufficient → falls through to Jina."""
+        mock_md.return_value = ""
+        mock_fetch.return_value = ("<html></html>", "text/html")
+        mock_readability.return_value = ""
+        mock_soup.return_value = ""
+
+        # CDP rendered but content insufficient — returns partial in local_content
+        mock_cdp.return_value = ("", "Still too short")
+
+        mock_jina.return_value = "# Full Jina Content\nComplete article. " * 10
+
+        result = _extract("https://spa.example.com", cdp_endpoint="ws://localhost:9222")
+        assert "Full Jina Content" in result
+        mock_cdp.assert_called_once()
+        mock_jina.assert_called_once()
+
+    def test_fetch_instance_accepts_cdp_endpoint(self):
+        """Fetch constructor accepts cdp_endpoint parameter."""
+        fetcher = Fetch(cdp_endpoint="ws://localhost:9222")
+        assert fetcher.cdp_endpoint == "ws://localhost:9222"
+
+    def test_fetch_instance_cdp_endpoint_default_none(self):
+        """Without cdp_endpoint, it defaults to None (or env var)."""
+        with patch.dict("os.environ", {}, clear=False):
+            import os
+
+            os.environ.pop("CDP_ENDPOINT", None)
+            fetcher = Fetch()
+            assert fetcher.cdp_endpoint is None
+
+    @patch.dict("os.environ", {"CDP_ENDPOINT": "ws://env-browser:9222"})
+    def test_fetch_instance_cdp_endpoint_from_env(self):
+        """CDP endpoint can be configured via CDP_ENDPOINT env var."""
+        fetcher = Fetch()
+        assert fetcher.cdp_endpoint == "ws://env-browser:9222"

@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import os
 import re
 import time
 import unicodedata
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 from ._vendor.httpclient import (
     HttpConnectionError,
     HTTPError,
     HttpTimeoutError,
+    Response,
 )
 from ._vendor.httpclient import (
     get as _http_get,
@@ -132,14 +134,22 @@ class Fetch:
     failure tracking.
     """
 
-    def __init__(self, api_keys: str | None = None):
-        """Initialize Fetch with optional Jina Reader API keys.
+    def __init__(
+        self,
+        api_keys: str | None = None,
+        cdp_endpoint: str | None = None,
+    ):
+        """Initialize Fetch with optional Jina Reader API keys and CDP endpoint.
 
         Args:
             api_keys: Comma-separated Jina API keys. Falls back to
                 the ``JINA_API_KEY`` environment variable if not provided.
                 When set, requests to the Jina Reader API include an
                 ``Authorization: Bearer <key>`` header.
+            cdp_endpoint: WebSocket URL of a CDP-compatible browser
+                (e.g. ``ws://localhost:9222``).  Falls back to the
+                ``CDP_ENDPOINT`` environment variable.  When set, SPA
+                pages are rendered via CDP before falling back to Jina.
         """
         from .utils.api_key_parser import APIKeyParser
 
@@ -149,6 +159,7 @@ class Fetch:
             rate_limit_delay=0.0,
         )
         self.api_key_parser: APIKeyParser | None = parser if parser.api_keys else None
+        self.cdp_endpoint: str | None = cdp_endpoint or os.environ.get("CDP_ENDPOINT")
 
     def _is_configured(self) -> bool:
         """Check if Fetch is configured.
@@ -190,6 +201,7 @@ class Fetch:
                 timeout=timeout,
                 proxy=proxy,
                 api_key_parser=self.api_key_parser,
+                cdp_endpoint=self.cdp_endpoint,
             )
         except FetchError:
             raise
@@ -277,11 +289,129 @@ def _pick_local_content(
     return ""
 
 
+def _render_with_cdp(
+    url: str,
+    cdp_endpoint: str,
+    timeout: float = 15.0,
+) -> str:
+    """Render a page via CDP and return the rendered HTML.
+
+    Connects to a CDP-compatible browser, navigates to the URL,
+    waits for page load, and extracts the fully-rendered HTML
+    (post-JavaScript execution).
+
+    Args:
+        url: The URL to render.
+        cdp_endpoint: WebSocket URL of the CDP browser
+            (e.g. ``ws://localhost:9222``).
+        timeout: Maximum time in seconds to wait for page load.
+
+    Returns:
+        Rendered HTML string, or empty string on any failure.
+    """
+    try:
+        from ._vendor.cdp import CDPClient
+
+        with CDPClient(cdp_endpoint, timeout=timeout) as client:
+            html = client.get_rendered_html(url, timeout=timeout)
+            if html:
+                logger.debug(f"CDP rendered {url}: {len(html)} chars of HTML")
+            return html or ""
+    except Exception as e:
+        logger.debug(f"CDP rendering failed for {url}: {e}")
+        return ""
+
+
+def _try_cdp_extraction(
+    url: str,
+    cdp_endpoint: str,
+    timeout: float,
+) -> tuple[str, str]:
+    """Render a page with CDP and attempt readability/soup extraction.
+
+    Args:
+        url: The URL to render.
+        cdp_endpoint: WebSocket endpoint for the CDP browser.
+        timeout: Budget in seconds for the CDP render.
+
+    Returns:
+        A ``(best_content, local_content)`` tuple.  ``best_content`` is non-empty
+        when extraction produced sufficient content; ``local_content`` is the best
+        partial result for final-fallback stashing.
+    """
+    rendered_html = _render_with_cdp(url, cdp_endpoint, timeout=timeout)
+    if not rendered_html:
+        return "", ""
+
+    cdp_readability = _extract_with_readability(rendered_html, url)
+    cdp_soup = _extract_with_soup(rendered_html)
+    cdp_best = _pick_local_content(cdp_readability, cdp_soup, url)
+    if cdp_best:
+        logger.info(f"Successfully fetched {url} using strategy: cdp")
+        return cdp_best, ""
+    return "", cdp_readability or cdp_soup or ""
+
+
+def _try_jina_extraction(
+    url: str,
+    *,
+    local_content: str,
+    timeout: float,
+    remaining: float,
+    proxy: str | None,
+    api_key_parser: APIKeyParser | None,
+    deadline: float,
+) -> str:
+    """Attempt Jina Reader extraction as the final network strategy.
+
+    Args:
+        url: The URL to extract content from.
+        local_content: Best local extraction result so far (for logging).
+        timeout: Original total timeout.
+        remaining: Time remaining in the budget.
+        proxy: Proxy to use for the request.
+        api_key_parser: Optional API key parser for Jina Reader.
+        deadline: Absolute wall-clock deadline.
+
+    Returns:
+        Sufficient Jina content, or empty string on failure.
+    """
+    reason = "low_quality_content" if local_content else "no_content"
+    if remaining <= _MIN_STRATEGY_BUDGET:
+        logger.debug(
+            f"Skipping Jina Reader for {url}: deadline exceeded "
+            f"(reason: {reason}, length: {len(local_content)})"
+        )
+        return ""
+
+    logger.debug(
+        f"Local extraction insufficient for {url} (reason: {reason}, "
+        f"length: {len(local_content)}), trying Jina Reader"
+    )
+
+    jina_content = _get_content_with_jina_reader(
+        url,
+        timeout=min(timeout, remaining),
+        proxy=proxy,
+        api_key_parser=api_key_parser,
+        deadline=deadline,
+    )
+
+    if jina_content and _is_content_sufficient(jina_content):
+        logger.info(
+            f"Successfully fetched {url} using strategy: jina_reader "
+            f"(local reason: {reason})"
+        )
+        return jina_content
+    return ""
+
+
 def _extract(
     url: str,
     timeout: float = TIMEOUT_DEFAULT,
     proxy: str | None = None,
     api_key_parser: APIKeyParser | None = None,
+    cdp_endpoint: str | None = None,
 ) -> str:
     """Extract content from a given URL using available methods.
 
@@ -289,7 +419,8 @@ def _extract(
     1. Cloudflare Content Negotiation (zero-cost markdown attempt)
     2. Readability extraction (intelligent article scoring, local)
     3. Simple soup extraction (CSS selector fallback, local)
-    4. Jina Reader (external API fallback for SPA / JS-heavy pages)
+    4. CDP rendering (self-hosted browser, re-parsed with readability/soup)
+    5. Jina Reader (external API fallback for SPA / JS-heavy pages)
 
     HTML is fetched once and reused by stages 2 and 3.  ``timeout`` is a
     wall-clock budget for the *whole* operation; strategies are skipped once
@@ -362,36 +493,29 @@ def _extract(
         # Stash best local result for final fallback
         local_content = readability_content or soup_content or ""
 
-    # 4. Local extraction insufficient — try Jina Reader
-    reason = "low_quality_content" if local_content else "no_content"
-    jina_content = ""
-    if _remaining() > _MIN_STRATEGY_BUDGET:
-        logger.debug(
-            f"Local extraction insufficient for {url} (reason: {reason}, "
-            f"length: {len(local_content)}), trying Jina Reader"
-        )
+    # 4. Try CDP rendering (self-hosted browser) if configured
+    if cdp_endpoint and _remaining() > _MIN_STRATEGY_BUDGET:
+        cdp_budget = min(_remaining(), 15.0)
+        cdp_result, cdp_local = _try_cdp_extraction(url, cdp_endpoint, cdp_budget)
+        if cdp_result:
+            return _format_text(cdp_result)
+        if len(cdp_local) > len(local_content):
+            local_content = cdp_local
 
-        jina_content = _get_content_with_jina_reader(
-            url,
-            timeout=min(timeout, _remaining()),
-            proxy=proxy,
-            api_key_parser=api_key_parser,
-            deadline=deadline,
-        )
+    # 5. Local extraction insufficient — try Jina Reader
+    jina_content = _try_jina_extraction(
+        url,
+        local_content=local_content,
+        timeout=timeout,
+        remaining=_remaining(),
+        proxy=proxy,
+        api_key_parser=api_key_parser,
+        deadline=deadline,
+    )
+    if jina_content:
+        return _format_text(jina_content)
 
-        if jina_content and _is_content_sufficient(jina_content):
-            logger.info(
-                f"Successfully fetched {url} using strategy: jina_reader "
-                f"(local reason: {reason})"
-            )
-            return _format_text(jina_content)
-    else:
-        logger.debug(
-            f"Skipping Jina Reader for {url}: deadline exceeded "
-            f"(reason: {reason}, length: {len(local_content)})"
-        )
-
-    # 5. Fall back to best local result if available
+    # 6. Fall back to best local result if available
     if local_content:
         logger.info(
             f"Successfully fetched {url} using strategy: local_fallback "
@@ -429,11 +553,14 @@ def _get_content_with_markdown_negotiation(
         ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
         headers = ua.headers.get()
         headers["Accept"] = "text/markdown"
-        response = _http_get(
-            url,
-            headers=headers,
-            timeout=timeout,
-            proxy=proxy,
+        response = cast(
+            Response,
+            _http_get(
+                url,
+                headers=headers,
+                timeout=timeout,
+                proxy=proxy,
+            ),
         )
         response.raise_for_status()
 
@@ -596,12 +723,15 @@ def _jina_reader_request(
 
         jina_reader_url = "https://r.jina.ai/"
         logger.debug(f"Jina Reader request for {url} (engine: {engine})")
-        response = _http_post(
-            jina_reader_url,
-            json={"url": url},
-            headers=headers,
-            timeout=transport_timeout,
-            proxy=proxy,
+        response = cast(
+            Response,
+            _http_post(
+                jina_reader_url,
+                json={"url": url},
+                headers=headers,
+                timeout=transport_timeout,
+                proxy=proxy,
+            ),
         )
         response.raise_for_status()
 
@@ -673,11 +803,14 @@ def _fetch_raw(
             ua.headers.accept_ch(
                 "Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List"
             )
-            response = _http_get(
-                url,
-                headers=ua.headers.get(),
-                timeout=per_attempt_timeout,
-                proxy=proxy,
+            response = cast(
+                Response,
+                _http_get(
+                    url,
+                    headers=ua.headers.get(),
+                    timeout=per_attempt_timeout,
+                    proxy=proxy,
+                ),
             )
             response.raise_for_status()
             # Extract the MIME type (drop charset and parameters).
