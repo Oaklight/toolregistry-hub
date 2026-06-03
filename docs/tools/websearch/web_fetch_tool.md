@@ -8,13 +8,13 @@ author: Oaklight
 
 # Web Fetch Tool
 
-The Web Fetch tool provides intelligent webpage content extraction from URLs. It uses a four-stage strategy chain — Cloudflare Content Negotiation, Readability extraction, zerodep soup parsing, and Jina Reader API — with **content quality evaluation** and **smart fallback** to extract clean, readable content from webpages while handling various website structures and formats, including JavaScript-heavy Single Page Applications (SPAs).
+The Web Fetch tool provides intelligent webpage content extraction from URLs. It uses a five-stage strategy chain — Cloudflare Content Negotiation, Readability extraction, zerodep soup parsing, CDP Browser Rendering, and Jina Reader API — with **content quality evaluation** and **smart fallback** to extract clean, readable content from webpages while handling various website structures and formats, including JavaScript-heavy Single Page Applications (SPAs).
 
 ## Overview
 
 The Fetch class offers robust webpage content extraction:
 
-- **Four-Stage Strategy Chain**: Cloudflare Content Negotiation → Readability extraction → Soup parsing → Jina Reader API
+- **Five-Stage Strategy Chain**: Cloudflare Content Negotiation → Readability extraction → Soup parsing → CDP Browser Rendering → Jina Reader API
 - **Content Quality Evaluation**: Detects SPA shell pages and insufficient content, triggering automatic fallback
 - **Smart Fallback with Low-Quality Recovery**: If Jina Reader also fails, returns local low-quality content as a last resort (better than nothing)
 - **Content Cleaning**: Removes navigation, ads, and unnecessary elements
@@ -47,13 +47,14 @@ content = fetcher.fetch_content(
 
 ## API Reference
 
-### `Fetch(api_keys=None)`
+### `Fetch(api_keys=None, cdp_endpoint=None)`
 
 Initialize the Fetch content extractor.
 
 **Parameters:**
 
 - `api_keys` (str, optional): Comma-separated Jina API keys. Falls back to `JINA_API_KEY` environment variable. When set, requests to Jina Reader include an `Authorization: Bearer <key>` header with round-robin key rotation.
+- `cdp_endpoint` (str, optional): WebSocket URL of a CDP-compatible browser (e.g., `ws://localhost:9222`). Falls back to `CDP_ENDPOINT` environment variable. When set, enables the CDP Browser Rendering stage for SPA content extraction.
 
 ### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None) -> str`
 
@@ -75,16 +76,17 @@ Extract content from a given URL using available methods.
 
 ## How It Works
 
-### Four-Stage Strategy Chain
+### Five-Stage Strategy Chain
 
-The Web Fetch tool uses a four-stage extraction approach with **content quality evaluation** at each step:
+The Web Fetch tool uses a five-stage extraction approach with **content quality evaluation** at each step:
 
 1. **Cloudflare Content Negotiation**: Zero-cost attempt to get markdown directly from the origin server
 2. **Readability Extraction**: Mozilla Readability-style article scoring to identify and extract main content
 3. **Soup Parsing**: Lightweight HTML parsing with CSS selector fallback using zerodep soup (zero external dependencies)
-4. **Jina Reader (Fallback)**: External API with multi-engine retry (`browser` → `cf-browser-rendering`) for JavaScript rendering (SPA support)
+4. **CDP Browser Rendering**: Self-hosted headless browser rendering via Chrome DevTools Protocol for SPA pages (requires `CDP_ENDPOINT` configuration)
+5. **Jina Reader (Fallback)**: External API with multi-engine retry (`browser` → `cf-browser-rendering`) for JavaScript rendering (SPA support)
 
-The tool fetches the raw HTML once and reuses it for both Readability and Soup extraction. It compares the results from both local strategies and picks the better one before deciding whether to fall back to Jina Reader.
+The tool fetches the raw HTML once and reuses it for both Readability and Soup extraction. It compares the results from both local strategies and picks the better one. If local extraction is insufficient and a CDP endpoint is configured, the tool renders the page in a headless browser and re-extracts content from the rendered HTML. If CDP is unavailable or still produces insufficient content, it falls back to Jina Reader.
 
 ### Extraction Process
 
@@ -97,7 +99,12 @@ flowchart TD
     C --> E[Soup Extraction]
     D & E --> F{Pick Best Local Result}
     F -->|Sufficient quality| Z
-    F -->|Too short or SPA shell| G[Jina Reader - browser engine]
+    F -->|Too short or SPA shell| CDP{CDP Endpoint configured?}
+    CDP -->|Yes| CDP1[CDP Browser Rendering]
+    CDP1 --> CDP2[Re-extract with Readability + Soup]
+    CDP2 -->|Sufficient quality| Z
+    CDP2 -->|Insufficient| G[Jina Reader - browser engine]
+    CDP -->|No| G
     G -->|Good content| Z
     G -->|Insufficient content| G2[Jina Reader - cf-browser-rendering engine]
     G2 -->|Good content| Z
@@ -152,9 +159,32 @@ The first strategy leverages [Cloudflare's "Markdown for Agents"](https://blog.c
 - Preserves the original document structure (headings, lists, code blocks, etc.)
 - Cloudflare also provides an `x-markdown-tokens` header indicating the token count of the markdown content
 
+### CDP Browser Rendering
+
+When local extraction produces insufficient content (SPA shell or too short) and a CDP endpoint is configured, the tool renders the page in a headless browser via the Chrome DevTools Protocol before falling back to Jina Reader.
+
+**How it works:**
+
+- Connects to a CDP-compatible browser (headless Chrome, Chromium, [Lightpanda](https://github.com/nichochar/lightpanda), etc.) via WebSocket
+- Navigates to the URL and waits for the page to fully render (including JavaScript execution)
+- Extracts the rendered HTML from the DOM
+- Re-runs Readability and Soup extraction on the rendered HTML to produce structured content
+
+**Configuration:**
+
+- Set `CDP_ENDPOINT` environment variable (e.g., `ws://localhost:9222`) or pass `cdp_endpoint` to the `Fetch()` constructor
+- The CDP stage is **entirely optional** — if unconfigured, the tool skips directly to Jina Reader
+- All CDP errors are caught silently; a failed CDP attempt never breaks the pipeline
+
+**Benefits:**
+
+- Self-hosted SPA rendering without relying on external APIs
+- No rate limits or API quotas — render as many pages as your browser instance can handle
+- Works with any CDP-compatible browser
+
 ### Jina Reader API
 
-The Jina Reader serves as the fallback strategy for pages that local extraction cannot handle well (e.g., JavaScript-heavy SPAs). The implementation uses a **multi-engine retry** approach:
+The Jina Reader serves as the fallback strategy for pages that local extraction and CDP rendering cannot handle well (e.g., JavaScript-heavy SPAs). The implementation uses a **multi-engine retry** approach:
 
 **Request Configuration:**
 
@@ -408,7 +438,7 @@ if is_valid:
 
 ### Technical Limitations
 
-- **JavaScript-heavy sites**: Handled via Jina Reader's multi-engine retry (`browser` → `cf-browser-rendering`) with `X-Wait-For-Selector` for dynamic content, but some complex SPAs may still not render fully
+- **JavaScript-heavy sites**: Handled via CDP Browser Rendering (self-hosted) or Jina Reader's multi-engine retry (`browser` → `cf-browser-rendering`) with `X-Wait-For-Selector` for dynamic content, but some complex SPAs may still not render fully
 - **Authentication**: Cannot access password-protected content
 - **Large files**: Very large pages may timeout or be truncated
 - **Complex layouts**: Some sites may require custom parsing

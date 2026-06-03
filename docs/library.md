@@ -231,6 +231,7 @@ Some tools require API keys to function. Set them as environment variables or us
 | `SCRAPELESS_API_KEY` | ScrapelessSearch | For Scrapeless search |
 | `SEARXNG_URL` | SearXNGSearch | For self-hosted SearXNG |
 | `JINA_API_KEY` | Fetch (Jina Reader) | Optional, for authenticated Jina Reader access (comma-separated for multi-key rotation) |
+| `CDP_ENDPOINT` | Fetch (CDP Rendering) | Optional, WebSocket URL of a CDP-compatible browser for self-hosted SPA rendering (e.g., `ws://localhost:9222`) |
 | `WEBSEARCH_PRIORITY` | WebSearch (auto mode) | Comma-separated engine priority (e.g., `searxng,brave,tavily`) |
 
 Tools without API key requirements (Calculator, DateTime, FileOps, BashTool, etc.) work out of the box with zero configuration.

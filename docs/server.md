@@ -380,6 +380,7 @@ The following environment variables are used by specific tools. Tools with missi
 | `SCRAPELESS_API_KEY` | Scrapeless Search | Scrapeless API key ([get one](https://scrapeless.com/)) |
 | `SERPER_API_KEY` | Serper Search | Serper API key ([get one](https://serper.dev/)) |
 | `JINA_API_KEY` | Fetch (Jina Reader) | Optional Jina Reader API key for authenticated requests (comma-separated for multi-key rotation) |
+| `CDP_ENDPOINT` | Fetch (CDP Rendering) | Optional WebSocket URL of a CDP-compatible browser for self-hosted SPA rendering (e.g., `ws://localhost:9222`) |
 | `WEBSEARCH_PRIORITY` | Unified WebSearch | Comma-separated engine priority for auto mode (e.g., `searxng,brave,tavily`) |
 
 !!! note "Auto-Disable Behavior"

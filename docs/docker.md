@@ -39,6 +39,8 @@ Key environment variables:
 - `SEARXNG_URL`: URL for SearXNG search engine
 - `BRAVE_API_KEY`: API key for Brave search, supporting comma separating multiple keys (round robin)
 - `TAVILY_API_KEY`: API key for Tavily search, supporting comma separating multiple keys (round robin)
+- `JINA_API_KEY`: Optional Jina Reader API key for authenticated requests (comma-separated for multi-key rotation)
+- `CDP_ENDPOINT`: Optional WebSocket URL of a CDP-compatible browser for self-hosted SPA rendering (e.g., `ws://localhost:9222`)
 
 ## Server Modes
 
