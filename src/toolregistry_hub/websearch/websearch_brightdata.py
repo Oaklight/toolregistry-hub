@@ -28,7 +28,7 @@ API Documentation: https://docs.brightdata.com/
 
 import json
 import os
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlencode
 
 from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError, Response
@@ -75,7 +75,7 @@ def _get_mcp_version() -> str:
 
     try:
         with Client(timeout=5.0) as client:
-            resp = client.get(_NPM_REGISTRY_URL)
+            resp = cast(Response, client.get(_NPM_REGISTRY_URL))
             resp.raise_for_status()
             version = resp.json().get("version", _MCP_FALLBACK_VERSION)
             _mcp_version_cache = version
@@ -163,9 +163,12 @@ class BrightDataSearch(BaseSearch):
                 headers = self._zone_api_headers(api_key)
 
                 with Client(timeout=30.0) as client:
-                    response = client.get(
-                        "https://api.brightdata.com/zone/get_active_zones",
-                        headers=headers,
+                    response = cast(
+                        Response,
+                        client.get(
+                            "https://api.brightdata.com/zone/get_active_zones",
+                            headers=headers,
+                        ),
                     )
                     response.raise_for_status()
                     zones = response.json() or []
@@ -310,26 +313,29 @@ class BrightDataSearch(BaseSearch):
         """
         try:
             with Client(timeout=timeout) as client:
-                response = client.post(
-                    f"{_MCP_REMOTE_URL}?token={api_key}",
-                    headers={
-                        "Content-Type": "application/json",
-                        "Accept": "text/event-stream, application/json",
-                    },
-                    data=json.dumps(
-                        {
-                            "jsonrpc": "2.0",
-                            "id": 1,
-                            "method": "initialize",
-                            "params": {
-                                "protocolVersion": "2024-11-05",
-                                "capabilities": {},
-                                "clientInfo": {
-                                    "name": _MCP_PACKAGE_NAME,
-                                    "version": _get_mcp_version(),
+                response = cast(
+                    Response,
+                    client.post(
+                        f"{_MCP_REMOTE_URL}?token={api_key}",
+                        headers={
+                            "Content-Type": "application/json",
+                            "Accept": "text/event-stream, application/json",
+                        },
+                        data=json.dumps(
+                            {
+                                "jsonrpc": "2.0",
+                                "id": 1,
+                                "method": "initialize",
+                                "params": {
+                                    "protocolVersion": "2024-11-05",
+                                    "capabilities": {},
+                                    "clientInfo": {
+                                        "name": _MCP_PACKAGE_NAME,
+                                        "version": _get_mcp_version(),
+                                    },
                                 },
-                            },
-                        }
+                            }
+                        ),
                     ),
                 )
                 if response.status_code == 200 and response.text:
@@ -459,10 +465,13 @@ class BrightDataSearch(BaseSearch):
 
             try:
                 with Client(timeout=timeout) as client:
-                    response = client.post(
-                        self.base_url,
-                        headers=self._build_headers(api_key),
-                        json=payload,
+                    response = cast(
+                        Response,
+                        client.post(
+                            self.base_url,
+                            headers=self._build_headers(api_key),
+                            json=payload,
+                        ),
                     )
                     response.raise_for_status()
 
