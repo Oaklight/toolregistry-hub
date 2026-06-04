@@ -12,24 +12,29 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with project-specific grouping where useful.
 
-## [Unreleased]
+## [0.8.3] - 2026-06-03
 
 ### Added
 
-- New `toolregistry_hub.utils.bind_literal()` helper that returns a copy of a function with one parameter's annotation rewritten to `Literal[*choices]`. Used by tools that need to surface a runtime-derived enum in their MCP / JSON input schema without hand-rolling `FunctionType` shenanigans.
+- **CDP rendering stage for Fetch** — when a `CDP_ENDPOINT` is configured, `fetch-fetch` attempts headless-browser rendering for SPA pages whose initial HTML is mostly empty JavaScript shells. Falls back to the plain HTTP response when CDP is unavailable or the page is already server-rendered.
+- New `toolregistry_hub.utils.bind_literal()` helper that returns a copy of a function with one parameter's annotation rewritten to `Literal[*choices]`. Used by tools that need to surface a runtime-driven enum in their MCP / JSON input schema without hand-rolling `FunctionType` shenanigans.
 
 ### Fixed
 
 - **SearXNG: switch JSON API requests from GET to POST** ([#115](https://github.com/Oaklight/toolregistry-hub/issues/115)). Modern SearXNG instances with `limiter: true` block GET requests for `format=json` via `Sec-Fetch-*` header checks; POST bypasses the limiter and matches the upstream-documented JSON API usage. Also replaces silent `return []` on HTTP errors with a typed `SearchBackendError` so callers can distinguish "no results" from "backend rejected the request".
 - `unit_converter-convert` input schema now exposes `conversion` as a closed enum of all 41 conversion function names instead of a free-form string (#117). MCP clients can validate locally and no longer need a discovery round-trip via `list_conversions`.
 - `todolist-update` accepts `in_progress` (also `in-progress`, `inprogress`) as an alias for `pending` (#116). The status enum is also now spelled out explicitly in the `update` docstring so it shows up in the generated tool description.
+- `fetch-fetch` now raises `FetchError` on HTTP failures and treats `timeout` as a wall-clock budget rather than per-request.
+- Bright Data websearch: align with official MCP package interface and increase default timeout.
+- Scrapeless websearch: increase default timeout; add `cast()` for ty type-checker compatibility.
 
 ### Changed
 
-- Rebuilt and pushed `oaklight/toolregistry-hub-server:0.8.2` and `latest` with `toolregistry==0.11.1` and `toolregistry-server==0.3.3` to pick up schema-normalization fixes for MCP deployments.
 - `unit_converter-help` and `calculator-help` now accept calls without `fn_name`, returning an overview of all available functions (#120).
 - `cron-list` column header is now `Job ID` instead of `ID`, matching the `job_id` parameter on `cron-delete` (#118).
 - **Breaking:** `file_ops-edit` first parameter renamed from `file_path` to `path` for consistency with every other `file_ops-*` method and the `reader-*` family (#119). Callers using `file_path=` by keyword must switch to `path=`; positional usage is unaffected.
+- Vendor `httpclient` 0.4.2 and simplify SearXNG POST internals.
+- Rebuilt and pushed `oaklight/toolregistry-hub-server:0.8.3` and `latest`.
 
 ### Removed
 
