@@ -12,6 +12,12 @@ author: Oaklight
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并在需要时保留项目自身的分类方式。
 
+## [未发布]
+
+### 修复
+
+- 修正 `README.md` 软链接目标，从 `readme_en.md`（不存在）改为 `README_en.md`。
+
 ## [0.8.3] - 2026-06-03
 
 ### 新增
