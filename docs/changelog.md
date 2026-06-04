@@ -12,10 +12,11 @@ author: Oaklight
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并在需要时保留项目自身的分类方式。
 
-## [未发布]
+## [0.8.3] - 2026-06-03
 
 ### 新增
 
+- **Fetch CDP 渲染阶段** — 配置 `CDP_ENDPOINT` 后，`fetch-fetch` 会对初始 HTML 为空壳 JavaScript 的 SPA 页面尝试无头浏览器渲染。CDP 不可用或页面已是服务端渲染时自动回退到普通 HTTP 响应。
 - 新增 `toolregistry_hub.utils.bind_literal()` 辅助函数：返回一个函数的拷贝，并将指定参数的注解改写为 `Literal[*choices]`。供需要在 MCP / JSON 输入 schema 中把运行期才能确定的取值集合以 enum 形式暴露出来的工具使用，避免每个工具手写 `FunctionType` 拼接逻辑。
 
 ### 修复
@@ -23,13 +24,17 @@ author: Oaklight
 - **SearXNG：JSON API 请求从 GET 切换为 POST**（[#115](https://github.com/Oaklight/toolregistry-hub/issues/115)）。启用 `limiter: true` 的现代 SearXNG 实例会通过 `Sec-Fetch-*` 请求头检查阻止 `format=json` 的 GET 请求；POST 方式可绕过 limiter，且符合上游文档中的 JSON API 用法。同时将 HTTP 错误时静默返回 `[]` 替换为抛出类型化的 `SearchBackendError`，使调用方能区分"无结果"和"后端拒绝请求"。
 - `unit_converter-convert` 的输入 schema 现在把 `conversion` 暴露为包含全部 41 个转换函数名的闭合 enum，而不是任意字符串（#117）。MCP 客户端可以本地校验入参，无需再先调用 `list_conversions` 来发现可选值。
 - `todolist-update` 现在接受 `in_progress`（以及 `in-progress`、`inprogress`）作为 `pending` 的别名（#116）。`update` 的 docstring 也明确列出了 status 枚举，使其出现在生成的工具描述中。
+- `fetch-fetch` 现在在 HTTP 失败时抛出 `FetchError`，`timeout` 改为 wall-clock 时间预算而非单次请求超时。
+- Bright Data 网页搜索：对齐官方 MCP 包接口并增加默认超时时间。
+- Scrapeless 网页搜索：增加默认超时时间；添加 `cast()` 以适配 ty 类型检查器。
 
 ### 变更
 
-- 重新构建并推送 `oaklight/toolregistry-hub-server:0.8.2` 和 `latest`，镜像内使用 `toolregistry==0.11.1` 与 `toolregistry-server==0.3.3`，以获得 MCP 部署相关的 schema 规范化修复。
 - `unit_converter-help` 和 `calculator-help` 现在支持不带 `fn_name` 调用，返回所有可用函数的概览（#120）。
 - `cron-list` 列表头由 `ID` 改为 `Job ID`，与 `cron-delete` 的 `job_id` 参数保持一致（#118）。
 - **不兼容变更：** `file_ops-edit` 的首个参数由 `file_path` 重命名为 `path`，与其它 `file_ops-*` 方法以及 `reader-*` 系列保持一致（#119）。通过关键字传 `file_path=` 的调用方需要改为 `path=`；按位置传参不受影响。
+- 内置 `httpclient` 更新至 0.4.2，简化 SearXNG POST 内部实现。
+- 重新构建并推送 `oaklight/toolregistry-hub-server:0.8.3` 和 `latest`。
 
 ### 移除
 
