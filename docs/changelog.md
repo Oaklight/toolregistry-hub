@@ -12,6 +12,12 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with project-specific grouping where useful.
 
+## [Unreleased]
+
+### Fixed
+
+- Fix `README.md` symlink target from `readme_en.md` (nonexistent) to `README_en.md`.
+
 ## [0.8.3] - 2026-06-03
 
 ### Added
