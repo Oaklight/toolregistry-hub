@@ -1,19 +1,19 @@
 ---
 title: 首页
-summary: 面向 LLM Agent 的即用工具集合
-description: ToolRegistry Hub 提供精选的 AI Agent 就绪工具集合，涵盖网络搜索、文件操作、代码执行、定时任务等。
-keywords: python, 工具, 实用程序, 计算器, 文件操作, 网络搜索
+summary: 面向 LLM Agent 的即用型工具集合
+description: ToolRegistry Hub 提供精选的 AI Agent 工具集，涵盖网络搜索、文件操作、代码执行、定时任务等。
+keywords: python, tools, utilities, calculator, file operations, web search
 author: Oaklight
 hide:
   - navigation
 ---
 
 <section class="tr-hero" markdown>
-<p class="tr-kicker">精选工具，即取即用</p>
+<p class="tr-kicker">精选工具，即装即用</p>
 
-# 不必重建整套工具栈。
+# 无需重造轮子的实用工具。
 
-<p class="tr-hero__desc">将精选的搜索、网页获取、日期时间、计算器、文件、Shell 与工作流工具作为本地 Python import 使用，也可搭配 ToolRegistry Core，或部署为 MCP/OpenAPI 服务。</p>
+<p class="tr-hero__desc">将精选的搜索、抓取、日期时间、计算器、文件、Shell 和工作流工具作为本地 Python 导入使用，或通过 ToolRegistry Core 及 MCP/OpenAPI 服务托管。</p>
 
 <p class="tr-badges">
   <a href="https://pypi.org/project/toolregistry-hub/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/toolregistry-hub?labelColor=475569&color=4d7c0f"></a>
@@ -22,82 +22,92 @@ hide:
 </p>
 
 <div class="tr-actions" markdown>
-[浏览工具](tools/){ .tr-button .tr-button--primary }
-[库使用方式](library.md){ .tr-button .tr-button--secondary }
-[部署服务](server.md){ .tr-button .tr-button--secondary }
+[快速上手](get-started/installation.md){ .tr-button .tr-button--primary }
+[浏览工具](tools/){ .tr-button .tr-button--secondary }
+[部署服务器](guides/server.md){ .tr-button .tr-button--secondary }
 </div>
 </section>
 
-## 两种使用方式
+## 选择你的路径
 
-=== "作为 Python 库"
+<div class="grid cards" markdown>
 
-    ```bash
-    pip install toolregistry-hub
-    ```
+-   :material-language-python:{ .lg .middle } **作为库使用**
 
-    ```python
-    from toolregistry_hub import Calculator, DateTime, BashTool, FileSearch
+    ---
 
-    Calculator.evaluate("sqrt(144) + 2**3")   # 20.0
-    DateTime.now("Asia/Shanghai")              # 上海当前时间
-    BashTool.execute("git status")             # 安全的 Shell 执行
-    FileSearch.grep(r"TODO", path="src/")      # 搜索代码
-    ```
+    在 Python 中直接导入工具 — 无需服务器。
 
-    每个工具都是带静态方法的普通 Python 类 — 无需实例化、无需管理状态、无需启动服务器。**[了解更多 →](library.md)**
+    [:octicons-arrow-right-24: 库使用指南](guides/library.md)
 
-=== "作为服务器"
+-   :material-server:{ .lg .middle } **部署服务器**
 
-    ```bash
-    pip install toolregistry-hub[server]
+    ---
 
-    # REST API 服务器
-    toolregistry-hub openapi --port 8000
+    将所有工具暴露为 OpenAPI 或 MCP 端点。
 
-    # MCP 服务器（用于 AI Agent）
-    toolregistry-hub mcp --transport streamable-http --port 8000
-    ```
+    [:octicons-arrow-right-24: 服务器指南](guides/server.md)
 
-    所有工具自动暴露为 API 端点。**[了解更多 →](server.md)**
+-   :material-tools:{ .lg .middle } **浏览工具**
+
+    ---
+
+    15+ 工具，覆盖搜索、文件、计算、Shell 等。
+
+    [:octicons-arrow-right-24: 工具目录](tools/)
+
+-   :material-docker:{ .lg .middle } **Docker 运行**
+
+    ---
+
+    预构建镜像，即时容器化部署。
+
+    [:octicons-arrow-right-24: Docker 指南](guides/docker.md)
+
+</div>
+
+## 快速体验
+
+```python
+from toolregistry_hub import Calculator, DateTime, BashTool, FileSearch
+
+Calculator.evaluate("sqrt(144) + 2**3")   # 20.0
+DateTime.now("Asia/Shanghai")              # 上海当前时间
+BashTool.execute("git status")             # 安全 Shell 执行
+FileSearch.grep(r"TODO", path="src/")      # 搜索代码
+```
+
+每个工具都是普通 Python 类 — 无需实例化、无需状态、无需服务器。**[快速上手 →](get-started/quickstart.md)**
 
 ## 可用工具
 
-| 类别 | 工具 | 亮点 |
+| 分类 | 工具 | 亮点 |
 |------|------|------|
-| **计算** | [Calculator](tools/calculator.md)、[UnitConverter](tools/unit_converter.md) | 表达式求值、100+ 种单位转换 |
+| **计算** | [计算器](tools/calculator.md)、[单位转换](tools/unit_converter.md) | 表达式求值、100+ 单位转换 |
 | **日期时间** | [DateTime](tools/datetime.md) | 时区感知、跨时区转换 |
-| **文件管理** | [FileOps](tools/file_ops.md)、[FileReader](tools/file_reader.md)、[FileSearch](tools/file_search.md)、[PathInfo](tools/path_info.md) | 精确字符串替换、glob/grep/tree、PDF 和 Notebook 读取 |
-| **Shell** | [BashTool](tools/bash_tool.md) | 内置拒绝列表的安全 Shell 执行 |
-| **网络** | [Fetch](tools/websearch/web_fetch_tool.md)、[BraveSearch](tools/websearch/brave.md)、[TavilySearch](tools/websearch/tavily.md)… | 内容提取、多引擎搜索 |
+| **文件管理** | [FileOps](tools/file_ops.md)、[FileReader](tools/file_reader.md)、[FileSearch](tools/file_search.md)、[PathInfo](tools/path_info.md) | 精确字符串编辑、glob/grep/tree、PDF 和 Notebook 读取 |
+| **Shell** | [BashTool](tools/bash_tool.md) | 内置拒绝列表的 Shell 执行 |
+| **网络** | [Fetch](tools/websearch/web_fetch_tool.md)、[BraveSearch](tools/websearch/brave.md)、[TavilySearch](tools/websearch/tavily.md)、… | 内容提取、多引擎搜索 |
 | **认知** | [ThinkTool](tools/think_tool.md)、[TodoList](tools/todo_list.md) | 结构化推理、任务管理 |
 
-**探索 [工具](tools/) 部分获取详细文档。**
-
-## 为什么选择 ToolRegistry Hub？
-
-- **双模式** — 同一套工具既能 import 使用，又能部署为服务端点
-- **Agent 就绪** — 为 LLM function calling 设计，附带规范的工具 schema
-- **安全** — BashTool 拒绝列表、FileOps 安全上限、无任意代码执行
-- **极少依赖** — 大部分工具仅使用 Python 标准库
-- **开箱即用** — 15+ 工具覆盖文件、搜索、计算等场景
+**[完整工具目录 →](tools/)**
 
 ## 生态系统
 
-ToolRegistry Hub 是三包生态系统的一部分。详情请参阅[生态系统](ecosystem.md)页面。
+ToolRegistry Hub 是三包生态系统的一部分。详见[生态系统](ecosystem.md)页面。
 
-| 包名 | 角色 |
-|------|------|
-| [toolregistry](https://toolregistry.readthedocs.io/zh/) | 核心工具管理库 |
-| [toolregistry-server](https://toolregistry-server.readthedocs.io/zh/) | OpenAPI 和 MCP 服务器适配器 |
+| 包 | 角色 |
+|----|------|
+| [toolregistry](https://toolregistry.readthedocs.io/) | 核心工具管理库 |
+| [toolregistry-server](https://toolregistry-server.readthedocs.io/) | OpenAPI 与 MCP 服务器适配器 |
 | **toolregistry-hub** | 即用型实用工具 |
 
-## 参与进来
+## 参与贡献
 
-- **[GitHub 仓库](https://github.com/Oaklight/toolregistry-hub)** - 源代码和问题
-- **[English Documentation](../en/)** - 英文文档
-- **[工具文档](tools/)** - 完整的工具参考
+- **[GitHub 仓库](https://github.com/Oaklight/toolregistry-hub)** — 源代码和 Issues
+- **[English Docs](../en/)** — 英文文档
+- **[工具文档](tools/)** — 完整工具参考
 
 ---
 
-_ToolRegistry Hub: 让实用工具变得可访问且可靠。_
+_ToolRegistry Hub：让实用工具触手可及。_
