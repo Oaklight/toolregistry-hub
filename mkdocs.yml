@@ -112,6 +112,8 @@ plugins:
           - tools/websearch/search_result.md
         生态系统:
           - ecosystem.md
+          - https://toolregistry.readthedocs.io/
+          - https://toolregistry-server.readthedocs.io/
         更新日志:
           - changelog.md
 
@@ -208,5 +210,8 @@ nav:
       - 搜索结果类型: tools/websearch/search_result.md
       - 已弃用:
           - Bing 搜索: tools/websearch/bing.md
-  - 生态系统: ecosystem.md
+  - 生态系统:
+      - 概述: ecosystem.md
+      - ToolRegistry: https://toolregistry.readthedocs.io/
+      - Server: https://toolregistry-server.readthedocs.io/
   - 更新日志: changelog.md
