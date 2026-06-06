@@ -22,65 +22,75 @@ hide:
 </p>
 
 <div class="tr-actions" markdown>
-[Browse Tools](tools/){ .tr-button .tr-button--primary }
-[Use as Library](library.md){ .tr-button .tr-button--secondary }
-[Deploy Server](server.md){ .tr-button .tr-button--secondary }
+[Get Started](get-started/installation.md){ .tr-button .tr-button--primary }
+[Browse Tools](tools/){ .tr-button .tr-button--secondary }
+[Deploy Server](guides/server.md){ .tr-button .tr-button--secondary }
 </div>
 </section>
 
-## Two Ways to Use
+## Pick Your Path
 
-=== "As a Python Library"
+<div class="grid cards" markdown>
 
-    ```bash
-    pip install toolregistry-hub
-    ```
+-   :material-language-python:{ .lg .middle } **Use as a Library**
 
-    ```python
-    from toolregistry_hub import Calculator, DateTime, BashTool, FileSearch
+    ---
 
-    Calculator.evaluate("sqrt(144) + 2**3")   # 20.0
-    DateTime.now("Asia/Shanghai")              # current time in Shanghai
-    BashTool.execute("git status")             # safe shell execution
-    FileSearch.grep(r"TODO", path="src/")      # search code
-    ```
+    Import tools directly in Python — no server needed.
 
-    Every tool is a plain Python class with static methods — no instantiation, no state, no server needed. **[Learn more →](library.md)**
+    [:octicons-arrow-right-24: Library Guide](guides/library.md)
 
-=== "As a Server"
+-   :material-server:{ .lg .middle } **Deploy a Server**
 
-    ```bash
-    pip install toolregistry-hub[server]
+    ---
 
-    # REST API server
-    toolregistry-hub openapi --port 8000
+    Expose all tools as OpenAPI or MCP endpoints.
 
-    # MCP server (for AI agents)
-    toolregistry-hub mcp --transport streamable-http --port 8000
-    ```
+    [:octicons-arrow-right-24: Server Guide](guides/server.md)
 
-    All tools are auto-exposed as API endpoints. **[Learn more →](server.md)**
+-   :material-tools:{ .lg .middle } **Browse the Tools**
+
+    ---
+
+    15+ tools for search, files, compute, shell, and more.
+
+    [:octicons-arrow-right-24: Tool Catalog](tools/)
+
+-   :material-docker:{ .lg .middle } **Run in Docker**
+
+    ---
+
+    Pre-built images for instant containerized deployment.
+
+    [:octicons-arrow-right-24: Docker Guide](guides/docker.md)
+
+</div>
+
+## Quick Taste
+
+```python
+from toolregistry_hub import Calculator, DateTime, BashTool, FileSearch
+
+Calculator.evaluate("sqrt(144) + 2**3")   # 20.0
+DateTime.now("Asia/Shanghai")              # current time in Shanghai
+BashTool.execute("git status")             # safe shell execution
+FileSearch.grep(r"TODO", path="src/")      # search code
+```
+
+Every tool is a plain Python class — no instantiation, no state, no server needed. **[Quick Start →](get-started/quickstart.md)**
 
 ## Available Tools
 
 | Category | Tools | Highlights |
 |----------|-------|------------|
 | **Calculation** | [Calculator](tools/calculator.md), [UnitConverter](tools/unit_converter.md) | Expression evaluation, 100+ unit conversions |
-| **Date & Time** | [DateTime](tools/datetime.md) | Timezone-aware time, cross-timezone conversion |
+| **Date & Time** | [DateTime](tools/datetime.md) | Timezone-aware, cross-timezone conversion |
 | **File Management** | [FileOps](tools/file_ops.md), [FileReader](tools/file_reader.md), [FileSearch](tools/file_search.md), [PathInfo](tools/path_info.md) | Exact-string edit, glob/grep/tree, PDF & notebook reading |
-| **Shell** | [BashTool](tools/bash_tool.md) | Shell execution with built-in deny list security |
-| **Web** | [Fetch](tools/websearch/web_fetch_tool.md), [BraveSearch](tools/websearch/brave.md), [TavilySearch](tools/websearch/tavily.md), ... | Content extraction, multi-engine search |
+| **Shell** | [BashTool](tools/bash_tool.md) | Shell execution with built-in deny list |
+| **Web** | [Fetch](tools/websearch/web_fetch_tool.md), [BraveSearch](tools/websearch/brave.md), [TavilySearch](tools/websearch/tavily.md), … | Content extraction, multi-engine search |
 | **Cognitive** | [ThinkTool](tools/think_tool.md), [TodoList](tools/todo_list.md) | Structured reasoning, task management |
 
-**Explore the [Tools](tools/) section for detailed documentation.**
-
-## Why ToolRegistry Hub?
-
-- **Dual-mode** — same tools work as library imports and as server endpoints
-- **Agent-ready** — designed for LLM function calling with proper schemas
-- **Secure** — BashTool deny list, FileOps safety caps, no arbitrary code execution
-- **Minimal dependencies** — most tools use only the Python standard library
-- **Batteries included** — 15+ tools covering files, search, compute, and more
+**[Full tool catalog →](tools/)**
 
 ## Ecosystem
 
@@ -94,9 +104,9 @@ ToolRegistry Hub is part of a three-package ecosystem. See the [Ecosystem](ecosy
 
 ## Get Involved
 
-- **[GitHub Repository](https://github.com/Oaklight/toolregistry-hub)** - Source code and issues
-- **[中文文档](../zh/)** - Chinese documentation
-- **[Tools Documentation](tools/)** - Complete tool reference
+- **[GitHub Repository](https://github.com/Oaklight/toolregistry-hub)** — Source code and issues
+- **[中文文档](../zh/)** — Chinese documentation
+- **[Tools Documentation](tools/)** — Complete tool reference
 
 ---
 

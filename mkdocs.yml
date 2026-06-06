@@ -74,6 +74,9 @@ plugins:
       sections:
         Home:
           - index.md
+        Get Started:
+          - get-started/installation.md
+          - get-started/quickstart.md
         Tools:
           - tools/index.md
           - tools/calculator.md
@@ -92,20 +95,21 @@ plugins:
           - tools/websearch/serper.md
           - tools/websearch/tavily.md
           - tools/websearch/searxng.md
-          - tools/websearch/bing.md
           - tools/bash_tool.md
           - tools/cron_tool.md
           - tools/think_tool.md
           - tools/todo_list.md
-        Deployment:
-          - library.md
-          - server.md
-          - docker.md
-        Development:
-          - dev/helper_functions.md
+        Guides:
+          - guides/library.md
+          - guides/server.md
+          - guides/docker.md
+        Reference:
+          - reference/cli.md
+          - reference/endpoints.md
+          - reference/environment.md
+          - reference/helper_functions.md
           - tools/websearch/base_search.md
           - tools/websearch/search_result.md
-          - tools/websearch/bing.md
         Ecosystem:
           - ecosystem.md
         Changelog:
@@ -158,6 +162,9 @@ extra_javascript:
 
 nav:
   - Home: index.md
+  - Get Started:
+      - Installation: get-started/installation.md
+      - Quick Start: get-started/quickstart.md
   - Tools:
       - tools/index.md
       - Calculation & Conversion:
@@ -188,12 +195,15 @@ nav:
       - Other Tools:
           - Think Tool: tools/think_tool.md
           - Todo List Tool: tools/todo_list.md
-  - Deployment:
-      - Library Usage: library.md
-      - Server Mode: server.md
-      - Docker Deployment: docker.md
-  - Development:
-      - Helper Functions: dev/helper_functions.md
+  - Guides:
+      - Library Usage: guides/library.md
+      - Server Mode: guides/server.md
+      - Docker Deployment: guides/docker.md
+  - Reference:
+      - CLI: reference/cli.md
+      - API Endpoints: reference/endpoints.md
+      - Environment Variables: reference/environment.md
+      - Helper Functions: reference/helper_functions.md
       - Web Search Base Class: tools/websearch/base_search.md
       - Search Result Types: tools/websearch/search_result.md
       - Deprecated:
