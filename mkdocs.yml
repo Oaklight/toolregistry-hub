@@ -112,6 +112,8 @@ plugins:
           - tools/websearch/search_result.md
         Ecosystem:
           - ecosystem.md
+          - https://toolregistry.readthedocs.io/
+          - https://toolregistry-server.readthedocs.io/
         Changelog:
           - changelog.md
 
@@ -208,5 +210,8 @@ nav:
       - Search Result Types: tools/websearch/search_result.md
       - Deprecated:
           - Bing Search: tools/websearch/bing.md
-  - Ecosystem: ecosystem.md
+  - Ecosystem:
+      - Overview: ecosystem.md
+      - ToolRegistry: https://toolregistry.readthedocs.io/
+      - Server: https://toolregistry-server.readthedocs.io/
   - Changelog: changelog.md
