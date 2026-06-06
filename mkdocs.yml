@@ -210,5 +210,3 @@ nav:
           - Bing Search: tools/websearch/bing.md
   - Ecosystem: ecosystem.md
   - Changelog: changelog.md
-  - ToolRegistry: https://toolregistry.readthedocs.io/
-  - Server: https://toolregistry-server.readthedocs.io/
