@@ -18,7 +18,7 @@
 
 ## 架构
 
-Bright Data 搜索实现使用了**通用的 Google 结果解析器** ([`GoogleResultParser`](../../websearch/google_parser.md))，它可以:
+Bright Data 搜索实现使用了**通用的 Google 结果解析器** (`GoogleResultParser`)，它可以:
 
 - 处理不同 API 响应格式的差异
 - 基于搜索位置提供一致的结果评分
@@ -380,7 +380,7 @@ python tests/websearch/test_debug_google_apis.py
 
 ### 通用解析器
 
-Bright Data 搜索使用 [`GoogleResultParser`](../../websearch/google_parser.md) 及以下配置:
+Bright Data 搜索使用 `GoogleResultParser` 及以下配置:
 
 ```python
 BRIGHTDATA_CONFIG = GoogleAPIConfig(
@@ -404,7 +404,7 @@ BRIGHTDATA_CONFIG = GoogleAPIConfig(
 - [Bright Data 官方文档](https://docs.brightdata.com/)
 - [Bright Data API 参考](https://docs.brightdata.com/api-reference)
 - [Bright Data 控制台](https://brightdata.com/cp)
-- [通用 Google 解析器文档](../../websearch/google_parser.md)
+- 通用 Google 解析器实现：`toolregistry_hub.websearch.google_parser`
 
 ## 许可证
 

@@ -94,7 +94,7 @@ print(result)
 # }
 ```
 
-BashTool 内置拒绝列表，会阻止危险命令（`rm -rf /`、`sudo`、fork bomb 等）。详见 [Bash 工具](tools/bash_tool.md) 页面的完整安全模型。
+BashTool 内置拒绝列表，会阻止危险命令（`rm -rf /`、`sudo`、fork bomb 等）。详见 [Bash 工具](../tools/bash_tool.md) 页面的完整安全模型。
 
 ### 网络搜索与抓取
 
