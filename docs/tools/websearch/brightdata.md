@@ -18,7 +18,7 @@ By integrating Bright Data's SERP API, we can bypass Google's anti-bot mechanism
 
 ## Architecture
 
-Bright Data search implementation uses a **universal Google result parser** ([`GoogleResultParser`](../../websearch/google_parser.md)) that:
+Bright Data search implementation uses a **universal Google result parser** (`GoogleResultParser`) that:
 
 - Handles variations in API response formats
 - Provides consistent result scoring based on search position
@@ -380,7 +380,7 @@ python tests/websearch/test_debug_google_apis.py
 
 ### Universal Parser
 
-Bright Data search uses the [`GoogleResultParser`](../../websearch/google_parser.md) with the following configuration:
+Bright Data search uses the `GoogleResultParser` with the following configuration:
 
 ```python
 BRIGHTDATA_CONFIG = GoogleAPIConfig(
@@ -404,7 +404,7 @@ This configuration tells the parser:
 - [Bright Data Official Documentation](https://docs.brightdata.com/)
 - [Bright Data API Reference](https://docs.brightdata.com/api-reference)
 - [Bright Data Console](https://brightdata.com/cp)
-- [Universal Google Parser Documentation](../../websearch/google_parser.md)
+- Universal Google parser implementation: `toolregistry_hub.websearch.google_parser`
 
 ## License
 

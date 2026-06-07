@@ -94,7 +94,7 @@ print(result)
 # }
 ```
 
-BashTool has a built-in deny list that blocks dangerous commands (`rm -rf /`, `sudo`, fork bombs, etc.). See the [Bash Tool](tools/bash_tool.md) page for the full security model.
+BashTool has a built-in deny list that blocks dangerous commands (`rm -rf /`, `sudo`, fork bombs, etc.). See the [Bash Tool](../tools/bash_tool.md) page for the full security model.
 
 ### Web Search & Fetch
 

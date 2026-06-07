@@ -6,7 +6,7 @@ Scrapeless Google Search provides functionality to perform Google web searches u
 
 - **Provider**: Scrapeless DeepSERP API
 - **Search Engine**: Google only
-- **Architecture**: Uses universal [`GoogleResultParser`](../../websearch/google_parser.md)
+- **Architecture**: Uses universal `GoogleResultParser`
 - **Scoring**: Position-based relevance scoring
 
 ## Class Overview
@@ -20,7 +20,7 @@ Scrapeless Google Search provides functionality to perform Google web searches u
 
 ## Architecture
 
-Scrapeless search implementation uses a **universal Google result parser** ([`GoogleResultParser`](../../websearch/google_parser.md)) that:
+Scrapeless search implementation uses a **universal Google result parser** (`GoogleResultParser`) that:
 
 - Handles variations in API response formats
 - Provides consistent result scoring based on search position
@@ -282,7 +282,7 @@ The DeepSERP API returns structured data:
 
 ### Universal Parser Configuration
 
-Scrapeless search uses the [`GoogleResultParser`](../../websearch/google_parser.md) with the following configuration:
+Scrapeless search uses the `GoogleResultParser` with the following configuration:
 
 ```python
 SCRAPELESS_CONFIG = GoogleAPIConfig(
@@ -346,7 +346,7 @@ python tests/websearch/test_debug_google_apis.py
 ## Related Resources
 
 - [Scrapeless API Documentation](https://docs.scrapeless.com/)
-- [Universal Google Parser Documentation](../../websearch/google_parser.md)
+- Universal Google parser implementation: `toolregistry_hub.websearch.google_parser`
 - [Scrapeless Console](https://app.scrapeless.com/)
 
 ## API Documentation
