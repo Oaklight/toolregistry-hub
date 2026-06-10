@@ -6,11 +6,10 @@ using the free wttr.in JSON API.  No API key required.
 
 from __future__ import annotations
 
-import json
-from typing import Literal
+from typing import Any, Literal
 
-from ._vendor.httpclient import get as _http_get
 from ._vendor.httpclient import HttpConnectionError, HTTPError, HttpTimeoutError
+from ._vendor.httpclient import get as _http_get
 from ._vendor.structlog import get_logger
 
 logger = get_logger()
@@ -35,22 +34,22 @@ def _fetch_json(location: str) -> dict:
     Raises:
         WeatherError: On network or API errors.
     """
-    # Encode spaces for URL
-    encoded = location.replace(" ", "+")
+    # Normalise input and encode spaces for URL
+    encoded = location.strip().replace(" ", "+")
     url = f"{_WTTR_BASE}/{encoded}?format=j1"
     try:
         resp = _http_get(url, timeout=_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
-    except HttpTimeoutError:
-        raise WeatherError(f"Request timed out for location: {location}")
+    except HttpTimeoutError as exc:
+        raise WeatherError(f"Request timed out for location: {location}") from exc
     except (HTTPError, HttpConnectionError) as exc:
-        raise WeatherError(f"Failed to fetch weather for '{location}': {exc}")
+        raise WeatherError(f"Failed to fetch weather for '{location}': {exc}") from exc
     except Exception as exc:
-        raise WeatherError(f"Unexpected error fetching weather: {exc}")
+        raise WeatherError(f"Unexpected error fetching weather: {exc}") from exc
 
 
-def _extract_area(data: dict) -> dict[str, str]:
+def _extract_area(data: dict) -> dict[str, Any]:
     """Extract nearest area info."""
     area = data.get("nearest_area", [{}])[0]
     return {
@@ -196,7 +195,7 @@ class Weather:
     def get_current(
         location: str,
         units: Literal["metric", "imperial"] = "metric",
-    ) -> str:
+    ) -> dict[str, Any]:
         """Get current weather conditions for a location.
 
         Returns temperature, feels-like, humidity, wind, precipitation,
@@ -210,19 +209,17 @@ class Weather:
                 (°F, mph, in).  Defaults to ``"metric"``.
 
         Returns:
-            JSON string with current conditions and resolved location.
+            Dict with ``location`` (resolved area info) and ``current``
+            (temperature, feels_like, description, humidity, wind, etc.).
 
         Raises:
             WeatherError: If the request fails.
         """
         data = _fetch_json(location)
-        return json.dumps(
-            {
-                "location": _extract_area(data),
-                "current": _build_current(data, units),
-            },
-            ensure_ascii=False,
-        )
+        return {
+            "location": _extract_area(data),
+            "current": _build_current(data, units),
+        }
 
     @staticmethod
     def get_forecast(
@@ -230,7 +227,7 @@ class Weather:
         days: Literal[1, 2, 3] = 3,
         units: Literal["metric", "imperial"] = "metric",
         include_hourly: bool = False,
-    ) -> str:
+    ) -> dict[str, Any]:
         """Get weather forecast for a location (up to 3 days).
 
         Each day includes high/low/average temperatures, UV index, snow,
@@ -245,19 +242,61 @@ class Weather:
                 Defaults to ``False`` to keep output compact.
 
         Returns:
-            JSON string with location and daily forecasts.
+            Dict with ``location`` and ``forecast`` (list of daily entries
+            with max/min/avg temps, UV, snow, sun hours, sunrise/sunset,
+            moon phase, and optional hourly breakdowns).
 
         Raises:
             WeatherError: If the request fails.
         """
         data = _fetch_json(location)
         weather_days = data.get("weather", [])[:days]
-        return json.dumps(
-            {
-                "location": _extract_area(data),
-                "forecast": [
-                    _build_day(d, units, include_hourly) for d in weather_days
-                ],
-            },
-            ensure_ascii=False,
-        )
+        return {
+            "location": _extract_area(data),
+            "forecast": [
+                _build_day(d, units, include_hourly) for d in weather_days
+            ],
+        }
+
+    @staticmethod
+    def get_astronomy(
+        location: str,
+    ) -> dict[str, Any]:
+        """Get astronomy data for a location (sunrise, sunset, moon phase).
+
+        Returns today's astronomical information.  Useful for checking
+        sunrise/sunset times, day/night status, or current moon phase
+        without fetching the full forecast.
+
+        Args:
+            location: City name, coordinates, airport code, or landmark.
+
+        Returns:
+            Dict with ``location``, ``date``, ``sunrise``, ``sunset``,
+            ``moonrise``, ``moonset``, ``moon_phase``, and
+            ``moon_illumination``.
+
+        Raises:
+            WeatherError: If the request fails or no data is available.
+        """
+        data = _fetch_json(location)
+        weather_days = data.get("weather", [])
+        if not weather_days:
+            raise WeatherError(f"No astronomy data available for: {location}")
+
+        today = weather_days[0]
+        astro_list = today.get("astronomy", [])
+        if not astro_list:
+            raise WeatherError(f"No astronomy data available for: {location}")
+
+        astro = astro_list[0]
+        return {
+            "location": _extract_area(data),
+            "date": today.get("date", ""),
+            "sunrise": astro.get("sunrise", ""),
+            "sunset": astro.get("sunset", ""),
+            "moonrise": astro.get("moonrise", ""),
+            "moonset": astro.get("moonset", ""),
+            "moon_phase": astro.get("moon_phase", ""),
+            "moon_illumination": f"{astro.get('moon_illumination', '?')}%",
+        }
