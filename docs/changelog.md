@@ -14,6 +14,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Weather tool** ([#131](https://github.com/Oaklight/toolregistry-hub/pull/131)) — new `weather` namespace with three methods powered by the free [wttr.in](https://wttr.in) JSON API. No API key required; uses the existing zero-dep `httpclient`.
+    - `get_current(location, units)` — current conditions: temperature, feels-like, humidity, wind, precipitation, cloud cover, UV index, visibility, pressure.
+    - `get_forecast(location, days, units, include_hourly)` — up to 3-day forecast with optional 3-hourly breakdowns.
+    - `get_astronomy(location)` — sunrise/sunset, moonrise/moonset, moon phase and illumination.
+    - Supports metric/imperial units, city names, coordinates, and airport codes.
+
 ### Fixed
 
 - Fix `README.md` symlink target from `readme_en.md` (nonexistent) to `README_en.md`.
