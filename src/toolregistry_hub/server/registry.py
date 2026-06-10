@@ -57,6 +57,9 @@ _DEFAULT_TOOLS: list[PythonSource] = [
         namespace="unit_converter",
     ),
     PythonSource(
+        class_path="toolregistry_hub.weather.Weather", namespace="weather"
+    ),
+    PythonSource(
         class_path="toolregistry_hub.websearch.websearch_unified.WebSearch",
         namespace="web/websearch",
     ),
@@ -128,6 +131,7 @@ _TOOL_METADATA: dict[str, dict] = {
     "cron": {"defer": True, "tags": {ToolTag.PRIVILEGED}},
     "todolist": {"defer": True, "tags": {ToolTag.READ_ONLY}},
     "unit_converter": {"defer": True, "tags": {ToolTag.READ_ONLY}},
+    "weather": {"tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
 }
 
 
