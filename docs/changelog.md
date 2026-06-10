@@ -20,7 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     - `get_current(location, units)` — current conditions: temperature, feels-like, humidity, wind, precipitation, cloud cover, UV index, visibility, pressure.
     - `get_forecast(location, days, units, include_hourly)` — up to 3-day forecast with optional 3-hourly breakdowns.
     - `get_astronomy(location)` — sunrise/sunset, moonrise/moonset, moon phase and illumination.
-    - Supports metric/imperial units, city names, coordinates, and airport codes.
+    - Supports metric/imperial units, city names, coordinates, and airport codes. Tagged `NETWORK + READ_ONLY`.
 
 ### Fixed
 
