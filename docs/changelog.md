@@ -14,6 +14,14 @@ author: Oaklight
 
 ## [未发布]
 
+### 新增
+
+- **天气工具**（[#131](https://github.com/Oaklight/toolregistry-hub/pull/131)）— 新增 `weather` 命名空间，提供三个方法，基于免费的 [wttr.in](https://wttr.in) JSON API，无需 API key，使用现有的零依赖 `httpclient`。
+    - `get_current(location, units)` — 当前天气：温度、体感温度、湿度、风速、降水量、云量、UV 指数、能见度、气压。
+    - `get_forecast(location, days, units, include_hourly)` — 最多 3 天预报，可选展开 3 小时级别的详细数据。
+    - `get_astronomy(location)` — 日出日落、月出月落、月相及月亮亮度。
+    - 支持公制/英制单位、城市名、坐标、机场代码。
+
 ### 修复
 
 - 修正 `README.md` 软链接目标，从 `readme_en.md`（不存在）改为 `README_en.md`。
