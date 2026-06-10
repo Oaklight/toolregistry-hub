@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -174,7 +173,7 @@ class TestGetCurrent:
     def test_metric(self, mock_get: MagicMock):
         mock_get.return_value = _mock_response(_SAMPLE_RESPONSE)
 
-        result = json.loads(Weather.get_current("Chicago"))
+        result = Weather.get_current("Chicago")
 
         assert result["location"]["name"] == "Chicago"
         assert result["location"]["country"] == "United States of America"
@@ -190,7 +189,7 @@ class TestGetCurrent:
     def test_imperial(self, mock_get: MagicMock):
         mock_get.return_value = _mock_response(_SAMPLE_RESPONSE)
 
-        result = json.loads(Weather.get_current("Chicago", units="imperial"))
+        result = Weather.get_current("Chicago", units="imperial")
 
         cur = result["current"]
         assert cur["temperature"] == "85°F"
@@ -227,7 +226,7 @@ class TestGetForecast:
     def test_default_3_days(self, mock_get: MagicMock):
         mock_get.return_value = _mock_response(_SAMPLE_RESPONSE)
 
-        result = json.loads(Weather.get_forecast("Chicago"))
+        result = Weather.get_forecast("Chicago")
 
         assert len(result["forecast"]) == 3
         day0 = result["forecast"][0]
@@ -243,7 +242,7 @@ class TestGetForecast:
     def test_1_day(self, mock_get: MagicMock):
         mock_get.return_value = _mock_response(_SAMPLE_RESPONSE)
 
-        result = json.loads(Weather.get_forecast("Chicago", days=1))
+        result = Weather.get_forecast("Chicago", days=1)
 
         assert len(result["forecast"]) == 1
 
@@ -251,7 +250,7 @@ class TestGetForecast:
     def test_imperial(self, mock_get: MagicMock):
         mock_get.return_value = _mock_response(_SAMPLE_RESPONSE)
 
-        result = json.loads(Weather.get_forecast("Chicago", units="imperial"))
+        result = Weather.get_forecast("Chicago", units="imperial")
 
         day0 = result["forecast"][0]
         assert day0["max_temp"] == "86°F"
@@ -261,9 +260,7 @@ class TestGetForecast:
     def test_include_hourly(self, mock_get: MagicMock):
         mock_get.return_value = _mock_response(_SAMPLE_RESPONSE)
 
-        result = json.loads(
-            Weather.get_forecast("Chicago", days=1, include_hourly=True)
-        )
+        result = Weather.get_forecast("Chicago", days=1, include_hourly=True)
 
         day0 = result["forecast"][0]
         assert "hourly" in day0
@@ -326,7 +323,7 @@ class TestRegistration:
 
     def test_weather_metadata(self):
         """Weather should have NETWORK + READ_ONLY tags."""
-        toolregistry = pytest.importorskip("toolregistry")
+        pytest.importorskip("toolregistry")
         from toolregistry.tool import ToolTag
 
         from toolregistry_hub.server.registry import _TOOL_METADATA
@@ -334,3 +331,41 @@ class TestRegistration:
         meta = _TOOL_METADATA.get("weather", {})
         assert ToolTag.NETWORK in meta.get("tags", set())
         assert ToolTag.READ_ONLY in meta.get("tags", set())
+
+
+# ---------------------------------------------------------------------------
+# get_astronomy
+# ---------------------------------------------------------------------------
+class TestGetAstronomy:
+    @patch("toolregistry_hub.weather._http_get")
+    def test_basic(self, mock_get: MagicMock):
+        mock_get.return_value = _mock_response(_SAMPLE_RESPONSE)
+
+        result = Weather.get_astronomy("Chicago")
+
+        assert result["location"]["name"] == "Chicago"
+        assert result["date"] == "2026-06-09"
+        assert result["sunrise"] == "05:15 AM"
+        assert result["sunset"] == "08:24 PM"
+        assert result["moon_phase"] == "Waning Crescent"
+        assert result["moon_illumination"] == "44%"
+        assert result["moonrise"] == "01:27 AM"
+        assert result["moonset"] == "02:12 PM"
+
+    @patch("toolregistry_hub.weather._http_get")
+    def test_no_weather_data(self, mock_get: MagicMock):
+        data = dict(_SAMPLE_RESPONSE)
+        data["weather"] = []
+        mock_get.return_value = _mock_response(data)
+
+        with pytest.raises(WeatherError, match="No astronomy data"):
+            Weather.get_astronomy("Nowhere")
+
+    @patch("toolregistry_hub.weather._http_get")
+    def test_empty_astronomy(self, mock_get: MagicMock):
+        data = dict(_SAMPLE_RESPONSE)
+        data["weather"] = [{"date": "2026-06-09", "astronomy": []}]
+        mock_get.return_value = _mock_response(data)
+
+        with pytest.raises(WeatherError, match="No astronomy data"):
+            Weather.get_astronomy("Nowhere")
