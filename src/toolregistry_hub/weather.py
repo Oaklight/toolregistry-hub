@@ -174,9 +174,7 @@ def _build_day(day: dict, units: str, include_hourly: bool) -> dict:
         "moon_phase": astro.get("moon_phase", ""),
     }
     if include_hourly:
-        result["hourly"] = [
-            _build_hourly(h, units) for h in day.get("hourly", [])
-        ]
+        result["hourly"] = [_build_hourly(h, units) for h in day.get("hourly", [])]
     return result
 
 
@@ -253,9 +251,7 @@ class Weather:
         weather_days = data.get("weather", [])[:days]
         return {
             "location": _extract_area(data),
-            "forecast": [
-                _build_day(d, units, include_hourly) for d in weather_days
-            ],
+            "forecast": [_build_day(d, units, include_hourly) for d in weather_days],
         }
 
     @staticmethod

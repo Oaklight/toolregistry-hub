@@ -56,9 +56,7 @@ _DEFAULT_TOOLS: list[PythonSource] = [
         class_path="toolregistry_hub.unit_converter.UnitConverter",
         namespace="unit_converter",
     ),
-    PythonSource(
-        class_path="toolregistry_hub.weather.Weather", namespace="weather"
-    ),
+    PythonSource(class_path="toolregistry_hub.weather.Weather", namespace="weather"),
     PythonSource(
         class_path="toolregistry_hub.websearch.websearch_unified.WebSearch",
         namespace="web/websearch",
