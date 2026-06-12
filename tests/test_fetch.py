@@ -11,8 +11,8 @@ from toolregistry_hub._vendor.httpclient import (
     HttpTimeoutError,
 )
 from toolregistry_hub.fetch import (
-    _CACHE_TTL_DEFAULT,
     _CACHE_MAXSIZE_DEFAULT,
+    _CACHE_TTL_DEFAULT,
     _JINA_TIMEOUT_BUFFER,
     _JINA_WAIT_SELECTORS,
     _MIN_CONTENT_LENGTH,
@@ -21,7 +21,6 @@ from toolregistry_hub.fetch import (
     _SOUP_SKIP_MIN_LENGTH,
     _SOUP_SKIP_SCORE_THRESHOLD,
     _SPA_SHELL_INDICATORS,
-    _URLCache,
     Fetch,
     FetchError,
     _extract,
@@ -32,10 +31,11 @@ from toolregistry_hub.fetch import (
     _get_content_with_jina_reader,
     _is_binary_content_type,
     _is_content_sufficient,
-    _should_skip_soup,
-    _try_markdown_negotiation,
     _jina_reader_request,
     _render_with_cdp,
+    _should_skip_soup,
+    _try_markdown_negotiation,
+    _URLCache,
 )
 from toolregistry_hub.utils.api_key_parser import APIKeyParser
 
@@ -193,22 +193,30 @@ class TestShouldSkipSoup:
     def test_high_score_and_long_content_skips(self):
         """Readability score and length both above thresholds → skip soup."""
         content = "x" * (_SOUP_SKIP_MIN_LENGTH + 1)
-        assert _should_skip_soup(content, _SOUP_SKIP_SCORE_THRESHOLD + 1, "https://example.com")
+        assert _should_skip_soup(
+            content, _SOUP_SKIP_SCORE_THRESHOLD + 1, "https://example.com"
+        )
 
     def test_exact_thresholds_skip(self):
         """Exactly at both thresholds → skip."""
         content = "x" * _SOUP_SKIP_MIN_LENGTH
-        assert _should_skip_soup(content, _SOUP_SKIP_SCORE_THRESHOLD, "https://example.com")
+        assert _should_skip_soup(
+            content, _SOUP_SKIP_SCORE_THRESHOLD, "https://example.com"
+        )
 
     def test_low_score_does_not_skip(self):
         """Score below threshold → do not skip, even with long content."""
         content = "x" * (_SOUP_SKIP_MIN_LENGTH + 1000)
-        assert not _should_skip_soup(content, _SOUP_SKIP_SCORE_THRESHOLD - 1, "https://example.com")
+        assert not _should_skip_soup(
+            content, _SOUP_SKIP_SCORE_THRESHOLD - 1, "https://example.com"
+        )
 
     def test_short_content_does_not_skip(self):
         """Content below length threshold → do not skip, even with high score."""
         content = "x" * (_SOUP_SKIP_MIN_LENGTH - 1)
-        assert not _should_skip_soup(content, _SOUP_SKIP_SCORE_THRESHOLD + 50, "https://example.com")
+        assert not _should_skip_soup(
+            content, _SOUP_SKIP_SCORE_THRESHOLD + 50, "https://example.com"
+        )
 
     def test_zero_score_does_not_skip(self):
         """Score of 0 (readability failure) → never skip."""
@@ -939,7 +947,7 @@ class TestExtract:
         long_but_low_score = "Sidebar navigation links. " * 200  # ~5200 chars
         mock_readability.return_value = (long_but_low_score, 50.0)
         mock_soup.return_value = "Real article from soup. " * 200
-        result = _extract("https://example.com")
+        _extract("https://example.com")
         mock_soup.assert_called_once()
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
@@ -956,7 +964,7 @@ class TestExtract:
         short_content = "Brief stub." * 10  # ~110 chars, below 2000 threshold
         mock_readability.return_value = (short_content, 120.0)
         mock_soup.return_value = "Full article from soup extraction. " * 100
-        result = _extract("https://example.com")
+        _extract("https://example.com")
         mock_soup.assert_called_once()
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
@@ -1138,7 +1146,9 @@ class TestExtract:
         self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
     ):
         """When markdown negotiation returns HTML, _fetch_raw should be skipped."""
-        html = "<html><body><article>" + "Real content. " * 20 + "</article></body></html>"
+        html = (
+            "<html><body><article>" + "Real content. " * 20 + "</article></body></html>"
+        )
         mock_md.return_value = ("", html, "text/html")
         mock_readability.return_value = ("Real content. " * 20, 28.0)
         mock_soup.return_value = ""
@@ -1176,9 +1186,7 @@ class TestExtract:
 
     @patch("toolregistry_hub.fetch._fetch_raw")
     @patch("toolregistry_hub.fetch._try_markdown_negotiation")
-    def test_binary_from_fetch_raw_raises_fetch_error(
-        self, mock_md, mock_fetch
-    ):
+    def test_binary_from_fetch_raw_raises_fetch_error(self, mock_md, mock_fetch):
         """Binary detected via _fetch_raw should also raise FetchError."""
         mock_md.return_value = ("", "", "")
         mock_fetch.return_value = ("binary-garbage", "application/pdf")
