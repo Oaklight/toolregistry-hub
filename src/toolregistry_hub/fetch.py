@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 import time
 import unicodedata
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Literal, NamedTuple, cast
 
 from ._vendor.httpclient import (
     HttpConnectionError,
@@ -36,6 +37,79 @@ TIMEOUT_DEFAULT = 30.0
 # strategy.  Strategies are skipped when the deadline is closer than this so
 # callers with very small ``timeout`` values get an answer quickly.
 _MIN_STRATEGY_BUDGET = 0.05
+
+# Default TTL (in seconds) for the per-instance URL result cache.
+_CACHE_TTL_DEFAULT = 300.0  # 5 minutes
+
+# Default maximum number of cached entries.
+_CACHE_MAXSIZE_DEFAULT = 128
+
+
+class _CacheEntry(NamedTuple):
+    """A cached extraction result with its expiry timestamp."""
+
+    content: str
+    expires_at: float  # time.monotonic() deadline
+
+
+class _URLCache:
+    """Simple thread-safe TTL + LRU cache keyed by URL.
+
+    Uses an ``OrderedDict``-style approach with a plain ``dict`` (Python 3.7+
+    dicts are insertion-ordered).  On hit the entry is moved to the end so
+    that eviction always removes the least-recently-used item.
+
+    Only successful extraction results are cached; ``FetchError`` outcomes
+    are never stored.
+    """
+
+    def __init__(
+        self,
+        ttl: float = _CACHE_TTL_DEFAULT,
+        maxsize: int = _CACHE_MAXSIZE_DEFAULT,
+    ) -> None:
+        self._ttl = ttl
+        self._maxsize = maxsize
+        self._data: dict[str, _CacheEntry] = {}
+        self._lock = threading.Lock()
+
+    # ── public API ───────────────────────────────────────────────────────
+
+    def get(self, url: str) -> str | None:
+        """Return cached content for *url*, or ``None`` on miss/expiry."""
+        with self._lock:
+            entry = self._data.get(url)
+            if entry is None:
+                return None
+            if time.monotonic() > entry.expires_at:
+                del self._data[url]
+                return None
+            # Move to end (most-recently-used).
+            self._data[url] = self._data.pop(url)
+            return entry.content
+
+    def put(self, url: str, content: str) -> None:
+        """Store *content* for *url* with the configured TTL."""
+        with self._lock:
+            # Remove first so re-insertion lands at the end.
+            self._data.pop(url, None)
+            self._data[url] = _CacheEntry(
+                content=content,
+                expires_at=time.monotonic() + self._ttl,
+            )
+            # Evict oldest entries if over capacity.
+            while len(self._data) > self._maxsize:
+                oldest_key = next(iter(self._data))
+                del self._data[oldest_key]
+
+    def clear(self) -> None:
+        """Remove all cached entries."""
+        with self._lock:
+            self._data.clear()
+
+    def __len__(self) -> int:
+        """Return the number of cached entries (including expired)."""
+        return len(self._data)
 
 
 class FetchError(RuntimeError):
@@ -176,6 +250,8 @@ class Fetch:
         self,
         api_keys: str | None = None,
         cdp_endpoint: str | None = None,
+        cache_ttl: float = _CACHE_TTL_DEFAULT,
+        cache_maxsize: int = _CACHE_MAXSIZE_DEFAULT,
     ):
         """Initialize Fetch with optional Jina Reader API keys and CDP endpoint.
 
@@ -188,6 +264,10 @@ class Fetch:
                 (e.g. ``ws://localhost:9222``).  Falls back to the
                 ``CDP_ENDPOINT`` environment variable.  When set, SPA
                 pages are rendered via CDP before falling back to Jina.
+            cache_ttl: Time-to-live in seconds for cached URL results.
+                Set to ``0`` to disable caching.  Defaults to 300 (5 min).
+            cache_maxsize: Maximum number of entries in the URL cache.
+                Defaults to 128.
         """
         from .utils.api_key_parser import APIKeyParser
 
@@ -198,6 +278,11 @@ class Fetch:
         )
         self.api_key_parser: APIKeyParser | None = parser if parser.api_keys else None
         self.cdp_endpoint: str | None = cdp_endpoint or os.environ.get("CDP_ENDPOINT")
+        self._cache: _URLCache | None = (
+            _URLCache(ttl=cache_ttl, maxsize=cache_maxsize)
+            if cache_ttl > 0
+            else None
+        )
 
     def _is_configured(self) -> bool:
         """Check if Fetch is configured.
@@ -206,6 +291,11 @@ class Fetch:
         Fetch works without keys (unauthenticated requests).
         """
         return True
+
+    def clear_cache(self) -> None:
+        """Remove all cached URL results."""
+        if self._cache is not None:
+            self._cache.clear()
 
     def fetch_content(
         self,
@@ -233,14 +323,25 @@ class Fetch:
             FetchError: If every extraction strategy fails or the deadline
                 is exceeded before any content can be retrieved.
         """
+        # Check cache first.
+        if self._cache is not None:
+            cached = self._cache.get(url)
+            if cached is not None:
+                logger.debug(f"Cache hit for {url}")
+                return cached
+
         try:
-            return _extract(
+            content = _extract(
                 url,
                 timeout=timeout,
                 proxy=proxy,
                 api_key_parser=self.api_key_parser,
                 cdp_endpoint=self.cdp_endpoint,
             )
+            # Cache successful results only.
+            if self._cache is not None:
+                self._cache.put(url, content)
+            return content
         except FetchError:
             raise
         except Exception as e:
