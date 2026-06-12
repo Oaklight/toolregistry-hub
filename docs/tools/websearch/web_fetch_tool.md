@@ -8,7 +8,7 @@ author: Oaklight
 
 # Web Fetch Tool
 
-The Web Fetch tool provides intelligent webpage content extraction from URLs. It uses a five-stage strategy chain — Cloudflare Content Negotiation, Readability extraction, zerodep soup parsing, CDP Browser Rendering, and Jina Reader API — with **content quality evaluation** and **smart fallback** to extract clean, readable content from webpages while handling various website structures and formats, including JavaScript-heavy Single Page Applications (SPAs).
+The Web Fetch tool provides intelligent webpage content extraction from URLs. It uses a five-stage strategy chain - Cloudflare Content Negotiation, Readability extraction, zerodep soup parsing, CDP Browser Rendering, and Jina Reader API - with **content quality evaluation** and **smart fallback** to extract clean, readable content from webpages while handling various website structures and formats, including JavaScript-heavy Single Page Applications (SPAs).
 
 ## Overview
 
@@ -17,7 +17,8 @@ The Fetch class offers robust webpage content extraction:
 - **Five-Stage Strategy Chain**: Cloudflare Content Negotiation → Readability extraction → Soup parsing → CDP Browser Rendering → Jina Reader API
 - **Response Reuse**: HTTP responses from the content negotiation stage are passed directly to subsequent extraction strategies, avoiding redundant network requests
 - **Binary Content Interception**: Automatically detects images, PDFs, audio/video, and other binary MIME types, rejecting them early with a clear error before entering the extraction pipeline
-- **Soup-Skip Optimisation**: Skips the soup extraction pass when readability already produced a high-confidence result, saving 30–180 ms per page
+- **URL Result Cache**: Per-instance cache with TTL (default 5 min) and LRU eviction (128 entries) avoids redundant extraction for repeated URLs
+- **Soup-Skip Optimisation**: Skips the soup extraction pass when readability already produced a high-confidence result (score ≥ 100, content ≥ 2,000 chars), saving 30–185 ms per page
 - **Content Quality Evaluation**: Detects SPA shell pages and insufficient content, triggering automatic fallback
 - **Smart Fallback with Low-Quality Recovery**: If Jina Reader also fails, returns local low-quality content as a last resort (better than nothing)
 - **Content Cleaning**: Removes navigation, ads, and unnecessary elements
@@ -89,7 +90,7 @@ The Web Fetch tool uses a five-stage extraction approach with **content quality 
 4. **CDP Browser Rendering**: Self-hosted headless browser rendering via Chrome DevTools Protocol for SPA pages (requires `CDP_ENDPOINT` configuration)
 5. **Jina Reader (Fallback)**: External API with multi-engine retry (`browser` → `cf-browser-rendering`) for JavaScript rendering (SPA support)
 
-The tool minimises HTTP round-trips: if Cloudflare Content Negotiation returns `text/html` instead of markdown (the common case), the response body is preserved and passed directly to the Readability/Soup extraction pipeline — no redundant second request is made. Both local strategies share this single HTML copy. When readability produces a high-confidence result (score ≥ 100 and text ≥ 2 000 characters), the soup pass is **skipped entirely**, saving 30–180 ms depending on document size. Otherwise the tool compares results from both strategies and picks the better one. If local extraction is insufficient and a CDP endpoint is configured, the tool renders the page in a headless browser and re-extracts content from the rendered HTML. If CDP is unavailable or still produces insufficient content, it falls back to Jina Reader.
+The tool minimises HTTP round-trips: if Cloudflare Content Negotiation returns `text/html` instead of markdown (the common case), the response body is preserved and passed directly to the Readability/Soup extraction pipeline - no redundant second request is made. Both local strategies share this single HTML copy. When readability produces a high-confidence result (score ≥ 100 and text ≥ 2 000 characters), the soup pass is **skipped entirely**, saving 30-180 ms depending on document size. Otherwise the tool compares results from both strategies and picks the better one. If local extraction is insufficient and a CDP endpoint is configured, the tool renders the page in a headless browser and re-extracts content from the rendered HTML. If CDP is unavailable or still produces insufficient content, it falls back to Jina Reader.
 
 Before entering the extraction pipeline, the tool checks the response content type. Binary content types (`image/*`, `audio/*`, `video/*`, `font/*`, `application/pdf`, `application/zip`, `application/octet-stream`, etc.) are rejected early with a `FetchError`, preventing wasted CPU on un-extractable content.
 
@@ -152,29 +153,29 @@ When SPA shell content is detected, Jina Reader is automatically triggered with 
 
 **Low-Quality Fallback:**
 
-If Jina Reader also fails to produce sufficient content, the tool falls back to the local low-quality result (if available) — because partial content is better than no content at all.
+If Jina Reader also fails to produce sufficient content, the tool falls back to the local low-quality result (if available) - because partial content is better than no content at all.
 
 ### Soup-Skip Optimisation
 
-After readability extraction, the tool decides whether to run soup at all.  When readability already produced a high-confidence result — `score ≥ 100` **and** `length ≥ 2 000` characters — the soup pass is skipped entirely.  This applies to both the main extraction pipeline and the CDP re-extraction path.
+After readability extraction, the tool decides whether to run soup at all.  When readability already produced a high-confidence result - `score ≥ 100` **and** `length ≥ 2 000` characters - the soup pass is skipped entirely.  This applies to both the main extraction pipeline and the CDP re-extraction path.
 
-**Why it's safe:**  Profiling across short articles, long articles, navigation pages, and SPA shells showed that pages meeting both thresholds consistently have soup producing <16% additional content.  Pages below the thresholds (e.g. GitHub Trending at score 61.9, React docs at score 42.0) had soup producing 7–19× more content than readability, so they are never skipped.
+**Why it's safe:**  Profiling across short articles, long articles, navigation pages, and SPA shells showed that pages meeting both thresholds consistently have soup producing <16% additional content.  Pages below the thresholds (e.g. GitHub Trending at score 61.9, React docs at score 42.0) had soup producing 7-19× more content than readability, so they are never skipped.
 
-**Savings:**  30–180 ms per page, representing ~30–35% of total local extraction time.
+**Savings:**  30-180 ms per page, representing ~30-35% of total local extraction time.
 
 **Observability:**  Skipped soup calls are logged at `DEBUG` level with the readability score and content length, making it easy to audit the decision and adjust thresholds later.
 
 ### Cloudflare Content Negotiation
 
-The first strategy leverages [Cloudflare's "Markdown for Agents"](https://blog.cloudflare.com/markdown-for-agents/) feature. It sends a standard HTTP GET request with the `Accept: text/markdown` header. If the origin server (or Cloudflare's edge) supports content negotiation and can serve markdown, the response will contain high-quality, pre-formatted markdown content — ideal for LLM consumption.
+The first strategy leverages [Cloudflare's "Markdown for Agents"](https://blog.cloudflare.com/markdown-for-agents/) feature. It sends a standard HTTP GET request with the `Accept: text/markdown` header. If the origin server (or Cloudflare's edge) supports content negotiation and can serve markdown, the response will contain high-quality, pre-formatted markdown content - ideal for LLM consumption.
 
 **How it works:**
 
 - The tool sends a request with `Accept: text/markdown` in the HTTP headers
 - If the server responds with `Content-Type: text/markdown`, the markdown content is used directly
-- If the server returns a non-markdown `2xx` response (typically `text/html`), the response body is **preserved and reused** by the subsequent Readability/Soup extraction stages — avoiding a redundant HTTP round-trip
+- If the server returns a non-markdown `2xx` response (typically `text/html`), the response body is **preserved and reused** by the subsequent Readability/Soup extraction stages - avoiding a redundant HTTP round-trip
 - On error responses (`4xx`/`5xx`) or network failures, the body is discarded and the tool falls back to a fresh `_fetch_raw` request (which has its own retry logic)
-- This is a **zero-cost** attempt: no external API calls, no additional processing — just a standard HTTP request with a different `Accept` header
+- This is a **zero-cost** attempt: no external API calls, no additional processing - just a standard HTTP request with a different `Accept` header
 
 **Benefits:**
 
@@ -217,13 +218,13 @@ When local extraction produces insufficient content (SPA shell or too short) and
 **Configuration:**
 
 - Set `CDP_ENDPOINT` environment variable (e.g., `ws://localhost:9222`) or pass `cdp_endpoint` to the `Fetch()` constructor
-- The CDP stage is **entirely optional** — if unconfigured, the tool skips directly to Jina Reader
+- The CDP stage is **entirely optional** - if unconfigured, the tool skips directly to Jina Reader
 - All CDP errors are caught silently; a failed CDP attempt never breaks the pipeline
 
 **Benefits:**
 
 - Self-hosted SPA rendering without relying on external APIs
-- No rate limits or API quotas — render as many pages as your browser instance can handle
+- No rate limits or API quotas - render as many pages as your browser instance can handle
 - Works with any CDP-compatible browser
 
 ### Jina Reader API
@@ -245,7 +246,7 @@ The Jina Reader serves as the fallback strategy for pages that local extraction 
 
 **Timeout Separation:**
 
-The HTTP client transport timeout is set to `timeout + 10s` (buffer), while the Jina `X-Timeout` is set to `timeout`. This prevents the HTTP client from timing out before Jina finishes rendering the page — a common issue with SPA pages that require extra rendering time.
+The HTTP client transport timeout is set to `timeout + 10s` (buffer), while the Jina `X-Timeout` is set to `timeout`. This prevents the HTTP client from timing out before Jina finishes rendering the page - a common issue with SPA pages that require extra rendering time.
 
 The JSON response is parsed to extract the `data.content` field, which contains the rendered page content.
 
@@ -484,10 +485,11 @@ if is_valid:
 
 - **JavaScript-heavy sites**: Handled via CDP Browser Rendering (self-hosted) or Jina Reader's multi-engine retry (`browser` → `cf-browser-rendering`) with `X-Wait-For-Selector` for dynamic content, but some complex SPAs may still not render fully
 - **Authentication**: Cannot access password-protected content
-- **Binary content**: URLs pointing to images, PDFs, archives, and other binary formats are rejected early with `FetchError` — the tool only extracts text-based content
+- **Binary content**: URLs pointing to images, PDFs, archives, and other binary formats are rejected early with `FetchError` - the tool only extracts text-based content
 - **Large files**: Very large pages may timeout or be truncated
 - **Complex layouts**: Some sites may require custom parsing
 - **Jina Reader availability**: The Jina Reader API is a free external service; availability is not guaranteed
+- **Soup skipping**: When readability scores high (≥ 100) with substantial content (≥ 2,000 chars), the soup extraction pass is skipped to save time. In rare cases this may miss content that soup would have caught. Skipped calls are logged at DEBUG level for monitoring
 
 ### Performance Tips
 
