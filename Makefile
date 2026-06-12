@@ -107,6 +107,43 @@ test:
 	$(MAKE) -C tests test
 	@echo "Tests completed."
 
+# ──────────────────────────────────────────────
+# Dev Deployment
+# ──────────────────────────────────────────────
+
+SSH_TARGET ?=
+DEVTEST_STACK ?= /dockervol/dockge/stacks/toolregistry-server-dev
+
+# Build a dev-test wheel + Docker image, push to remote, restart the stack.
+# Usage: make deploy-dev SSH_TARGET=cloud.usa1
+deploy-dev:
+ifndef SSH_TARGET
+	$(error SSH_TARGET is required. Usage: make deploy-dev SSH_TARGET=cloud.usa1)
+endif
+	@set -e; \
+	COMMIT=$$(git rev-parse --short HEAD); \
+	ORIG_VER=$(VERSION); \
+	DEV_VER="$$ORIG_VER.dev0+g$$COMMIT"; \
+	echo "==> Building dev wheel $$DEV_VER..."; \
+	python -c "from pathlib import Path; p=Path('src/toolregistry_hub/__init__.py'); s=p.read_text(); p.write_text(s.replace('__version__ = \"$$ORIG_VER\"', '__version__ = \"$$DEV_VER\"'))"; \
+	rm -rf dist build; \
+	python -m build --wheel -q; \
+	python -c "from pathlib import Path; p=Path('src/toolregistry_hub/__init__.py'); s=p.read_text(); p.write_text(s.replace('__version__ = \"$$DEV_VER\"', '__version__ = \"$$ORIG_VER\"'))"; \
+	WHEEL=$$(ls dist/*.whl | head -1 | xargs basename); \
+	echo "==> Building Docker image from $$WHEEL..."; \
+	cd docker && docker build -f Dockerfile --build-arg LOCAL_WHEEL=$$WHEEL -t $(DOCKER_IMAGE):dev-test -q .. && cd ..; \
+	echo "==> Deploying to $(SSH_TARGET) via zstd..."; \
+	docker save $(DOCKER_IMAGE):dev-test | zstd -3 | ssh $(SSH_TARGET) \
+		'zstd -d | docker load && \
+		 cd $(DEVTEST_STACK) && \
+		 docker compose up -d --force-recreate --no-deps openapi mcp-streamable-http mcp-sse && \
+		 sleep 5 && \
+		 echo "=== Health check ===" && \
+		 curl -sS -o /dev/null -w "%{http_code} /docs\n" http://localhost:55080/docs && \
+		 curl -sS -o /dev/null -w "%{http_code} /mcp\n" -X POST http://localhost:55080/mcp && \
+		 curl -sS -o /dev/null -w "%{http_code} /sse\n" --max-time 3 http://localhost:55080/sse'; \
+	echo "==> Dev-test deployed successfully ($$DEV_VER)."
+
 # Help target
 help:
 	@echo "Available targets:"
@@ -135,10 +172,16 @@ help:
 	@echo "  make build-docker REGISTRY_MIRROR=docker.1ms.run PYPI_MIRROR=https://mirrors.cernet.edu.cn/pypi/web/simple"
 	@echo "  make push-docker REGISTRY_MIRROR=docker.1ms.run         # Push to custom registry"
 	@echo ""
+	@echo "Deployment:"
+	@echo "  deploy-dev     - Build dev image and deploy to remote dev-test stack"
+	@echo ""
 	@echo "Variables:"
 	@echo "  V=<version>           - Specify version (default: auto-detected)"
 	@echo "  PYPI_MIRROR=<url>     - Specify PyPI mirror URL for pip install"
 	@echo "  REGISTRY_MIRROR=<url> - Specify Docker registry mirror (affects base image)"
-	@echo "  MIRROR=<url>          - Alias for PYPI_MIRROR (backward compatibility)"
+	@echo "  SSH_TARGET=<host>     - SSH target for deploy-dev (required)"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make deploy-dev SSH_TARGET=cloud.usa1"
 
-.PHONY: build-package push-package clean-package build-docker push-docker clean-docker lint fmt test help
+.PHONY: build-package push-package clean-package build-docker push-docker clean-docker deploy-dev lint fmt test help
