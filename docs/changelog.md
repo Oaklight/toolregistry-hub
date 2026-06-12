@@ -26,6 +26,8 @@ author: Oaklight
 
 - **Fetch：复用 markdown negotiation 的响应体**（[#132](https://github.com/Oaklight/toolregistry-hub/pull/132)）— Cloudflare Content Negotiation 返回 `text/html` 而非 `text/markdown` 时（绝大多数情况），响应体现在会保留并直接传给 Readability/Soup 提取流程，省去一次冗余的 HTTP 请求。此前 HTML 响应会被丢弃，`_fetch_raw` 再对同一 URL 发起完全相同的 GET 请求。
 - **Fetch：二进制内容类型提前拦截**（[#132](https://github.com/Oaklight/toolregistry-hub/pull/132)）— 返回二进制内容类型（`image/*`、`audio/*`、`video/*`、`font/*`、`application/pdf`、`application/zip`、`application/octet-stream` 等）的 URL 现在会在进入提取流程前被检测到，并抛出带描述信息的 `FetchError`。此前二进制响应会被当作文本解码并送入 Readability/Soup，产生乱码输出。
+- **Fetch：URL 级结果缓存**（[#135](https://github.com/Oaklight/toolregistry-hub/pull/135)）— 新增实例级 URL 结果缓存，可配置 TTL（默认 5 分钟）和 LRU 淘汰（默认 128 条）。TTL 窗口内对同一 URL 的重复请求直接返回缓存结果。仅缓存成功结果，错误始终重试。可通过 `cache_ttl=0` 禁用缓存，或调用 `Fetch.clear_cache()` 清空。
+- **Fetch：基于 readability 评分改进 SPA 检测**（[#138](https://github.com/Oaklight/toolregistry-hub/pull/138)）— 当 readability 算法对页面的评分超过置信度阈值（score ≥ 20）时，跳过 SPA 空壳指标匹配，避免对包含 "loading..." 等字样的正常页面产生误判。同时收紧了 SPA 指标列表，并为更宽泛的指标增加了短文本阈值。
 - **Fetch：readability 足够好时跳过 soup 提取**（[#139](https://github.com/Oaklight/toolregistry-hub/pull/139)）— 当 readability 返回高置信度结果（`score ≥ 100` 且 `length ≥ 2000` 字符）时，完全跳过 soup 提取。性能测试表明，此类情况下 soup 占本地提取总时间的 ~30–35%，但额外内容贡献不足 16%，每页可节省 30–180 ms。主提取流程和 CDP 渲染路径均已应用此优化。跳过的 soup 调用会在 `DEBUG` 级别记录 score 和 length，便于后续调整阈值。
 - **Fetch：降低 `_extract` 和 `_is_content_sufficient` 的认知复杂度**（[#139](https://github.com/Oaklight/toolregistry-hub/pull/139)）— 通过提取四个辅助函数，将 `_extract`（complexipy 26→16）和 `_is_content_sufficient`（22→4）的复杂度降到项目阈值 15 以下。
 
