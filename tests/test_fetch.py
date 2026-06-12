@@ -11,12 +11,15 @@ from toolregistry_hub._vendor.httpclient import (
     HttpTimeoutError,
 )
 from toolregistry_hub.fetch import (
+    _CACHE_TTL_DEFAULT,
+    _CACHE_MAXSIZE_DEFAULT,
     _JINA_TIMEOUT_BUFFER,
     _JINA_WAIT_SELECTORS,
     _MIN_CONTENT_LENGTH,
     _NON_HTML_CONTENT_TYPES,
     _SOUP_CONTENT_SELECTORS,
     _SPA_SHELL_INDICATORS,
+    _URLCache,
     Fetch,
     FetchError,
     _extract,
@@ -1076,6 +1079,142 @@ class TestIsBinaryContentType:
     )
     def test_non_binary_types_not_detected(self, ct):
         assert _is_binary_content_type(ct) is False
+
+
+# ============================================================
+# _URLCache tests
+# ============================================================
+
+
+class TestURLCache:
+    """Tests for the _URLCache TTL + LRU cache."""
+
+    def test_put_and_get(self):
+        cache = _URLCache(ttl=60.0, maxsize=10)
+        cache.put("https://a.com", "content A")
+        assert cache.get("https://a.com") == "content A"
+
+    def test_miss_returns_none(self):
+        cache = _URLCache(ttl=60.0, maxsize=10)
+        assert cache.get("https://missing.com") is None
+
+    def test_ttl_expiry(self):
+        cache = _URLCache(ttl=0.05, maxsize=10)
+        cache.put("https://a.com", "content")
+        assert cache.get("https://a.com") == "content"
+        time.sleep(0.06)
+        assert cache.get("https://a.com") is None
+
+    def test_lru_eviction(self):
+        cache = _URLCache(ttl=60.0, maxsize=2)
+        cache.put("https://a.com", "A")
+        cache.put("https://b.com", "B")
+        cache.put("https://c.com", "C")  # evicts a
+        assert cache.get("https://a.com") is None
+        assert cache.get("https://b.com") == "B"
+        assert cache.get("https://c.com") == "C"
+
+    def test_get_refreshes_lru_order(self):
+        cache = _URLCache(ttl=60.0, maxsize=2)
+        cache.put("https://a.com", "A")
+        cache.put("https://b.com", "B")
+        # Access a → a is now most-recently-used
+        cache.get("https://a.com")
+        cache.put("https://c.com", "C")  # evicts b (least recently used)
+        assert cache.get("https://a.com") == "A"
+        assert cache.get("https://b.com") is None
+        assert cache.get("https://c.com") == "C"
+
+    def test_put_updates_existing(self):
+        cache = _URLCache(ttl=60.0, maxsize=10)
+        cache.put("https://a.com", "old")
+        cache.put("https://a.com", "new")
+        assert cache.get("https://a.com") == "new"
+        assert len(cache) == 1
+
+    def test_clear(self):
+        cache = _URLCache(ttl=60.0, maxsize=10)
+        cache.put("https://a.com", "A")
+        cache.put("https://b.com", "B")
+        cache.clear()
+        assert len(cache) == 0
+        assert cache.get("https://a.com") is None
+
+
+# ============================================================
+# Fetch cache integration tests
+# ============================================================
+
+
+class TestFetchCache:
+    """Tests for URL caching in the Fetch class."""
+
+    def test_cache_enabled_by_default(self):
+        fetcher = Fetch()
+        assert fetcher._cache is not None
+        assert fetcher._cache._ttl == _CACHE_TTL_DEFAULT
+        assert fetcher._cache._maxsize == _CACHE_MAXSIZE_DEFAULT
+
+    def test_cache_disabled_with_zero_ttl(self):
+        fetcher = Fetch(cache_ttl=0)
+        assert fetcher._cache is None
+
+    def test_custom_cache_params(self):
+        fetcher = Fetch(cache_ttl=120.0, cache_maxsize=64)
+        assert fetcher._cache is not None
+        assert fetcher._cache._ttl == 120.0
+        assert fetcher._cache._maxsize == 64
+
+    @patch("toolregistry_hub.fetch._extract")
+    def test_second_call_uses_cache(self, mock_extract):
+        mock_extract.return_value = "Extracted content"
+        fetcher = Fetch()
+        result1 = fetcher.fetch_content("https://example.com")
+        result2 = fetcher.fetch_content("https://example.com")
+        assert result1 == result2 == "Extracted content"
+        # _extract should only be called once
+        mock_extract.assert_called_once()
+
+    @patch("toolregistry_hub.fetch._extract")
+    def test_different_urls_not_cached(self, mock_extract):
+        mock_extract.return_value = "content"
+        fetcher = Fetch()
+        fetcher.fetch_content("https://a.com")
+        fetcher.fetch_content("https://b.com")
+        assert mock_extract.call_count == 2
+
+    @patch("toolregistry_hub.fetch._extract")
+    def test_fetch_error_not_cached(self, mock_extract):
+        mock_extract.side_effect = [FetchError("fail"), "success"]
+        fetcher = Fetch()
+        with pytest.raises(FetchError):
+            fetcher.fetch_content("https://fail.com")
+        # Second call should retry (not cached)
+        result = fetcher.fetch_content("https://fail.com")
+        assert result == "success"
+        assert mock_extract.call_count == 2
+
+    @patch("toolregistry_hub.fetch._extract")
+    def test_clear_cache_forces_refetch(self, mock_extract):
+        mock_extract.return_value = "content"
+        fetcher = Fetch()
+        fetcher.fetch_content("https://example.com")
+        fetcher.clear_cache()
+        fetcher.fetch_content("https://example.com")
+        assert mock_extract.call_count == 2
+
+    @patch("toolregistry_hub.fetch._extract")
+    def test_no_cache_mode(self, mock_extract):
+        mock_extract.return_value = "content"
+        fetcher = Fetch(cache_ttl=0)
+        fetcher.fetch_content("https://example.com")
+        fetcher.fetch_content("https://example.com")
+        assert mock_extract.call_count == 2
+
+    def test_clear_cache_noop_when_disabled(self):
+        """clear_cache should not raise when cache is disabled."""
+        fetcher = Fetch(cache_ttl=0)
+        fetcher.clear_cache()  # should not raise
 
 
 # ============================================================
