@@ -86,7 +86,9 @@ content = fetcher.fetch_content(
 4. **CDP 浏览器渲染**：通过 Chrome DevTools Protocol 使用自托管无头浏览器渲染 SPA 页面（需配置 `CDP_ENDPOINT`）
 5. **Jina Reader（降级方案）**：外部 API，使用多引擎重试（`browser` → `cf-browser-rendering`）进行 JavaScript 渲染（SPA 支持）
 
-工具只获取一次原始 HTML，然后复用于 Readability 和 Soup 两种提取策略。它会比较两种本地策略的结果，选择更好的一个。如果本地提取不足且配置了 CDP 端点，工具会在无头浏览器中渲染页面并从渲染后的 HTML 中重新提取内容。如果 CDP 不可用或仍然产生不足的内容，则回退到 Jina Reader。
+工具尽量减少 HTTP 请求次数：如果 Cloudflare 内容协商返回 `text/html` 而非 markdown（绝大多数情况），响应体会被保留并直接传给 Readability/Soup 提取流程——不会再发送冗余的第二次请求。两种本地策略共享这份 HTML。工具会比较两种本地策略的结果，选择更好的一个。如果本地提取不足且配置了 CDP 端点，工具会在无头浏览器中渲染页面并从渲染后的 HTML 中重新提取内容。如果 CDP 不可用或仍然产生不足的内容，则回退到 Jina Reader。
+
+在进入提取流程之前，工具会检查响应的内容类型。二进制内容类型（`image/*`、`audio/*`、`video/*`、`font/*`、`application/pdf`、`application/zip`、`application/octet-stream` 等）会被提前拦截并抛出 `FetchError`，避免在无法提取的内容上浪费 CPU。
 
 ### 提取过程
 
@@ -94,9 +96,13 @@ content = fetcher.fetch_content(
 flowchart TD
     A[URL 输入] --> B[Cloudflare 内容协商]
     B -->|返回 Markdown| Z[返回干净内容]
-    B -->|不支持| C[获取 HTML]
-    C --> D[Readability 提取]
-    C --> E[Soup 提取]
+    B -->|返回 HTML| REUSE[复用响应体]
+    B -->|错误 / 超时| C[通过 _fetch_raw 获取 HTML]
+    REUSE --> BIN{二进制内容类型？}
+    C --> BIN
+    BIN -->|是| ERR[抛出 FetchError]
+    BIN -->|否| D[Readability 提取]
+    BIN -->|否| E[Soup 提取]
     D & E --> F{选择最佳本地结果}
     F -->|质量充足| Z
     F -->|太短或 SPA 空壳| CDP{配置了 CDP 端点？}
@@ -149,7 +155,8 @@ flowchart TD
 
 - 工具在 HTTP 请求头中发送 `Accept: text/markdown`
 - 如果服务器以 `Content-Type: text/markdown` 响应，则直接使用该 markdown 内容
-- 如果服务器不支持此内容类型，则丢弃响应并尝试下一个策略
+- 如果服务器返回非 markdown 的 `2xx` 响应（通常是 `text/html`），响应体会被**保留并复用**于后续的 Readability/Soup 提取阶段——避免了冗余的 HTTP 请求
+- 对于错误响应（`4xx`/`5xx`）或网络失败，响应体会被丢弃，工具回退到带重试逻辑的 `_fetch_raw` 请求
 - 这是一次**零成本**尝试：无需外部 API 调用，无需额外处理 — 只是一个使用不同 `Accept` 头的标准 HTTP 请求
 
 **优势：**
@@ -158,6 +165,7 @@ flowchart TD
 - 不依赖第三方服务
 - 保留原始文档结构（标题、列表、代码块等）
 - Cloudflare 还会提供 `x-markdown-tokens` 响应头，指示 markdown 内容的 token 数量
+- 即使不支持 markdown，HTML 响应体也会被复用，避免冗余的网络请求
 
 ### CDP 浏览器渲染
 
@@ -440,6 +448,7 @@ if is_valid:
 
 - **JavaScript 密集型网站**：通过 CDP 浏览器渲染（自托管）或 Jina Reader 的多引擎重试（`browser` → `cf-browser-rendering`）配合 `X-Wait-For-Selector` 处理动态内容，但某些复杂 SPA 可能仍无法完全渲染
 - **认证**：无法访问密码保护的内容
+- **二进制内容**：指向图片、PDF、压缩包等二进制格式的 URL 会被提前拦截并抛出 `FetchError`——工具仅提取文本类内容
 - **大文件**：非常大的页面可能超时或被截断
 - **复杂布局**：某些网站可能需要自定义解析
 - **Jina Reader 可用性**：Jina Reader API 是免费的外部服务，不保证可用性
