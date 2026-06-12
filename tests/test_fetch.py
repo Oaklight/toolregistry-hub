@@ -18,6 +18,8 @@ from toolregistry_hub.fetch import (
     _MIN_CONTENT_LENGTH,
     _NON_HTML_CONTENT_TYPES,
     _SOUP_CONTENT_SELECTORS,
+    _SOUP_SKIP_MIN_LENGTH,
+    _SOUP_SKIP_SCORE_THRESHOLD,
     _SPA_SHELL_INDICATORS,
     _URLCache,
     Fetch,
@@ -30,6 +32,7 @@ from toolregistry_hub.fetch import (
     _get_content_with_jina_reader,
     _is_binary_content_type,
     _is_content_sufficient,
+    _should_skip_soup,
     _try_markdown_negotiation,
     _jina_reader_request,
     _render_with_cdp,
@@ -177,6 +180,54 @@ class TestIsContentSufficient:
             "- Minor updates"
         )
         assert _is_content_sufficient(changelog)
+
+
+# ============================================================
+# _should_skip_soup tests
+# ============================================================
+
+
+class TestShouldSkipSoup:
+    """Tests for the _should_skip_soup helper (P3 optimisation)."""
+
+    def test_high_score_and_long_content_skips(self):
+        """Readability score and length both above thresholds → skip soup."""
+        content = "x" * (_SOUP_SKIP_MIN_LENGTH + 1)
+        assert _should_skip_soup(content, _SOUP_SKIP_SCORE_THRESHOLD + 1, "https://example.com")
+
+    def test_exact_thresholds_skip(self):
+        """Exactly at both thresholds → skip."""
+        content = "x" * _SOUP_SKIP_MIN_LENGTH
+        assert _should_skip_soup(content, _SOUP_SKIP_SCORE_THRESHOLD, "https://example.com")
+
+    def test_low_score_does_not_skip(self):
+        """Score below threshold → do not skip, even with long content."""
+        content = "x" * (_SOUP_SKIP_MIN_LENGTH + 1000)
+        assert not _should_skip_soup(content, _SOUP_SKIP_SCORE_THRESHOLD - 1, "https://example.com")
+
+    def test_short_content_does_not_skip(self):
+        """Content below length threshold → do not skip, even with high score."""
+        content = "x" * (_SOUP_SKIP_MIN_LENGTH - 1)
+        assert not _should_skip_soup(content, _SOUP_SKIP_SCORE_THRESHOLD + 50, "https://example.com")
+
+    def test_zero_score_does_not_skip(self):
+        """Score of 0 (readability failure) → never skip."""
+        content = "x" * 10_000
+        assert not _should_skip_soup(content, 0.0, "https://example.com")
+
+    def test_empty_content_does_not_skip(self):
+        """Empty content → never skip."""
+        assert not _should_skip_soup("", 200.0, "https://example.com")
+
+    def test_realistic_high_quality_article(self):
+        """Simulates Wikipedia-like page: high score, long content."""
+        content = "This is a detailed article about Python. " * 200  # ~8400 chars
+        assert _should_skip_soup(content, 528.4, "https://en.wikipedia.org/wiki/Python")
+
+    def test_realistic_navigation_page(self):
+        """Simulates GitHub trending: moderate score, short readability output."""
+        content = "repo-name star-count " * 80  # ~1680 chars
+        assert not _should_skip_soup(content, 61.9, "https://github.com/trending")
 
 
 # ============================================================
@@ -855,6 +906,58 @@ class TestExtract:
         result = _extract("https://example.com")
         assert "long enough article" in result
         mock_jina.assert_not_called()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._try_markdown_negotiation")
+    def test_soup_skipped_when_readability_sufficient(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
+    ):
+        """When readability score and length exceed skip thresholds, soup is not called."""
+        mock_md.return_value = ("", "", "")
+        mock_fetch.return_value = ("<html>...</html>", "text/html")
+        high_quality = "Detailed article content. " * 200  # ~5200 chars
+        mock_readability.return_value = (high_quality, 150.0)
+        result = _extract("https://example.com")
+        assert "Detailed article content" in result
+        mock_soup.assert_not_called()
+        mock_jina.assert_not_called()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._try_markdown_negotiation")
+    def test_soup_not_skipped_when_readability_score_low(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
+    ):
+        """Low readability score → soup is still called even with long content."""
+        mock_md.return_value = ("", "", "")
+        mock_fetch.return_value = ("<html>...</html>", "text/html")
+        long_but_low_score = "Sidebar navigation links. " * 200  # ~5200 chars
+        mock_readability.return_value = (long_but_low_score, 50.0)
+        mock_soup.return_value = "Real article from soup. " * 200
+        result = _extract("https://example.com")
+        mock_soup.assert_called_once()
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._try_markdown_negotiation")
+    def test_soup_not_skipped_when_readability_content_short(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
+    ):
+        """High score but short content → soup is still called."""
+        mock_md.return_value = ("", "", "")
+        mock_fetch.return_value = ("<html>...</html>", "text/html")
+        short_content = "Brief stub." * 10  # ~110 chars, below 2000 threshold
+        mock_readability.return_value = (short_content, 120.0)
+        mock_soup.return_value = "Full article from soup extraction. " * 100
+        result = _extract("https://example.com")
+        mock_soup.assert_called_once()
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
     @patch("toolregistry_hub.fetch._extract_with_soup")
