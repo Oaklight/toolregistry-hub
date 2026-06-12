@@ -282,6 +282,8 @@ class Fetch:
         self,
         api_keys: str | None = None,
         cdp_endpoint: str | None = None,
+        veilrender_endpoint: str | None = None,
+        veilrender_token: str | None = None,
         cache_ttl: float = _CACHE_TTL_DEFAULT,
         cache_maxsize: int = _CACHE_MAXSIZE_DEFAULT,
     ):
@@ -296,6 +298,13 @@ class Fetch:
                 (e.g. ``ws://localhost:9222``).  Falls back to the
                 ``CDP_ENDPOINT`` environment variable.  When set, SPA
                 pages are rendered via CDP before falling back to Jina.
+            veilrender_endpoint: Base URL of a VeilRender instance
+                (e.g. ``https://oaklight-veilrender.hf.space``).  Falls
+                back to ``VEILRENDER_ENDPOINT`` env var.  Used as a
+                browser-rendering fallback via REST API when CDP is
+                unavailable.
+            veilrender_token: Bearer token for VeilRender auth.  Falls
+                back to ``VEILRENDER_TOKEN`` env var.
             cache_ttl: Time-to-live in seconds for cached URL results.
                 Set to ``0`` to disable caching.  Defaults to 300 (5 min).
             cache_maxsize: Maximum number of entries in the URL cache.
@@ -310,6 +319,12 @@ class Fetch:
         )
         self.api_key_parser: APIKeyParser | None = parser if parser.api_keys else None
         self.cdp_endpoint: str | None = cdp_endpoint or os.environ.get("CDP_ENDPOINT")
+        self.veilrender_endpoint: str | None = veilrender_endpoint or os.environ.get(
+            "VEILRENDER_ENDPOINT"
+        )
+        self.veilrender_token: str | None = veilrender_token or os.environ.get(
+            "VEILRENDER_TOKEN"
+        )
         self._cache: _URLCache | None = (
             _URLCache(ttl=cache_ttl, maxsize=cache_maxsize) if cache_ttl > 0 else None
         )
@@ -367,6 +382,8 @@ class Fetch:
                 proxy=proxy,
                 api_key_parser=self.api_key_parser,
                 cdp_endpoint=self.cdp_endpoint,
+                veilrender_endpoint=self.veilrender_endpoint,
+                veilrender_token=self.veilrender_token,
             )
             # Cache successful results only.
             if self._cache is not None:
@@ -611,6 +628,89 @@ def _try_cdp_extraction(
     return "", cdp_readability or cdp_soup or ""
 
 
+def _render_with_veilrender(
+    url: str,
+    endpoint: str,
+    token: str | None = None,
+    timeout: float = 30.0,
+) -> str:
+    """Render a page via VeilRender REST API and return the HTML.
+
+    Args:
+        url: The URL to render.
+        endpoint: Base URL of the VeilRender instance.
+        token: Optional Bearer token for authentication.
+        timeout: Maximum time in seconds for the request.
+
+    Returns:
+        Rendered HTML string, or empty string on any failure.
+    """
+    try:
+        import json
+
+        render_url = f"{endpoint.rstrip('/')}/render"
+        payload = json.dumps(
+            {
+                "url": url,
+                "formats": ["html"],
+                "timeout": int(timeout * 1000),
+            }
+        ).encode()
+
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        resp = _http_post(
+            render_url,
+            body=payload,
+            headers=headers,
+            timeout=timeout,
+        )
+
+        data = resp.json()
+        html = data.get("content", {}).get("html", "")
+        if html:
+            logger.debug(f"VeilRender rendered {url}: {len(html)} chars of HTML")
+        return html
+    except Exception as e:
+        logger.debug(f"VeilRender rendering failed for {url}: {e}")
+        return ""
+
+
+def _try_veilrender_extraction(
+    url: str,
+    endpoint: str,
+    token: str | None,
+    timeout: float,
+) -> tuple[str, str]:
+    """Render a page with VeilRender and attempt readability/soup extraction.
+
+    Args:
+        url: The URL to render.
+        endpoint: Base URL of the VeilRender instance.
+        token: Optional Bearer token for authentication.
+        timeout: Budget in seconds for the VeilRender request.
+
+    Returns:
+        A ``(best_content, local_content)`` tuple.
+    """
+    rendered_html = _render_with_veilrender(url, endpoint, token, timeout=timeout)
+    if not rendered_html:
+        return "", ""
+
+    vr_readability, vr_score = _extract_with_readability(rendered_html, url)
+    if _should_skip_soup(vr_readability, vr_score, url):
+        vr_soup = ""
+    else:
+        vr_soup = _extract_with_soup(rendered_html)
+    vr_best = _pick_local_content(vr_readability, vr_score, vr_soup, url)
+    if vr_best:
+        logger.info(f"Successfully fetched {url} using strategy: veilrender")
+        return vr_best, ""
+    return "", vr_readability or vr_soup or ""
+
+
 def _try_jina_extraction(
     url: str,
     *,
@@ -744,6 +844,8 @@ def _extract(
     proxy: str | None = None,
     api_key_parser: APIKeyParser | None = None,
     cdp_endpoint: str | None = None,
+    veilrender_endpoint: str | None = None,
+    veilrender_token: str | None = None,
 ) -> str:
     """Extract content from a given URL using available methods.
 
@@ -752,7 +854,8 @@ def _extract(
     2. Readability extraction (intelligent article scoring, local)
     3. Simple soup extraction (CSS selector fallback, local)
     4. CDP rendering (self-hosted browser, re-parsed with readability/soup)
-    5. Jina Reader (external API fallback for SPA / JS-heavy pages)
+    5. VeilRender (remote browser rendering via REST API)
+    6. Jina Reader (external API fallback for SPA / JS-heavy pages)
 
     HTML is fetched once and reused by stages 2 and 3.  ``timeout`` is a
     wall-clock budget for the *whole* operation; strategies are skipped once
@@ -811,7 +914,18 @@ def _extract(
         if len(cdp_local) > len(local_content):
             local_content = cdp_local
 
-    # 5. Local extraction insufficient — try Jina Reader.
+    # 5. Try VeilRender (remote browser rendering via REST API).
+    if veilrender_endpoint and _remaining() > _MIN_STRATEGY_BUDGET:
+        vr_budget = min(_remaining(), 30.0)
+        vr_result, vr_local = _try_veilrender_extraction(
+            url, veilrender_endpoint, veilrender_token, vr_budget
+        )
+        if vr_result:
+            return _format_text(vr_result)
+        if len(vr_local) > len(local_content):
+            local_content = vr_local
+
+    # 6. Local extraction insufficient — try Jina Reader.
     jina_content = _try_jina_extraction(
         url,
         local_content=local_content,
