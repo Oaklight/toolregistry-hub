@@ -243,6 +243,7 @@ def _is_binary_content_type(content_type: str) -> bool:
         or content_type in _BINARY_CONTENT_TYPES
     )
 
+
 # CSS selectors tried in order by _extract_with_soup to locate the main
 # content container.  Each entry is a ``(tag, attrs)`` tuple compatible
 # with ``Soup.find(tag, attrs)``.  The first match wins.
@@ -310,9 +311,7 @@ class Fetch:
         self.api_key_parser: APIKeyParser | None = parser if parser.api_keys else None
         self.cdp_endpoint: str | None = cdp_endpoint or os.environ.get("CDP_ENDPOINT")
         self._cache: _URLCache | None = (
-            _URLCache(ttl=cache_ttl, maxsize=cache_maxsize)
-            if cache_ttl > 0
-            else None
+            _URLCache(ttl=cache_ttl, maxsize=cache_maxsize) if cache_ttl > 0 else None
         )
 
     def _is_configured(self) -> bool:
@@ -497,7 +496,9 @@ def _pick_local_content(
         (soup_content, "soup", 0.0),
     ]
     for candidate, strategy, score in candidates:
-        if not candidate or not _is_content_sufficient(candidate, readability_score=score):
+        if not candidate or not _is_content_sufficient(
+            candidate, readability_score=score
+        ):
             continue
         if (
             strategy == "readability"
@@ -704,9 +705,7 @@ def _extract(
     # Short-circuit: binary content types (images, PDFs, archives, etc.)
     # cannot be meaningfully extracted as text.
     if body and content_type and _is_binary_content_type(content_type):
-        raise FetchError(
-            f"Unsupported binary content type for {url}: {content_type}"
-        )
+        raise FetchError(f"Unsupported binary content type for {url}: {content_type}")
 
     # Short-circuit: non-HTML content types (JSON, plain text, XML, etc.)
     # can be returned directly without running HTML extraction.
@@ -733,7 +732,10 @@ def _extract(
 
         # Pick the best local result
         best = _pick_local_content(
-            readability_content, readability_score, soup_content, url,
+            readability_content,
+            readability_score,
+            soup_content,
+            url,
         )
         if best:
             return _format_text(best)
@@ -839,8 +841,7 @@ def _try_markdown_negotiation(
 
         # Non-markdown success — return body for reuse.
         logger.debug(
-            f"Markdown negotiation not supported for {url} "
-            f"(Content-Type: {raw_ct})"
+            f"Markdown negotiation not supported for {url} (Content-Type: {raw_ct})"
         )
         return "", body, ct
     except Exception as e:
