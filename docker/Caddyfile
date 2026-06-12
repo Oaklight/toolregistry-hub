@@ -1,0 +1,13 @@
+:8080 {
+	handle /mcp {
+		reverse_proxy mcp-streamable-http:8000
+	}
+
+	handle /sse* {
+		reverse_proxy mcp-sse:8000
+	}
+
+	handle {
+		reverse_proxy openapi:8000
+	}
+}

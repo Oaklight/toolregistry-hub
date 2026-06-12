@@ -1,44 +1,42 @@
 services:
-  openapi:
-    image: oaklight/toolregistry-hub-server:latest
+  gateway:
+    image: caddy:2-alpine
     ports:
-      - 55093:8000
-      - 55193:8001
+      - "${GATEWAY_PORT:-55090}:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - openapi
+      - mcp-streamable-http
+      - mcp-sse
+    restart: unless-stopped
+
+  openapi:
+    image: oaklight/toolregistry-hub-server:${IMAGE_TAG:-latest}
+    expose:
+      - "8000"
+    env_file:
+      - .env
     volumes:
       - ./tools.jsonc:/app/tools.jsonc:ro
-    environment:
-      - API_BEARER_TOKEN=${API_BEARER_TOKEN}
-      # - API_BEARER_TOKENS_FILE=${API_BEARER_TOKENS_FILE}
-      - SEARXNG_URL=${SEARXNG_URL}
-      - BRAVE_API_KEY=${BRAVE_API_KEY}
-      - TAVILY_API_KEY=${TAVILY_API_KEY}
-      - BRIGHTDATA_API_KEY=${BRIGHTDATA_API_KEY}
-      - SCRAPELESS_API_KEY=${SCRAPELESS_API_KEY}
-      - SERPER_API_KEY=${SERPER_API_KEY}
     command:
       [
         "toolregistry-hub",
         "openapi",
         "--host=0.0.0.0",
         "--port=8000",
-        "--admin-port=8001",
+        "--profile=remote",
       ]
+    restart: unless-stopped
 
   mcp-streamable-http:
-    image: oaklight/toolregistry-hub-server:latest
-    ports:
-      - 55094:8000
-      - 55194:8001
+    image: oaklight/toolregistry-hub-server:${IMAGE_TAG:-latest}
+    expose:
+      - "8000"
+    env_file:
+      - .env
     volumes:
       - ./tools.jsonc:/app/tools.jsonc:ro
-    environment:
-      - API_BEARER_TOKEN=${API_BEARER_TOKEN}
-      - SEARXNG_URL=${SEARXNG_URL}
-      - BRAVE_API_KEY=${BRAVE_API_KEY}
-      - TAVILY_API_KEY=${TAVILY_API_KEY}
-      - BRIGHTDATA_API_KEY=${BRIGHTDATA_API_KEY}
-      - SCRAPELESS_API_KEY=${SCRAPELESS_API_KEY}
-      - SERPER_API_KEY=${SERPER_API_KEY}
     command:
       [
         "toolregistry-hub",
@@ -46,24 +44,18 @@ services:
         "--transport=streamable-http",
         "--host=0.0.0.0",
         "--port=8000",
-        "--admin-port=8001",
+        "--profile=remote",
       ]
+    restart: unless-stopped
 
   mcp-sse:
-    image: oaklight/toolregistry-hub-server:latest
-    ports:
-      - 55095:8000
-      - 55195:8001
+    image: oaklight/toolregistry-hub-server:${IMAGE_TAG:-latest}
+    expose:
+      - "8000"
+    env_file:
+      - .env
     volumes:
       - ./tools.jsonc:/app/tools.jsonc:ro
-    environment:
-      - API_BEARER_TOKEN=${API_BEARER_TOKEN}
-      - SEARXNG_URL=${SEARXNG_URL}
-      - BRAVE_API_KEY=${BRAVE_API_KEY}
-      - TAVILY_API_KEY=${TAVILY_API_KEY}
-      - BRIGHTDATA_API_KEY=${BRIGHTDATA_API_KEY}
-      - SCRAPELESS_API_KEY=${SCRAPELESS_API_KEY}
-      - SERPER_API_KEY=${SERPER_API_KEY}
     command:
       [
         "toolregistry-hub",
@@ -71,5 +63,6 @@ services:
         "--transport=sse",
         "--host=0.0.0.0",
         "--port=8000",
-        "--admin-port=8001",
+        "--profile=remote",
       ]
+    restart: unless-stopped
