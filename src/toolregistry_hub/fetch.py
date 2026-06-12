@@ -128,17 +128,39 @@ _MIN_CONTENT_LENGTH = 100
 # Common indicators of SPA shell pages that lack real content.
 # If any of these appear in the extracted text, the content is considered
 # insufficient and Jina Reader (with browser engine) will be tried.
+# SPA shell indicators that reliably signal a JavaScript app shell.
+# These are checked against the *entire* lowercased text.  Indicators
+# like "loading..." that frequently appear in legitimate long-form
+# content have been removed to avoid false positives.  Short content
+# (< _SPA_SHORT_TEXT_THRESHOLD chars) is checked against a broader
+# set of indicators via _SPA_SHELL_INDICATORS_SHORT.
 _SPA_SHELL_INDICATORS = [
     "please enable javascript",
     "you need to enable javascript",
     "this app requires javascript",
-    "loading...",
-    "noscript",
     "we're sorry but",
     "doesn't work properly without javascript",
     "requires a modern browser",
+]
+
+# Additional indicators checked only when extracted text is short.
+# Short SPA shells often contain only boilerplate phrases; in long
+# articles the same words may appear legitimately.
+_SPA_SHELL_INDICATORS_SHORT = [
+    "loading...",
+    "noscript",
     "enable cookies",
 ]
+
+# Text shorter than this threshold is checked against both indicator
+# lists; longer text is only checked against the strict list.
+_SPA_SHORT_TEXT_THRESHOLD = 500
+
+# Readability score above this value is considered a strong signal of
+# real article content.  When the score exceeds this threshold, SPA
+# indicator matching is skipped entirely — a high score means
+# readability found a substantive candidate container.
+_READABILITY_SCORE_THRESHOLD = 20.0
 
 # Maximum number of retry attempts for transient HTTP failures in _fetch_html.
 _FETCH_MAX_RETRIES = 3
@@ -349,14 +371,25 @@ class Fetch:
             raise FetchError(f"Failed to fetch content from {url}: {e}") from e
 
 
-def _is_content_sufficient(text: str) -> bool:
+def _is_content_sufficient(
+    text: str,
+    readability_score: float = 0.0,
+) -> bool:
     """Evaluate whether extracted content has sufficient quality.
 
-    Checks for minimum length and SPA shell indicators to determine
-    if the content is meaningful or just a JavaScript app shell.
+    Checks for minimum length, SPA shell indicators, and navigation-only
+    structure to determine if the content is meaningful.
+
+    When *readability_score* exceeds ``_READABILITY_SCORE_THRESHOLD``,
+    SPA indicator matching is skipped entirely — a high score means the
+    readability algorithm found a substantive candidate container, so
+    phrases like ``"loading..."`` in the body text are not false
+    positives.
 
     Args:
         text: The extracted text content to evaluate.
+        readability_score: Score from :func:`readability_extract`.
+            Defaults to 0.0 (unknown / not from readability).
 
     Returns:
         True if content appears sufficient, False otherwise.
@@ -364,10 +397,19 @@ def _is_content_sufficient(text: str) -> bool:
     if len(text) < _MIN_CONTENT_LENGTH:
         return False
 
-    text_lower = text.lower()
-    for indicator in _SPA_SHELL_INDICATORS:
-        if indicator in text_lower:
-            return False
+    # High readability score → readability found real content,
+    # skip SPA indicator heuristics to avoid false positives.
+    if readability_score < _READABILITY_SCORE_THRESHOLD:
+        text_lower = text.lower()
+        # Always check the strict indicator list.
+        for indicator in _SPA_SHELL_INDICATORS:
+            if indicator in text_lower:
+                return False
+        # Short text gets checked against the broader list too.
+        if len(text) < _SPA_SHORT_TEXT_THRESHOLD:
+            for indicator in _SPA_SHELL_INDICATORS_SHORT:
+                if indicator in text_lower:
+                    return False
 
     # Text structure analysis: detect navigation-only content.
     lines = [line for line in text.split("\n") if line.strip()]
@@ -389,6 +431,7 @@ def _is_content_sufficient(text: str) -> bool:
 
 def _pick_local_content(
     readability_content: str,
+    readability_score: float,
     soup_content: str,
     url: str,
 ) -> str:
@@ -400,6 +443,7 @@ def _pick_local_content(
 
     Args:
         readability_content: Text from readability extraction.
+        readability_score: Readability score of the best candidate.
         soup_content: Text from soup extraction.
         url: URL being processed (for logging).
 
@@ -407,11 +451,11 @@ def _pick_local_content(
         Best sufficient content string, or empty string if neither qualifies.
     """
     candidates = [
-        (readability_content, "readability"),
-        (soup_content, "soup"),
+        (readability_content, "readability", readability_score),
+        (soup_content, "soup", 0.0),
     ]
-    for candidate, strategy in candidates:
-        if not candidate or not _is_content_sufficient(candidate):
+    for candidate, strategy, score in candidates:
+        if not candidate or not _is_content_sufficient(candidate, readability_score=score):
             continue
         if (
             strategy == "readability"
@@ -482,9 +526,9 @@ def _try_cdp_extraction(
     if not rendered_html:
         return "", ""
 
-    cdp_readability = _extract_with_readability(rendered_html, url)
+    cdp_readability, cdp_score = _extract_with_readability(rendered_html, url)
     cdp_soup = _extract_with_soup(rendered_html)
-    cdp_best = _pick_local_content(cdp_readability, cdp_soup, url)
+    cdp_best = _pick_local_content(cdp_readability, cdp_score, cdp_soup, url)
     if cdp_best:
         logger.info(f"Successfully fetched {url} using strategy: cdp")
         return cdp_best, ""
@@ -632,13 +676,15 @@ def _extract(
     local_content = ""
     if html:
         # 2. Try Readability extraction (intelligent article detection)
-        readability_content = _extract_with_readability(html, url)
+        readability_content, readability_score = _extract_with_readability(html, url)
 
         # 3. Try simple soup extraction (CSS selector fallback)
         soup_content = _extract_with_soup(html)
 
         # Pick the best local result
-        best = _pick_local_content(readability_content, soup_content, url)
+        best = _pick_local_content(
+            readability_content, readability_score, soup_content, url,
+        )
         if best:
             return _format_text(best)
 
@@ -1029,7 +1075,7 @@ def _fetch_raw(
     return "", ""
 
 
-def _extract_with_readability(html: str, url: str) -> str:
+def _extract_with_readability(html: str, url: str) -> tuple[str, float]:
     """Extract content using the Readability algorithm.
 
     Uses Mozilla Readability-style scoring to identify and extract the
@@ -1040,17 +1086,20 @@ def _extract_with_readability(html: str, url: str) -> str:
         url: Original URL (passed to readability for link resolution).
 
     Returns:
-        Plain text of the main article, or empty string on failure.
+        ``(text, score)`` tuple.  *text* is the plain text of the main
+        article (empty string on failure); *score* is the readability
+        score of the best candidate (0.0 on failure or when the result
+        was too short).
     """
     try:
         result = readability_extract(html, url=url)
         if result.length >= _MIN_CONTENT_LENGTH:
-            return result.text
+            return result.text, result.score
         logger.debug(f"Readability extraction too short ({result.length} chars)")
-        return ""
+        return "", 0.0
     except Exception as e:
         logger.debug(f"Readability extraction failed: {e}")
-        return ""
+        return "", 0.0
 
 
 def _extract_with_soup(html: str) -> str:
@@ -1102,18 +1151,4 @@ def _format_text(text: str) -> str:
     text = re.sub(r"[^\S\n]+", " ", text)
     text = re.sub(r"\n+", "\n", text)
     text = text.strip()
-    # text = _remove_emojis(text)
     return text
-
-
-def _remove_emojis(text: str) -> str:
-    """
-    Remove emoji expressions from text.
-
-    Args:
-        text (str): The input text.
-
-    Returns:
-        str: Text with emojis removed.
-    """
-    return "".join(c for c in text if not unicodedata.category(c).startswith("So"))

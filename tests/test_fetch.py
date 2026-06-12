@@ -63,14 +63,58 @@ class TestIsContentSufficient:
         assert _is_content_sufficient(text) is True
 
     @pytest.mark.parametrize("indicator", _SPA_SHELL_INDICATORS)
-    def test_spa_shell_indicators(self, indicator):
-        # Content long enough but contains SPA indicator
+    def test_spa_shell_indicators_strict(self, indicator):
+        # Strict indicators should always trigger rejection (any length).
         text = f"Some prefix text. {indicator} Some suffix text." + "x" * 200
         assert _is_content_sufficient(text) is False
 
     def test_spa_indicator_case_insensitive(self):
         text = "Some text. PLEASE ENABLE JAVASCRIPT to continue." + "x" * 200
         assert _is_content_sufficient(text) is False
+
+    def test_loading_indicator_rejected_in_short_text(self):
+        """'loading...' should be detected in short text (< 500 chars)."""
+        text = "loading... please wait" + "x" * 200
+        assert len(text) < 500
+        assert _is_content_sufficient(text) is False
+
+    def test_loading_indicator_ignored_in_long_text(self):
+        """'loading...' in a long article should NOT trigger rejection."""
+        text = (
+            "This article discusses how loading... states are handled "
+            "in modern web applications. When a component is loading... "
+            "the user sees a spinner. "
+        ) * 10
+        assert len(text) > 500
+        assert _is_content_sufficient(text) is True
+
+    def test_noscript_rejected_in_short_text(self):
+        """'noscript' should be detected in short text."""
+        text = "noscript: please enable JavaScript" + "x" * 200
+        assert len(text) < 500
+        assert _is_content_sufficient(text) is False
+
+    def test_noscript_ignored_in_long_text(self):
+        """'noscript' in a long article should NOT trigger rejection."""
+        text = (
+            "The noscript tag provides fallback content for browsers "
+            "that do not support JavaScript. Using noscript correctly "
+            "improves accessibility. "
+        ) * 10
+        assert len(text) > 500
+        assert _is_content_sufficient(text) is True
+
+    def test_high_readability_score_bypasses_spa_check(self):
+        """High readability score should skip SPA indicator matching entirely."""
+        # Text contains a strict SPA indicator, but high score overrides.
+        text = "please enable javascript" + " Real article content." * 20
+        assert _is_content_sufficient(text, readability_score=0.0) is False
+        assert _is_content_sufficient(text, readability_score=25.0) is True
+
+    def test_low_readability_score_still_checks_indicators(self):
+        """Low readability score should NOT bypass SPA indicator matching."""
+        text = "please enable javascript" + "x" * 200
+        assert _is_content_sufficient(text, readability_score=5.0) is False
 
     def test_normal_content_with_no_indicators(self):
         text = (
@@ -616,27 +660,30 @@ class TestReadabilityExtraction:
             <footer>Footer content</footer>
         </body></html>
         """
-        result = _extract_with_readability(html, "https://example.com")
-        assert len(result) >= _MIN_CONTENT_LENGTH
-        assert "test paragraph" in result.lower()
+        text, score = _extract_with_readability(html, "https://example.com")
+        assert len(text) >= _MIN_CONTENT_LENGTH
+        assert "test paragraph" in text.lower()
+        assert score > 0
 
     def test_short_content_returns_empty(self):
         html = "<html><body><p>Short.</p></body></html>"
-        result = _extract_with_readability(html, "https://example.com")
-        assert result == ""
+        text, score = _extract_with_readability(html, "https://example.com")
+        assert text == ""
+        assert score == 0.0
 
     def test_returns_plain_text(self):
         paragraphs = "<p>Some meaningful content for testing purposes. </p>" * 20
         html = f"<html><body><article>{paragraphs}</article></body></html>"
-        result = _extract_with_readability(html, "https://example.com")
+        text, score = _extract_with_readability(html, "https://example.com")
         # Result should be plain text, not HTML
-        assert "<p>" not in result
-        assert "<article>" not in result
+        assert "<p>" not in text
+        assert "<article>" not in text
 
     def test_exception_returns_empty(self):
         # Invalid input that might cause parsing issues
-        result = _extract_with_readability("", "https://example.com")
-        assert result == ""
+        text, score = _extract_with_readability("", "https://example.com")
+        assert text == ""
+        assert score == 0.0
 
 
 # ============================================================
@@ -803,7 +850,7 @@ class TestExtract:
     ):
         mock_md.return_value = ("", "", "")
         mock_fetch.return_value = ("<html>...</html>", "text/html")
-        mock_readability.return_value = "This is a long enough article. " * 10
+        mock_readability.return_value = ("This is a long enough article. " * 10, 25.0)
         mock_soup.return_value = "Short soup."
         result = _extract("https://example.com")
         assert "long enough article" in result
@@ -819,7 +866,7 @@ class TestExtract:
     ):
         mock_md.return_value = ("", "", "")
         mock_fetch.return_value = ("<html>...</html>", "text/html")
-        mock_readability.return_value = ""
+        mock_readability.return_value = ("", 0.0)
         mock_soup.return_value = "Soup extracted content is good enough. " * 10
         result = _extract("https://example.com")
         assert "Soup extracted" in result
@@ -836,7 +883,8 @@ class TestExtract:
         mock_md.return_value = ("", "", "")
         mock_fetch.return_value = ("<html>...</html>", "text/html")
         mock_readability.return_value = (
-            "Loading... Please enable JavaScript to continue." + "x" * 200
+            "Loading... Please enable JavaScript to continue." + "x" * 200,
+            3.0,
         )
         mock_soup.return_value = (
             "Loading... Please enable JavaScript to continue." + "x" * 200
@@ -874,7 +922,7 @@ class TestExtract:
     ):
         mock_md.return_value = ("", "", "")
         mock_fetch.return_value = ("<html>...</html>", "text/html")
-        mock_readability.return_value = "Short low quality"
+        mock_readability.return_value = ("Short low quality", 5.0)
         mock_soup.return_value = ""
         mock_jina.return_value = ""
 
@@ -971,7 +1019,7 @@ class TestExtract:
         """text/html should go through the normal extraction pipeline."""
         mock_md.return_value = ("", "", "")
         mock_fetch.return_value = ("<html><body>Page</body></html>", "text/html")
-        mock_readability.return_value = "Extracted article content. " * 10
+        mock_readability.return_value = ("Extracted article content. " * 10, 30.0)
         mock_soup.return_value = ""
 
         result = _extract("https://example.com")
@@ -989,7 +1037,7 @@ class TestExtract:
         """When markdown negotiation returns HTML, _fetch_raw should be skipped."""
         html = "<html><body><article>" + "Real content. " * 20 + "</article></body></html>"
         mock_md.return_value = ("", html, "text/html")
-        mock_readability.return_value = "Real content. " * 20
+        mock_readability.return_value = ("Real content. " * 20, 28.0)
         mock_soup.return_value = ""
 
         result = _extract("https://example.com")
@@ -1008,7 +1056,7 @@ class TestExtract:
         """When markdown negotiation fails (network error), _fetch_raw is used."""
         mock_md.return_value = ("", "", "")
         mock_fetch.return_value = ("<html>...</html>", "text/html")
-        mock_readability.return_value = "Fallback content. " * 10
+        mock_readability.return_value = ("Fallback content. " * 10, 22.0)
         mock_soup.return_value = ""
 
         result = _extract("https://example.com")
@@ -1607,7 +1655,7 @@ class TestExtractWithCDP:
         """CDP renders a SPA shell into usable content."""
         mock_md.return_value = ("", "", "")
         mock_fetch.return_value = ("<html><div id='root'></div></html>", "text/html")
-        mock_readability.return_value = ""
+        mock_readability.return_value = ("", 0.0)
         mock_soup.return_value = ""
 
         # _try_cdp_extraction returns (best_content, local_content)
@@ -1630,7 +1678,7 @@ class TestExtractWithCDP:
         """When CDP fails, pipeline falls through to Jina."""
         mock_md.return_value = ("", "", "")
         mock_fetch.return_value = ("<html></html>", "text/html")
-        mock_readability.return_value = ""
+        mock_readability.return_value = ("", 0.0)
         mock_soup.return_value = ""
         mock_cdp.return_value = ("", "")  # CDP failed
         mock_jina.return_value = "# Jina Content\nFull article from Jina. " * 10
@@ -1652,7 +1700,7 @@ class TestExtractWithCDP:
         """When cdp_endpoint is None, CDP is skipped entirely."""
         mock_md.return_value = ("", "", "")
         mock_fetch.return_value = ("<html></html>", "text/html")
-        mock_readability.return_value = ""
+        mock_readability.return_value = ("", 0.0)
         mock_soup.return_value = ""
         # Must be long enough to pass _is_content_sufficient
         sufficient = (
@@ -1678,7 +1726,7 @@ class TestExtractWithCDP:
         """CDP renders HTML but content is still insufficient → falls through to Jina."""
         mock_md.return_value = ("", "", "")
         mock_fetch.return_value = ("<html></html>", "text/html")
-        mock_readability.return_value = ""
+        mock_readability.return_value = ("", 0.0)
         mock_soup.return_value = ""
 
         # CDP rendered but content insufficient — returns partial in local_content
