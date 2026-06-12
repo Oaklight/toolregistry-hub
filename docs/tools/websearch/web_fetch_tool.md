@@ -86,7 +86,9 @@ The Web Fetch tool uses a five-stage extraction approach with **content quality 
 4. **CDP Browser Rendering**: Self-hosted headless browser rendering via Chrome DevTools Protocol for SPA pages (requires `CDP_ENDPOINT` configuration)
 5. **Jina Reader (Fallback)**: External API with multi-engine retry (`browser` → `cf-browser-rendering`) for JavaScript rendering (SPA support)
 
-The tool fetches the raw HTML once and reuses it for both Readability and Soup extraction. It compares the results from both local strategies and picks the better one. If local extraction is insufficient and a CDP endpoint is configured, the tool renders the page in a headless browser and re-extracts content from the rendered HTML. If CDP is unavailable or still produces insufficient content, it falls back to Jina Reader.
+The tool minimises HTTP round-trips: if Cloudflare Content Negotiation returns `text/html` instead of markdown (the common case), the response body is preserved and passed directly to the Readability/Soup extraction pipeline — no redundant second request is made. Both local strategies share this single HTML copy. The tool compares the results from both local strategies and picks the better one. If local extraction is insufficient and a CDP endpoint is configured, the tool renders the page in a headless browser and re-extracts content from the rendered HTML. If CDP is unavailable or still produces insufficient content, it falls back to Jina Reader.
+
+Before entering the extraction pipeline, the tool checks the response content type. Binary content types (`image/*`, `audio/*`, `video/*`, `font/*`, `application/pdf`, `application/zip`, `application/octet-stream`, etc.) are rejected early with a `FetchError`, preventing wasted CPU on un-extractable content.
 
 ### Extraction Process
 
@@ -94,9 +96,13 @@ The tool fetches the raw HTML once and reuses it for both Readability and Soup e
 flowchart TD
     A[URL Input] --> B[Cloudflare Content Negotiation]
     B -->|Markdown returned| Z[Return Clean Content]
-    B -->|Not supported| C[Fetch HTML]
-    C --> D[Readability Extraction]
-    C --> E[Soup Extraction]
+    B -->|HTML returned| REUSE[Reuse response body]
+    B -->|Error / timeout| C[Fetch HTML via _fetch_raw]
+    REUSE --> BIN{Binary content type?}
+    C --> BIN
+    BIN -->|Yes| ERR[Raise FetchError]
+    BIN -->|No| D[Readability Extraction]
+    BIN -->|No| E[Soup Extraction]
     D & E --> F{Pick Best Local Result}
     F -->|Sufficient quality| Z
     F -->|Too short or SPA shell| CDP{CDP Endpoint configured?}
@@ -149,7 +155,8 @@ The first strategy leverages [Cloudflare's "Markdown for Agents"](https://blog.c
 
 - The tool sends a request with `Accept: text/markdown` in the HTTP headers
 - If the server responds with `Content-Type: text/markdown`, the markdown content is used directly
-- If the server does not support this content type, the response is discarded and the next strategy is tried
+- If the server returns a non-markdown `2xx` response (typically `text/html`), the response body is **preserved and reused** by the subsequent Readability/Soup extraction stages — avoiding a redundant HTTP round-trip
+- On error responses (`4xx`/`5xx`) or network failures, the body is discarded and the tool falls back to a fresh `_fetch_raw` request (which has its own retry logic)
 - This is a **zero-cost** attempt: no external API calls, no additional processing — just a standard HTTP request with a different `Accept` header
 
 **Benefits:**
@@ -158,6 +165,7 @@ The first strategy leverages [Cloudflare's "Markdown for Agents"](https://blog.c
 - No dependency on third-party services
 - Preserves the original document structure (headings, lists, code blocks, etc.)
 - Cloudflare also provides an `x-markdown-tokens` header indicating the token count of the markdown content
+- Even when markdown is not supported, the HTML response body is reused, eliminating a redundant network request
 
 ### CDP Browser Rendering
 
@@ -440,6 +448,7 @@ if is_valid:
 
 - **JavaScript-heavy sites**: Handled via CDP Browser Rendering (self-hosted) or Jina Reader's multi-engine retry (`browser` → `cf-browser-rendering`) with `X-Wait-For-Selector` for dynamic content, but some complex SPAs may still not render fully
 - **Authentication**: Cannot access password-protected content
+- **Binary content**: URLs pointing to images, PDFs, archives, and other binary formats are rejected early with `FetchError` — the tool only extracts text-based content
 - **Large files**: Very large pages may timeout or be truncated
 - **Complex layouts**: Some sites may require custom parsing
 - **Jina Reader availability**: The Jina Reader API is a free external service; availability is not guaranteed

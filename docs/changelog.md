@@ -22,6 +22,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     - `get_astronomy(location)` — sunrise/sunset, moonrise/moonset, moon phase and illumination.
     - Supports metric/imperial units, city names, coordinates, and airport codes. Tagged `NETWORK + READ_ONLY`.
 
+### Improved
+
+- **Fetch: Reuse markdown negotiation response body** ([#132](https://github.com/Oaklight/toolregistry-hub/pull/132)) — when Cloudflare Content Negotiation returns `text/html` instead of `text/markdown` (the common case), the response body is now preserved and passed directly to the Readability/Soup extraction pipeline, eliminating a redundant HTTP round-trip. Previously the HTML response was discarded and `_fetch_raw` issued an identical GET request to the same URL.
+- **Fetch: Binary content-type early rejection** ([#132](https://github.com/Oaklight/toolregistry-hub/pull/132)) — URLs returning binary content types (`image/*`, `audio/*`, `video/*`, `font/*`, `application/pdf`, `application/zip`, `application/octet-stream`, etc.) are now detected before entering the extraction pipeline and raise `FetchError` with a descriptive message. Previously binary responses were decoded as text and fed through Readability/Soup, producing garbage output.
+
+### Internal
+
+- Rename `_get_content_with_markdown_negotiation` → `_try_markdown_negotiation`; return type changed from `str` to `(md_content, fallback_body, fallback_ct)` tuple for response reuse.
+- Add `_is_binary_content_type()` helper with prefix-based and exact-match detection.
+- 10 new tests covering response reuse path, fallback-to-`_fetch_raw` path, binary rejection, and parametrized binary/non-binary detection.
+
 ### Fixed
 
 - Fix `README.md` symlink target from `readme_en.md` (nonexistent) to `README_en.md`.
