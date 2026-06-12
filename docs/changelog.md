@@ -28,11 +28,11 @@ author: Oaklight
 - **Fetch：二进制内容类型提前拦截**（[#132](https://github.com/Oaklight/toolregistry-hub/pull/132)）— 返回二进制内容类型（`image/*`、`audio/*`、`video/*`、`font/*`、`application/pdf`、`application/zip`、`application/octet-stream` 等）的 URL 现在会在进入提取流程前被检测到，并抛出带描述信息的 `FetchError`。此前二进制响应会被当作文本解码并送入 Readability/Soup，产生乱码输出。
 - **Fetch：URL 级结果缓存**（[#135](https://github.com/Oaklight/toolregistry-hub/pull/135)）— 新增实例级 URL 结果缓存，可配置 TTL（默认 5 分钟）和 LRU 淘汰（默认 128 条）。TTL 窗口内对同一 URL 的重复请求直接返回缓存结果。仅缓存成功结果，错误始终重试。可通过 `cache_ttl=0` 禁用缓存，或调用 `Fetch.clear_cache()` 清空。
 - **Fetch：基于 readability 评分改进 SPA 检测**（[#138](https://github.com/Oaklight/toolregistry-hub/pull/138)）— 当 readability 算法对页面的评分超过置信度阈值（score ≥ 20）时，跳过 SPA 空壳指标匹配，避免对包含 "loading..." 等字样的正常页面产生误判。同时收紧了 SPA 指标列表，并为更宽泛的指标增加了短文本阈值。
-- **Fetch：readability 足够好时跳过 soup 提取**（[#139](https://github.com/Oaklight/toolregistry-hub/pull/139)）— 当 readability 返回高置信度结果（`score ≥ 100` 且 `length ≥ 2000` 字符）时，完全跳过 soup 提取。性能测试表明，此类情况下 soup 占本地提取总时间的 ~30–35%，但额外内容贡献不足 16%，每页可节省 30–180 ms。主提取流程和 CDP 渲染路径均已应用此优化。跳过的 soup 调用会在 `DEBUG` 级别记录 score 和 length，便于后续调整阈值。
-- **Fetch：降低 `_extract` 和 `_is_content_sufficient` 的认知复杂度**（[#139](https://github.com/Oaklight/toolregistry-hub/pull/139)）— 通过提取四个辅助函数，将 `_extract`（complexipy 26→16）和 `_is_content_sufficient`（22→4）的复杂度降到项目阈值 15 以下。
+- **Fetch：readability 结果充分时跳过 soup 提取**（[#139](https://github.com/Oaklight/toolregistry-hub/pull/139)）— 当 readability 产生高置信度结果（score ≥ 100 且内容长度 ≥ 2,000 字符）时，完全跳过 soup 提取步骤，每个页面节省 30–185 ms。性能分析表明在此阈值下，soup 额外提取的内容不超过 16%。跳过的调用会以 DEBUG 级别记录 score 和长度，便于后续调整阈值。同时应用于主提取流程和 CDP 渲染路径。
 
 ### 内部变更
 
+- 重构 `_extract`（认知复杂度 26→16）和 `_is_content_sufficient`（22→4），提取四个辅助函数：`_should_skip_soup`、`_try_readability_and_soup`、`_try_fallback_strategies`、`_handle_spa_indicators`。
 - 重命名 `_get_content_with_markdown_negotiation` → `_try_markdown_negotiation`；返回类型从 `str` 改为 `(md_content, fallback_body, fallback_ct)` 三元组以支持响应复用。
 - 新增 `_is_binary_content_type()` 辅助函数，支持前缀匹配和精确匹配两种检测方式。
 - 新增 10 个测试，覆盖响应复用路径、回退到 `_fetch_raw` 路径、二进制拦截，以及参数化的二进制/非二进制检测。
