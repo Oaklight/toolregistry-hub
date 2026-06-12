@@ -26,12 +26,16 @@ author: Oaklight
 
 - **Fetch：复用 markdown negotiation 的响应体**（[#132](https://github.com/Oaklight/toolregistry-hub/pull/132)）— Cloudflare Content Negotiation 返回 `text/html` 而非 `text/markdown` 时（绝大多数情况），响应体现在会保留并直接传给 Readability/Soup 提取流程，省去一次冗余的 HTTP 请求。此前 HTML 响应会被丢弃，`_fetch_raw` 再对同一 URL 发起完全相同的 GET 请求。
 - **Fetch：二进制内容类型提前拦截**（[#132](https://github.com/Oaklight/toolregistry-hub/pull/132)）— 返回二进制内容类型（`image/*`、`audio/*`、`video/*`、`font/*`、`application/pdf`、`application/zip`、`application/octet-stream` 等）的 URL 现在会在进入提取流程前被检测到，并抛出带描述信息的 `FetchError`。此前二进制响应会被当作文本解码并送入 Readability/Soup，产生乱码输出。
+- **Fetch：readability 足够好时跳过 soup 提取**（[#139](https://github.com/Oaklight/toolregistry-hub/pull/139)）— 当 readability 返回高置信度结果（`score ≥ 100` 且 `length ≥ 2000` 字符）时，完全跳过 soup 提取。性能测试表明，此类情况下 soup 占本地提取总时间的 ~30–35%，但额外内容贡献不足 16%，每页可节省 30–180 ms。主提取流程和 CDP 渲染路径均已应用此优化。跳过的 soup 调用会在 `DEBUG` 级别记录 score 和 length，便于后续调整阈值。
+- **Fetch：降低 `_extract` 和 `_is_content_sufficient` 的认知复杂度**（[#139](https://github.com/Oaklight/toolregistry-hub/pull/139)）— 通过提取四个辅助函数，将 `_extract`（complexipy 26→16）和 `_is_content_sufficient`（22→4）的复杂度降到项目阈值 15 以下。
 
 ### 内部变更
 
 - 重命名 `_get_content_with_markdown_negotiation` → `_try_markdown_negotiation`；返回类型从 `str` 改为 `(md_content, fallback_body, fallback_ct)` 三元组以支持响应复用。
 - 新增 `_is_binary_content_type()` 辅助函数，支持前缀匹配和精确匹配两种检测方式。
 - 新增 10 个测试，覆盖响应复用路径、回退到 `_fetch_raw` 路径、二进制拦截，以及参数化的二进制/非二进制检测。
+- 新增 `_should_skip_soup()` 判断函数，配合 `_SOUP_SKIP_SCORE_THRESHOLD`（100.0）和 `_SOUP_SKIP_MIN_LENGTH`（2000）两个常量。
+- 新增 11 个测试覆盖 soup 跳过行为：8 个单元测试（`_should_skip_soup`）+ 3 个集成测试（完整 `_extract` 流程）。
 
 ### 修复
 

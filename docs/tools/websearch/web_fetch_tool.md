@@ -17,6 +17,7 @@ Fetch 类提供强大的网页内容提取功能：
 - **五级策略链**：Cloudflare 内容协商 → Readability 提取 → Soup 解析 → CDP 浏览器渲染 → Jina Reader API
 - **响应复用**：内容协商阶段获取的 HTTP 响应会被直接传递给后续提取策略，避免重复网络请求
 - **二进制内容拦截**：自动识别图片、PDF、音视频等二进制 MIME 类型，在进入提取流程前提前终止并返回明确错误
+- **Soup 跳过优化**：当 readability 已返回高置信度结果时跳过 soup 提取，每页节省 30–180 ms
 - **内容质量评估**：检测 SPA 空壳页面和内容不足的情况，自动触发回退
 - **智能回退与低质量恢复**：如果 Jina Reader 也失败，返回本地低质量内容作为最后手段（有总比没有好）
 - **内容清理**：移除导航、广告和不必要的元素
@@ -88,7 +89,7 @@ content = fetcher.fetch_content(
 4. **CDP 浏览器渲染**：通过 Chrome DevTools Protocol 使用自托管无头浏览器渲染 SPA 页面（需配置 `CDP_ENDPOINT`）
 5. **Jina Reader（降级方案）**：外部 API，使用多引擎重试（`browser` → `cf-browser-rendering`）进行 JavaScript 渲染（SPA 支持）
 
-工具尽量减少 HTTP 请求次数：如果 Cloudflare 内容协商返回 `text/html` 而非 markdown（绝大多数情况），响应体会被保留并直接传给 Readability/Soup 提取流程——不会再发送冗余的第二次请求。两种本地策略共享这份 HTML。工具会比较两种本地策略的结果，选择更好的一个。如果本地提取不足且配置了 CDP 端点，工具会在无头浏览器中渲染页面并从渲染后的 HTML 中重新提取内容。如果 CDP 不可用或仍然产生不足的内容，则回退到 Jina Reader。
+工具尽量减少 HTTP 请求次数：如果 Cloudflare 内容协商返回 `text/html` 而非 markdown（绝大多数情况），响应体会被保留并直接传给 Readability/Soup 提取流程——不会再发送冗余的第二次请求。两种本地策略共享这份 HTML。当 readability 返回高置信度结果（score ≥ 100 且文本 ≥ 2 000 字符）时，soup 提取会被**完全跳过**，节省 30–180 ms。否则工具会比较两种策略的结果并选择更好的一个。如果本地提取不足且配置了 CDP 端点，工具会在无头浏览器中渲染页面并从渲染后的 HTML 中重新提取内容。如果 CDP 不可用或仍然产生不足的内容，则回退到 Jina Reader。
 
 在进入提取流程之前，工具会检查响应的内容类型。二进制内容类型（`image/*`、`audio/*`、`video/*`、`font/*`、`application/pdf`、`application/zip`、`application/octet-stream` 等）会被提前拦截并抛出 `FetchError`，避免在无法提取的内容上浪费 CPU。
 
@@ -104,12 +105,16 @@ flowchart TD
     C --> BIN
     BIN -->|是| ERR[抛出 FetchError]
     BIN -->|否| D[Readability 提取]
-    BIN -->|否| E[Soup 提取]
-    D & E --> F{选择最佳本地结果}
+    D --> SK{Score ≥ 100 &
+    len ≥ 2000?}
+    SK -->|是| F{选择最佳本地结果}
+    SK -->|否| E[Soup 提取]
+    E --> F
     F -->|质量充足| Z
     F -->|太短或 SPA 空壳| CDP{配置了 CDP 端点？}
     CDP -->|是| CDP1[CDP 浏览器渲染]
-    CDP1 --> CDP2[使用 Readability + Soup 重新提取]
+    CDP1 --> CDP2[使用 Readability
+    + 条件性 Soup 重新提取]
     CDP2 -->|质量充足| Z
     CDP2 -->|不足| G[Jina Reader - browser 引擎]
     CDP -->|否| G
@@ -148,6 +153,16 @@ flowchart TD
 **低质量回退：**
 
 如果 Jina Reader 也无法产生足够质量的内容，工具会回退到本地的低质量结果（如果有的话）— 因为部分内容总比没有内容好。
+
+### Soup 跳过优化
+
+Readability 提取完成后，工具会决定是否还需要运行 soup。当 readability 已返回高置信度结果 — `score ≥ 100` **且** `length ≥ 2 000` 字符 — 时，soup 提取会被完全跳过。这同时适用于主提取流程和 CDP 重新提取路径。
+
+**为什么安全：** 针对短文章、长文章、导航页和 SPA 空壳的性能测试表明，同时满足两个阈值的页面中 soup 额外内容贡献始终不超过 16%。而低于阈值的页面（如 GitHub Trending score 61.9、React 文档 score 42.0）soup 产出的内容是 readability 的 7–19 倍，绝不会被跳过。
+
+**节省：** 每页 30–180 ms，约占本地提取总时间的 ~30–35%。
+
+**可观测性：** 被跳过的 soup 调用会在 `DEBUG` 级别记录 readability 的 score 和内容长度，便于审计决策和后续调整阈值。
 
 ### Cloudflare 内容协商
 
