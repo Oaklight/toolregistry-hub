@@ -1,19 +1,27 @@
+(unbuffered) {
+	flush_interval -1
+}
+
 :8080 {
 	handle /mcp {
-		reverse_proxy mcp-streamable-http:8000
+		reverse_proxy mcp-streamable-http:8000 {
+			import unbuffered
+		}
 	}
 
 	handle /sse* {
-		reverse_proxy mcp-sse:8000
+		reverse_proxy mcp-sse:8000 {
+			import unbuffered
+		}
 	}
 
-	# Convenience redirect: /openapi → /docs
 	handle /openapi {
 		redir /docs permanent
 	}
 
-	# Everything else (/, /docs, /openapi.json, /tools/*) → OpenAPI
 	handle {
-		reverse_proxy openapi:8000
+		reverse_proxy openapi:8000 {
+			import unbuffered
+		}
 	}
 }
