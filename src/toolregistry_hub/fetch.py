@@ -100,6 +100,44 @@ _NON_HTML_CONTENT_TYPES: frozenset[str] = frozenset(
     }
 )
 
+# Content-type prefixes that indicate binary data.  These cannot be
+# meaningfully extracted as text; attempting to do so wastes CPU on
+# garbage and may cause encoding errors.
+_BINARY_CONTENT_TYPE_PREFIXES: tuple[str, ...] = (
+    "image/",
+    "audio/",
+    "video/",
+    "font/",
+)
+
+# Exact binary MIME types that should also be rejected early.
+_BINARY_CONTENT_TYPES: frozenset[str] = frozenset(
+    {
+        "application/pdf",
+        "application/zip",
+        "application/gzip",
+        "application/x-tar",
+        "application/x-7z-compressed",
+        "application/x-rar-compressed",
+        "application/octet-stream",
+        "application/wasm",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+)
+
+
+def _is_binary_content_type(content_type: str) -> bool:
+    """Check whether a MIME type represents binary (non-extractable) content."""
+    return (
+        content_type.startswith(_BINARY_CONTENT_TYPE_PREFIXES)
+        or content_type in _BINARY_CONTENT_TYPES
+    )
+
 # CSS selectors tried in order by _extract_with_soup to locate the main
 # content container.  Each entry is a ``(tag, attrs)`` tuple compatible
 # with ``Soup.find(tag, attrs)``.  The first match wins.
@@ -444,27 +482,40 @@ def _extract(
     def _remaining() -> float:
         return max(0.0, deadline - time.monotonic())
 
+    body, content_type = "", ""
+
     # 1. Try Cloudflare Content Negotiation (zero-cost, high quality if supported)
+    #    On non-markdown 2xx responses the body is preserved for reuse,
+    #    avoiding a redundant HTTP round-trip in step 2.
     if _remaining() > _MIN_STRATEGY_BUDGET:
-        content = _get_content_with_markdown_negotiation(
+        md_content, fallback_body, fallback_ct = _try_markdown_negotiation(
             url,
             timeout=min(timeout, _remaining()),
             proxy=proxy,
         )
-        if content:
+        if md_content:
             logger.info(
                 f"Successfully fetched {url} using strategy: markdown_negotiation"
             )
-            return _format_text(content)
+            return _format_text(md_content)
+        if fallback_body:
+            body, content_type = fallback_body, fallback_ct
 
-    # Fetch content once for local extraction strategies
-    body, content_type = "", ""
-    if _remaining() > _MIN_STRATEGY_BUDGET:
+    # Fetch content if markdown negotiation didn't produce a reusable body
+    # (e.g. network error, 4xx/5xx, or negotiation was skipped).
+    if not body and _remaining() > _MIN_STRATEGY_BUDGET:
         body, content_type = _fetch_raw(
             url,
             timeout=min(timeout, _remaining()),
             proxy=proxy,
             deadline=deadline,
+        )
+
+    # Short-circuit: binary content types (images, PDFs, archives, etc.)
+    # cannot be meaningfully extracted as text.
+    if body and content_type and _is_binary_content_type(content_type):
+        raise FetchError(
+            f"Unsupported binary content type for {url}: {content_type}"
         )
 
     # Short-circuit: non-HTML content types (JSON, plain text, XML, etc.)
@@ -527,26 +578,32 @@ def _extract(
     raise FetchError(f"Unable to fetch content from {url}")
 
 
-def _get_content_with_markdown_negotiation(
+def _try_markdown_negotiation(
     url: str,
     timeout: float = TIMEOUT_DEFAULT,
     proxy: str | None = None,
-) -> str:
-    """
-    Attempt to fetch markdown content via Cloudflare Content Negotiation.
+) -> tuple[str, str, str]:
+    """Attempt to fetch markdown content via Cloudflare Content Negotiation.
 
     Sends a standard HTTP GET request with ``Accept: text/markdown`` header.
     If the origin server (or Cloudflare) supports content negotiation and
-    returns markdown, the content is used directly. Otherwise, returns an
-    empty string so that subsequent strategies can handle the URL.
+    returns markdown, the markdown content is returned.  Otherwise, the
+    response body is preserved so the caller can reuse it for local
+    extraction (avoiding a redundant HTTP round-trip).
 
     Args:
-        url (str): The URL to fetch content from.
-        timeout (float, optional): Timeout for the HTTP request. Defaults to TIMEOUT_DEFAULT.
-        proxy (str, optional): Proxy to use for the HTTP request. Defaults to None.
+        url: The URL to fetch content from.
+        timeout: Timeout for the HTTP request.  Defaults to TIMEOUT_DEFAULT.
+        proxy: Proxy to use for the HTTP request.  Defaults to None.
 
     Returns:
-        str: Markdown content if the server supports it, otherwise empty string.
+        A ``(md_content, fallback_body, fallback_ct)`` tuple.
+
+        - When the server returns markdown: ``(markdown_text, "", "")``.
+        - When the server returns a non-markdown 2xx response:
+          ``("", response_body, content_type)`` so the caller can reuse
+          the body for readability/soup extraction.
+        - On any error (network failure, 4xx/5xx): ``("", "", "")``.
     """
     try:
         ua = generate(browser=["chrome", "edge"])
@@ -562,25 +619,36 @@ def _get_content_with_markdown_negotiation(
                 proxy=proxy,
             ),
         )
-        response.raise_for_status()
 
-        content_type = response.headers.get("content-type", "")
-        if "text/markdown" not in content_type:
+        # Capture body and content-type before status check so we can
+        # return them on non-markdown 2xx responses.
+        body = response.text
+        raw_ct = response.headers.get("content-type", "")
+        ct = raw_ct.split(";")[0].strip().lower()
+
+        # On error status, don't reuse — let _fetch_raw handle retries.
+        if response.status_code >= 400:
             logger.debug(
-                f"Markdown negotiation not supported for {url} "
-                f"(Content-Type: {content_type})"
+                f"Markdown negotiation got HTTP {response.status_code} for {url}"
             )
-            return ""
+            return "", "", ""
 
-        # Log markdown token count if provided by Cloudflare
-        md_tokens = response.headers.get("x-markdown-tokens")
-        if md_tokens:
-            logger.debug(f"Markdown tokens for {url}: {md_tokens}")
+        if "text/markdown" in raw_ct:
+            # Log markdown token count if provided by Cloudflare
+            md_tokens = response.headers.get("x-markdown-tokens")
+            if md_tokens:
+                logger.debug(f"Markdown tokens for {url}: {md_tokens}")
+            return body, "", ""
 
-        return response.text
+        # Non-markdown success — return body for reuse.
+        logger.debug(
+            f"Markdown negotiation not supported for {url} "
+            f"(Content-Type: {raw_ct})"
+        )
+        return "", body, ct
     except Exception as e:
         logger.debug(f"Markdown negotiation failed for {url}: {e}")
-        return ""
+        return "", "", ""
 
 
 # Buffer (in seconds) added to the Jina X-Timeout to derive the httpx
