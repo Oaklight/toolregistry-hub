@@ -15,6 +15,8 @@ The Web Fetch tool provides intelligent webpage content extraction from URLs. It
 The Fetch class offers robust webpage content extraction:
 
 - **Five-Stage Strategy Chain**: Cloudflare Content Negotiation → Readability extraction → Soup parsing → CDP Browser Rendering → Jina Reader API
+- **Response Reuse**: HTTP responses from the content negotiation stage are passed directly to subsequent extraction strategies, avoiding redundant network requests
+- **Binary Content Interception**: Automatically detects images, PDFs, audio/video, and other binary MIME types, rejecting them early with a clear error before entering the extraction pipeline
 - **Content Quality Evaluation**: Detects SPA shell pages and insufficient content, triggering automatic fallback
 - **Smart Fallback with Low-Quality Recovery**: If Jina Reader also fails, returns local low-quality content as a last resort (better than nothing)
 - **Content Cleaning**: Removes navigation, ads, and unnecessary elements
@@ -72,7 +74,7 @@ Extract content from a given URL using available methods.
 
 **Raises:**
 
-- `Exception`: If URL is invalid or network errors occur
+- `FetchError`: If all extraction strategies fail, the URL is invalid, a network error occurs, or the URL points to an unsupported binary content type (images, PDFs, audio/video, etc.)
 
 ## How It Works
 
@@ -166,6 +168,25 @@ The first strategy leverages [Cloudflare's "Markdown for Agents"](https://blog.c
 - Preserves the original document structure (headings, lists, code blocks, etc.)
 - Cloudflare also provides an `x-markdown-tokens` header indicating the token count of the markdown content
 - Even when markdown is not supported, the HTML response body is reused, eliminating a redundant network request
+
+### Binary Content Interception
+
+After receiving the HTTP response and before entering the Readability/Soup extraction pipeline, the tool checks the response `Content-Type`. If it is a binary type, the tool raises `FetchError` immediately rather than decoding binary data as text and running extraction algorithms on garbage.
+
+**Intercepted content-type prefixes:**
+
+- `image/*` (PNG, JPEG, GIF, WebP, etc.)
+- `audio/*` (MP3, OGG, etc.)
+- `video/*` (MP4, WebM, etc.)
+- `font/*` (WOFF2, TTF, etc.)
+
+**Intercepted exact MIME types:**
+
+- `application/pdf`, `application/zip`, `application/gzip`
+- `application/octet-stream`, `application/wasm`
+- Office document formats (`.docx`, `.xlsx`, `.pptx`, etc.)
+
+This is a defensive measure: it prevents binary files (potentially tens of MB) from being decoded as text and fed into extraction algorithms, wasting CPU and producing meaningless output.
 
 ### CDP Browser Rendering
 
