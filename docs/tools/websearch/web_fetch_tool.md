@@ -15,6 +15,8 @@ author: Oaklight
 Fetch 类提供强大的网页内容提取功能：
 
 - **五级策略链**：Cloudflare 内容协商 → Readability 提取 → Soup 解析 → CDP 浏览器渲染 → Jina Reader API
+- **响应复用**：内容协商阶段获取的 HTTP 响应会被直接传递给后续提取策略，避免重复网络请求
+- **二进制内容拦截**：自动识别图片、PDF、音视频等二进制 MIME 类型，在进入提取流程前提前终止并返回明确错误
 - **内容质量评估**：检测 SPA 空壳页面和内容不足的情况，自动触发回退
 - **智能回退与低质量恢复**：如果 Jina Reader 也失败，返回本地低质量内容作为最后手段（有总比没有好）
 - **内容清理**：移除导航、广告和不必要的元素
@@ -72,7 +74,7 @@ content = fetcher.fetch_content(
 
 **异常：**
 
-- `Exception`: 如果 URL 无效或发生网络错误
+- `FetchError`: 如果所有提取策略均失败、URL 无效、发生网络错误，或 URL 指向不支持的二进制内容类型（如图片、PDF、音视频等）
 
 ## 工作原理
 
@@ -86,7 +88,7 @@ content = fetcher.fetch_content(
 4. **CDP 浏览器渲染**：通过 Chrome DevTools Protocol 使用自托管无头浏览器渲染 SPA 页面（需配置 `CDP_ENDPOINT`）
 5. **Jina Reader（降级方案）**：外部 API，使用多引擎重试（`browser` → `cf-browser-rendering`）进行 JavaScript 渲染（SPA 支持）
 
-工具只获取一次原始 HTML，然后复用于 Readability 和 Soup 两种提取策略。它会比较两种本地策略的结果，选择更好的一个。如果本地提取不足且配置了 CDP 端点，工具会在无头浏览器中渲染页面并从渲染后的 HTML 中重新提取内容。如果 CDP 不可用或仍然产生不足的内容，则回退到 Jina Reader。
+内容协商阶段获取的 HTTP 响应会被直接复用于后续提取策略，避免对同一 URL 发起重复的 HTTP 请求。工具会比较 Readability 和 Soup 两种本地策略的结果，选择更好的一个。如果本地提取不足且配置了 CDP 端点，工具会在无头浏览器中渲染页面并从渲染后的 HTML 中重新提取内容。如果 CDP 不可用或仍然产生不足的内容，则回退到 Jina Reader。对于图片、PDF 等二进制内容类型，工具会在进入提取流程前提前终止并报错。
 
 ### 提取过程
 
@@ -94,9 +96,13 @@ content = fetcher.fetch_content(
 flowchart TD
     A[URL 输入] --> B[Cloudflare 内容协商]
     B -->|返回 Markdown| Z[返回干净内容]
-    B -->|不支持| C[获取 HTML]
-    C --> D[Readability 提取]
-    C --> E[Soup 提取]
+    B -->|返回非 Markdown 响应| C{复用响应 Body}
+    B -->|请求失败| C2[获取 HTML]
+    C --> BIN{二进制内容类型？}
+    C2 --> BIN
+    BIN -->|是（图片/PDF/音视频等）| ERR[报错: FetchError]
+    BIN -->|否| D[Readability 提取]
+    BIN -->|否| E[Soup 提取]
     D & E --> F{选择最佳本地结果}
     F -->|质量充足| Z
     F -->|太短或 SPA 空壳| CDP{配置了 CDP 端点？}
@@ -149,7 +155,8 @@ flowchart TD
 
 - 工具在 HTTP 请求头中发送 `Accept: text/markdown`
 - 如果服务器以 `Content-Type: text/markdown` 响应，则直接使用该 markdown 内容
-- 如果服务器不支持此内容类型，则丢弃响应并尝试下一个策略
+- 如果服务器返回非 markdown 的 2xx 响应（如 `text/html`），响应体会被保留并直接传递给 Readability/Soup 提取阶段，避免对同一 URL 发起重复的 HTTP 请求
+- 如果请求失败（4xx/5xx/网络错误），工具会回退到正常的 HTTP 获取流程（包含重试逻辑）
 - 这是一次**零成本**尝试：无需外部 API 调用，无需额外处理 — 只是一个使用不同 `Accept` 头的标准 HTTP 请求
 
 **优势：**
@@ -157,7 +164,27 @@ flowchart TD
 - 在支持的站点上获得高质量、结构化的 markdown 输出
 - 不依赖第三方服务
 - 保留原始文档结构（标题、列表、代码块等）
+- 响应复用：即使服务器不支持 markdown，已获取的 HTML 响应体也不会被浪费，而是直接传递给后续提取阶段
 - Cloudflare 还会提供 `x-markdown-tokens` 响应头，指示 markdown 内容的 token 数量
+
+### 二进制内容拦截
+
+在获取到 HTTP 响应后、进入 Readability/Soup 提取流程之前，工具会检查响应的 `Content-Type` 是否为二进制类型。如果是，工具会立即报错（`FetchError`），而不是将二进制数据当作文本解码并在乱码上运行提取算法。
+
+**拦截的内容类型前缀：**
+
+- `image/*`（PNG、JPEG、GIF、WebP 等）
+- `audio/*`（MP3、OGG 等）
+- `video/*`（MP4、WebM 等）
+- `font/*`（WOFF2、TTF 等）
+
+**拦截的精确 MIME 类型：**
+
+- `application/pdf`、`application/zip`、`application/gzip`
+- `application/octet-stream`、`application/wasm`
+- Office 文档格式（`.docx`、`.xlsx`、`.pptx` 等）
+
+这是一个防御性措施：避免将二进制文件（可能达数十 MB）当作文本解码后送入提取算法，浪费 CPU 并产生无意义的输出。
 
 ### CDP 浏览器渲染
 
@@ -439,6 +466,7 @@ if is_valid:
 ### 技术限制
 
 - **JavaScript 密集型网站**：通过 CDP 浏览器渲染（自托管）或 Jina Reader 的多引擎重试（`browser` → `cf-browser-rendering`）配合 `X-Wait-For-Selector` 处理动态内容，但某些复杂 SPA 可能仍无法完全渲染
+- **二进制内容**：图片、PDF、音视频、字体、压缩包等二进制文件不支持提取，工具会在检测到这些内容类型时立即报错
 - **认证**：无法访问密码保护的内容
 - **大文件**：非常大的页面可能超时或被截断
 - **复杂布局**：某些网站可能需要自定义解析
