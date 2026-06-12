@@ -853,8 +853,8 @@ def _extract(
     1. Cloudflare Content Negotiation (zero-cost markdown attempt)
     2. Readability extraction (intelligent article scoring, local)
     3. Simple soup extraction (CSS selector fallback, local)
-    4. CDP rendering (self-hosted browser, re-parsed with readability/soup)
-    5. VeilRender (remote browser rendering via REST API)
+    4. VeilRender (remote browser rendering via REST API)
+    5. CDP rendering (self-hosted browser, re-parsed with readability/soup)
     6. Jina Reader (external API fallback for SPA / JS-heavy pages)
 
     HTML is fetched once and reused by stages 2 and 3.  ``timeout`` is a
@@ -905,16 +905,7 @@ def _extract(
         if best:
             return _format_text(best)
 
-    # 4. Try CDP rendering (self-hosted browser) if configured.
-    if cdp_endpoint and _remaining() > _MIN_STRATEGY_BUDGET:
-        cdp_budget = min(_remaining(), 15.0)
-        cdp_result, cdp_local = _try_cdp_extraction(url, cdp_endpoint, cdp_budget)
-        if cdp_result:
-            return _format_text(cdp_result)
-        if len(cdp_local) > len(local_content):
-            local_content = cdp_local
-
-    # 5. Try VeilRender (remote browser rendering via REST API).
+    # 4. Try VeilRender (remote browser rendering via REST API).
     if veilrender_endpoint and _remaining() > _MIN_STRATEGY_BUDGET:
         vr_budget = min(_remaining(), 30.0)
         vr_result, vr_local = _try_veilrender_extraction(
@@ -924,6 +915,15 @@ def _extract(
             return _format_text(vr_result)
         if len(vr_local) > len(local_content):
             local_content = vr_local
+
+    # 5. Try CDP rendering (self-hosted browser) if configured.
+    if cdp_endpoint and _remaining() > _MIN_STRATEGY_BUDGET:
+        cdp_budget = min(_remaining(), 15.0)
+        cdp_result, cdp_local = _try_cdp_extraction(url, cdp_endpoint, cdp_budget)
+        if cdp_result:
+            return _format_text(cdp_result)
+        if len(cdp_local) > len(local_content):
+            local_content = cdp_local
 
     # 6. Local extraction insufficient — try Jina Reader.
     jina_content = _try_jina_extraction(
