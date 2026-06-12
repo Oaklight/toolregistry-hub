@@ -22,6 +22,17 @@ author: Oaklight
     - `get_astronomy(location)` — 日出日落、月出月落、月相及月亮亮度。
     - 支持公制/英制单位、城市名、坐标、机场代码。
 
+### 优化
+
+- **Fetch：复用 markdown negotiation 的响应体**（[#132](https://github.com/Oaklight/toolregistry-hub/pull/132)）— Cloudflare Content Negotiation 返回 `text/html` 而非 `text/markdown` 时（绝大多数情况），响应体现在会保留并直接传给 Readability/Soup 提取流程，省去一次冗余的 HTTP 请求。此前 HTML 响应会被丢弃，`_fetch_raw` 再对同一 URL 发起完全相同的 GET 请求。
+- **Fetch：二进制内容类型提前拦截**（[#132](https://github.com/Oaklight/toolregistry-hub/pull/132)）— 返回二进制内容类型（`image/*`、`audio/*`、`video/*`、`font/*`、`application/pdf`、`application/zip`、`application/octet-stream` 等）的 URL 现在会在进入提取流程前被检测到，并抛出带描述信息的 `FetchError`。此前二进制响应会被当作文本解码并送入 Readability/Soup，产生乱码输出。
+
+### 内部变更
+
+- 重命名 `_get_content_with_markdown_negotiation` → `_try_markdown_negotiation`；返回类型从 `str` 改为 `(md_content, fallback_body, fallback_ct)` 三元组以支持响应复用。
+- 新增 `_is_binary_content_type()` 辅助函数，支持前缀匹配和精确匹配两种检测方式。
+- 新增 10 个测试，覆盖响应复用路径、回退到 `_fetch_raw` 路径、二进制拦截，以及参数化的二进制/非二进制检测。
+
 ### 修复
 
 - 修正 `README.md` 软链接目标，从 `readme_en.md`（不存在）改为 `README_en.md`。
