@@ -7,6 +7,12 @@
 		reverse_proxy mcp-sse:8000
 	}
 
+	# Convenience redirect: /openapi → /docs
+	handle /openapi {
+		redir /docs permanent
+	}
+
+	# Everything else (/, /docs, /openapi.json, /tools/*) → OpenAPI
 	handle {
 		reverse_proxy openapi:8000
 	}
