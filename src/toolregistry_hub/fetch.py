@@ -412,6 +412,58 @@ def _should_skip_soup(
     return False
 
 
+def _has_spa_indicators(text: str) -> bool:
+    """Check whether *text* contains SPA shell indicator phrases.
+
+    Strict indicators (e.g. ``"please enable javascript"``) are always
+    checked.  Broader indicators (e.g. ``"loading..."``) are only checked
+    when the text is shorter than ``_SPA_SHORT_TEXT_THRESHOLD`` characters,
+    because they appear legitimately in long articles.
+
+    Args:
+        text: Lowercased text to scan.
+
+    Returns:
+        True if any indicator was found.
+    """
+    for indicator in _SPA_SHELL_INDICATORS:
+        if indicator in text:
+            return True
+    if len(text) < _SPA_SHORT_TEXT_THRESHOLD:
+        for indicator in _SPA_SHELL_INDICATORS_SHORT:
+            if indicator in text:
+                return True
+    return False
+
+
+def _is_navigation_only(text: str) -> bool:
+    """Detect pages that consist mostly of short navigation links.
+
+    Returns True when the text has many lines, most of them are short
+    (menu items / breadcrumbs), and there are fewer than
+    ``_NAV_MIN_LONG_LINES`` real paragraph-length lines.
+
+    Args:
+        text: The extracted text content.
+
+    Returns:
+        True if the text looks like navigation-only content.
+    """
+    lines = [line for line in text.split("\n") if line.strip()]
+    if len(lines) <= _NAV_MIN_LINES:
+        return False
+    short_lines = sum(
+        1 for line in lines if len(line.strip()) < _NAV_SHORT_LINE_THRESHOLD
+    )
+    short_ratio = short_lines / len(lines)
+    if short_ratio <= _NAV_SHORT_LINE_RATIO:
+        return False
+    long_lines = sum(
+        1 for line in lines if len(line.strip()) >= _NAV_LONG_LINE_THRESHOLD
+    )
+    return long_lines < _NAV_MIN_LONG_LINES
+
+
 def _is_content_sufficient(
     text: str,
     readability_score: float = 0.0,
@@ -440,34 +492,12 @@ def _is_content_sufficient(
 
     # High readability score → readability found real content,
     # skip SPA indicator heuristics to avoid false positives.
-    if readability_score < _READABILITY_SCORE_THRESHOLD:
-        text_lower = text.lower()
-        # Always check the strict indicator list.
-        for indicator in _SPA_SHELL_INDICATORS:
-            if indicator in text_lower:
-                return False
-        # Short text gets checked against the broader list too.
-        if len(text) < _SPA_SHORT_TEXT_THRESHOLD:
-            for indicator in _SPA_SHELL_INDICATORS_SHORT:
-                if indicator in text_lower:
-                    return False
+    if readability_score < _READABILITY_SCORE_THRESHOLD and _has_spa_indicators(
+        text.lower()
+    ):
+        return False
 
-    # Text structure analysis: detect navigation-only content.
-    lines = [line for line in text.split("\n") if line.strip()]
-    if len(lines) > _NAV_MIN_LINES:
-        short_lines = sum(
-            1 for line in lines if len(line.strip()) < _NAV_SHORT_LINE_THRESHOLD
-        )
-        short_ratio = short_lines / len(lines)
-        if short_ratio > _NAV_SHORT_LINE_RATIO:
-            # Mostly short lines — check for real paragraphs
-            long_lines = sum(
-                1 for line in lines if len(line.strip()) >= _NAV_LONG_LINE_THRESHOLD
-            )
-            if long_lines < _NAV_MIN_LONG_LINES:
-                return False
-
-    return True
+    return not _is_navigation_only(text)
 
 
 def _pick_local_content(
@@ -635,6 +665,79 @@ def _try_jina_extraction(
     return ""
 
 
+def _fetch_body(
+    url: str,
+    timeout: float,
+    proxy: str | None,
+    deadline: float,
+) -> tuple[str, str]:
+    """Fetch the raw body for *url*, trying markdown negotiation first.
+
+    Returns:
+        ``(body, content_type)`` tuple.  Both may be empty if every
+        attempt failed or the deadline was exceeded.
+    """
+
+    def _remaining() -> float:
+        return max(0.0, deadline - time.monotonic())
+
+    body, content_type = "", ""
+
+    # 1. Try Cloudflare Content Negotiation (zero-cost, high quality if supported)
+    #    On non-markdown 2xx responses the body is preserved for reuse,
+    #    avoiding a redundant HTTP round-trip in step 2.
+    if _remaining() > _MIN_STRATEGY_BUDGET:
+        md_content, fallback_body, fallback_ct = _try_markdown_negotiation(
+            url,
+            timeout=min(timeout, _remaining()),
+            proxy=proxy,
+        )
+        if md_content:
+            logger.info(
+                f"Successfully fetched {url} using strategy: markdown_negotiation"
+            )
+            return md_content, "_markdown"
+        if fallback_body:
+            body, content_type = fallback_body, fallback_ct
+
+    # Fetch content if markdown negotiation didn't produce a reusable body
+    # (e.g. network error, 4xx/5xx, or negotiation was skipped).
+    if not body and _remaining() > _MIN_STRATEGY_BUDGET:
+        body, content_type = _fetch_raw(
+            url,
+            timeout=min(timeout, _remaining()),
+            proxy=proxy,
+            deadline=deadline,
+        )
+
+    return body, content_type
+
+
+def _try_local_extraction(html: str, url: str) -> tuple[str, str]:
+    """Run readability and (optionally) soup on *html*.
+
+    Returns:
+        ``(best, local_content)`` — *best* is non-empty when a
+        sufficient result was found; *local_content* is the best
+        partial result for final-fallback stashing.
+    """
+    readability_content, readability_score = _extract_with_readability(html, url)
+
+    if _should_skip_soup(readability_content, readability_score, url):
+        soup_content = ""
+    else:
+        soup_content = _extract_with_soup(html)
+
+    best = _pick_local_content(
+        readability_content,
+        readability_score,
+        soup_content,
+        url,
+    )
+    local_content = readability_content or soup_content or ""
+    return best, local_content
+
+
 def _extract(
     url: str,
     timeout: float = TIMEOUT_DEFAULT,
@@ -673,42 +776,18 @@ def _extract(
     def _remaining() -> float:
         return max(0.0, deadline - time.monotonic())
 
-    body, content_type = "", ""
+    # 1. Fetch body (tries markdown negotiation, then raw fetch).
+    body, content_type = _fetch_body(url, timeout, proxy, deadline)
 
-    # 1. Try Cloudflare Content Negotiation (zero-cost, high quality if supported)
-    #    On non-markdown 2xx responses the body is preserved for reuse,
-    #    avoiding a redundant HTTP round-trip in step 2.
-    if _remaining() > _MIN_STRATEGY_BUDGET:
-        md_content, fallback_body, fallback_ct = _try_markdown_negotiation(
-            url,
-            timeout=min(timeout, _remaining()),
-            proxy=proxy,
-        )
-        if md_content:
-            logger.info(
-                f"Successfully fetched {url} using strategy: markdown_negotiation"
-            )
-            return _format_text(md_content)
-        if fallback_body:
-            body, content_type = fallback_body, fallback_ct
-
-    # Fetch content if markdown negotiation didn't produce a reusable body
-    # (e.g. network error, 4xx/5xx, or negotiation was skipped).
-    if not body and _remaining() > _MIN_STRATEGY_BUDGET:
-        body, content_type = _fetch_raw(
-            url,
-            timeout=min(timeout, _remaining()),
-            proxy=proxy,
-            deadline=deadline,
-        )
+    # Markdown negotiation succeeded — return directly.
+    if content_type == "_markdown":
+        return _format_text(body)
 
     # Short-circuit: binary content types (images, PDFs, archives, etc.)
-    # cannot be meaningfully extracted as text.
     if body and content_type and _is_binary_content_type(content_type):
         raise FetchError(f"Unsupported binary content type for {url}: {content_type}")
 
     # Short-circuit: non-HTML content types (JSON, plain text, XML, etc.)
-    # can be returned directly without running HTML extraction.
     if body and content_type in _NON_HTML_CONTENT_TYPES:
         logger.info(
             f"Successfully fetched {url} using strategy: direct "
@@ -716,34 +795,14 @@ def _extract(
         )
         return _format_text(body)
 
-    html = body  # treat as HTML for remaining extraction stages
+    # 2-3. Local extraction (readability + optional soup).
     local_content = ""
-    if html:
-        # 2. Try Readability extraction (intelligent article detection)
-        readability_content, readability_score = _extract_with_readability(html, url)
-
-        # 3. Try simple soup extraction (CSS selector fallback)
-        #    Skipped when readability already produced a high-confidence,
-        #    substantive result (P3 optimisation).
-        if _should_skip_soup(readability_content, readability_score, url):
-            soup_content = ""
-        else:
-            soup_content = _extract_with_soup(html)
-
-        # Pick the best local result
-        best = _pick_local_content(
-            readability_content,
-            readability_score,
-            soup_content,
-            url,
-        )
+    if body:
+        best, local_content = _try_local_extraction(body, url)
         if best:
             return _format_text(best)
 
-        # Stash best local result for final fallback
-        local_content = readability_content or soup_content or ""
-
-    # 4. Try CDP rendering (self-hosted browser) if configured
+    # 4. Try CDP rendering (self-hosted browser) if configured.
     if cdp_endpoint and _remaining() > _MIN_STRATEGY_BUDGET:
         cdp_budget = min(_remaining(), 15.0)
         cdp_result, cdp_local = _try_cdp_extraction(url, cdp_endpoint, cdp_budget)
@@ -752,7 +811,7 @@ def _extract(
         if len(cdp_local) > len(local_content):
             local_content = cdp_local
 
-    # 5. Local extraction insufficient — try Jina Reader
+    # 5. Local extraction insufficient — try Jina Reader.
     jina_content = _try_jina_extraction(
         url,
         local_content=local_content,
@@ -765,7 +824,7 @@ def _extract(
     if jina_content:
         return _format_text(jina_content)
 
-    # 6. Fall back to best local result if available
+    # 6. Fall back to best local result if available.
     if local_content:
         logger.info(
             f"Successfully fetched {url} using strategy: local_fallback "
