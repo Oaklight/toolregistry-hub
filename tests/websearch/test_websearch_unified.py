@@ -262,7 +262,7 @@ class TestSearchSpecificEngine:
         results = ws.search("python", engine="BRAVE")
         assert results[0].title == "brave-result"
 
-    def test_kwargs_forwarded(self, mock_engines):
+    def test_count_forwarded_as_max_results(self, mock_engines):
         brave = MagicMock()
         brave.search.return_value = []
         mock_engines["brave"] = brave
@@ -271,12 +271,13 @@ class TestSearchSpecificEngine:
         ws.search(
             "python",
             engine="brave",
-            max_results=10,
+            count=10,
             timeout=30.0,
-            country="US",
         )
         brave.search.assert_called_once_with(
-            "python", max_results=10, timeout=30.0, country="US"
+            "python",
+            max_results=10,
+            timeout=30.0,
         )
 
 
@@ -349,7 +350,7 @@ class TestEngineAnnotationNarrowing:
     def test_static_class_literal_is_full(self):
         """Class-level ``EngineName`` keeps the full set for IDE / type checkers."""
         full = set(get_args(EngineName))
-        assert full == {"auto", *_ENGINE_REGISTRY}
+        assert full == {"auto", "parallel", *_ENGINE_REGISTRY}
 
     def test_no_narrowing_when_no_engines_configured(self, mock_engines):
         """No engines configured → no override; class-level annotation remains."""
@@ -363,7 +364,7 @@ class TestEngineAnnotationNarrowing:
         # Per-instance copy was bound
         assert ws.search.__func__ is not WebSearch.search
         engine_anno = ws.search.__func__.__annotations__["engine"]
-        assert set(get_args(engine_anno)) == {"auto", "brave"}
+        assert set(get_args(engine_anno)) == {"auto", "parallel", "brave"}
 
     def test_narrowing_includes_only_configured_in_priority_order(self, mock_engines):
         # Configure brave, tavily, searxng
@@ -374,7 +375,7 @@ class TestEngineAnnotationNarrowing:
         narrowed = get_args(engine_anno)
         # "auto" first, then engines in default priority order
         assert narrowed[0] == "auto"
-        assert set(narrowed) == {"auto", "brave", "tavily", "searxng"}
+        assert set(narrowed) == {"auto", "parallel", "brave", "tavily", "searxng"}
 
     def test_narrowing_is_per_instance(self, mock_engines):
         """Mutating one instance's engines should not affect another."""
@@ -387,8 +388,8 @@ class TestEngineAnnotationNarrowing:
         ws2 = WebSearch()
         anno2 = ws2.search.__func__.__annotations__["engine"]
 
-        assert set(get_args(anno1)) == {"auto", "brave"}
-        assert set(get_args(anno2)) == {"auto", "brave", "tavily"}
+        assert set(get_args(anno1)) == {"auto", "parallel", "brave"}
+        assert set(get_args(anno2)) == {"auto", "parallel", "brave", "tavily"}
 
     def test_get_type_hints_returns_narrowed_literal(self, mock_engines):
         """Confirms toolregistry/pydantic schema generators see the narrowed type."""
@@ -396,7 +397,7 @@ class TestEngineAnnotationNarrowing:
         ws = WebSearch()
         hints = get_type_hints(ws.search.__func__)
         engine_hint = hints["engine"]
-        assert set(get_args(engine_hint)) == {"auto", "brave"}
+        assert set(get_args(engine_hint)) == {"auto", "parallel", "brave"}
 
     def test_narrowed_search_still_callable(self, mock_engines):
         """The replacement function must work as a normal bound method."""
@@ -418,5 +419,128 @@ class TestEngineAnnotationNarrowing:
         ws = WebSearch()
         engine_anno = ws.search.__func__.__annotations__["engine"]
         narrowed = set(get_args(engine_anno))
-        assert narrowed == {"auto", "brave"}
+        assert "auto" in narrowed
+        assert "parallel" in narrowed
+        assert "brave" in narrowed
         assert "tavily" not in narrowed
+
+
+# ---------------------------------------------------------------------------
+# search() — parallel mode
+# ---------------------------------------------------------------------------
+
+
+class TestSearchParallel:
+    def test_parallel_queries_configured_engines(self, mock_engines, monkeypatch):
+        """Parallel mode should query all configured parallel engines."""
+        monkeypatch.setenv("WEBSEARCH_PARALLEL_ENGINES", "brave,tavily")
+        brave = MagicMock()
+        brave.search.return_value = [_make_result("brave-r")]
+        mock_engines["brave"] = brave
+        tavily = MagicMock()
+        tavily.search.return_value = [_make_result("tavily-r", url="u2")]
+        mock_engines["tavily"] = tavily
+
+        ws = WebSearch()
+        results = ws.search("python", engine="parallel")
+        assert len(results) == 2
+        brave.search.assert_called_once()
+        tavily.search.assert_called_once()
+
+    def test_parallel_skips_unconfigured(self, mock_engines, monkeypatch):
+        """Unconfigured engines in the parallel list are skipped."""
+        monkeypatch.setenv("WEBSEARCH_PARALLEL_ENGINES", "brave,tavily")
+        brave = MagicMock()
+        brave.search.return_value = [_make_result("brave-only")]
+        mock_engines["brave"] = brave
+        # tavily not configured (None)
+
+        ws = WebSearch()
+        results = ws.search("python", engine="parallel")
+        assert len(results) == 1
+        assert results[0].title == "brave-only"
+
+    def test_parallel_handles_engine_failure(self, mock_engines, monkeypatch):
+        """One engine failing should not affect results from others."""
+        monkeypatch.setenv("WEBSEARCH_PARALLEL_ENGINES", "brave,tavily")
+        brave = MagicMock()
+        brave.search.side_effect = RuntimeError("brave down")
+        mock_engines["brave"] = brave
+        tavily = MagicMock()
+        tavily.search.return_value = [_make_result("tavily-ok")]
+        mock_engines["tavily"] = tavily
+
+        ws = WebSearch()
+        results = ws.search("python", engine="parallel")
+        assert len(results) == 1
+        assert results[0].title == "tavily-ok"
+
+    def test_parallel_deduplicates_same_url(self, mock_engines, monkeypatch):
+        """Results with the same URL from different engines are deduped."""
+        monkeypatch.setenv("WEBSEARCH_PARALLEL_ENGINES", "brave,tavily")
+        brave = MagicMock()
+        brave.search.return_value = [
+            _make_result("Shared", url="https://shared.com", content="short"),
+        ]
+        mock_engines["brave"] = brave
+        tavily = MagicMock()
+        tavily.search.return_value = [
+            _make_result("Shared", url="https://shared.com", content="longer content"),
+        ]
+        mock_engines["tavily"] = tavily
+
+        ws = WebSearch()
+        results = ws.search("python", engine="parallel")
+        assert len(results) == 1
+        assert results[0].content == "longer content"
+
+    def test_parallel_falls_back_to_auto_when_no_engines(
+        self, mock_engines, monkeypatch
+    ):
+        """If no parallel engines are configured, fall back to auto."""
+        monkeypatch.setenv("WEBSEARCH_PARALLEL_ENGINES", "brave")
+        # brave not configured
+        tavily = MagicMock()
+        tavily.search.return_value = [_make_result("auto-fallback")]
+        mock_engines["tavily"] = tavily
+
+        ws = WebSearch()
+        results = ws.search("python", engine="parallel")
+        assert len(results) == 1
+        assert results[0].title == "auto-fallback"
+
+    def test_parallel_all_empty_falls_back_to_auto(self, mock_engines, monkeypatch):
+        """If all parallel engines return empty, fall back to auto."""
+        monkeypatch.setenv("WEBSEARCH_PARALLEL_ENGINES", "brave")
+        brave = MagicMock()
+        brave.search.return_value = []
+        mock_engines["brave"] = brave
+        # searxng configured and has results (for auto fallback)
+        searxng = MagicMock()
+        searxng.search.return_value = [_make_result("searxng-fallback")]
+        mock_engines["searxng"] = searxng
+
+        ws = WebSearch()
+        results = ws.search("python", engine="parallel")
+        assert len(results) == 1
+        assert results[0].title == "searxng-fallback"
+
+    def test_parallel_respects_count(self, mock_engines, monkeypatch):
+        """Parallel results should be capped at count."""
+        monkeypatch.setenv("WEBSEARCH_PARALLEL_ENGINES", "brave,tavily")
+        brave = MagicMock()
+        brave.search.return_value = [
+            _make_result(f"b{i}", url=f"https://b{i}.com", content=f"brave result {i}")
+            for i in range(5)
+        ]
+        mock_engines["brave"] = brave
+        tavily = MagicMock()
+        tavily.search.return_value = [
+            _make_result(f"t{i}", url=f"https://t{i}.com", content=f"tavily result {i}")
+            for i in range(5)
+        ]
+        mock_engines["tavily"] = tavily
+
+        ws = WebSearch()
+        results = ws.search("python", engine="parallel", count=3)
+        assert len(results) == 3

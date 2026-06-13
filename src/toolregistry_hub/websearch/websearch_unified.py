@@ -1,20 +1,27 @@
 """Unified WebSearch entry point.
 
 Wraps all available search providers behind a single ``search()`` method with an
-``engine`` selector. Engines are instantiated lazily and skipped when their API
-keys are missing. Supports an ``"auto"`` mode that picks the first configured
-engine from a configurable priority list, plus an explicit ``fallback`` flag for
-graceful degradation when a chosen engine is unavailable.
+``engine`` selector.  Three modes:
+
+- ``"auto"`` (default) — try engines sequentially in priority order, return
+  the first successful result.
+- ``"parallel"`` — query multiple engines concurrently, deduplicate and
+  re-rank results with BM25 scoring.
+- ``"<name>"`` — use a specific engine directly.
+
+Engines are instantiated lazily and skipped when their API keys are missing.
 """
 
 from __future__ import annotations
 
 import os
 import types
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Literal
 
 from .._vendor.structlog import get_logger
 from .base import TIMEOUT_DEFAULT, BaseSearch
+from .dedup import deduplicate_results
 from .search_result import SearchResult
 
 logger = get_logger()
@@ -27,6 +34,7 @@ logger = get_logger()
 # real runtime availability.
 EngineName = Literal[
     "auto",
+    "parallel",
     "brave",
     "tavily",
     "searxng",
@@ -48,6 +56,10 @@ _DEFAULT_PRIORITY: tuple[str, ...] = (
     "scrapeless",
     "searxng",
 )
+
+# Default engines to query in parallel mode.
+# Override via ``WEBSEARCH_PARALLEL_ENGINES`` env var (comma-separated).
+_DEFAULT_PARALLEL_ENGINES: tuple[str, ...] = ("brightdata", "brave")
 
 
 # Maps engine name -> (module path, class name). Lazily imported so unused
@@ -125,24 +137,36 @@ def _resolve_priority(priority: str | None = None) -> list[str]:
     return valid or list(_DEFAULT_PRIORITY)
 
 
+def _resolve_parallel_engines() -> list[str]:
+    """Resolve which engines to use in parallel mode.
+
+    Reads from ``WEBSEARCH_PARALLEL_ENGINES`` env var (comma-separated),
+    falling back to ``_DEFAULT_PARALLEL_ENGINES``.
+
+    Returns:
+        List of valid engine names for parallel queries.
+    """
+    raw = os.getenv("WEBSEARCH_PARALLEL_ENGINES")
+    if not raw:
+        return list(_DEFAULT_PARALLEL_ENGINES)
+
+    names = [p.strip().lower() for p in raw.split(",") if p.strip()]
+    valid = [n for n in names if n in _ENGINE_REGISTRY]
+    if not valid:
+        logger.warning(
+            "WEBSEARCH_PARALLEL_ENGINES contained no valid engines; using defaults"
+        )
+        return list(_DEFAULT_PARALLEL_ENGINES)
+    return valid
+
+
 class WebSearch:
     """Unified web search entry point that dispatches to multiple providers.
 
     Users can either let the wrapper auto-select the best configured provider
-    (``engine="auto"``) or pin a specific engine. Unconfigured engines (missing
-    API keys) are skipped automatically. When a specific engine is requested
-    but unavailable, the call fails by default -- set ``fallback=True`` on a
-    per-call basis to fall through to the auto chain instead.
-
-    Example:
-        >>> ws = WebSearch()
-        >>> ws.search("latest python release", max_results=5)  # auto
-        >>> ws.search("latest python release", engine="tavily")  # strict
-        >>> ws.search("latest python release", engine="tavily", fallback=True)
-
-    The priority order for ``engine="auto"`` defaults to paid-provider-first
-    and can be overridden via the ``WEBSEARCH_PRIORITY`` environment variable
-    (comma-separated engine names).
+    (``engine="auto"``), query multiple engines in parallel for higher quality
+    results (``engine="parallel"``), or pin a specific engine.  Unconfigured
+    engines (missing API keys) are skipped automatically.
     """
 
     def __init__(self, priority: str | None = None):
@@ -153,38 +177,23 @@ class WebSearch:
                 ``WEBSEARCH_PRIORITY`` env var, then ``_DEFAULT_PRIORITY``.
         """
         self._priority: list[str] = _resolve_priority(priority)
+        self._parallel_engines: list[str] = _resolve_parallel_engines()
         # Cache instantiated engines (configured ones only)
         self._engine_cache: dict[str, BaseSearch] = {}
         # Narrow the ``engine`` parameter type to only the configured engines
-        # so that the JSON schema seen by LLM clients reflects the real runtime
-        # availability. The class-level full Literal remains intact for IDE /
-        # static analysis use.
         self._narrow_engine_annotation()
 
     def _narrow_engine_annotation(self) -> None:
         """Replace ``self.search`` with a per-instance copy whose ``engine``
-        annotation is narrowed to ``Literal["auto", *configured]``.
+        annotation is narrowed to ``Literal["auto", "parallel", *configured]``.
 
-        Called from ``__init__``. No-op when no engines are configured (the
-        unified tool will then be auto-disabled by ``build_registry`` via the
-        :class:`Configurable` protocol, so the schema is irrelevant).
-
-        Implementation notes:
-            - We construct a fresh ``FunctionType`` from the class method's
-              code so that mutating ``__annotations__`` on this copy does not
-              affect other instances.
-            - The new function is then re-bound to ``self`` as a regular method.
-            - ``get_type_hints()`` (used by toolregistry / pydantic for schema
-              generation) will see the dynamically-built ``Literal`` instead
-              of the deferred string annotation from ``from __future__ import
-              annotations``.
+        Called from ``__init__``. No-op when no engines are configured.
         """
         configured = self._configured_engine_names()
         if not configured:
-            return  # Nothing to narrow; tool will be auto-disabled anyway
+            return
 
         original = type(self).search
-        # Build a fresh function with the same code but isolated annotations.
         new_func = types.FunctionType(
             original.__code__,
             original.__globals__,
@@ -195,15 +204,13 @@ class WebSearch:
         new_func.__doc__ = original.__doc__
         new_func.__qualname__ = original.__qualname__
         new_func.__kwdefaults__ = original.__kwdefaults__
-        # Copy then override the engine annotation with the narrowed Literal.
         new_func.__annotations__ = dict(original.__annotations__)
-        narrowed_literal = Literal.__getitem__(("auto", *configured))  # type: ignore[arg-type]
+        narrowed_literal = Literal.__getitem__(("auto", "parallel", *configured))  # type: ignore[arg-type]
         new_func.__annotations__["engine"] = narrowed_literal
-        # Bind as method so ``self.search(query, ...)`` works normally.
         self.search = types.MethodType(new_func, self)  # type: ignore[method-assign]
 
     def _configured_engine_names(self) -> list[str]:
-        """Return the priority-ordered list of engine names that are currently configured.
+        """Return the priority-ordered list of engine names that are configured.
 
         Returns:
             List of engine names with valid API keys, in priority order.
@@ -211,18 +218,13 @@ class WebSearch:
         return [n for n in self._priority if self._get_engine(n) is not None]
 
     def _is_configured(self) -> bool:
-        """Configured iff at least one underlying engine is configured.
-
-        Used by :func:`build_registry` via the ``Configurable`` protocol to
-        auto-disable the unified tool when no providers have keys set.
-        """
+        """Configured iff at least one underlying engine is configured."""
         return bool(self._configured_engine_names())
 
     def _get_engine(self, name: str) -> BaseSearch | None:
         """Return a configured engine instance for ``name``, or ``None``.
 
-        Lazily instantiates and caches the engine. Returns ``None`` when the
-        engine cannot be constructed or reports itself as unconfigured.
+        Lazily instantiates and caches the engine.
 
         Args:
             name: Engine identifier.
@@ -248,10 +250,11 @@ class WebSearch:
         return instance
 
     def list_engines(self) -> dict[str, bool]:
-        """List all known engines and whether each is currently configured.
+        """List all known search engines and whether each is currently configured.
 
         Returns:
-            Mapping of engine name -> configured status.
+            Mapping of engine name -> True if the engine has valid API keys
+            and is ready to use, False otherwise.
         """
         result: dict[str, bool] = {}
         for name in _ENGINE_REGISTRY:
@@ -262,44 +265,38 @@ class WebSearch:
         self,
         query: str,
         *,
+        count: int = 5,
         engine: EngineName = "auto",
         fallback: bool = False,
-        max_results: int = 5,
         timeout: float = TIMEOUT_DEFAULT,
-        **kwargs,
     ) -> list[SearchResult]:
         """Perform a web search via the selected engine.
 
-        IMPORTANT: For time-sensitive queries (e.g., "recent news", "latest updates",
-        "today's events"), you MUST first obtain the current date/time using an
-        available time/datetime tool before constructing your search query. As an
-        LLM, you have no inherent sense of current time -- your training data may
-        be outdated. Always verify the current date when temporal context matters.
+        This is the primary tool for web search. Just pass a query — the
+        engine is selected automatically from configured providers (Brave,
+        Tavily, SearXNG, etc.) with built-in fallback. You do NOT need to
+        pick a specific engine unless you have a reason to.
+
+        Use ``engine="parallel"`` to query multiple engines simultaneously
+        and get deduplicated, BM25-ranked results for higher quality.
+
+        IMPORTANT: For time-sensitive queries (e.g., "recent news", "latest
+        updates", "today's events"), first obtain the current date/time using
+        the datetime tool. You have no inherent sense of current time.
 
         Args:
             query: The search query string.
-            engine: Provider to use. Either ``"auto"`` (try configured engines
-                in priority order) or a specific name from
-                ``["brave", "tavily", "searxng", "brightdata", "scrapeless", "serper"]``.
-                Note: at runtime this parameter's accepted values are narrowed
-                to only the engines whose API keys are configured on this
-                instance. Call ``list_engines()`` to inspect availability.
-            fallback: When ``engine`` is a specific provider, controls behavior
-                if that provider is unavailable or raises. ``False`` (default)
-                propagates the error; ``True`` falls back to the auto chain
-                excluding the originally-requested engine.
-            max_results: Maximum number of results to return (1-20 recommended).
-            timeout: Per-request timeout in seconds.
-            **kwargs: Provider-specific extra parameters (forwarded as-is).
+            count: Number of results to return (default 5, max 20).
+            engine: Search provider. Leave as ``"auto"`` (recommended) to let
+                the server pick the best available engine. Use ``"parallel"``
+                to query multiple engines and merge results. Only set a
+                specific engine name if you need a particular provider.
+            fallback: If True and the chosen engine fails, automatically try
+                the next available engine instead of raising an error.
+            timeout: Request timeout in seconds.
 
         Returns:
-            List of search results.
-
-        Raises:
-            ValueError: If ``engine`` is not a recognized name, or if the query
-                is empty.
-            RuntimeError: If no engine is available (auto mode), or if the
-                requested engine is unavailable and ``fallback=False``.
+            List of search results, each with title, url, content, and score.
         """
         if not query or not query.strip():
             return []
@@ -310,15 +307,21 @@ class WebSearch:
             return self._search_auto(
                 query,
                 exclude=None,
-                max_results=max_results,
+                max_results=count,
                 timeout=timeout,
-                **kwargs,
+            )
+
+        if engine == "parallel":
+            return self._search_parallel(
+                query,
+                max_results=count,
+                timeout=timeout,
             )
 
         if engine not in _ENGINE_REGISTRY:
             raise ValueError(
                 f"Unknown websearch engine: {engine!r}. "
-                f"Available: {sorted(_ENGINE_REGISTRY)} or 'auto'"
+                f"Available: {sorted(_ENGINE_REGISTRY)} or 'auto' or 'parallel'"
             )
 
         instance = self._get_engine(engine)
@@ -330,15 +333,12 @@ class WebSearch:
             return self._search_auto(
                 query,
                 exclude={engine},
-                max_results=max_results,
+                max_results=count,
                 timeout=timeout,
-                **kwargs,
             )
 
         try:
-            return instance.search(
-                query, max_results=max_results, timeout=timeout, **kwargs
-            )
+            return instance.search(query, max_results=count, timeout=timeout)
         except Exception as e:  # noqa: BLE001
             if not fallback:
                 raise
@@ -349,10 +349,11 @@ class WebSearch:
             return self._search_auto(
                 query,
                 exclude={engine},
-                max_results=max_results,
+                max_results=count,
                 timeout=timeout,
-                **kwargs,
             )
+
+    # ── Internal strategies ──────────────────────────────────────────────
 
     def _search_auto(
         self,
@@ -361,16 +362,16 @@ class WebSearch:
         exclude: set[str] | None = None,
         max_results: int = 5,
         timeout: float = TIMEOUT_DEFAULT,
-        **kwargs,
     ) -> list[SearchResult]:
         """Try engines in priority order; return the first successful result.
+
+        Automatically skips unconfigured and failing engines.
 
         Args:
             query: Search query.
             exclude: Engine names to skip.
             max_results: Result cap.
             timeout: Per-request timeout.
-            **kwargs: Forwarded to engine.
 
         Returns:
             Search results from the first successful engine.
@@ -392,7 +393,9 @@ class WebSearch:
             try:
                 logger.debug(f"Trying engine {name!r} for query {query!r}")
                 results = instance.search(
-                    query, max_results=max_results, timeout=timeout, **kwargs
+                    query,
+                    max_results=max_results,
+                    timeout=timeout,
                 )
                 if results:
                     return results
@@ -415,5 +418,85 @@ class WebSearch:
                 f"Last error: {type(last_error).__name__}: {last_error}"
             ) from last_error
 
-        # All engines returned empty results
         return []
+
+    def _search_parallel(
+        self,
+        query: str,
+        *,
+        max_results: int = 5,
+        timeout: float = TIMEOUT_DEFAULT,
+    ) -> list[SearchResult]:
+        """Query multiple engines concurrently, deduplicate, and re-rank.
+
+        Engines are read from ``WEBSEARCH_PARALLEL_ENGINES`` (default:
+        ``brightdata,brave``).  Unconfigured engines are skipped.  Individual
+        engine failures are logged but do not abort the search — results from
+        successful engines are still returned.
+
+        Args:
+            query: Search query.
+            max_results: Maximum number of results after deduplication.
+            timeout: Per-engine timeout.
+
+        Returns:
+            Deduplicated, BM25-ranked results from all successful engines.
+
+        Raises:
+            RuntimeError: If no parallel engines are configured.
+        """
+        # Resolve which engines to use, skipping unconfigured ones.
+        engines: list[tuple[str, BaseSearch]] = []
+        for name in self._parallel_engines:
+            instance = self._get_engine(name)
+            if instance is not None:
+                engines.append((name, instance))
+
+        if not engines:
+            logger.info("No parallel engines configured; falling back to auto")
+            return self._search_auto(
+                query,
+                max_results=max_results,
+                timeout=timeout,
+            )
+
+        # Query all engines concurrently.
+        all_results: list[SearchResult] = []
+        engine_names = [name for name, _ in engines]
+        logger.debug(f"Parallel search with engines: {engine_names}")
+
+        with ThreadPoolExecutor(max_workers=len(engines)) as pool:
+            futures = {
+                pool.submit(
+                    inst.search,
+                    query,
+                    max_results=max_results,
+                    timeout=timeout,
+                ): name
+                for name, inst in engines
+            }
+            for future in as_completed(futures):
+                name = futures[future]
+                try:
+                    results = future.result()
+                    if results:
+                        all_results.extend(results)
+                        logger.debug(f"Engine {name!r} returned {len(results)} results")
+                    else:
+                        logger.debug(f"Engine {name!r} returned no results")
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(
+                        f"Parallel engine {name!r} failed: {type(e).__name__}: {e}"
+                    )
+
+        if not all_results:
+            logger.info("All parallel engines returned empty; falling back to auto")
+            return self._search_auto(
+                query,
+                max_results=max_results,
+                timeout=timeout,
+            )
+
+        # Deduplicate and re-rank with BM25.
+        deduped = deduplicate_results(all_results, query)
+        return deduped[:max_results]
