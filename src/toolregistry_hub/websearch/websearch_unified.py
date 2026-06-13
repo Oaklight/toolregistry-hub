@@ -293,6 +293,8 @@ class WebSearch:
                 specific engine name if you need a particular provider.
             fallback: If True and the chosen engine fails, automatically try
                 the next available engine instead of raising an error.
+                Ignored when ``engine="parallel"`` (parallel mode has
+                built-in per-engine error handling).
             timeout: Request timeout in seconds.
 
         Returns:
