@@ -14,8 +14,71 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
+from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from .search_result import SearchResult
+
+# Query parameters injected by analytics / ad platforms.  Stripping these
+# prevents the same page from appearing as two different URLs when engines
+# return different tracking suffixes.
+_TRACKING_PARAMS: frozenset[str] = frozenset(
+    {
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_term",
+        "utm_content",
+        "ref",
+        "fbclid",
+        "gclid",
+        "msclkid",
+        "mc_cid",
+        "mc_eid",
+    }
+)
+
+
+def _normalize_url(url: str) -> str:
+    """Normalize a URL for deduplication purposes.
+
+    Applies the following transformations:
+        1. Strip trailing slashes from the path.
+        2. Remove ``www.`` prefix from the hostname.
+        3. Strip common tracking query parameters (utm_*, fbclid, etc.).
+
+    The original URL stored in the ``SearchResult`` is never modified —
+    this function is only used to build the dedup key.
+
+    Args:
+        url: Raw URL string.
+
+    Returns:
+        Normalized URL string suitable for equality comparison.
+    """
+    parts = urlsplit(url)
+
+    # Remove www. prefix
+    host = parts.hostname or ""
+    if host.startswith("www."):
+        host = host[4:]
+    # Reconstruct netloc (preserve port if present)
+    netloc = host
+    if parts.port:
+        netloc = f"{host}:{parts.port}"
+
+    # Strip trailing slashes from path
+    path = parts.path.rstrip("/")
+
+    # Remove tracking query parameters
+    if parts.query:
+        params = parse_qs(parts.query, keep_blank_values=True)
+        cleaned = {k: v for k, v in params.items() if k not in _TRACKING_PARAMS}
+        query = urlencode(cleaned, doseq=True)
+    else:
+        query = ""
+
+    return urlunsplit((parts.scheme, netloc, path, query, ""))
+
 
 # BM25 tuning constants (standard Okapi BM25 defaults).
 _BM25_K1 = 1.5
@@ -101,7 +164,7 @@ def deduplicate_results(
     # ── Step 1: URL dedup (keep longest content per URL) ─────────────────
     best_by_url: dict[str, SearchResult] = {}
     for r in results:
-        url = r.url.rstrip("/")
+        url = _normalize_url(r.url)
         existing = best_by_url.get(url)
         if existing is None or len(r.content) > len(existing.content):
             best_by_url[url] = r
