@@ -11,14 +11,17 @@ author: Oaklight
 The `WebSearch` class provides a single entry point that dispatches queries to any configured search provider. Instead of choosing a specific provider up front, you can let the wrapper auto-select the best available engine or pin a specific one with graceful fallback.
 
 ???+ note "Changelog"
-    Unreleased — Added unified WebSearch entry point ([#88](https://github.com/Oaklight/toolregistry-hub/pull/88))
+    Unreleased — Added unified WebSearch entry point ([#88](https://github.com/Oaklight/toolregistry-hub/pull/88))  
+    Unreleased — Parallel multi-engine search with BM25 dedup ([#142](https://github.com/Oaklight/toolregistry-hub/pull/142))  
+    Unreleased — URL normalization for deduplication ([#143](https://github.com/Oaklight/toolregistry-hub/pull/143))
 
 ## Overview
 
 - **Auto Mode**: `engine="auto"` tries configured providers in priority order, returning the first successful result
+- **Parallel Mode**: `engine="parallel"` queries multiple engines concurrently, deduplicates by URL, and re-ranks results with BM25 scoring for higher quality
 - **Specific Engine**: Pin `engine="brave"` (or any other provider) for deterministic routing
 - **Fallback**: Set `fallback=True` so a failed specific engine falls through to the auto chain
-- **Dynamic Schema**: The `engine` parameter's accepted values are narrowed at runtime to only the engines with valid API keys, so LLM clients see an accurate JSON schema
+- **Dynamic Schema**: The `engine` parameter’s accepted values are narrowed at runtime to only the engines with valid API keys, so LLM clients see an accurate JSON schema
 - **Configurable Priority**: Override the default engine order via `WEBSEARCH_PRIORITY` environment variable
 
 ## Quick Start
@@ -29,7 +32,10 @@ from toolregistry_hub.websearch import WebSearch
 ws = WebSearch()
 
 # Auto-select the best configured provider
-results = ws.search("Python 3.13 new features", max_results=5)
+results = ws.search("Python 3.13 new features", count=5)
+
+# Parallel mode: query multiple engines, deduplicate and re-rank
+results = ws.search("machine learning", engine="parallel", count=10)
 
 # Use a specific engine
 results = ws.search("machine learning", engine="tavily")
@@ -52,20 +58,19 @@ Initialize the unified search wrapper.
 
 - `priority` (str, optional): Comma-separated engine names for priority order. Falls back to `WEBSEARCH_PRIORITY` environment variable, then the default order.
 
-### `WebSearch.search(query, *, engine, fallback, max_results, timeout, **kwargs)`
+### `WebSearch.search(query, *, count, engine, fallback, timeout)`
 
 Perform a web search via the selected engine.
 
 **Parameters:**
 
 - `query` (str): The search query string
-- `engine` (str): Provider to use. `"auto"` (default) tries configured engines in priority order. Specific values: `"brave"`, `"tavily"`, `"searxng"`, `"brightdata"`, `"scrapeless"`, `"serper"`
-- `fallback` (bool): When a specific engine is unavailable or fails, `False` (default) propagates the error; `True` falls back to the auto chain
-- `max_results` (int): Maximum number of results (1-20 recommended). Default: 5
+- `count` (int): Number of results to return (default 5, max 20)
+- `engine` (str): Provider to use. `"auto"` (default) tries configured engines in priority order. `"parallel"` queries multiple engines concurrently and deduplicates with BM25 re-ranking. Specific values: `"brave"`, `"tavily"`, `"searxng"`, `"brightdata"`, `"scrapeless"`, `"serper"`
+- `fallback` (bool): If `True` and the chosen engine fails, automatically try the next available engine instead of raising an error. Default: `False`
 - `timeout` (float): Per-request timeout in seconds. Default: 10.0
-- `**kwargs`: Provider-specific parameters forwarded as-is
 
-**Returns:** `list[SearchResult]`
+**Returns:** `list[SearchResult]` — each with `title`, `url`, `content`, and `score`
 
 **Raises:**
 
@@ -76,7 +81,7 @@ Perform a web search via the selected engine.
 
 List all known engines and their configuration status.
 
-**Returns:** `dict[str, bool]` — mapping of engine name to configured status
+**Returns:** `dict[str, bool]` - mapping of engine name to configured status
 
 ## Engine Priority
 
@@ -111,6 +116,24 @@ When `engine="auto"`:
 4. If an engine raises an exception, the next engine is tried
 5. If all engines fail, a `RuntimeError` is raised with the last error
 
+## Parallel Mode
+
+When `engine="parallel"`:
+
+1. All engines listed in `WEBSEARCH_PARALLEL_ENGINES` are queried concurrently via `ThreadPoolExecutor`
+2. Unconfigured engines are skipped; individual engine failures are logged but don't abort the search
+3. Results are deduplicated by normalized URL (strips `www.` prefix, trailing slashes, and tracking parameters like `utm_*`, `fbclid`, `gclid`)
+4. When duplicate URLs are found, the result with the longest content is kept
+5. Remaining results are re-ranked using BM25 scoring against the original query
+6. If all parallel engines return empty or fail, falls back to auto mode
+
+Configure which engines to use in parallel:
+
+```bash
+# Default: brightdata,brave
+export WEBSEARCH_PARALLEL_ENGINES="brightdata,brave,tavily"
+```
+
 ## Fallback Behavior
 
 When a specific engine is requested with `fallback=True`:
@@ -139,7 +162,7 @@ ws = WebSearch()
 
 ## Server Mode
 
-In server mode, `WebSearch` is registered at the `web/websearch` namespace. The 6 individual provider tools are marked as deferred — discoverable via `discover_tools` but not included in the initial schema. This reduces schema size while keeping all providers accessible.
+In server mode, `WebSearch` is registered at the `web/websearch` namespace. The 6 individual provider tools are marked as deferred - discoverable via `discover_tools` but not included in the initial schema. This reduces schema size while keeping all providers accessible.
 
 ```
 POST /tools/web/websearch/search

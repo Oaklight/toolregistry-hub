@@ -16,20 +16,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- **Weather tool** ([#131](https://github.com/Oaklight/toolregistry-hub/pull/131)) — new `weather` namespace with three methods powered by the free [wttr.in](https://wttr.in) JSON API. No API key required; uses the existing zero-dep `httpclient`.
-    - `get_current(location, units)` — current conditions: temperature, feels-like, humidity, wind, precipitation, cloud cover, UV index, visibility, pressure.
-    - `get_forecast(location, days, units, include_hourly)` — up to 3-day forecast with optional 3-hourly breakdowns.
-    - `get_astronomy(location)` — sunrise/sunset, moonrise/moonset, moon phase and illumination.
+- **Weather tool** ([#131](https://github.com/Oaklight/toolregistry-hub/pull/131)) - new `weather` namespace with three methods powered by the free [wttr.in](https://wttr.in) JSON API. No API key required; uses the existing zero-dep `httpclient`.
+    - `get_current(location, units)` - current conditions: temperature, feels-like, humidity, wind, precipitation, cloud cover, UV index, visibility, pressure.
+    - `get_forecast(location, days, units, include_hourly)` - up to 3-day forecast with optional 3-hourly breakdowns.
+    - `get_astronomy(location)` - sunrise/sunset, moonrise/moonset, moon phase and illumination.
     - Supports metric/imperial units, city names, coordinates, and airport codes. Tagged `NETWORK + READ_ONLY`.
 
 ### Improved
 
-- **Fetch: Reuse markdown negotiation response body** ([#132](https://github.com/Oaklight/toolregistry-hub/pull/132)) — when Cloudflare Content Negotiation returns `text/html` instead of `text/markdown` (the common case), the response body is now preserved and passed directly to the Readability/Soup extraction pipeline, eliminating a redundant HTTP round-trip. Previously the HTML response was discarded and `_fetch_raw` issued an identical GET request to the same URL.
-- **Fetch: Binary content-type early rejection** ([#132](https://github.com/Oaklight/toolregistry-hub/pull/132)) — URLs returning binary content types (`image/*`, `audio/*`, `video/*`, `font/*`, `application/pdf`, `application/zip`, `application/octet-stream`, etc.) are now detected before entering the extraction pipeline and raise `FetchError` with a descriptive message. Previously binary responses were decoded as text and fed through Readability/Soup, producing garbage output.
-- **Fetch: URL-level result cache** ([#135](https://github.com/Oaklight/toolregistry-hub/pull/135)) — adds a per-instance URL result cache with configurable TTL (default 5 minutes) and LRU eviction (default 128 entries). Repeated fetches of the same URL within the TTL window return the cached result instantly. Only successful results are cached; errors always retry. Cache can be disabled with `cache_ttl=0` or cleared via `Fetch.clear_cache()`.
-- **Fetch: Improved SPA detection with readability score** ([#138](https://github.com/Oaklight/toolregistry-hub/pull/138)) — when the readability algorithm scores a page above the confidence threshold (score ≥ 20), SPA shell indicator matching is skipped entirely, preventing false positives on legitimate pages that happen to contain phrases like "loading...". Also tightens the SPA indicator list and adds a short-text threshold for broader indicators.
-- **Fetch: Skip soup extraction when readability is sufficient** ([#139](https://github.com/Oaklight/toolregistry-hub/pull/139)) — when readability produces a high-confidence result (`score ≥ 100` and `length ≥ 2000` characters), the soup extraction pass is skipped entirely. Profiling showed soup adds ~30–35% to local extraction time but contributes <16% additional content in these cases, saving 30–180 ms per page depending on document size. Applied to both the main `_extract` pipeline and the CDP rendering path. A debug log records skipped soup calls with score and length for post-deployment threshold tuning.
-- **Fetch: Reduce cognitive complexity of `_extract` and `_is_content_sufficient`** ([#139](https://github.com/Oaklight/toolregistry-hub/pull/139)) — refactored `_extract` (complexipy 26→16) and `_is_content_sufficient` (22→4) by extracting four helper functions, bringing both under the project's complexity threshold of 15.
+- **Fetch: Reuse markdown negotiation response body** ([#132](https://github.com/Oaklight/toolregistry-hub/pull/132)) - when Cloudflare Content Negotiation returns `text/html` instead of `text/markdown` (the common case), the response body is now preserved and passed directly to the Readability/Soup extraction pipeline, eliminating a redundant HTTP round-trip. Previously the HTML response was discarded and `_fetch_raw` issued an identical GET request to the same URL.
+- **Fetch: Binary content-type early rejection** ([#132](https://github.com/Oaklight/toolregistry-hub/pull/132)) - URLs returning binary content types (`image/*`, `audio/*`, `video/*`, `font/*`, `application/pdf`, `application/zip`, `application/octet-stream`, etc.) are now detected before entering the extraction pipeline and raise `FetchError` with a descriptive message. Previously binary responses were decoded as text and fed through Readability/Soup, producing garbage output.
+- **Fetch: URL-level result cache** ([#135](https://github.com/Oaklight/toolregistry-hub/pull/135)) - adds a per-instance URL result cache with configurable TTL (default 5 minutes) and LRU eviction (default 128 entries). Repeated fetches of the same URL within the TTL window return the cached result instantly. Only successful results are cached; errors always retry. Cache can be disabled with `cache_ttl=0` or cleared via `Fetch.clear_cache()`.
+- **Fetch: Improved SPA detection with readability score** ([#138](https://github.com/Oaklight/toolregistry-hub/pull/138)) - when the readability algorithm scores a page above the confidence threshold (score ≥ 20), SPA shell indicator matching is skipped entirely, preventing false positives on legitimate pages that happen to contain phrases like "loading...". Also tightens the SPA indicator list and adds a short-text threshold for broader indicators.
+- **Fetch: Skip soup extraction when readability is sufficient** ([#139](https://github.com/Oaklight/toolregistry-hub/pull/139)) - when readability produces a high-confidence result (`score ≥ 100` and `length ≥ 2000` characters), the soup extraction pass is skipped entirely. Profiling showed soup adds ~30-35% to local extraction time but contributes <16% additional content in these cases, saving 30-180 ms per page depending on document size. Applied to both the main `_extract` pipeline and the CDP rendering path. A debug log records skipped soup calls with score and length for post-deployment threshold tuning.
+- **Fetch: Reduce cognitive complexity of `_extract` and `_is_content_sufficient`** ([#139](https://github.com/Oaklight/toolregistry-hub/pull/139)) — refactored `_extract` (complexipy 26→16) and `_is_content_sufficient` (22→4) by extracting four helper functions, bringing both under the project’s complexity threshold of 15.
+- **WebSearch: Parallel multi-engine search with BM25 dedup** ([#142](https://github.com/Oaklight/toolregistry-hub/pull/142)) — new `engine="parallel"` mode that queries multiple search engines concurrently via `ThreadPoolExecutor`, deduplicates results by URL, and re-ranks with BM25 scoring. Default parallel engines configurable via `WEBSEARCH_PARALLEL_ENGINES` env var (default: `brightdata,brave`). Auto-skips unconfigured or failed engines with graceful fallback to auto mode. Also renames `max_results` → `count` in the `search()` signature and removes `**kwargs` for a cleaner LLM tool schema.
+- **WebSearch: URL normalization for deduplication** ([#143](https://github.com/Oaklight/toolregistry-hub/pull/143)) — dedup now normalizes URLs before comparison: strips `www.` prefix, removes trailing slashes, and filters common tracking parameters (`utm_*`, `fbclid`, `gclid`, `msclkid`, `mc_*`). Original URLs in search results are preserved unchanged.
+- **Docker: Caddy gateway with unified entry point** ([#141](https://github.com/Oaklight/toolregistry-hub/pull/141)) — adds a Caddy reverse proxy to unify three service backends behind a single port: `/mcp` → MCP streamable-http, `/sse` → MCP SSE, everything else → OpenAPI. Includes `flush_interval -1` on all backends to prevent SSE/streaming buffering, backend services changed from `ports` to `expose` (no longer exposed to host directly), and `/openapi` convenience redirect to `/docs`.
+- **Docker: `deploy-dev` Makefile target** ([#141](https://github.com/Oaklight/toolregistry-hub/pull/141)) — `make deploy-dev SSH_TARGET=host` builds a wheel, builds the Docker image, transfers via zstd compression, and restarts the remote stack with health check.
 
 ### Internal
 
@@ -38,6 +42,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - 10 new tests covering response reuse path, fallback-to-`_fetch_raw` path, binary rejection, and parametrized binary/non-binary detection.
 - Add `_should_skip_soup()` predicate with `_SOUP_SKIP_SCORE_THRESHOLD` (100.0) and `_SOUP_SKIP_MIN_LENGTH` (2000) constants.
 - 11 new tests for soup-skip behaviour: 8 unit tests for `_should_skip_soup`, 3 integration tests for the full `_extract` pipeline.
+- Add `dedup.py` module with `_normalize_url()`, `_tokenize()`, `_bm25_score()`, and `deduplicate_results()`. 14 new tests for BM25 scoring, URL normalization, and dedup behaviour.
+- Add `_search_parallel()` strategy with `ThreadPoolExecutor`. 7 new tests for parallel mode (configured engines, skip unconfigured, handle failure, dedup, fallback, count cap).
+- Add `Caddyfile` reverse proxy config; refactor `compose.yaml` to use gateway service with `IMAGE_TAG` and `GATEWAY_PORT` variables; add `deploy-dev` target to Makefile.
 
 ### Fixed
 
@@ -47,7 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- **CDP rendering stage for Fetch** — when a `CDP_ENDPOINT` is configured, `fetch-fetch` attempts headless-browser rendering for SPA pages whose initial HTML is mostly empty JavaScript shells. Falls back to the plain HTTP response when CDP is unavailable or the page is already server-rendered.
+- **CDP rendering stage for Fetch** - when a `CDP_ENDPOINT` is configured, `fetch-fetch` attempts headless-browser rendering for SPA pages whose initial HTML is mostly empty JavaScript shells. Falls back to the plain HTTP response when CDP is unavailable or the page is already server-rendered.
 - New `toolregistry_hub.utils.bind_literal()` helper that returns a copy of a function with one parameter's annotation rewritten to `Literal[*choices]`. Used by tools that need to surface a runtime-driven enum in their MCP / JSON input schema without hand-rolling `FunctionType` shenanigans.
 
 ### Fixed
@@ -109,7 +116,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Tool discovery with progressive disclosure**
     - Call `registry.enable_tool_discovery()` to register a `discover_tools` tool for BM25F search across all registered tools
-    - Less-used tools (FileReader, FileSearch, PathInfo, BashTool, CronTool, TodoList, UnitConverter) marked as deferred — discoverable via `discover_tools` but excluded from initial schema for smart clients
+    - Less-used tools (FileReader, FileSearch, PathInfo, BashTool, CronTool, TodoList, UnitConverter) marked as deferred - discoverable via `discover_tools` but excluded from initial schema for smart clients
     - Add `--tool-discovery / --no-tool-discovery` CLI flag (default: enabled)
 
 - **Think-augmented function calling**
@@ -128,7 +135,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Fetch: User-specified extraction engine**
     - Add `engine` parameter to `_extract()`: `"auto"` (default fallback chain), `"markdown"`, `"readability"`, `"soup"`, `"jina"`
-    - Direct engine mode skips fallback chain — only the specified engine is tried
+    - Direct engine mode skips fallback chain - only the specified engine is tried
 
 - **Fetch: Replace BS4 with readability + soup extraction pipeline** ([#87](https://github.com/Oaklight/toolregistry-hub/pull/87), [#83](https://github.com/Oaklight/toolregistry-hub/issues/83))
     - Replace simplistic BeautifulSoup CSS selector extraction with multi-strategy pipeline: readability (Mozilla Readability.js port, intelligent article scoring) → soup (structural CSS fallback)
@@ -147,7 +154,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **WebSearch: Unified entry point with dynamic engine selection**
     - New `WebSearch` class registered at `web/websearch` namespace; the 6 individual provider tools (`web/brave_search`, `web/tavily_search`, etc.) are now deferred and discoverable via `discover_tools`
-    - `search(query, engine="auto", fallback=False, ...)` — `engine="auto"` tries configured providers in priority order; specific engines fail loudly when their key is missing, or fall through to auto when `fallback=True`
+    - `search(query, engine="auto", fallback=False, ...)` - `engine="auto"` tries configured providers in priority order; specific engines fail loudly when their key is missing, or fall through to auto when `fallback=True`
     - Configurable priority via `WEBSEARCH_PRIORITY` environment variable (comma-separated names); default order is paid-providers-first
     - Per-instance dynamic narrowing of the `engine` `Literal` annotation: at construction time, the JSON schema seen by LLM clients only includes engines whose API keys are actually configured on this server
     - `list_engines()` helper for runtime introspection of available providers
@@ -167,11 +174,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Internal Changes
 
 - **Zero external runtime dependencies** ([#98](https://github.com/Oaklight/toolregistry-hub/issues/98))
-    - Replace `httpx` with vendored `httpclient` from zerodep — sync+async HTTP client using only stdlib
+    - Replace `httpx` with vendored `httpclient` from zerodep - sync+async HTTP client using only stdlib
     - Replace `ua-generator` with vendored `useragent` module from zerodep
     - Replace `pydantic` with plain `dataclasses` in `TodoList`
     - Re-vendor all modules via `zerodep` CLI for consistent metadata and versioning
-    - Result: `dependencies = []` — the base package has zero PyPI runtime dependencies
+    - Result: `dependencies = []` - the base package has zero PyPI runtime dependencies
 
 - **Remove `websearch_legacy` module**
     - Legacy Bing and Google HTML-scraping search providers archived to `archive/websearch-legacy` branch
@@ -220,18 +227,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     - stdout/stderr truncation at 64KB to prevent memory exhaustion
 
 - **FileReader: Multi-format file reading** ([#75](https://github.com/Oaklight/toolregistry-hub/pull/75), [#65](https://github.com/Oaklight/toolregistry-hub/issues/65), [#79](https://github.com/Oaklight/toolregistry-hub/pull/79))
-    - `read()` — text files with line numbers and pagination (10MB cap, 2000 lines default)
-    - `read_notebook()` — Jupyter notebooks with cell types and outputs (stdlib only)
-    - `read_pdf()` — PDF text extraction via pypdf or pdfplumber (optional dependency)
-    - `read_image()` — image files as multimodal content blocks (`[TextBlock, ImageBlock]`) with adaptive downsampling via Pillow ([#79](https://github.com/Oaklight/toolregistry-hub/pull/79), [#74](https://github.com/Oaklight/toolregistry-hub/issues/74))
+    - `read()` - text files with line numbers and pagination (10MB cap, 2000 lines default)
+    - `read_notebook()` - Jupyter notebooks with cell types and outputs (stdlib only)
+    - `read_pdf()` - PDF text extraction via pypdf or pdfplumber (optional dependency)
+    - `read_image()` - image files as multimodal content blocks (`[TextBlock, ImageBlock]`) with adaptive downsampling via Pillow ([#79](https://github.com/Oaklight/toolregistry-hub/pull/79), [#74](https://github.com/Oaklight/toolregistry-hub/issues/74))
     - Supports `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp` formats
     - Auto-downsamples images exceeding the base64 size budget (default 5 MB) with format-specific quality floors
     - Add `reader_image = ["Pillow>=10.0.0"]` optional dependency group
 
 - **FileSearch: File discovery tools** ([#72](https://github.com/Oaklight/toolregistry-hub/pull/72))
-    - `glob()` — find files by pattern, sorted by modification time (1000 results cap)
-    - `grep()` — regex content search with file filtering (200 results cap)
-    - `tree()` — directory tree display with depth control (2000 entries cap)
+    - `glob()` - find files by pattern, sorted by modification time (1000 results cap)
+    - `grep()` - regex content search with file filtering (200 results cap)
+    - `tree()` - directory tree display with depth control (2000 entries cap)
 
 - **PathInfo: Unified metadata query** ([#71](https://github.com/Oaklight/toolregistry-hub/pull/71))
     - Single `info()` call returns existence, type, size, modification time, and permissions

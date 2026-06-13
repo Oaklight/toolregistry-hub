@@ -16,10 +16,10 @@ ToolRegistry Hub provides Docker support for easy deployment and containerizatio
 The project includes several Docker-related files in the `docker/` directory:
 
 - [`Dockerfile`](../../docker/Dockerfile) - Container definition
-- [`compose.yaml`](../../docker/compose.yaml) - Production Docker Compose configuration
-- [`compose.dev.yaml`](../../docker/compose.dev.yaml) - Development Docker Compose configuration
+- [`compose.yaml`](../../docker/compose.yaml) - Docker Compose configuration with Caddy gateway
 - [`.env.sample`](../../docker/.env.sample) - Sample environment variables file
-- [`Makefile`](../../docker/Makefile) - Build automation for Docker images
+- [`Caddyfile`](../../docker/Caddyfile) - Caddy reverse proxy configuration
+- [`Makefile`](../../docker/Makefile) - Build automation and deployment targets
 
 ## Quick Start
 
@@ -29,22 +29,44 @@ The quickest way to get started is using the pre-built Docker image with Docker 
 2. (Optional) Create a `tools.jsonc` file to customize which tools are loaded (see [Tool Configuration](#tool-configuration) below)
 3. Start the server using Docker Compose: `docker-compose up -d`
 
-The server will be available at `http://localhost:8000`.
+The server will be available at `http://localhost:8000` (or the port set by `GATEWAY_PORT`).
 
 ## Environment Variables
 
 Key environment variables:
 
 - `API_BEARER_TOKEN`: Authentication token for API access
+- `GATEWAY_PORT`: External port for the Caddy gateway (default: 8000)
+- `IMAGE_TAG`: Docker image tag to use (default: `latest`)
 - `SEARXNG_URL`: URL for SearXNG search engine
 - `BRAVE_API_KEY`: API key for Brave search, supporting comma separating multiple keys (round robin)
 - `TAVILY_API_KEY`: API key for Tavily search, supporting comma separating multiple keys (round robin)
 - `JINA_API_KEY`: Optional Jina Reader API key for authenticated requests (comma-separated for multi-key rotation)
 - `CDP_ENDPOINT`: Optional WebSocket URL of a CDP-compatible browser for self-hosted SPA rendering (e.g., `ws://localhost:9222`)
+- `WEBSEARCH_PRIORITY`: Comma-separated engine priority order for auto mode
+- `WEBSEARCH_PARALLEL_ENGINES`: Comma-separated engines to query in parallel mode (default: `brightdata,brave`)
+
+## Architecture
+
+### Caddy Gateway
+
+The Docker Compose stack uses a Caddy reverse proxy as a unified entry point. All three service backends run behind a single external port:
+
+| Path | Backend | Description |
+|------|---------|-------------|
+| `/mcp` | MCP streamable-http | Primary MCP endpoint |
+| `/sse` | MCP SSE | Server-Sent Events transport |
+| `/docs` | OpenAPI | Interactive API documentation |
+| `/openapi` | → `/docs` | Convenience redirect |
+| `/*` | OpenAPI | Default backend |
+
+All backends are configured with `flush_interval -1` to prevent SSE/streaming buffering.
+
+Backend services use `expose` instead of `ports` — they are not directly accessible from the host, only through the Caddy gateway.
 
 ## Server Modes
 
-The Docker container supports all server modes:
+With the Caddy gateway, all modes are available simultaneously on a single port. For standalone use without the gateway:
 
 ### OpenAPI Mode (Default)
 
@@ -113,15 +135,30 @@ For full configuration details, see the [Server Mode — Tool Configuration](ser
 !!! tip "No Configuration File"
     If no `tools.jsonc` file is present, the server loads all available tools with default settings. The volume mount will simply be ignored if the file doesn't exist.
 
+## Development Deployment
+
+The Makefile includes a `deploy-dev` target for building and deploying to a remote server:
+
+```bash
+make deploy-dev SSH_TARGET=your-server
+```
+
+This target:
+
+1. Builds a Python wheel from the current source
+2. Builds the Docker image locally
+3. Transfers the image via zstd compression over SSH
+4. Restarts the remote Docker Compose stack
+5. Runs a health check against the deployed service
+
 ## Production Deployment Recommendations
 
 For production environments, consider the following:
 
-1. **Use a Reverse Proxy**: Deploy Caddy, Nginx or Apache in front of the container
-2. **Enable HTTPS**: Configure SSL/TLS for secure communication
-3. **Set Up Monitoring**: Implement health checks and monitoring
-4. **Configure Logging**: Set up centralized logging
-5. **Use Docker Swarm or Kubernetes**: For high availability and scaling
+1. **Enable HTTPS**: Configure Caddy with your domain for automatic TLS
+2. **Set Up Monitoring**: Implement health checks and monitoring
+3. **Configure Logging**: Set up centralized logging
+4. **Use Docker Swarm or Kubernetes**: For high availability and scaling
 
 ## Troubleshooting
 
