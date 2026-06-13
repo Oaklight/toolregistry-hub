@@ -11,11 +11,14 @@ author: Oaklight
 `WebSearch` 类提供了统一的入口，将查询分发到任何已配置的搜索引擎。你可以让它自动选择最佳可用引擎，也可以指定特定引擎并启用优雅降级。
 
 ???+ note "更新日志"
-    未发布 — 新增统一 WebSearch 入口 ([#88](https://github.com/Oaklight/toolregistry-hub/pull/88))
+    未发布 — 新增统一 WebSearch 入口 ([#88](https://github.com/Oaklight/toolregistry-hub/pull/88))  
+    未发布 — 并行多引擎搜索 + BM25 去重 ([#142](https://github.com/Oaklight/toolregistry-hub/pull/142))  
+    未发布 — 去重时 URL 归一化 ([#143](https://github.com/Oaklight/toolregistry-hub/pull/143))
 
 ## 概览
 
 - **自动模式**：`engine="auto"` 按优先级顺序尝试已配置的引擎，返回第一个成功的结果
+- **并行模式**：`engine="parallel"` 并发查询多个引擎，按 URL 去重并使用 BM25 重新排序，获取更高质量的结果
 - **指定引擎**：设置 `engine="brave"`（或其他引擎）进行确定性路由
 - **降级模式**：设置 `fallback=True`，指定引擎失败时自动降级到自动链
 - **动态 Schema**：`engine` 参数的可接受值在运行时收窄为仅包含已配置 API key 的引擎，LLM 客户端看到的 JSON schema 更精确
@@ -29,7 +32,10 @@ from toolregistry_hub.websearch import WebSearch
 ws = WebSearch()
 
 # 自动选择最佳已配置引擎
-results = ws.search("Python 3.13 新特性", max_results=5)
+results = ws.search("Python 3.13 新特性", count=5)
+
+# 并行模式：查询多个引擎，去重并重新排序
+results = ws.search("机器学习", engine="parallel", count=10)
 
 # 使用指定引擎
 results = ws.search("机器学习", engine="tavily")
@@ -52,20 +58,19 @@ print(ws.list_engines())
 
 - `priority` (str, 可选): 逗号分隔的引擎名称优先级顺序。回退到 `WEBSEARCH_PRIORITY` 环境变量，再回退到默认顺序。
 
-### `WebSearch.search(query, *, engine, fallback, max_results, timeout, **kwargs)`
+### `WebSearch.search(query, *, count, engine, fallback, timeout)`
 
 通过选定引擎执行网络搜索。
 
 **参数：**
 
 - `query` (str): 搜索查询字符串
-- `engine` (str): 使用的引擎。`"auto"`（默认）按优先级尝试已配置引擎。可选值：`"brave"`、`"tavily"`、`"searxng"`、`"brightdata"`、`"scrapeless"`、`"serper"`
-- `fallback` (bool): 指定引擎不可用或失败时，`False`（默认）抛出错误；`True` 降级到自动链
-- `max_results` (int): 最大结果数（建议 1-20）。默认：5
+- `count` (int): 返回结果数量（默认 5，最大 20）
+- `engine` (str): 使用的引擎。`"auto"`（默认）按优先级尝试已配置引擎。`"parallel"` 并发查询多个引擎并使用 BM25 重新排序。可选值：`"brave"`、`"tavily"`、`"searxng"`、`"brightdata"`、`"scrapeless"`、`"serper"`
+- `fallback` (bool): 指定引擎失败时，`True` 自动尝试下一个可用引擎，`False`（默认）抛出错误
 - `timeout` (float): 单次请求超时秒数。默认：10.0
-- `**kwargs`: 引擎特定参数，原样转发
 
-**返回：** `list[SearchResult]`
+**返回：** `list[SearchResult]` — 每个结果包含 `title`、`url`、`content` 和 `score`
 
 **异常：**
 
@@ -110,6 +115,24 @@ ws = WebSearch(priority="searxng,brave")
 3. 如果引擎返回空结果，尝试下一个
 4. 如果引擎抛出异常，尝试下一个
 5. 如果所有引擎都失败，抛出 `RuntimeError` 并附带最后一个错误
+
+## 并行模式
+
+当 `engine="parallel"` 时：
+
+1. 通过 `ThreadPoolExecutor` 并发查询 `WEBSEARCH_PARALLEL_ENGINES` 中列出的所有引擎
+2. 未配置的引擎自动跳过；单个引擎失败会记录日志但不会终止搜索
+3. 结果按归一化后的 URL 去重（去除 `www.` 前缀、末尾斜杠、跟踪参数如 `utm_*`、`fbclid`、`gclid`）
+4. 重复 URL 保留内容最长的结果
+5. 剩余结果使用 BM25 对原始查询评分并降序排列
+6. 如果所有并行引擎返回空结果或失败，自动回退到 auto 模式
+
+配置并行查询的引擎：
+
+```bash
+# 默认：brightdata,brave
+export WEBSEARCH_PARALLEL_ENGINES="brightdata,brave,tavily"
+```
 
 ## 降级行为
 

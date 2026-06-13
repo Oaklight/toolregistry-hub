@@ -29,6 +29,10 @@ author: Oaklight
 - **Fetch：URL 级结果缓存**（[#135](https://github.com/Oaklight/toolregistry-hub/pull/135)）— 新增实例级 URL 结果缓存，可配置 TTL（默认 5 分钟）和 LRU 淘汰（默认 128 条）。TTL 窗口内对同一 URL 的重复请求直接返回缓存结果。仅缓存成功结果，错误始终重试。可通过 `cache_ttl=0` 禁用缓存，或调用 `Fetch.clear_cache()` 清空。
 - **Fetch：基于 readability 评分改进 SPA 检测**（[#138](https://github.com/Oaklight/toolregistry-hub/pull/138)）— 当 readability 算法对页面的评分超过置信度阈值（score ≥ 20）时，跳过 SPA 空壳指标匹配，避免对包含 "loading..." 等字样的正常页面产生误判。同时收紧了 SPA 指标列表，并为更宽泛的指标增加了短文本阈值。
 - **Fetch：readability 结果充分时跳过 soup 提取**（[#139](https://github.com/Oaklight/toolregistry-hub/pull/139)）— 当 readability 产生高置信度结果（score ≥ 100 且内容长度 ≥ 2,000 字符）时，完全跳过 soup 提取步骤，每个页面节省 30–185 ms。性能分析表明在此阈值下，soup 额外提取的内容不超过 16%。跳过的调用会以 DEBUG 级别记录 score 和长度，便于后续调整阈值。同时应用于主提取流程和 CDP 渲染路径。
+- **WebSearch：并行多引擎搜索 + BM25 去重**（[#142](https://github.com/Oaklight/toolregistry-hub/pull/142)）— 新增 `engine="parallel"` 模式，通过 `ThreadPoolExecutor` 并发查询多个搜索引擎，按 URL 去重并使用 BM25 重新排序。并行引擎可通过 `WEBSEARCH_PARALLEL_ENGINES` 环境变量配置（默认：`brightdata,brave`）。自动跳过未配置或失败的引擎，并优雅回退到 auto 模式。同时将 `search()` 签名中的 `max_results` 重命名为 `count`，移除 `**kwargs`，简化 LLM 工具 schema。
+- **WebSearch：去重时 URL 归一化**（[#143](https://github.com/Oaklight/toolregistry-hub/pull/143)）— 去重现在会在比较前归一化 URL：去除 `www.` 前缀、去除末尾斜杠、过滤常见跟踪参数（`utm_*`、`fbclid`、`gclid`、`msclkid`、`mc_*`）。搜索结果中的原始 URL 保持不变。
+- **Docker：Caddy 网关统一入口**（[#141](https://github.com/Oaklight/toolregistry-hub/pull/141)）— 新增 Caddy 反向代理，将三个服务后端统一到单一端口：`/mcp` → MCP streamable-http、`/sse` → MCP SSE、其余 → OpenAPI。所有后端配置 `flush_interval -1` 防止 SSE/流式传输缓冲，后端服务从 `ports` 改为 `expose`（不再直接暴露到宿主机），新增 `/openapi` 便捷重定向到 `/docs`。
+- **Docker：`deploy-dev` Makefile target**（[#141](https://github.com/Oaklight/toolregistry-hub/pull/141)）— `make deploy-dev SSH_TARGET=host` 可构建 wheel、构建 Docker 镜像、通过 zstd 压缩传输并重启远程服务栈，并运行健康检查。
 
 ### 内部变更
 
@@ -38,6 +42,9 @@ author: Oaklight
 - 新增 10 个测试，覆盖响应复用路径、回退到 `_fetch_raw` 路径、二进制拦截，以及参数化的二进制/非二进制检测。
 - 新增 `_should_skip_soup()` 判断函数，配合 `_SOUP_SKIP_SCORE_THRESHOLD`（100.0）和 `_SOUP_SKIP_MIN_LENGTH`（2000）两个常量。
 - 新增 11 个测试覆盖 soup 跳过行为：8 个单元测试（`_should_skip_soup`）+ 3 个集成测试（完整 `_extract` 流程）。
+- 新增 `dedup.py` 模块，包含 `_normalize_url()`、`_tokenize()`、`_bm25_score()` 和 `deduplicate_results()`。14 个新测试覆盖 BM25 评分、URL 归一化和去重行为。
+- 新增 `_search_parallel()` 策略，使用 `ThreadPoolExecutor`。7 个新测试覆盖并行模式。
+- 新增 `Caddyfile` 反向代理配置；重构 `compose.yaml` 使用网关服务，支持 `IMAGE_TAG` 和 `GATEWAY_PORT` 变量；Makefile 新增 `deploy-dev` target。
 
 ### 修复
 
