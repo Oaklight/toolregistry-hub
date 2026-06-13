@@ -2,6 +2,7 @@
 
 from toolregistry_hub.websearch.dedup import (
     _bm25_score,
+    _normalize_url,
     _tokenize,
     deduplicate_results,
 )
@@ -74,6 +75,46 @@ class TestBM25Score:
         assert score_rare > score_common
 
 
+# ── URL normalization ────────────────────────────────────────────────────
+
+
+class TestNormalizeUrl:
+    def test_trailing_slash_stripped(self):
+        assert _normalize_url("https://example.com/path/") == _normalize_url(
+            "https://example.com/path"
+        )
+
+    def test_www_prefix_removed(self):
+        assert _normalize_url("https://www.example.com/page") == _normalize_url(
+            "https://example.com/page"
+        )
+
+    def test_tracking_params_stripped(self):
+        url = "https://example.com/page?q=test&utm_source=google&fbclid=abc"
+        normalized = _normalize_url(url)
+        assert "utm_source" not in normalized
+        assert "fbclid" not in normalized
+        assert "q=test" in normalized
+
+    def test_non_tracking_params_preserved(self):
+        url = "https://example.com/search?q=python&page=2"
+        normalized = _normalize_url(url)
+        assert "q=python" in normalized
+        assert "page=2" in normalized
+
+    def test_scheme_preserved(self):
+        http = _normalize_url("http://example.com/page")
+        https = _normalize_url("https://example.com/page")
+        assert http != https
+
+    def test_port_preserved(self):
+        url = _normalize_url("https://example.com:8080/path")
+        assert "8080" in url
+
+    def test_no_query_string(self):
+        assert _normalize_url("https://example.com") == "https://example.com"
+
+
 # ── Deduplication ────────────────────────────────────────────────────────
 
 
@@ -102,6 +143,30 @@ class TestDeduplicateResults:
         ]
         deduped = deduplicate_results(results, "test")
         assert len(deduped) == 1
+
+    def test_url_dedup_normalizes_www(self):
+        results = [
+            _r(url="https://www.example.com/page", content="with www short"),
+            _r(
+                url="https://example.com/page",
+                content="without www longer content here",
+            ),
+        ]
+        deduped = deduplicate_results(results, "test")
+        assert len(deduped) == 1
+        assert deduped[0].content == "without www longer content here"
+
+    def test_url_dedup_strips_tracking_params(self):
+        results = [
+            _r(url="https://example.com/page?utm_source=brave", content="from brave"),
+            _r(
+                url="https://example.com/page?utm_source=tavily",
+                content="from tavily with more text",
+            ),
+        ]
+        deduped = deduplicate_results(results, "test")
+        assert len(deduped) == 1
+        assert deduped[0].content == "from tavily with more text"
 
     def test_different_urls_preserved(self):
         results = [
