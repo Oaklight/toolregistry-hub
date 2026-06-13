@@ -113,6 +113,7 @@ test:
 
 SSH_TARGET ?=
 DEVTEST_STACK ?= /dockervol/dockge/stacks/toolregistry-server-dev
+DEVTEST_PORT ?= 55080
 
 # Build a dev-test wheel + Docker image, push to remote, restart the stack.
 # Usage: make deploy-dev SSH_TARGET=cloud.usa1
@@ -139,9 +140,9 @@ endif
 		 docker compose up -d --force-recreate --no-deps openapi mcp-streamable-http mcp-sse && \
 		 sleep 5 && \
 		 echo "=== Health check ===" && \
-		 curl -sS -o /dev/null -w "%{http_code} /docs\n" http://localhost:55080/docs && \
-		 curl -sS -o /dev/null -w "%{http_code} /mcp\n" -X POST http://localhost:55080/mcp && \
-		 curl -sS -o /dev/null -w "%{http_code} /sse\n" --max-time 3 http://localhost:55080/sse'; \
+		 curl -sS -o /dev/null -w "%{http_code} /docs\n" http://localhost:$(DEVTEST_PORT)/docs && \
+		 curl -sS -o /dev/null -w "%{http_code} /mcp\n" -X POST http://localhost:$(DEVTEST_PORT)/mcp && \
+		 curl -sS -o /dev/null -w "%{http_code} /sse\n" --max-time 3 http://localhost:$(DEVTEST_PORT)/sse'; \
 	echo "==> Dev-test deployed successfully ($$DEV_VER)."
 
 # Help target
@@ -180,6 +181,7 @@ help:
 	@echo "  PYPI_MIRROR=<url>     - Specify PyPI mirror URL for pip install"
 	@echo "  REGISTRY_MIRROR=<url> - Specify Docker registry mirror (affects base image)"
 	@echo "  SSH_TARGET=<host>     - SSH target for deploy-dev (required)"
+	@echo "  DEVTEST_PORT=<port>   - Gateway port for health check (default: 55080)"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make deploy-dev SSH_TARGET=cloud.usa1"
