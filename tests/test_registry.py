@@ -236,12 +236,17 @@ class TestToolMetadataAndDiscovery(unittest.TestCase):
         """Test that primary tools (always visible to LLM) are not deferred."""
         reg = build_registry(enable_discovery=False)
 
-        primary_namespaces = {"datetime", "think", "web/fetch", "web/websearch"}
-        for tool in reg._tools.values():
-            if tool.namespace in primary_namespaces:
+        primary_tools = {
+            "datetime-now",
+            "think-think",
+            "web/fetch-fetch_content",
+            "web/websearch-search",
+        }
+        for name in primary_tools:
+            if name in reg._tools:
                 self.assertFalse(
-                    tool.metadata.defer,
-                    f"Primary tool in namespace {tool.namespace} should not be deferred",
+                    reg._tools[name].metadata.defer,
+                    f"Primary tool {name} should not be deferred",
                 )
 
     def test_secondary_tools_deferred(self):

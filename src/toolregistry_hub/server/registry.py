@@ -66,11 +66,21 @@ _DEFAULT_TOOLS: list[PythonSource] = [
 # Metadata overrides for registered tools, keyed by namespace.
 _TOOL_METADATA: dict[str, dict] = {
     "calculator": {"defer": True, "tags": {ToolTag.READ_ONLY}},
-    "datetime": {"tags": {ToolTag.READ_ONLY}},
+    "datetime": {
+        "tags": {ToolTag.READ_ONLY},
+        "methods": {
+            "convert_timezone": {"defer": True},
+        },
+    },
     "think": {"tags": {ToolTag.READ_ONLY}},
     "file_ops": {"tags": {ToolTag.FILE_SYSTEM, ToolTag.DESTRUCTIVE}},
     "web/fetch": {"tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
-    "web/websearch": {"tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
+    "web/websearch": {
+        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
+        "methods": {
+            "list_engines": {"defer": True},
+        },
+    },
     "reader": {"defer": True, "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY}},
     "fs/file_search": {
         "defer": True,

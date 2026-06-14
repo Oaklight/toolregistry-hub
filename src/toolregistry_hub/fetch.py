@@ -322,8 +322,8 @@ class Fetch:
         """
         return True
 
-    def clear_cache(self) -> None:
-        """Remove all cached URL results."""
+    def _clear_cache(self) -> None:
+        """Remove all cached URL results (internal, not exposed as a tool)."""
         if self._cache is not None:
             self._cache.clear()
 

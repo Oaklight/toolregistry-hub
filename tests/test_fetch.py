@@ -1358,7 +1358,7 @@ class TestFetchCache:
         mock_extract.return_value = "content"
         fetcher = Fetch()
         fetcher.fetch_content("https://example.com")
-        fetcher.clear_cache()
+        fetcher._clear_cache()
         fetcher.fetch_content("https://example.com")
         assert mock_extract.call_count == 2
 
@@ -1371,9 +1371,9 @@ class TestFetchCache:
         assert mock_extract.call_count == 2
 
     def test_clear_cache_noop_when_disabled(self):
-        """clear_cache should not raise when cache is disabled."""
+        """_clear_cache should not raise when cache is disabled."""
         fetcher = Fetch(cache_ttl=0)
-        fetcher.clear_cache()  # should not raise
+        fetcher._clear_cache()  # should not raise
 
 
 # ============================================================
