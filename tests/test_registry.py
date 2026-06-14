@@ -103,7 +103,14 @@ class TestBuildRegistry(unittest.TestCase):
         with patch.dict(os.environ, {"BRAVE_API_KEY": "test-key"}):
             reg = build_registry()
 
-            for ns in ("web/brave_search", "web/tavily_search", "web/searxng_search"):
+            for ns in (
+                "web/brave_search",
+                "web/tavily_search",
+                "web/searxng_search",
+                "web/brightdata_search",
+                "web/scrapeless_search",
+                "web/serper_search",
+            ):
                 tools = [t for t in reg._tools if reg._tools[t].namespace == ns]
                 self.assertEqual(
                     len(tools),
