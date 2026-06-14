@@ -61,61 +61,16 @@ _DEFAULT_TOOLS: list[PythonSource] = [
         class_path="toolregistry_hub.websearch.websearch_unified.WebSearch",
         namespace="web/websearch",
     ),
-    PythonSource(
-        class_path="toolregistry_hub.websearch.websearch_brave.BraveSearch",
-        namespace="web/brave_search",
-    ),
-    PythonSource(
-        class_path="toolregistry_hub.websearch.websearch_tavily.TavilySearch",
-        namespace="web/tavily_search",
-    ),
-    PythonSource(
-        class_path="toolregistry_hub.websearch.websearch_searxng.SearXNGSearch",
-        namespace="web/searxng_search",
-    ),
-    PythonSource(
-        class_path="toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch",
-        namespace="web/brightdata_search",
-    ),
-    PythonSource(
-        class_path="toolregistry_hub.websearch.websearch_scrapeless.ScrapelessSearch",
-        namespace="web/scrapeless_search",
-    ),
-    PythonSource(
-        class_path="toolregistry_hub.websearch.websearch_serper.SerperSearch",
-        namespace="web/serper_search",
-    ),
 ]
 
 # Metadata overrides for registered tools, keyed by namespace.
 _TOOL_METADATA: dict[str, dict] = {
-    "calculator": {"tags": {ToolTag.READ_ONLY}},
+    "calculator": {"defer": True, "tags": {ToolTag.READ_ONLY}},
     "datetime": {"tags": {ToolTag.READ_ONLY}},
     "think": {"tags": {ToolTag.READ_ONLY}},
     "file_ops": {"tags": {ToolTag.FILE_SYSTEM, ToolTag.DESTRUCTIVE}},
     "web/fetch": {"tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
     "web/websearch": {"tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
-    "web/brave_search": {"defer": True, "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
-    "web/tavily_search": {
-        "defer": True,
-        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
-    },
-    "web/searxng_search": {
-        "defer": True,
-        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
-    },
-    "web/brightdata_search": {
-        "defer": True,
-        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
-    },
-    "web/scrapeless_search": {
-        "defer": True,
-        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
-    },
-    "web/serper_search": {
-        "defer": True,
-        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
-    },
     "reader": {"defer": True, "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY}},
     "fs/file_search": {
         "defer": True,
@@ -129,7 +84,7 @@ _TOOL_METADATA: dict[str, dict] = {
     "cron": {"defer": True, "tags": {ToolTag.PRIVILEGED}},
     "todolist": {"defer": True, "tags": {ToolTag.READ_ONLY}},
     "unit_converter": {"defer": True, "tags": {ToolTag.READ_ONLY}},
-    "weather": {"tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
+    "weather": {"defer": True, "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
 }
 
 
