@@ -83,73 +83,39 @@ class TestBuildRegistry(unittest.TestCase):
                     f"Tool {tool_name} should be disabled without SEARXNG_URL",
                 )
 
-    def test_websearch_tools_enabled_with_env(self):
-        """Test that websearch tools are enabled when env vars are set."""
+    def test_unified_websearch_enabled_with_env(self):
+        """Test that unified websearch is enabled when at least one engine has keys."""
         with patch.dict(os.environ, {"BRAVE_API_KEY": "test-key-for-brave"}):
             reg = build_registry()
 
-            brave_tools = [
-                t for t in reg._tools if reg._tools[t].namespace == "web/brave_search"
+            ws_tools = [
+                t for t in reg._tools if reg._tools[t].namespace == "web/websearch"
             ]
-            self.assertGreater(len(brave_tools), 0)
-            for tool_name in brave_tools:
+            self.assertGreater(len(ws_tools), 0)
+            for tool_name in ws_tools:
                 self.assertTrue(
                     reg.is_enabled(tool_name),
                     f"Tool {tool_name} should be enabled with BRAVE_API_KEY set",
                 )
 
-    def test_websearch_tools_enabled_with_tool_kwargs(self):
-        """Test that websearch tools are enabled when API keys are passed via tool_kwargs."""
-        with patch.dict(os.environ, {}, clear=True):
-            for var in [
-                "BRAVE_API_KEY",
-                "TAVILY_API_KEY",
-                "SEARXNG_URL",
-                "BRIGHTDATA_API_KEY",
-                "SCRAPELESS_API_KEY",
-            ]:
-                os.environ.pop(var, None)
+    def test_individual_search_providers_not_registered(self):
+        """Individual search providers are no longer registered as separate tools."""
+        with patch.dict(os.environ, {"BRAVE_API_KEY": "test-key"}):
+            reg = build_registry()
 
-            reg = build_registry(
-                tool_kwargs={"brave_search": {"api_keys": "direct-test-key"}}
-            )
-
-            brave_tools = [
-                t for t in reg._tools if reg._tools[t].namespace == "web/brave_search"
-            ]
-            self.assertGreater(len(brave_tools), 0)
-            for tool_name in brave_tools:
-                self.assertTrue(
-                    reg.is_enabled(tool_name),
-                    f"Tool {tool_name} should be enabled with tool_kwargs API key",
-                )
-
-            tavily_tools = [
-                t for t in reg._tools if reg._tools[t].namespace == "web/tavily_search"
-            ]
-            for tool_name in tavily_tools:
-                self.assertFalse(
-                    reg.is_enabled(tool_name),
-                    f"Tool {tool_name} should be disabled without config",
-                )
-
-    def test_tool_kwargs_searxng_url(self):
-        """Test that SearXNG can be configured via tool_kwargs with base_url."""
-        with patch.dict(os.environ, {}, clear=True):
-            os.environ.pop("SEARXNG_URL", None)
-
-            reg = build_registry(
-                tool_kwargs={"searxng_search": {"base_url": "http://localhost:8080"}}
-            )
-
-            searxng_tools = [
-                t for t in reg._tools if reg._tools[t].namespace == "web/searxng_search"
-            ]
-            self.assertGreater(len(searxng_tools), 0)
-            for tool_name in searxng_tools:
-                self.assertTrue(
-                    reg.is_enabled(tool_name),
-                    f"Tool {tool_name} should be enabled with tool_kwargs base_url",
+            for ns in (
+                "web/brave_search",
+                "web/tavily_search",
+                "web/searxng_search",
+                "web/brightdata_search",
+                "web/scrapeless_search",
+                "web/serper_search",
+            ):
+                tools = [t for t in reg._tools if reg._tools[t].namespace == ns]
+                self.assertEqual(
+                    len(tools),
+                    0,
+                    f"Individual provider namespace {ns} should not be registered",
                 )
 
     def test_core_tools_always_enabled(self):
@@ -273,16 +239,33 @@ class TestToolMetadataAndDiscovery(unittest.TestCase):
                     f"Tool in namespace {tool.namespace} should be deferred",
                 )
 
-    def test_core_tools_not_deferred(self):
-        """Test that core tools are not deferred."""
+    def test_primary_tools_not_deferred(self):
+        """Test that primary tools (always visible to LLM) are not deferred."""
         reg = build_registry(enable_discovery=False)
 
-        core_namespaces = {"calculator", "datetime", "think", "file_ops"}
-        for tool in reg._tools.values():
-            if tool.namespace in core_namespaces:
+        primary_tools = {
+            "datetime-now",
+            "think-think",
+            "web/fetch-fetch_content",
+            "web/websearch-search",
+        }
+        for name in primary_tools:
+            if name in reg._tools:
                 self.assertFalse(
+                    reg._tools[name].metadata.defer,
+                    f"Primary tool {name} should not be deferred",
+                )
+
+    def test_secondary_tools_deferred(self):
+        """Test that secondary tools (calculator, weather) are deferred."""
+        reg = build_registry(enable_discovery=False)
+
+        deferred_namespaces = {"calculator", "weather"}
+        for tool in reg._tools.values():
+            if tool.namespace in deferred_namespaces:
+                self.assertTrue(
                     tool.metadata.defer,
-                    f"Core tool in namespace {tool.namespace} should not be deferred",
+                    f"Secondary tool in namespace {tool.namespace} should be deferred",
                 )
 
     def test_discovery_enabled(self):
