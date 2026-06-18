@@ -42,11 +42,9 @@ RUN adduser \
 # Create temporary directory for potential local wheels
 RUN mkdir -p /tmp/dist/
 
-# Copy the entire project context and extract dist if it exists
-COPY . /tmp/build/
-RUN if [ -d "/tmp/build/dist" ] && [ "$(ls -A /tmp/build/dist 2>/dev/null)" ]; then \
-        cp /tmp/build/dist/*.whl /tmp/dist/ 2>/dev/null || true; \
-    fi
+# Copy only the dist/ directory for local wheels (never copy the full tree —
+# even with .dockerignore, a broad COPY risks leaking secrets into layers).
+COPY dist/ /tmp/dist/
 
 # Configure pip mirror based on geographic location
 # RUN pip config set global.index-url https://mirrors.cernet.edu.cn/pypi/web/simple;
@@ -75,7 +73,7 @@ RUN if [ -n "$LOCAL_WHEEL" ] && [ -f "/tmp/dist/$LOCAL_WHEEL" ]; then \
             pip install --no-cache-dir "toolregistry-hub[server]"; \
         fi; \
     fi && \
-    rm -rf /tmp/dist/ /tmp/build/
+    rm -rf /tmp/dist/
 
 # Switch to the non-privileged user to run the application.
 USER appuser
