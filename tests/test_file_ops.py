@@ -13,6 +13,7 @@ class TestFileOps:
 
     def setup_method(self):
         """Set up test environment before each test."""
+        FileOps._read_files.clear()
         self.temp_dir = tempfile.mkdtemp()
         self.test_file = os.path.join(self.temp_dir, "test.txt")
         self.test_content = "Hello, World!\nThis is a test file.\nLine 3"
@@ -137,10 +138,38 @@ class TestFileOps:
         assert len(results) == 1
         assert "script.py" in results[0]["file"]
 
+    def test_edit_requires_prior_read(self):
+        """Test edit requires the file to be read first."""
+        with pytest.raises(ValueError, match="must be read"):
+            FileOps.edit(self.test_file, "Hello", "Hi")
+
+    def test_edit_rejects_symlink(self):
+        """Test edit refuses to write through symlinks."""
+        link_path = os.path.join(self.temp_dir, "link.txt")
+        os.symlink(self.test_file, link_path)
+        FileOps.read_file(link_path)
+        with pytest.raises(ValueError, match="Refusing to write through symlink"):
+            FileOps.edit(link_path, "Hello", "Hi")
+
+    def test_write_rejects_symlink(self):
+        """Test write_file refuses to write through symlinks."""
+        link_path = os.path.join(self.temp_dir, "link.txt")
+        os.symlink(self.test_file, link_path)
+        with pytest.raises(ValueError, match="Refusing to write through symlink"):
+            FileOps.write_file(link_path, "new content")
+
+    def test_append_rejects_symlink(self):
+        """Test append_file refuses to write through symlinks."""
+        link_path = os.path.join(self.temp_dir, "link.txt")
+        os.symlink(self.test_file, link_path)
+        with pytest.raises(ValueError, match="Refusing to write through symlink"):
+            FileOps.append_file(link_path, "more")
+
     def test_edit_single_match(self):
         """Test editing with a single match."""
         content = "line1\nline2\nline3\n"
         FileOps.write_file(self.test_file, content)
+        FileOps.read_file(self.test_file)
 
         diff = FileOps.edit(self.test_file, "line2", "modified line2")
 
@@ -151,6 +180,7 @@ class TestFileOps:
 
     def test_edit_no_match(self):
         """Test editing with no match raises ValueError."""
+        FileOps.read_file(self.test_file)
         with pytest.raises(ValueError, match="not found"):
             FileOps.edit(self.test_file, "nonexistent", "replacement")
 
@@ -159,6 +189,7 @@ class TestFileOps:
         content = "TODO item1\nTODO item2\nTODO item3\n"
         FileOps.write_file(self.test_file, content)
 
+        FileOps.read_file(self.test_file)
         FileOps.edit(self.test_file, "TODO", "DONE", replace_all=True)
 
         result = FileOps.read_file(self.test_file)
@@ -178,6 +209,7 @@ class TestFileOps:
         content = "".join(lines)
         FileOps.write_file(self.test_file, content)
 
+        FileOps.read_file(self.test_file)
         FileOps.edit(self.test_file, "TODO", "DONE", start_line=5)
 
         result = FileOps.read_file(self.test_file)
@@ -189,6 +221,7 @@ class TestFileOps:
         content = "dup\ndup\ndup\n"
         FileOps.write_file(self.test_file, content)
 
+        FileOps.read_file(self.test_file)
         with pytest.raises(ValueError, match="3 times"):
             FileOps.edit(self.test_file, "dup", "unique")
 
@@ -207,6 +240,7 @@ class TestFileOps:
         with open(self.test_file, "wb") as f:
             f.write(b"line1\r\nline2\r\nline3\r\n")
 
+        FileOps.read_file(self.test_file)
         FileOps.edit(self.test_file, "line2", "modified")
 
         with open(self.test_file, "rb") as f:
@@ -218,6 +252,7 @@ class TestFileOps:
         with open(self.test_file, "wb") as f:
             f.write(b"line1\nline2\nline3\n")
 
+        FileOps.read_file(self.test_file)
         FileOps.edit(self.test_file, "line2", "modified")
 
         with open(self.test_file, "rb") as f:
@@ -231,6 +266,7 @@ class TestFileOps:
         with open(self.test_file, "wb") as f:
             f.write(bom + b"line1\nline2\n")
 
+        FileOps.read_file(self.test_file)
         FileOps.edit(self.test_file, "line1", "changed")
 
         with open(self.test_file, "rb") as f:
@@ -242,6 +278,7 @@ class TestFileOps:
         """Test that edit returns a valid unified diff string."""
         content = "aaa\nbbb\nccc\n"
         FileOps.write_file(self.test_file, content)
+        FileOps.read_file(self.test_file)
 
         diff = FileOps.edit(self.test_file, "bbb", "xxx")
 
@@ -256,6 +293,7 @@ class TestFileOps:
         content = "keep\nDELETE_ME\nkeep\n"
         FileOps.write_file(self.test_file, content)
 
+        FileOps.read_file(self.test_file)
         FileOps.edit(self.test_file, "DELETE_ME\n", "")
 
         result = FileOps.read_file(self.test_file)
