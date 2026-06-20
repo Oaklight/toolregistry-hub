@@ -13,12 +13,10 @@ class TestFileOps:
 
     def setup_method(self):
         """Set up test environment before each test."""
-        FileOps._read_files.clear()
         self.temp_dir = tempfile.mkdtemp()
         self.test_file = os.path.join(self.temp_dir, "test.txt")
         self.test_content = "Hello, World!\nThis is a test file.\nLine 3"
 
-        # Create a test file
         with open(self.test_file, "w", encoding="utf-8") as f:
             f.write(self.test_content)
 
@@ -29,285 +27,213 @@ class TestFileOps:
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
-    def test_read_file(self):
-        """Test reading file content."""
-        content = FileOps.read_file(self.test_file)
-        assert content == self.test_content
+    def _read(self, path: str | None = None) -> dict[str, str | bool]:
+        return FileOps.read(path or self.test_file)
 
-    def test_read_file_not_found(self):
-        """Test reading non-existent file."""
-        non_existent = os.path.join(self.temp_dir, "non_existent.txt")
+    # ── read ─────────────────────────────────────────────────────────────
+
+    def test_read(self):
+        result = self._read()
+        assert result["content"] == self.test_content
+        assert isinstance(result["digest"], str)
+        assert result["is_symlink"] is False
+        assert result["real_path"] == os.path.realpath(self.test_file)
+
+    def test_read_not_found(self):
         with pytest.raises(FileNotFoundError):
-            FileOps.read_file(non_existent)
+            FileOps.read(os.path.join(self.temp_dir, "missing.txt"))
 
-    def test_write_file(self):
-        """Test writing file content."""
-        new_file = os.path.join(self.temp_dir, "new_file.txt")
-        new_content = "New content for testing"
-
-        FileOps.write_file(new_file, new_content)
-
-        # Verify file was created and content is correct
-        assert os.path.exists(new_file)
-        with open(new_file, encoding="utf-8") as f:
-            assert f.read() == new_content
-
-    def test_write_file_overwrite(self):
-        """Test overwriting existing file."""
-        new_content = "Overwritten content"
-        FileOps.write_file(self.test_file, new_content)
-
-        content = FileOps.read_file(self.test_file)
-        assert content == new_content
-
-    def test_append_file(self):
-        """Test appending content to file."""
-        append_content = "\nAppended line"
-        FileOps.append_file(self.test_file, append_content)
-
-        content = FileOps.read_file(self.test_file)
-        assert content == self.test_content + append_content
-
-    def test_append_file_new_file(self):
-        """Test appending to non-existent file (should create it)."""
-        new_file = os.path.join(self.temp_dir, "append_test.txt")
-        content = "New file content"
-
-        FileOps.append_file(new_file, content)
-
-        assert os.path.exists(new_file)
-        assert FileOps.read_file(new_file) == content
-
-    def test_make_diff(self):
-        """Test generating unified diff."""
-        ours = "line1\nline2\nline3"
-        theirs = "line1\nmodified line2\nline3"
-
-        diff = FileOps.make_diff(ours, theirs)
-        assert isinstance(diff, str)
-        assert "line2" in diff
-        assert "modified line2" in diff
-
-    def test_make_git_conflict(self):
-        """Test generating git conflict markers."""
-        ours = "our version"
-        theirs = "their version"
-
-        conflict = FileOps.make_git_conflict(ours, theirs)
-        assert "<<<<<<< HEAD" in conflict
-        assert "=======" in conflict
-        assert ">>>>>>> incoming" in conflict
-        assert ours in conflict
-        assert theirs in conflict
-
-    def test_search_files(self):
-        """Test searching files with regex."""
-        # Create additional test files
-        file1 = os.path.join(self.temp_dir, "file1.py")
-        file2 = os.path.join(self.temp_dir, "file2.txt")
-
-        with open(file1, "w") as f:
-            f.write("def function():\n    return 'test'\n")
-
-        with open(file2, "w") as f:
-            f.write("This is a test file\nwith multiple lines\n")
-
-        # Search for 'test' pattern
-        results = FileOps.search_files(self.temp_dir, r"test", "*.txt")
-
-        assert len(results) >= 1
-        assert any("test" in result["line"] for result in results)
-        assert all("file" in result for result in results)
-        assert all("line_num" in result for result in results)
-
-    def test_search_files_with_pattern(self):
-        """Test searching files with file pattern filter."""
-        # Create files with different extensions
-        py_file = os.path.join(self.temp_dir, "script.py")
-        txt_file = os.path.join(self.temp_dir, "document.txt")
-
-        with open(py_file, "w") as f:
-            f.write("print('hello')")
-
-        with open(txt_file, "w") as f:
-            f.write("hello world")
-
-        # Search only in Python files
-        results = FileOps.search_files(self.temp_dir, r"hello", "*.py")
-
-        assert len(results) == 1
-        assert "script.py" in results[0]["file"]
-
-    def test_edit_requires_prior_read(self):
-        """Test edit requires the file to be read first."""
-        with pytest.raises(ValueError, match="must be read"):
-            FileOps.edit(self.test_file, "Hello", "Hi")
-
-    def test_edit_rejects_symlink(self):
-        """Test edit refuses to write through symlinks."""
+    def test_read_symlink_allowed(self):
         link_path = os.path.join(self.temp_dir, "link.txt")
         os.symlink(self.test_file, link_path)
-        FileOps.read_file(link_path)
-        with pytest.raises(ValueError, match="Refusing to write through symlink"):
-            FileOps.edit(link_path, "Hello", "Hi")
+        result = FileOps.read(link_path)
+        assert result["content"] == self.test_content
+        assert result["is_symlink"] is True
+        assert result["real_path"] == os.path.realpath(self.test_file)
+
+    # ── write ────────────────────────────────────────────────────────────
+
+    def test_write_new_file_without_digest(self):
+        new_file = os.path.join(self.temp_dir, "new.txt")
+        result = FileOps.write(new_file, "new content")
+        assert isinstance(result["digest"], str)
+        assert FileOps.read(new_file)["content"] == "new content"
+
+    def test_write_existing_requires_digest(self):
+        with pytest.raises(ValueError, match="digest is required"):
+            FileOps.write(self.test_file, "new content")
+
+    def test_write_existing_with_digest(self):
+        digest = self._read()["digest"]
+        result = FileOps.write(self.test_file, "new content", digest=digest)
+        assert isinstance(result["digest"], str)
+        assert self._read()["content"] == "new content"
+
+    def test_write_rejects_stale_digest(self):
+        digest = self._read()["digest"]
+        with open(self.test_file, "w", encoding="utf-8") as f:
+            f.write("external change")
+        with pytest.raises(ValueError, match="changed since digest"):
+            FileOps.write(self.test_file, "new content", digest=digest)
+
+    def test_write_append_mode(self):
+        digest = self._read()["digest"]
+        result = FileOps.write(
+            self.test_file, "\nappended", digest=digest, mode="append"
+        )
+        assert isinstance(result["digest"], str)
+        assert self._read()["content"] == self.test_content + "\nappended"
+
+    def test_write_append_preserves_utf8_bom(self):
+        bom = b"\xef\xbb\xbf"
+        with open(self.test_file, "wb") as f:
+            f.write(bom + b"line1\n")
+        digest = self._read()["digest"]
+        FileOps.write(self.test_file, "line2\n", digest=digest, mode="append")
+        with open(self.test_file, "rb") as f:
+            raw = f.read()
+        assert raw.startswith(bom)
+        assert b"line1\nline2\n" in raw
+
+    def test_write_invalid_mode(self):
+        with pytest.raises(ValueError, match="mode must"):
+            FileOps.write(os.path.join(self.temp_dir, "new.txt"), "content", mode="bad")
 
     def test_write_rejects_symlink(self):
-        """Test write_file refuses to write through symlinks."""
         link_path = os.path.join(self.temp_dir, "link.txt")
         os.symlink(self.test_file, link_path)
         with pytest.raises(ValueError, match="Refusing to write through symlink"):
-            FileOps.write_file(link_path, "new content")
+            FileOps.write(link_path, "new content")
 
-    def test_append_rejects_symlink(self):
-        """Test append_file refuses to write through symlinks."""
-        link_path = os.path.join(self.temp_dir, "link.txt")
-        os.symlink(self.test_file, link_path)
+    def test_write_rejects_tmp_symlink(self):
+        new_file = os.path.join(self.temp_dir, "new.txt")
+        tmp_link = f"{new_file}.tmp"
+        os.symlink(self.test_file, tmp_link)
         with pytest.raises(ValueError, match="Refusing to write through symlink"):
-            FileOps.append_file(link_path, "more")
+            FileOps.write(new_file, "new content")
+
+    # ── edit ─────────────────────────────────────────────────────────────
+
+    def test_edit_requires_digest(self):
+        with pytest.raises(ValueError, match="digest is required"):
+            FileOps.edit(self.test_file, "Hello", "Hi", digest=None)  # type: ignore[arg-type]
 
     def test_edit_single_match(self):
-        """Test editing with a single match."""
-        content = "line1\nline2\nline3\n"
-        FileOps.write_file(self.test_file, content)
-        FileOps.read_file(self.test_file)
+        digest = self._read()["digest"]
+        result = FileOps.edit(self.test_file, "Hello", "Hi", digest=digest)
+        assert "diff" in result
+        assert isinstance(result["digest"], str)
+        assert self._read()["content"].startswith("Hi, World!")
 
-        diff = FileOps.edit(self.test_file, "line2", "modified line2")
+    def test_edit_digest_can_chain_multiple_edits(self):
+        digest = self._read()["digest"]
+        first = FileOps.edit(self.test_file, "Hello", "Hi", digest=digest)
+        second = FileOps.edit(
+            self.test_file, "World", "Universe", digest=first["digest"]
+        )
+        assert isinstance(second["digest"], str)
+        assert self._read()["content"].startswith("Hi, Universe!")
 
-        result = FileOps.read_file(self.test_file)
-        assert result == "line1\nmodified line2\nline3\n"
-        assert isinstance(diff, str)
-        assert len(diff) > 0
+    def test_edit_rejects_stale_digest(self):
+        digest = self._read()["digest"]
+        with open(self.test_file, "w", encoding="utf-8") as f:
+            f.write("external change")
+        with pytest.raises(ValueError, match="changed since digest"):
+            FileOps.edit(self.test_file, "external", "new", digest=digest)
 
     def test_edit_no_match(self):
-        """Test editing with no match raises ValueError."""
-        FileOps.read_file(self.test_file)
+        digest = self._read()["digest"]
         with pytest.raises(ValueError, match="not found"):
-            FileOps.edit(self.test_file, "nonexistent", "replacement")
+            FileOps.edit(self.test_file, "missing", "replacement", digest=digest)
 
     def test_edit_multiple_matches_replace_all(self):
-        """Test editing with replace_all=True replaces all occurrences."""
-        content = "TODO item1\nTODO item2\nTODO item3\n"
-        FileOps.write_file(self.test_file, content)
-
-        FileOps.read_file(self.test_file)
-        FileOps.edit(self.test_file, "TODO", "DONE", replace_all=True)
-
-        result = FileOps.read_file(self.test_file)
-        assert result == "DONE item1\nDONE item2\nDONE item3\n"
-        assert "TODO" not in result
+        FileOps.write(self.test_file, "TODO 1\nTODO 2\n", digest=self._read()["digest"])
+        digest = self._read()["digest"]
+        FileOps.edit(self.test_file, "TODO", "DONE", digest=digest, replace_all=True)
+        assert self._read()["content"] == "DONE 1\nDONE 2\n"
 
     def test_edit_multiple_matches_start_line(self):
-        """Test editing with start_line disambiguation."""
-        lines = [
-            "line1\n",
-            "TODO first\n",
-            "line3\n",
-            "line4\n",
-            "TODO second\n",
-            "line6\n",
-        ]
-        content = "".join(lines)
-        FileOps.write_file(self.test_file, content)
-
-        FileOps.read_file(self.test_file)
-        FileOps.edit(self.test_file, "TODO", "DONE", start_line=5)
-
-        result = FileOps.read_file(self.test_file)
+        content = "TODO first\nline\nTODO second\n"
+        FileOps.write(self.test_file, content, digest=self._read()["digest"])
+        digest = self._read()["digest"]
+        FileOps.edit(self.test_file, "TODO", "DONE", digest=digest, start_line=3)
+        result = self._read()["content"]
         assert "TODO first" in result
         assert "DONE second" in result
 
     def test_edit_multiple_matches_no_disambiguation(self):
-        """Test editing with multiple matches and no disambiguation raises ValueError."""
-        content = "dup\ndup\ndup\n"
-        FileOps.write_file(self.test_file, content)
-
-        FileOps.read_file(self.test_file)
-        with pytest.raises(ValueError, match="3 times"):
-            FileOps.edit(self.test_file, "dup", "unique")
+        FileOps.write(self.test_file, "dup\ndup\n", digest=self._read()["digest"])
+        digest = self._read()["digest"]
+        with pytest.raises(ValueError, match="2 times"):
+            FileOps.edit(self.test_file, "dup", "unique", digest=digest)
 
     def test_edit_identical_strings(self):
-        """Test editing with identical old and new strings raises ValueError."""
+        digest = self._read()["digest"]
         with pytest.raises(ValueError, match="identical"):
-            FileOps.edit(self.test_file, "same", "same")
+            FileOps.edit(self.test_file, "same", "same", digest=digest)
 
     def test_edit_empty_old_string(self):
-        """Test editing with empty old_string raises ValueError."""
+        digest = self._read()["digest"]
         with pytest.raises(ValueError, match="must not be empty"):
-            FileOps.edit(self.test_file, "", "something")
+            FileOps.edit(self.test_file, "", "something", digest=digest)
 
     def test_edit_preserves_crlf(self):
-        """Test that edit preserves CRLF line endings."""
         with open(self.test_file, "wb") as f:
-            f.write(b"line1\r\nline2\r\nline3\r\n")
-
-        FileOps.read_file(self.test_file)
-        FileOps.edit(self.test_file, "line2", "modified")
-
+            f.write(b"line1\r\nline2\r\n")
+        digest = self._read()["digest"]
+        FileOps.edit(self.test_file, "line2", "changed", digest=digest)
         with open(self.test_file, "rb") as f:
-            raw = f.read()
-        assert raw == b"line1\r\nmodified\r\nline3\r\n"
+            assert f.read() == b"line1\r\nchanged\r\n"
 
     def test_edit_preserves_lf(self):
-        """Test that edit preserves LF line endings."""
         with open(self.test_file, "wb") as f:
-            f.write(b"line1\nline2\nline3\n")
-
-        FileOps.read_file(self.test_file)
-        FileOps.edit(self.test_file, "line2", "modified")
-
+            f.write(b"line1\nline2\n")
+        digest = self._read()["digest"]
+        FileOps.edit(self.test_file, "line2", "changed", digest=digest)
         with open(self.test_file, "rb") as f:
             raw = f.read()
         assert b"\r\n" not in raw
-        assert raw == b"line1\nmodified\nline3\n"
+        assert raw == b"line1\nchanged\n"
 
     def test_edit_preserves_utf8_bom(self):
-        """Test that edit preserves UTF-8 BOM."""
         bom = b"\xef\xbb\xbf"
         with open(self.test_file, "wb") as f:
-            f.write(bom + b"line1\nline2\n")
-
-        FileOps.read_file(self.test_file)
-        FileOps.edit(self.test_file, "line1", "changed")
-
+            f.write(bom + b"line1\n")
+        digest = self._read()["digest"]
+        FileOps.edit(self.test_file, "line1", "changed", digest=digest)
         with open(self.test_file, "rb") as f:
             raw = f.read()
         assert raw.startswith(bom)
         assert b"changed" in raw
 
-    def test_edit_returns_unified_diff(self):
-        """Test that edit returns a valid unified diff string."""
-        content = "aaa\nbbb\nccc\n"
-        FileOps.write_file(self.test_file, content)
-        FileOps.read_file(self.test_file)
-
-        diff = FileOps.edit(self.test_file, "bbb", "xxx")
-
-        assert "---" in diff
-        assert "+++" in diff
-        assert "@@" in diff
-        assert "-bbb" in diff
-        assert "+xxx" in diff
-
     def test_edit_delete_string(self):
-        """Test editing with empty new_string deletes the old_string."""
-        content = "keep\nDELETE_ME\nkeep\n"
-        FileOps.write_file(self.test_file, content)
+        digest = self._read()["digest"]
+        FileOps.edit(self.test_file, "This is a test file.\n", "", digest=digest)
+        assert self._read()["content"] == "Hello, World!\nLine 3"
 
-        FileOps.read_file(self.test_file)
-        FileOps.edit(self.test_file, "DELETE_ME\n", "")
+    def test_edit_rejects_symlink(self):
+        link_path = os.path.join(self.temp_dir, "link.txt")
+        os.symlink(self.test_file, link_path)
+        digest = self._read()["digest"]
+        with pytest.raises(ValueError, match="Refusing to write through symlink"):
+            FileOps.edit(link_path, "Hello", "Hi", digest=digest)
 
-        result = FileOps.read_file(self.test_file)
-        assert result == "keep\nkeep\n"
+    def test_edit_rejects_tmp_symlink(self):
+        digest = self._read()["digest"]
+        tmp_link = f"{self.test_file}.tmp"
+        os.symlink(self.test_file, tmp_link)
+        with pytest.raises(ValueError, match="Refusing to write through symlink"):
+            FileOps.edit(self.test_file, "Hello", "Hi", digest=digest)
 
-    def test_atomic_write_operation(self):
-        """Test that write operations are atomic."""
-        # This test verifies that temporary files are used during write
-        original_content = "original"
-        FileOps.write_file(self.test_file, original_content)
+    # ── internal utilities ───────────────────────────────────────────────
 
-        # Verify no .tmp files remain after successful write
-        temp_files = [f for f in os.listdir(self.temp_dir) if f.endswith(".tmp")]
-        assert len(temp_files) == 0
+    def test_make_diff(self):
+        diff = FileOps._make_diff("a\nb", "a\nc")
+        assert "-b" in diff
+        assert "+c" in diff
 
-        # Verify content is correct
-        assert FileOps.read_file(self.test_file) == original_content
+    def test_make_git_conflict(self):
+        conflict = FileOps._make_git_conflict("ours", "theirs")
+        assert "<<<<<<< HEAD" in conflict
+        assert "ours" in conflict
+        assert "theirs" in conflict

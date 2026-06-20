@@ -1,29 +1,13 @@
-"""
-file_ops.py - Atomic file operations toolkit for LLM agents
-
-Key features:
-- All methods are static for stateless usage
-- Atomic writes with automatic backups
-- Unified error handling
-- Exact string replacement with disambiguation support
-- Encoding and line ending preservation
-"""
+"""Atomic file operations toolkit for LLM agents."""
 
 import difflib
-import fnmatch
+import hashlib
 import os
-import re
-import warnings
+from typing import Literal
 
 
 class FileOps:
-    """Core file operations toolkit designed for LLM agent integration.
-
-    Handles file reading, atomic writing, appending, searching, and exact
-    string replacement for file editing.
-    """
-
-    _read_files: set[str] = set()
+    """Core file operations with read/edit/write safety semantics."""
 
     # ======================
     #  Internal Helpers
@@ -31,15 +15,7 @@ class FileOps:
 
     @staticmethod
     def _detect_encoding(raw: bytes) -> tuple[str, bytes]:
-        """Detect file encoding from BOM bytes.
-
-        Args:
-            raw: Raw file bytes.
-
-        Returns:
-            Tuple of (encoding_name, bom_bytes). For utf-8-sig the codec
-            handles BOM transparently so bom is empty.
-        """
+        """Detect file encoding from BOM bytes."""
         if raw.startswith(b"\xef\xbb\xbf"):
             return ("utf-8-sig", b"")
         if raw.startswith(b"\xff\xfe"):
@@ -50,22 +26,33 @@ class FileOps:
 
     @staticmethod
     def _detect_line_ending(text: str) -> str:
-        """Detect dominant line ending in text.
-
-        Args:
-            text: Decoded file content.
-
-        Returns:
-            '\\r\\n' if CRLF is dominant, otherwise '\\n'.
-        """
+        """Detect dominant line ending in text."""
         crlf_count = text.count("\r\n")
         lf_count = text.count("\n") - crlf_count
         return "\r\n" if crlf_count > lf_count else "\n"
 
     @staticmethod
     def _real_path(path: str) -> str:
-        """Return absolute real path for access tracking."""
+        """Return absolute real path."""
         return os.path.realpath(os.path.abspath(path))
+
+    @staticmethod
+    def _digest(raw: bytes) -> str:
+        """Return SHA-256 digest for file content."""
+        return hashlib.sha256(raw).hexdigest()
+
+    @staticmethod
+    def _read_raw(path: str) -> bytes:
+        """Read file as bytes."""
+        with open(path, "rb") as f:
+            return f.read()
+
+    @staticmethod
+    def _decode(raw: bytes) -> tuple[str, str, bytes]:
+        """Decode raw bytes preserving encoding metadata."""
+        encoding, bom = FileOps._detect_encoding(raw)
+        text = raw[len(bom) :].decode(encoding) if bom else raw.decode(encoding)
+        return text, encoding, bom
 
     @staticmethod
     def _assert_not_symlink(path: str) -> None:
@@ -76,63 +63,82 @@ class FileOps:
                 "Resolve the symlink and pass the real target path explicitly."
             )
 
+    @staticmethod
+    def _assert_digest(path: str, digest: str | None, raw: bytes) -> None:
+        """Require and verify digest for existing file modifications."""
+        if digest is None:
+            raise ValueError(
+                f"digest is required for existing file: {path}. "
+                "Call read(path) first and pass the returned digest."
+            )
+        if digest != FileOps._digest(raw):
+            raise ValueError("File changed since digest was issued; read it again")
+
     # ======================
-    #  Content Modification
+    #  Public Tools
     # ======================
+
+    @staticmethod
+    def read(path: str) -> dict[str, str | bool]:
+        """Read text file content and return a digest for safe edits/writes.
+
+        Symlinks are allowed for reading. Writes through symlinks are rejected,
+        so callers should pass ``real_path`` to ``edit`` or ``write`` when
+        ``is_symlink`` is true.
+
+        Args:
+            path: File path to read.
+
+        Returns:
+            Dict with ``content``, ``digest``, ``is_symlink``, and ``real_path``.
+        """
+        raw = FileOps._read_raw(path)
+        text, _encoding, _bom = FileOps._decode(raw)
+        return {
+            "content": text,
+            "digest": FileOps._digest(raw),
+            "is_symlink": os.path.islink(path),
+            "real_path": FileOps._real_path(path),
+        }
 
     @staticmethod
     def edit(
         path: str,
         old_string: str,
         new_string: str,
+        digest: str,
         replace_all: bool = False,
         start_line: int | None = None,
-    ) -> str:
+    ) -> dict[str, str]:
         """Replace exact string in file.
 
         Args:
             path: Absolute path to file.
             old_string: Exact text to find. Must not be empty.
             new_string: Replacement text (must differ from old_string).
+            digest: SHA-256 digest returned by ``read(path)``.
             replace_all: Replace all occurrences instead of just one.
             start_line: Optional 1-based line number hint for disambiguation.
-                When multiple matches exist, selects the match whose start
-                line is closest to this value. Does not require exact precision.
 
         Returns:
-            Unified diff showing what changed (for display purposes).
-
-        Raises:
-            ValueError: If old_string is empty, identical to new_string,
-                not found, or ambiguous without start_line/replace_all.
-            FileNotFoundError: If path does not exist.
+            Dict with ``diff`` and updated ``digest``.
         """
         if not old_string:
             raise ValueError("old_string must not be empty")
         if old_string == new_string:
             raise ValueError("old_string and new_string are identical")
         FileOps._assert_not_symlink(path)
-        real_path = FileOps._real_path(path)
-        if real_path not in FileOps._read_files:
-            raise ValueError(
-                f"File must be read with read_file() before edit(). Unread path: {path}"
-            )
 
-        # Read file as bytes to preserve encoding
-        with open(path, "rb") as f:
-            raw = f.read()
+        raw = FileOps._read_raw(path)
+        FileOps._assert_digest(path, digest, raw)
 
-        encoding, bom = FileOps._detect_encoding(raw)
-        text = raw[len(bom) :].decode(encoding) if bom else raw.decode(encoding)
-
+        text, encoding, bom = FileOps._decode(raw)
         line_ending = FileOps._detect_line_ending(text)
 
-        # Normalize to \n for matching
         content = text.replace("\r\n", "\n")
         old_str = old_string.replace("\r\n", "\n")
         new_str = new_string.replace("\r\n", "\n")
 
-        # Find all non-overlapping occurrences
         positions: list[int] = []
         start = 0
         while True:
@@ -166,185 +172,81 @@ class FileOps:
                 f"replace all occurrences, or provide start_line to disambiguate."
             )
 
-        # Generate diff for display (on normalized content)
         diff_output = "\n".join(
             difflib.unified_diff(
                 content.splitlines(), new_content.splitlines(), lineterm=""
             )
         )
 
-        # Restore line endings
         if line_ending == "\r\n":
             new_content = new_content.replace("\n", "\r\n")
 
-        # Encode back
         encoded = bom + new_content.encode(encoding)
-
-        # Atomic write (binary)
         tmp_path = f"{path}.tmp"
+        FileOps._assert_not_symlink(tmp_path)
         with open(tmp_path, "wb") as f:
             f.write(encoded)
         os.replace(tmp_path, path)
 
-        return diff_output
+        return {"diff": diff_output, "digest": FileOps._digest(encoded)}
 
     @staticmethod
-    def search_files(path: str, regex: str, file_pattern: str = "*") -> list[dict]:
-        """Perform regex search across files in a directory, returning matches with context.
+    def write(
+        path: str,
+        content: str,
+        digest: str | None = None,
+        mode: Literal["overwrite", "append"] = "overwrite",
+    ) -> dict[str, str]:
+        """Write content to a file.
 
-        .. deprecated:: Use ``FileSearch.grep()`` instead.
+        Existing files require a digest from ``read(path)``.  New files can be
+        created without a digest.  ``mode="append"`` appends content without
+        requiring the caller to provide the full original file content.
 
         Args:
-            path: The directory path to search recursively.
-            regex: The regex pattern to search for.
-            file_pattern: Glob pattern to filter files (default='*').
+            path: Destination file path.
+            content: Content to write or append.
+            digest: Required when the file already exists.
+            mode: ``"overwrite"`` or ``"append"``.
 
         Returns:
-            List of dicts with keys:
-                - file: file path
-                - line_num: line number of match (1-based)
-                - line: matched line content
-                - context: list of context lines (tuples of line_num, line content)
+            Dict with updated ``digest``.
         """
-        warnings.warn(
-            "FileOps.search_files() is deprecated. Use FileSearch.grep() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        pattern = re.compile(regex)
-        results = []
-        context_radius = 2  # lines before and after match to include as context
-
-        for root, _dirs, files in os.walk(path):
-            for filename in files:
-                if not fnmatch.fnmatch(filename, file_pattern):
-                    continue
-                file_path = os.path.join(root, filename)
-                try:
-                    with open(file_path, encoding="utf-8", errors="replace") as f:
-                        lines = f.readlines()
-                except Exception:
-                    continue
-
-                for i, line in enumerate(lines):
-                    if pattern.search(line):
-                        start_context = max(0, i - context_radius)
-                        end_context = min(len(lines), i + context_radius + 1)
-                        context_lines = [
-                            (ln + 1, lines[ln].rstrip("\n"))
-                            for ln in range(start_context, end_context)
-                            if ln != i
-                        ]
-                        results.append(
-                            {
-                                "file": file_path,
-                                "line_num": i + 1,
-                                "line": line.rstrip("\n"),
-                                "context": context_lines,
-                            }
-                        )
-        return results
-
-    # ======================
-    #  File I/O Operations
-    # ======================
-
-    @staticmethod
-    def read_file(path: str) -> str:
-        """Read text file content.
-
-        .. deprecated:: Use ``FileReader.read()`` instead (includes line numbers
-            and pagination).
-
-        Args:
-            path: File path to read
-
-        Returns:
-            File content as string
-
-        Raises:
-            FileNotFoundError: If path doesn't exist
-            UnicodeError: On encoding failures
-        """
-        warnings.warn(
-            "FileOps.read_file() is deprecated. Use FileReader.read() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        with open(path, encoding="utf-8", errors="replace") as f:
-            content = f.read()
-        FileOps._read_files.add(FileOps._real_path(path))
-        return content
-
-    @staticmethod
-    def write_file(path: str, content: str) -> None:
-        """Atomically write content to a text file (overwrite). Creates the file if it doesn't exist.
-
-        Args:
-            path: Destination file path
-            content: Content to write
-        """
+        if mode not in {"overwrite", "append"}:
+            raise ValueError('mode must be "overwrite" or "append"')
         FileOps._assert_not_symlink(path)
+
+        existing = b""
+        if os.path.exists(path):
+            existing = FileOps._read_raw(path)
+            FileOps._assert_digest(path, digest, existing)
+
+        if mode == "append" and existing:
+            existing_text, encoding, bom = FileOps._decode(existing)
+            raw = bom + (existing_text + content).encode(encoding)
+        else:
+            raw = content.encode("utf-8")
+
         tmp_path = f"{path}.tmp"
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            f.write(content)
+        FileOps._assert_not_symlink(tmp_path)
+        with open(tmp_path, "wb") as f:
+            f.write(raw)
         os.replace(tmp_path, path)
 
-    @staticmethod
-    def append_file(path: str, content: str) -> None:
-        """Append content to a text file. Creates the file if it doesn't exist.
-
-        Args:
-            path: Destination file path
-            content: Content to append
-        """
-        FileOps._assert_not_symlink(path)
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(content)
+        return {"digest": FileOps._digest(raw)}
 
     # ======================
-    #  Content Generation
+    #  Internal Utilities
     # ======================
 
     @staticmethod
-    def make_diff(ours: str, theirs: str) -> str:
-        """Generate unified diff text between two strings.
-
-        .. deprecated:: This utility method will be removed in a future release.
-
-        Args:
-            ours: The 'ours' version string.
-            theirs: The 'theirs' version string.
-
-        Returns:
-            Unified diff text
-        """
-        warnings.warn(
-            "FileOps.make_diff() is deprecated and will be removed.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+    def _make_diff(ours: str, theirs: str) -> str:
+        """Generate unified diff text between two strings."""
         return "\n".join(
             difflib.unified_diff(ours.splitlines(), theirs.splitlines(), lineterm="")
         )
 
     @staticmethod
-    def make_git_conflict(ours: str, theirs: str) -> str:
-        """Generate git merge conflict marker text between two strings.
-
-        .. deprecated:: This utility method will be removed in a future release.
-
-        Args:
-            ours: The 'ours' version string.
-            theirs: The 'theirs' version string.
-
-        Returns:
-            Text with conflict markers
-        """
-        warnings.warn(
-            "FileOps.make_git_conflict() is deprecated and will be removed.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+    def _make_git_conflict(ours: str, theirs: str) -> str:
+        """Generate git merge conflict marker text between two strings."""
         return f"<<<<<<< HEAD\n{ours}\n=======\n{theirs}\n>>>>>>> incoming\n"
