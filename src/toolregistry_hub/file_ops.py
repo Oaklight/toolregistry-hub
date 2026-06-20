@@ -23,6 +23,8 @@ class FileOps:
     string replacement for file editing.
     """
 
+    _read_files: set[str] = set()
+
     # ======================
     #  Internal Helpers
     # ======================
@@ -60,6 +62,20 @@ class FileOps:
         lf_count = text.count("\n") - crlf_count
         return "\r\n" if crlf_count > lf_count else "\n"
 
+    @staticmethod
+    def _real_path(path: str) -> str:
+        """Return absolute real path for access tracking."""
+        return os.path.realpath(os.path.abspath(path))
+
+    @staticmethod
+    def _assert_not_symlink(path: str) -> None:
+        """Reject writes through symlinks."""
+        if os.path.islink(path):
+            raise ValueError(
+                f"Refusing to write through symlink: {path}. "
+                "Resolve the symlink and pass the real target path explicitly."
+            )
+
     # ======================
     #  Content Modification
     # ======================
@@ -95,6 +111,12 @@ class FileOps:
             raise ValueError("old_string must not be empty")
         if old_string == new_string:
             raise ValueError("old_string and new_string are identical")
+        FileOps._assert_not_symlink(path)
+        real_path = FileOps._real_path(path)
+        if real_path not in FileOps._read_files:
+            raise ValueError(
+                f"File must be read with read_file() before edit(). Unread path: {path}"
+            )
 
         # Read file as bytes to preserve encoding
         with open(path, "rb") as f:
@@ -251,7 +273,9 @@ class FileOps:
             stacklevel=2,
         )
         with open(path, encoding="utf-8", errors="replace") as f:
-            return f.read()
+            content = f.read()
+        FileOps._read_files.add(FileOps._real_path(path))
+        return content
 
     @staticmethod
     def write_file(path: str, content: str) -> None:
@@ -261,6 +285,7 @@ class FileOps:
             path: Destination file path
             content: Content to write
         """
+        FileOps._assert_not_symlink(path)
         tmp_path = f"{path}.tmp"
         with open(tmp_path, "w", encoding="utf-8") as f:
             f.write(content)
@@ -274,7 +299,7 @@ class FileOps:
             path: Destination file path
             content: Content to append
         """
-        # Use 'a' mode for appending, creates file if it doesn't exist
+        FileOps._assert_not_symlink(path)
         with open(path, "a", encoding="utf-8") as f:
             f.write(content)
 
