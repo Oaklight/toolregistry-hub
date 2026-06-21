@@ -13,6 +13,9 @@ services:
 
   openapi:
     image: oaklight/toolregistry-hub-server:${IMAGE_TAG:-latest}
+    ports:
+      - "55093:8000"
+      # - "55193:8001"
     expose:
       - "8000"
     env_file:
@@ -31,6 +34,9 @@ services:
 
   mcp-streamable-http:
     image: oaklight/toolregistry-hub-server:${IMAGE_TAG:-latest}
+    ports:
+      - "55094:8000"
+      # - "55194:8001"
     expose:
       - "8000"
     env_file:
@@ -50,6 +56,9 @@ services:
 
   mcp-sse:
     image: oaklight/toolregistry-hub-server:${IMAGE_TAG:-latest}
+    ports:
+      - "55095:8000"
+      # - "55195:8001"
     expose:
       - "8000"
     env_file:
