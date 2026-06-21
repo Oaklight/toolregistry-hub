@@ -1208,8 +1208,11 @@ def _try_browser_rendering(
         if vr_result:
             content = _format_text(vr_result)
             return _make_result(
-                content=content, url=url, strategy="veilrender",
-                content_type="text/html", started_at=started_at,
+                content=content,
+                url=url,
+                strategy="veilrender",
+                content_type="text/html",
+                started_at=started_at,
                 metadata={"content_length": len(content)},
             ), local_content
         if len(vr_local) > len(local_content):
@@ -1222,8 +1225,11 @@ def _try_browser_rendering(
         if cdp_result:
             content = _format_text(cdp_result)
             return _make_result(
-                content=content, url=url, strategy="cdp",
-                content_type="text/html", started_at=started_at,
+                content=content,
+                url=url,
+                strategy="cdp",
+                content_type="text/html",
+                started_at=started_at,
                 metadata={"content_length": len(content)},
             ), local_content
         if len(cdp_local) > len(local_content):
