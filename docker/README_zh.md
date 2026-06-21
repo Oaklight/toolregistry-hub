@@ -74,6 +74,56 @@ docker build -t toolregistry-hub .
 docker run -p 8000:8000 --env-file .env toolregistry-hub
 ```
 
+## 网页抓取工具
+
+`fetch_content` 工具返回结构化 **dict**，而不是纯字符串：
+
+```json
+{
+  "content": "...",
+  "url": "https://example.com",
+  "strategy": "readability",
+  "quality": "high",
+  "content_type": "text/html",
+  "cached": false,
+  "elapsed_ms": 123,
+  "metadata": {"readability_score": 174.3, "content_length": 12345}
+}
+```
+
+### `strategy` 参数
+
+默认保持 `"auto"` 即可。仅当 `auto` 返回低质量结果需要重试时，才指定具体策略：
+
+| 策略 | 说明 |
+|---|---|
+| `auto` | 推荐 —— 按顺序尝试各 fallback |
+| `markdown` | Cloudflare 内容协商 |
+| `readability` | 本地 Readability 解析 |
+| `soup` | 本地 BeautifulSoup 降级 |
+| `veilrender` | 远程无头浏览器（需配置 `VEILRENDER_ENDPOINT`）|
+| `cdp` | 自托管 Chrome DevTools Protocol（需配置 `CDP_ENDPOINT`）|
+| `jina` | Jina Reader API（需配置 `JINA_API_KEY`）|
+
+可选值在运行时动态缩窄—— `veilrender` 和 `cdp` 仅在配置了对应端点时才出现。
+
+### Fallback 链
+
+```
+markdown → readability → soup → veilrender → cdp → jina → local_fallback
+```
+
+### VeilRender 配置
+
+VeilRender 是可选的远程无头浏览器服务，专为 JS 渲染页面和 SPA 设计。在 `.env` 中配置以开启：
+
+```
+VEILRENDER_ENDPOINT=https://your-veilrender-instance
+VEILRENDER_TOKEN=your_token_here
+```
+
+配置后，`veilrender` 会自动插入到 fallback 链中 `cdp` 之前的位置。
+
 ## 许可证
 
 MIT

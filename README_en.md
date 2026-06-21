@@ -65,6 +65,58 @@ print(current_time)
 
 This documentation is organized by tool categories, with each tool category having its own page that details all tools, methods, and usage examples under that category.
 
+## Changelog
+
+### Web Fetch Tool — Major Update (PR #140)
+
+**Structured return value**
+
+`fetch_content` now returns a structured `dict` instead of a plain `str`:
+
+```json
+{
+  "content": "...",
+  "url": "https://example.com",
+  "strategy": "readability",
+  "quality": "high",
+  "content_type": "text/html",
+  "cached": false,
+  "elapsed_ms": 123,
+  "metadata": {"readability_score": 174.3, "content_length": 12345}
+}
+```
+
+**`strategy` parameter**
+
+A new optional `strategy` parameter lets you specify the extraction strategy (default: `"auto"`). Available choices:
+
+| Strategy | Description |
+|---|---|
+| `auto` | Recommended — tries each fallback in order |
+| `markdown` | Cloudflare content negotiation |
+| `readability` | Local readability extraction |
+| `soup` | Local BeautifulSoup fallback |
+| `veilrender` | Remote headless browser (requires `VEILRENDER_ENDPOINT`) |
+| `cdp` | Self-hosted Chrome DevTools Protocol (requires `CDP_ENDPOINT`) |
+| `jina` | Jina Reader API (requires `JINA_API_KEY`) |
+
+Available choices are narrowed at runtime: `veilrender` and `cdp` appear only when their respective endpoints are configured.
+
+**Updated fallback chain**
+
+```
+markdown → readability → soup → veilrender → cdp → jina → local_fallback
+```
+
+**VeilRender fallback**
+
+VeilRender is a new optional remote headless browser fallback for JS-heavy pages and SPAs. Configure via environment variables:
+
+```
+VEILRENDER_ENDPOINT=https://your-veilrender-instance
+VEILRENDER_TOKEN=your_token_here
+```
+
 ## Contributing
 
 If you want to contribute to ToolRegistry Hub, please refer to the [GitHub repository](https://github.com/Oaklight/toolregistry-hub).

@@ -65,6 +65,58 @@ print(current_time)
 
 本文档按工具类别组织，每个工具类别有自己的页面，详细说明了该类别下的所有工具、方法和用法示例。
 
+## 更新日志
+
+### 网页抓取工具重大更新（PR #140）
+
+**结构化返回值**
+
+`fetch_content` 现在返回结构化 `dict`，而不再是纯字符串：
+
+```json
+{
+  "content": "...",
+  "url": "https://example.com",
+  "strategy": "readability",
+  "quality": "high",
+  "content_type": "text/html",
+  "cached": false,
+  "elapsed_ms": 123,
+  "metadata": {"readability_score": 174.3, "content_length": 12345}
+}
+```
+
+**`strategy` 参数**
+
+新增可选的 `strategy` 参数，用于指定抓取策略（默认值：`"auto"`）。可选值：
+
+| 策略 | 说明 |
+|---|---|
+| `auto` | 推荐 —— 按顺序尝试各 fallback |
+| `markdown` | Cloudflare 内容协商 |
+| `readability` | 本地 Readability 解析 |
+| `soup` | 本地 BeautifulSoup 降级 |
+| `veilrender` | 远程无头浏览器（需配置 `VEILRENDER_ENDPOINT`）|
+| `cdp` | 自托管 Chrome DevTools Protocol（需配置 `CDP_ENDPOINT`）|
+| `jina` | Jina Reader API（需配置 `JINA_API_KEY`）|
+
+可选值在运行时会动态缩窄：`veilrender` 和 `cdp` 仅在配置了对应端点时才会出现。
+
+**更新后的 fallback 链**
+
+```
+markdown → readability → soup → veilrender → cdp → jina → local_fallback
+```
+
+**VeilRender fallback**
+
+VeilRender 是新增的可选远程无头浏览器 fallback，专为 JS 渲染页面和 SPA 设计。通过环境变量配置：
+
+```
+VEILRENDER_ENDPOINT=https://your-veilrender-instance
+VEILRENDER_TOKEN=your_token_here
+```
+
 ## 贡献
 
 如果您想为 ToolRegistry Hub 做出贡献，请参阅 [GitHub 仓库](https://github.com/Oaklight/toolregistry-hub)。

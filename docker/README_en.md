@@ -74,6 +74,56 @@ docker build -t toolregistry-hub .
 docker run -p 8000:8000 --env-file .env toolregistry-hub
 ```
 
+## Web Fetch Tool
+
+The `fetch_content` tool returns a **structured dict** (not a plain string):
+
+```json
+{
+  "content": "...",
+  "url": "https://example.com",
+  "strategy": "readability",
+  "quality": "high",
+  "content_type": "text/html",
+  "cached": false,
+  "elapsed_ms": 123,
+  "metadata": {"readability_score": 174.3, "content_length": 12345}
+}
+```
+
+### `strategy` parameter
+
+Leave as `"auto"` (default) for normal use. Specify a strategy explicitly when retrying after `auto` returns low-quality content:
+
+| Strategy | Description |
+|---|---|
+| `auto` | Recommended — tries fallbacks in order |
+| `markdown` | Cloudflare content negotiation |
+| `readability` | Local readability extraction |
+| `soup` | Local BeautifulSoup fallback |
+| `veilrender` | Remote headless browser (requires `VEILRENDER_ENDPOINT`) |
+| `cdp` | Self-hosted Chrome DevTools Protocol (requires `CDP_ENDPOINT`) |
+| `jina` | Jina Reader API (requires `JINA_API_KEY`) |
+
+Available choices are narrowed at runtime — `veilrender` and `cdp` appear only when their endpoints are configured.
+
+### Fallback chain
+
+```
+markdown → readability → soup → veilrender → cdp → jina → local_fallback
+```
+
+### VeilRender configuration
+
+VeilRender is an optional remote headless browser service for rendering JS-heavy pages and SPAs. To enable it, set the following in your `.env`:
+
+```
+VEILRENDER_ENDPOINT=https://your-veilrender-instance
+VEILRENDER_TOKEN=your_token_here
+```
+
+When configured, `veilrender` is automatically inserted into the fallback chain before `cdp`.
+
 ## License
 
 MIT
