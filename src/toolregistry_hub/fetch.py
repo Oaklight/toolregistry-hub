@@ -440,9 +440,21 @@ class Fetch:
                 Defaults to TIMEOUT_DEFAULT.
             proxy (str, optional): Proxy to use for the request. Defaults to None.
             strategy: Strategy to use. Leave as ``"auto"`` for normal use.
-                Only set this when retrying after auto returned low-quality or
-                unsuitable content. Available choices are narrowed at runtime;
-                ``veilrender`` and ``cdp`` appear only when configured.
+                Auto already tries the best available fallback chain. Only set
+                a specific strategy when retrying after auto returned low-quality
+                or unsuitable content.
+
+                Retry hints:
+                - ``"markdown"``: fast check for sites that support Markdown
+                  content negotiation.
+                - ``"readability"``: local article extraction for normal HTML.
+                - ``"soup"``: local fallback when readability misses content.
+                - ``"veilrender"`` / ``"cdp"``: JS-heavy pages or SPA shells.
+                - ``"jina"``: external reader fallback when local/browser
+                  rendering is poor.
+
+                Available choices are narrowed at runtime; ``veilrender`` and
+                ``cdp`` appear only when configured.
 
         Returns:
             Structured result with content, strategy, quality, cache status,
