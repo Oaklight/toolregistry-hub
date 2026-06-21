@@ -167,7 +167,8 @@ class BaseSearch(ABC):
             raise ValueError("Result missing URL")
 
         try:
-            result = Fetch().fetch_content(
+            fetcher = Fetch()
+            result = fetcher.fetch_content(  # ty: ignore[missing-argument]
                 url,
                 timeout=timeout,
                 proxy=proxy,
