@@ -950,6 +950,136 @@ def _try_local_extraction(html: str, url: str) -> tuple[str, str, str, float]:
     return best, local_content, strategy, score
 
 
+def _strategy_markdown(
+    url: str,
+    timeout: float,
+    proxy: str | None,
+    remaining: float,
+    started_at: float,
+    **_kw: object,
+) -> FetchResult:
+    md_content, _fb, _ct = _try_markdown_negotiation(
+        url, timeout=min(timeout, remaining), proxy=proxy
+    )
+    if not md_content:
+        raise FetchError(f"Markdown negotiation did not return content for {url}")
+    content = _format_text(md_content)
+    return _make_result(
+        content=content,
+        url=url,
+        strategy="markdown",
+        content_type="text/markdown",
+        started_at=started_at,
+        metadata={"content_length": len(content)},
+    )
+
+
+def _strategy_local(
+    url: str,
+    strategy: str,
+    timeout: float,
+    proxy: str | None,
+    deadline: float,
+    remaining: float,
+    started_at: float,
+    **_kw: object,
+) -> FetchResult:
+    body, content_type = _fetch_raw(
+        url, timeout=min(timeout, remaining), proxy=proxy, deadline=deadline
+    )
+    if content_type and _is_binary_content_type(content_type):
+        raise FetchError(f"Unsupported binary content type for {url}: {content_type}")
+    if strategy == "readability":
+        text, score = _extract_with_readability(body, url)
+        content = _format_text(text)
+        quality = "high" if _is_content_sufficient(text, score) else "low"
+        return _make_result(
+            content=content,
+            url=url,
+            strategy="readability",
+            quality=quality,
+            content_type=content_type,
+            started_at=started_at,
+            metadata={"readability_score": score, "content_length": len(content)},
+        )
+    text = _extract_with_soup(body)
+    content = _format_text(text)
+    quality = "high" if _is_content_sufficient(text) else "low"
+    return _make_result(
+        content=content,
+        url=url,
+        strategy="soup",
+        quality=quality,
+        content_type=content_type,
+        started_at=started_at,
+        metadata={"content_length": len(content)},
+    )
+
+
+def _strategy_browser(
+    url: str,
+    strategy: str,
+    remaining: float,
+    started_at: float,
+    cdp_endpoint: str | None = None,
+    veilrender_endpoint: str | None = None,
+    veilrender_token: str | None = None,
+    **_kw: object,
+) -> FetchResult:
+    if strategy == "veilrender":
+        if not veilrender_endpoint:
+            raise FetchError("VeilRender is not configured")
+        result, local = _try_veilrender_extraction(
+            url, veilrender_endpoint, veilrender_token, min(remaining, 30.0)
+        )
+    else:
+        if not cdp_endpoint:
+            raise FetchError("CDP is not configured")
+        result, local = _try_cdp_extraction(url, cdp_endpoint, min(remaining, 15.0))
+    content = _format_text(result or local)
+    return _make_result(
+        content=content,
+        url=url,
+        strategy=strategy,
+        quality="high" if result else "low",
+        content_type="text/html",
+        started_at=started_at,
+        metadata={"content_length": len(content)},
+    )
+
+
+def _strategy_jina(
+    url: str,
+    timeout: float,
+    proxy: str | None,
+    api_key_parser: APIKeyParser | None,
+    deadline: float,
+    remaining: float,
+    started_at: float,
+    **_kw: object,
+) -> FetchResult:
+    content = _try_jina_extraction(
+        url,
+        local_content="",
+        timeout=timeout,
+        remaining=remaining,
+        proxy=proxy,
+        api_key_parser=api_key_parser,
+        deadline=deadline,
+    )
+    if not content:
+        raise FetchError(f"Jina Reader did not return content for {url}")
+    formatted = _format_text(content)
+    return _make_result(
+        content=formatted,
+        url=url,
+        strategy="jina",
+        content_type="text/markdown",
+        started_at=started_at,
+        metadata={"content_length": len(formatted)},
+    )
+
+
 def _extract_with_strategy(
     url: str,
     *,
@@ -964,115 +1094,32 @@ def _extract_with_strategy(
     started_at: float,
 ) -> FetchResult:
     """Run one explicit fetch strategy."""
-
-    def _remaining() -> float:
-        return max(0.0, deadline - time.monotonic())
-
-    if strategy == "markdown":
-        md_content, _fallback_body, _fallback_ct = _try_markdown_negotiation(
-            url, timeout=min(timeout, _remaining()), proxy=proxy
-        )
-        if not md_content:
-            raise FetchError(f"Markdown negotiation did not return content for {url}")
-        content = _format_text(md_content)
-        return _make_result(
-            content=content,
-            url=url,
-            strategy="markdown",
-            content_type="text/markdown",
-            started_at=started_at,
-            metadata={"content_length": len(content)},
-        )
-
-    if strategy in {"readability", "soup"}:
-        body, content_type = _fetch_raw(
-            url, timeout=min(timeout, _remaining()), proxy=proxy, deadline=deadline
-        )
-        if content_type and _is_binary_content_type(content_type):
-            raise FetchError(
-                f"Unsupported binary content type for {url}: {content_type}"
-            )
-        if strategy == "readability":
-            text, score = _extract_with_readability(body, url)
-            content = _format_text(text)
-            quality = "high" if _is_content_sufficient(text, score) else "low"
-            return _make_result(
-                content=content,
-                url=url,
-                strategy="readability",
-                quality=quality,
-                content_type=content_type,
-                started_at=started_at,
-                metadata={"readability_score": score, "content_length": len(content)},
-            )
-        text = _extract_with_soup(body)
-        content = _format_text(text)
-        quality = "high" if _is_content_sufficient(text) else "low"
-        return _make_result(
-            content=content,
-            url=url,
-            strategy="soup",
-            quality=quality,
-            content_type=content_type,
-            started_at=started_at,
-            metadata={"content_length": len(content)},
-        )
-
-    if strategy == "veilrender":
-        if not veilrender_endpoint:
-            raise FetchError("VeilRender is not configured")
-        result, local = _try_veilrender_extraction(
-            url, veilrender_endpoint, veilrender_token, min(_remaining(), 30.0)
-        )
-        content = _format_text(result or local)
-        return _make_result(
-            content=content,
-            url=url,
-            strategy="veilrender",
-            quality="high" if result else "low",
-            content_type="text/html",
-            started_at=started_at,
-            metadata={"content_length": len(content)},
-        )
-
-    if strategy == "cdp":
-        if not cdp_endpoint:
-            raise FetchError("CDP is not configured")
-        result, local = _try_cdp_extraction(url, cdp_endpoint, min(_remaining(), 15.0))
-        content = _format_text(result or local)
-        return _make_result(
-            content=content,
-            url=url,
-            strategy="cdp",
-            quality="high" if result else "low",
-            content_type="text/html",
-            started_at=started_at,
-            metadata={"content_length": len(content)},
-        )
-
-    if strategy == "jina":
-        content = _try_jina_extraction(
-            url,
-            local_content="",
-            timeout=timeout,
-            remaining=_remaining(),
-            proxy=proxy,
-            api_key_parser=api_key_parser,
-            deadline=deadline,
-        )
-        if not content:
-            raise FetchError(f"Jina Reader did not return content for {url}")
-        formatted = _format_text(content)
-        return _make_result(
-            content=formatted,
-            url=url,
-            strategy="jina",
-            content_type="text/markdown",
-            started_at=started_at,
-            metadata={"content_length": len(formatted)},
-        )
-
-    raise ValueError(f"Unknown strategy: {strategy}")
+    remaining = max(0.0, deadline - time.monotonic())
+    kwargs = {
+        "url": url,
+        "strategy": strategy,
+        "timeout": timeout,
+        "proxy": proxy,
+        "api_key_parser": api_key_parser,
+        "cdp_endpoint": cdp_endpoint,
+        "veilrender_endpoint": veilrender_endpoint,
+        "veilrender_token": veilrender_token,
+        "deadline": deadline,
+        "remaining": remaining,
+        "started_at": started_at,
+    }
+    dispatch = {
+        "markdown": _strategy_markdown,
+        "readability": _strategy_local,
+        "soup": _strategy_local,
+        "veilrender": _strategy_browser,
+        "cdp": _strategy_browser,
+        "jina": _strategy_jina,
+    }
+    handler = dispatch.get(strategy)
+    if handler is None:
+        raise ValueError(f"Unknown strategy: {strategy}")
+    return handler(**kwargs)
 
 
 def _extract(
@@ -1116,9 +1163,6 @@ def _extract(
     started_at = started_at or time.monotonic()
     deadline = time.monotonic() + max(0.0, timeout)
 
-    def _remaining() -> float:
-        return max(0.0, deadline - time.monotonic())
-
     if strategy != "auto":
         return _extract_with_strategy(
             url,
@@ -1132,6 +1176,78 @@ def _extract(
             deadline=deadline,
             started_at=started_at,
         )
+
+    return _extract_auto(
+        url,
+        timeout=timeout,
+        proxy=proxy,
+        api_key_parser=api_key_parser,
+        cdp_endpoint=cdp_endpoint,
+        veilrender_endpoint=veilrender_endpoint,
+        veilrender_token=veilrender_token,
+        deadline=deadline,
+        started_at=started_at,
+    )
+
+
+def _try_browser_rendering(
+    url: str,
+    *,
+    local_content: str,
+    veilrender_endpoint: str | None,
+    veilrender_token: str | None,
+    cdp_endpoint: str | None,
+    remaining: float,
+    started_at: float,
+) -> tuple[FetchResult | None, str]:
+    """Try VeilRender then CDP; return (result, updated_local_content)."""
+    if veilrender_endpoint and remaining > _MIN_STRATEGY_BUDGET:
+        vr_result, vr_local = _try_veilrender_extraction(
+            url, veilrender_endpoint, veilrender_token, min(remaining, 30.0)
+        )
+        if vr_result:
+            content = _format_text(vr_result)
+            return _make_result(
+                content=content, url=url, strategy="veilrender",
+                content_type="text/html", started_at=started_at,
+                metadata={"content_length": len(content)},
+            ), local_content
+        if len(vr_local) > len(local_content):
+            local_content = vr_local
+
+    if cdp_endpoint and remaining > _MIN_STRATEGY_BUDGET:
+        cdp_result, cdp_local = _try_cdp_extraction(
+            url, cdp_endpoint, min(remaining, 15.0)
+        )
+        if cdp_result:
+            content = _format_text(cdp_result)
+            return _make_result(
+                content=content, url=url, strategy="cdp",
+                content_type="text/html", started_at=started_at,
+                metadata={"content_length": len(content)},
+            ), local_content
+        if len(cdp_local) > len(local_content):
+            local_content = cdp_local
+
+    return None, local_content
+
+
+def _extract_auto(
+    url: str,
+    *,
+    timeout: float,
+    proxy: str | None,
+    api_key_parser: APIKeyParser | None,
+    cdp_endpoint: str | None,
+    veilrender_endpoint: str | None,
+    veilrender_token: str | None,
+    deadline: float,
+    started_at: float,
+) -> FetchResult:
+    """Auto pipeline: try strategies in order."""
+
+    def _remaining() -> float:
+        return max(0.0, deadline - time.monotonic())
 
     # 1. Fetch body (tries markdown negotiation, then raw fetch).
     body, content_type = _fetch_body(url, timeout, proxy, deadline)
@@ -1189,41 +1305,18 @@ def _extract(
                 },
             )
 
-    # 4. Try VeilRender (remote browser rendering via REST API).
-    if veilrender_endpoint and _remaining() > _MIN_STRATEGY_BUDGET:
-        vr_budget = min(_remaining(), 30.0)
-        vr_result, vr_local = _try_veilrender_extraction(
-            url, veilrender_endpoint, veilrender_token, vr_budget
-        )
-        if vr_result:
-            content = _format_text(vr_result)
-            return _make_result(
-                content=content,
-                url=url,
-                strategy="veilrender",
-                content_type="text/html",
-                started_at=started_at,
-                metadata={"content_length": len(content)},
-            )
-        if len(vr_local) > len(local_content):
-            local_content = vr_local
-
-    # 5. Try CDP rendering (self-hosted browser) if configured.
-    if cdp_endpoint and _remaining() > _MIN_STRATEGY_BUDGET:
-        cdp_budget = min(_remaining(), 15.0)
-        cdp_result, cdp_local = _try_cdp_extraction(url, cdp_endpoint, cdp_budget)
-        if cdp_result:
-            content = _format_text(cdp_result)
-            return _make_result(
-                content=content,
-                url=url,
-                strategy="cdp",
-                content_type="text/html",
-                started_at=started_at,
-                metadata={"content_length": len(content)},
-            )
-        if len(cdp_local) > len(local_content):
-            local_content = cdp_local
+    # 4-5. Try browser rendering (VeilRender, then CDP).
+    browser_result, local_content = _try_browser_rendering(
+        url,
+        local_content=local_content,
+        veilrender_endpoint=veilrender_endpoint,
+        veilrender_token=veilrender_token,
+        cdp_endpoint=cdp_endpoint,
+        remaining=_remaining(),
+        started_at=started_at,
+    )
+    if browser_result is not None:
+        return browser_result
 
     # 6. Local extraction insufficient — try Jina Reader.
     jina_content = _try_jina_extraction(

@@ -121,10 +121,12 @@ class TestBaseSearch:
 
         assert len(results) == 1
 
-    @patch("toolregistry_hub.websearch.base.Fetch.fetch_content")
+    @patch("toolregistry_hub.websearch.base.Fetch")
     def test_fetch_webpage_content_success(self, mock_fetch):
         """Test successful webpage content fetching."""
-        mock_fetch.return_value = "Fetched webpage content"
+        mock_fetch.return_value.fetch_content.return_value = {
+            "content": "Fetched webpage content",
+        }
 
         entry = SearchResult(
             title="Example Title",
@@ -139,12 +141,12 @@ class TestBaseSearch:
         assert result["content"] == "Fetched webpage content"
         assert result["excerpt"] == "Example excerpt"
 
-        mock_fetch.assert_called_once()
+        mock_fetch.return_value.fetch_content.assert_called_once()
 
-    @patch("toolregistry_hub.websearch.base.Fetch.fetch_content")
+    @patch("toolregistry_hub.websearch.base.Fetch")
     def test_fetch_webpage_content_failure(self, mock_fetch):
         """Test webpage content fetching failure."""
-        mock_fetch.side_effect = Exception("Network error")
+        mock_fetch.return_value.fetch_content.side_effect = Exception("Network error")
 
         entry = SearchResult(
             title="Example Title",
@@ -170,10 +172,10 @@ class TestBaseSearch:
         with pytest.raises(ValueError, match="Result missing URL"):
             BaseSearch._fetch_webpage_content(entry)
 
-    @patch("toolregistry_hub.websearch.base.Fetch.fetch_content")
+    @patch("toolregistry_hub.websearch.base.Fetch")
     def test_fetch_webpage_content_with_timeout(self, mock_fetch):
         """Test webpage content fetching with custom timeout."""
-        mock_fetch.return_value = "Content"
+        mock_fetch.return_value.fetch_content.return_value = {"content": "Content"}
 
         entry = SearchResult(
             title="Title",
@@ -183,14 +185,14 @@ class TestBaseSearch:
 
         BaseSearch._fetch_webpage_content(entry, timeout=30)
 
-        mock_fetch.assert_called_once_with(
+        mock_fetch.return_value.fetch_content.assert_called_once_with(
             "https://example.com", timeout=30, proxy=None
         )
 
-    @patch("toolregistry_hub.websearch.base.Fetch.fetch_content")
+    @patch("toolregistry_hub.websearch.base.Fetch")
     def test_fetch_webpage_content_with_proxy(self, mock_fetch):
         """Test webpage content fetching with proxy."""
-        mock_fetch.return_value = "Content"
+        mock_fetch.return_value.fetch_content.return_value = {"content": "Content"}
 
         entry = SearchResult(
             title="Title",
@@ -202,7 +204,7 @@ class TestBaseSearch:
             entry, timeout=10, proxy="http://proxy.example.com:8080"
         )
 
-        mock_fetch.assert_called_once_with(
+        mock_fetch.return_value.fetch_content.assert_called_once_with(
             "https://example.com", timeout=10, proxy="http://proxy.example.com:8080"
         )
 
