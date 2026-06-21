@@ -30,31 +30,32 @@ All tools are registered dynamically in `build_registry()` (`server/registry.py`
 
 Registered tools and namespaces (from `_DEFAULT_TOOLS` in `server/registry.py`):
 
-| Namespace | Class | Tags |
-|-----------|-------|------|
-| `calculator` | `Calculator` | READ_ONLY |
-| `datetime` | `DateTime` | READ_ONLY |
-| `think` | `ThinkTool` | READ_ONLY |
-| `web/fetch` | `Fetch` | NETWORK, READ_ONLY |
-| `file_ops` | `FileOps` | FILE_SYSTEM, DESTRUCTIVE |
-| `web/websearch` | `WebSearch` (unified) | NETWORK, READ_ONLY |
-| `web/brave_search` | `BraveSearch` | NETWORK, READ_ONLY, deferred |
-| `web/tavily_search` | `TavilySearch` | NETWORK, READ_ONLY, deferred |
-| `web/searxng_search` | `SearXNGSearch` | NETWORK, READ_ONLY, deferred |
-| `web/brightdata_search` | `BrightDataSearch` | NETWORK, READ_ONLY, deferred |
-| `web/scrapeless_search` | `ScrapelessSearch` | NETWORK, READ_ONLY, deferred |
-| `web/serper_search` | `SerperSearch` | NETWORK, READ_ONLY, deferred |
-| `reader` | `FileReader` | FILE_SYSTEM, READ_ONLY, deferred |
-| `fs/file_search` | `FileSearch` | FILE_SYSTEM, READ_ONLY, deferred |
-| `fs/path_info` | `PathInfo` | FILE_SYSTEM, READ_ONLY, deferred |
-| `bash` | `BashTool` | DESTRUCTIVE, PRIVILEGED, deferred |
-| `cron` | `CronTool` | PRIVILEGED, deferred |
-| `todolist` | `TodoList` | READ_ONLY, deferred |
-| `unit_converter` | `UnitConverter` | READ_ONLY, deferred |
+| Namespace | Class | Tags | Visibility |
+|-----------|-------|------|------------|
+| `datetime` | `DateTime` | READ_ONLY | **LIVE** (now only; convert_timezone deferred) |
+| `think` | `ThinkTool` | READ_ONLY | **LIVE** |
+| `web/fetch` | `Fetch` | NETWORK, READ_ONLY | **LIVE** (fetch_content only) |
+| `web/websearch` | `WebSearch` (unified) | NETWORK, READ_ONLY | **LIVE** (search only; list_engines deferred) |
+| `file_ops` | `FileOps` | FILE_SYSTEM, DESTRUCTIVE | **LIVE** (local profile only; disabled in remote) |
+| `calculator` | `Calculator` | READ_ONLY | deferred |
+| `weather` | `Weather` | NETWORK, READ_ONLY | deferred |
+| `reader` | `FileReader` | FILE_SYSTEM, READ_ONLY | deferred |
+| `fs/file_search` | `FileSearch` | FILE_SYSTEM, READ_ONLY | deferred |
+| `fs/path_info` | `PathInfo` | FILE_SYSTEM, READ_ONLY | deferred |
+| `bash` | `BashTool` | DESTRUCTIVE, PRIVILEGED | deferred |
+| `cron` | `CronTool` | PRIVILEGED | deferred |
+| `todolist` | `TodoList` | READ_ONLY | deferred |
+| `unit_converter` | `UnitConverter` | READ_ONLY | deferred |
 
 "Deferred" tools are hidden from initial schema and discoverable via `discover_tools`.
+Individual search providers (brave, tavily, etc.) are internal engines of the
+unified `WebSearch` — they are **not** registered as separate tools.
+
+Remote profile LIVE tools: `datetime-now`, `discover_tools`, `think-think`,
+`web/fetch-fetch_content`, `web/websearch-search` (5 tools).
 
 Configuration priority: `tools.jsonc > Configurable auto-disable > Default (all enabled)`.
+`tools.jsonc` is optional; the default tool list from code is the primary config.
 
 ## Repository layout
 
@@ -108,7 +109,49 @@ pytest tests/ -v
 make build-package          # python -m build
 make push-package           # twine upload dist/*
 make build-docker           # Docker image build
+make deploy-dev SSH_TARGET=cloud.usa1   # Build + deploy dev-test
 ```
+
+## Release process
+
+### PyPI release (via GitHub Actions)
+
+1. Bump `__version__` in `src/toolregistry_hub/__init__.py`
+2. Commit: `git commit -m "release: v0.X.Y"`
+3. Push to master: `git push origin master`
+4. Go to GitHub Actions → "Release" workflow → Run workflow
+5. Input the version (e.g. `0.9.0`) — must match `__init__.py`
+6. Workflow will: verify version → create git tag → build wheel → publish to PyPI → create GitHub Release
+
+### Docker image
+
+After PyPI release:
+
+```bash
+make build-docker V=0.X.Y
+make push-docker V=0.X.Y
+```
+
+### Deploy to VPS
+
+```bash
+# Dev stack (dev-test image from local build)
+make deploy-dev SSH_TARGET=cloud.usa1
+
+# Prod stack (uses IMAGE_TAG from .env, restart containers)
+ssh cloud.usa1 "cd /dockervol/dockge/stacks/toolregistry-server && docker compose up -d --force-recreate --no-deps openapi mcp-streamable-http mcp-sse"
+```
+
+### Release checklist
+
+1. All PRs merged, CI green on master
+2. `pre-commit run --all-files` passes locally
+3. `pytest tests/ -v` passes
+4. Bump version in `__init__.py`, commit, push
+5. Trigger GitHub Actions release workflow
+6. Build + push Docker image
+7. Deploy to prod VPS
+8. Notify docs team to move `[Unreleased]` changelog entries to versioned section
 
 ## Definition of done
 
