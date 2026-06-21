@@ -1,127 +1,184 @@
 # File Operations Tools
 
-The file operations tools provide various functions for file content operations, including reading, writing, searching, and replacing.
+The file operations tools provide safe, atomic file read/edit/write with a digest-based version proof to prevent lost-update races and symlink injection.
+
+> **Note:** `FileOps` is the legacy compatibility surface. The preferred classes for reading and searching are `FileReader` and `FileSearch`. `FileOps` now exposes a minimal Claude Code-style API — `read` / `edit` / `write` — and retains only the helpers still needed by those three methods.
 
 ## Class Overview
 
-The file operations tools mainly include the following classes:
+- `FileOps` — Core file operations with read/edit/write safety semantics, designed for LLM agent integration
 
-- `FileOps` - Provides core file operation functions, designed for LLM agent integration
+## Safety Semantics
 
-## Usage
+- **`edit` and `write` reject symlink paths** (including `.tmp` intermediate paths) to prevent symlink-injection attacks.
+- **Reading a symlink is allowed.** `read` returns `is_symlink=True` and the resolved `real_path`; callers should pass `real_path` to `edit` / `write` when the original path is a symlink.
+- **Existing-file `edit` and `write` require a digest.** The digest is the SHA-256 of the file's raw bytes, returned by `read`. If the file changes between `read` and `edit`/`write`, the digest will not match and the operation is rejected, preventing silent overwrite of concurrent changes.
+- **New-file `write` does not require a digest** (`digest=None` is accepted when the file does not yet exist).
+- **`write(mode="append")` preserves the original file's encoding and BOM.** Content is decoded from the existing file, concatenated as a string, then re-encoded before writing atomically.
 
-### Basic Usage
+## API Reference
+
+### `FileOps.read(path)`
+
+Read text file content and return metadata for safe edits/writes.
+
+**Arguments**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `path` | `str` | File path to read. Symlinks are followed. |
+
+**Returns** `dict[str, str | bool]`
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `content` | `str` | Decoded file content |
+| `digest` | `str` | SHA-256 hex digest of raw file bytes |
+| `is_symlink` | `bool` | Whether `path` is a symlink |
+| `real_path` | `str` | Absolute resolved path |
+
+**Raises** `FileNotFoundError` if the path does not exist.
+
+---
+
+### `FileOps.edit(path, old_string, new_string, digest, replace_all=False, start_line=None)`
+
+Replace an exact string in a file. Requires a digest from `read(path)`.
+
+**Arguments**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | `str` | — | Absolute path to the file. Must not be a symlink. |
+| `old_string` | `str` | — | Exact text to find. Must not be empty. |
+| `new_string` | `str` | — | Replacement text (must differ from `old_string`). |
+| `digest` | `str` | — | SHA-256 digest returned by `read(path)`. |
+| `replace_all` | `bool` | `False` | Replace all occurrences instead of just the first. |
+| `start_line` | `int \| None` | `None` | 1-based line hint for disambiguation when multiple matches exist. |
+
+**Returns** `dict[str, str]`
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `diff` | `str` | Unified diff of the change |
+| `digest` | `str` | SHA-256 digest of the updated file (use for subsequent edits) |
+
+**Raises**
+
+- `ValueError` — if `old_string` is empty, identical to `new_string`, not found, ambiguous without `replace_all`/`start_line`, digest is missing or stale, or path is a symlink.
+- `FileNotFoundError` — if the file does not exist.
+
+**Chaining edits:** the returned `digest` can be passed directly to the next `edit` call, enabling a read-once / edit-many workflow without re-reading between edits:
 
 ```python
-from toolregistry_hub import FileOps
-
-# Read file
-content = FileOps.read_file("path/to/file.txt")
-print(content)
-
-# Write file
-FileOps.write_file("path/to/new_file.txt", "Hello, World!")
-
-# Append content to file
-FileOps.append_file("path/to/file.txt", "\nNew line appended.")
-
-# Search files
-results = FileOps.search_files("src", "class.*Search", "*.py")
-for result in results:
-    print(f"File: {result['file']}")
-    print(f"Line number: {result['line_num']}")
-    print(f"Line: {result['line']}")
-    print(f"Context: {result['context']}")
+result = FileOps.edit(path, "foo", "bar", digest=digest)
+result = FileOps.edit(path, "baz", "qux", digest=result["digest"])
 ```
 
-## Detailed API
+---
 
-### FileOps Class
+### `FileOps.write(path, content, digest=None, mode="overwrite")`
 
-`FileOps` is a class that provides core file operation functions, designed for LLM agent integration.
+Write or append content to a file atomically.
 
-#### Methods
+**Arguments**
 
-- `edit(path: str, old_string: str, new_string: str, replace_all: bool = False, start_line: int | None = None) -> str`: Replace exact string in file. Returns unified diff of changes. Supports `replace_all` for bulk replacement and `start_line` for disambiguation when multiple matches exist.
-- `search_files(path: str, regex: str, file_pattern: str = "*") -> List[dict]`: Search for content matching regex in files, returns list of dicts with file, line_num, line, context keys
-- `read_file(path: str) -> str`: Read file content
-- `write_file(path: str, content: str) -> None`: Write content to file
-- `append_file(path: str, content: str) -> None`: Append content to file
-- `make_diff(ours: str, theirs: str) -> str`: Create diff between two strings
-- `make_git_conflict(ours: str, theirs: str) -> str`: Create Git-style conflict markers
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | `str` | — | Destination file path. Must not be a symlink. |
+| `content` | `str` | — | Content to write or append. |
+| `digest` | `str \| None` | `None` | Required when the file already exists. |
+| `mode` | `"overwrite" \| "append"` | `"overwrite"` | Write mode. |
 
-## Examples
+**Returns** `dict[str, str]`
 
-### Reading and Writing Files
+| Key | Type | Description |
+|-----|------|-------------|
+| `digest` | `str` | SHA-256 digest of the written file |
+
+**Raises**
+
+- `ValueError` — if `mode` is invalid, digest is required but missing/stale, or path is a symlink.
+
+**Notes**
+
+- `mode="append"` on an existing file decodes the file using its original encoding (including BOM), appends `content` as a string, and re-encodes before writing. This preserves UTF-16 and BOM-prefixed UTF-8 files correctly.
+- `mode="append"` on a non-existent file writes `content` as plain UTF-8 (no BOM).
+
+---
+
+## Usage Examples
+
+### Read → Edit → Write workflow
 
 ```python
 from toolregistry_hub import FileOps
 
-# Read file
-content = FileOps.read_file("example.txt")
-print(f"Original content:\n{content}")
-# Output: Original content:
-# Hello, World!
+# 1. Read the file — get content and digest
+result = FileOps.read("config.py")
+print(result["content"])
+# is_symlink=False, real_path="/abs/path/config.py"
 
-# Write file
-FileOps.write_file("new_file.txt", "This is the content of a new file.")
+# 2. Edit using the returned digest
+edit_result = FileOps.edit(
+    "config.py",
+    old_string='DEBUG = False',
+    new_string='DEBUG = True',
+    digest=result["digest"],
+)
+print(edit_result["diff"])
 
-# Append content to file
-FileOps.append_file("example.txt", "\nThis is appended content.")
-
-# Read file again to see changes
-updated_content = FileOps.read_file("example.txt")
-print(f"Updated content:\n{updated_content}")
-# Output: Updated content:
-# Hello, World!
-# This is appended content.
+# 3. Chain a second edit using the updated digest
+FileOps.edit(
+    "config.py",
+    old_string="LOG_LEVEL = 'info'",
+    new_string="LOG_LEVEL = 'debug'",
+    digest=edit_result["digest"],
+)
 ```
 
-### Searching Files
+### Create a new file
 
 ```python
-from toolregistry_hub import FileOps
-
-# Search for class definitions in Python files
-results = FileOps.search_files("src", r"class\s+\w+", "*.py")
-print(f"Found {len(results)} matches:")
-for result in results:
-    print(f"File: {result['file']}")
-    print(f"Line number: {result['line_num']}")
-    print(f"Line: {result['line']}")
-    print(f"Context: {result['context']}")
-    print("-" * 50)
-# Output example:
-# Found 2 matches:
-# File: /tmp/test1.py
-# Line number: 1
-# Line: class MyClass:
-# Context: [(2, '    def __init__(self):'), (3, '        pass')]
-# --------------------------------------------------
-
-# Search for specific string
-results = FileOps.search_files(".", "TODO", "*")
-print(f"Found {len(results)} TODO items:")
-for result in results:
-    print(f"File: {result['file']}")
-    print(f"Line number: {result['line_num']}")
-    print(f"Line: {result['line']}")
-    print("-" * 50)
+# New files do not require a digest
+result = FileOps.write("notes.txt", "Hello, World!")
+print(result["digest"])
 ```
 
-### Editing Files
+### Overwrite an existing file
 
 ```python
-from toolregistry_hub import FileOps
+r = FileOps.read("notes.txt")
+FileOps.write("notes.txt", "Updated content.", digest=r["digest"])
+```
 
-# Simple single-match replacement
-diff = FileOps.edit("example.py", "def hello():", "def hello_world():")
-print(diff)  # Shows unified diff of what changed
+### Append to an existing file
 
-# Replace all occurrences
-FileOps.edit("example.py", "TODO", "DONE", replace_all=True)
+```python
+r = FileOps.read("log.txt")
+FileOps.write("log.txt", "\nNew entry.", digest=r["digest"], mode="append")
+```
 
-# Disambiguate with start_line when multiple matches exist
-# Selects the match closest to line 42
-FileOps.edit("example.py", "return result", "return modified", start_line=42)
+### Symlink handling
+
+```python
+r = FileOps.read("link.txt")        # allowed; r["is_symlink"] == True
+# Pass the real path to edit/write to avoid symlink rejection
+FileOps.write(r["real_path"], "safe write", digest=r["digest"])
+```
+
+### Replace all occurrences
+
+```python
+r = FileOps.read("todos.md")
+FileOps.edit("todos.md", "TODO", "DONE", digest=r["digest"], replace_all=True)
+```
+
+### Disambiguate with start_line
+
+```python
+r = FileOps.read("script.py")
+# Two matches exist; select the one closest to line 42
+FileOps.edit("script.py", "return result", "return value",
+             digest=r["digest"], start_line=42)
 ```
