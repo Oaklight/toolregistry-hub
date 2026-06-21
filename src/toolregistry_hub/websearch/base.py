@@ -167,11 +167,12 @@ class BaseSearch(ABC):
             raise ValueError("Result missing URL")
 
         try:
-            content = Fetch().fetch_content(
+            result = Fetch().fetch_content(
                 url,
                 timeout=timeout,
                 proxy=proxy,
             )
+            content = result["content"]
         except Exception as e:
             content = _UNABLE_TO_FETCH_CONTENT
             logger.debug(f"Error retrieving webpage content: {e}")
