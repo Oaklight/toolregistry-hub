@@ -773,7 +773,7 @@ def _render_with_veilrender(
 
         resp = _http_post(
             render_url,
-            body=payload,
+            data=payload,
             headers=headers,
             timeout=timeout,
         )
