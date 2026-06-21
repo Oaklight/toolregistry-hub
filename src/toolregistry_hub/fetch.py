@@ -6,8 +6,9 @@ import os
 import re
 import threading
 import time
+import types
 import unicodedata
-from typing import TYPE_CHECKING, Literal, NamedTuple, cast
+from typing import TYPE_CHECKING, Literal, NamedTuple, TypedDict, cast
 
 from ._vendor.httpclient import (
     HttpConnectionError,
@@ -33,6 +34,30 @@ logger = get_logger()
 
 TIMEOUT_DEFAULT = 30.0
 
+StrategyName = Literal[
+    "auto",
+    "markdown",
+    "readability",
+    "soup",
+    "veilrender",
+    "cdp",
+    "jina",
+]
+
+
+class FetchResult(TypedDict):
+    """Structured result returned by Fetch.fetch_content."""
+
+    content: str
+    url: str
+    strategy: str
+    quality: str
+    content_type: str
+    cached: bool
+    elapsed_ms: int
+    metadata: dict[str, object]
+
+
 # Minimum remaining budget (in seconds) before attempting another network
 # strategy.  Strategies are skipped when the deadline is closer than this so
 # callers with very small ``timeout`` values get an answer quickly.
@@ -48,7 +73,7 @@ _CACHE_MAXSIZE_DEFAULT = 128
 class _CacheEntry(NamedTuple):
     """A cached extraction result with its expiry timestamp."""
 
-    content: str
+    content: FetchResult
     expires_at: float  # time.monotonic() deadline
 
 
@@ -75,7 +100,7 @@ class _URLCache:
 
     # ── public API ───────────────────────────────────────────────────────
 
-    def get(self, url: str) -> str | None:
+    def get(self, url: str) -> FetchResult | None:
         """Return cached content for *url*, or ``None`` on miss/expiry."""
         with self._lock:
             entry = self._data.get(url)
@@ -88,7 +113,7 @@ class _URLCache:
             self._data[url] = self._data.pop(url)
             return entry.content
 
-    def put(self, url: str, content: str) -> None:
+    def put(self, url: str, content: FetchResult) -> None:
         """Store *content* for *url* with the configured TTL."""
         with self._lock:
             # Remove first so re-insertion lands at the end.
@@ -119,6 +144,30 @@ class FetchError(RuntimeError):
     lets MCP and other tool harnesses set the ``isError`` flag on the
     response automatically.
     """
+
+
+def _make_result(
+    *,
+    content: str,
+    url: str,
+    strategy: str,
+    quality: str = "high",
+    content_type: str = "",
+    cached: bool = False,
+    started_at: float,
+    metadata: dict[str, object] | None = None,
+) -> FetchResult:
+    """Build a structured fetch result."""
+    return {
+        "content": content,
+        "url": url,
+        "strategy": strategy,
+        "quality": quality,
+        "content_type": content_type,
+        "cached": cached,
+        "elapsed_ms": int((time.monotonic() - started_at) * 1000),
+        "metadata": metadata or {},
+    }
 
 
 # Minimum content length (in characters) to consider extraction sufficient.
@@ -328,6 +377,35 @@ class Fetch:
         self._cache: _URLCache | None = (
             _URLCache(ttl=cache_ttl, maxsize=cache_maxsize) if cache_ttl > 0 else None
         )
+        self._narrow_strategy_annotation()
+
+    def _available_strategies(self) -> tuple[str, ...]:
+        """Return strategies available in this instance."""
+        strategies = ["auto", "markdown", "readability", "soup", "jina"]
+        if self.veilrender_endpoint:
+            strategies.append("veilrender")
+        if self.cdp_endpoint:
+            strategies.append("cdp")
+        return tuple(strategies)
+
+    def _narrow_strategy_annotation(self) -> None:
+        """Narrow strategy Literal to strategies available in this instance."""
+        original = type(self).fetch_content
+        new_func = types.FunctionType(
+            original.__code__,
+            original.__globals__,
+            name=original.__name__,
+            argdefs=original.__defaults__,
+            closure=original.__closure__,
+        )
+        new_func.__doc__ = original.__doc__
+        new_func.__qualname__ = original.__qualname__
+        new_func.__kwdefaults__ = original.__kwdefaults__
+        new_func.__annotations__ = dict(original.__annotations__)
+        new_func.__annotations__["strategy"] = Literal.__getitem__(
+            self._available_strategies()
+        )
+        self.fetch_content = types.MethodType(new_func, self)  # type: ignore[method-assign]
 
     def _is_configured(self) -> bool:
         """Check if Fetch is configured.
@@ -347,7 +425,8 @@ class Fetch:
         url: str,
         timeout: float = TIMEOUT_DEFAULT,
         proxy: str | None = None,
-    ) -> str:
+        strategy: StrategyName = "auto",
+    ) -> FetchResult:
         """Fetch and extract content from a given URL.
 
         The ``timeout`` is treated as a wall-clock budget for the whole
@@ -360,23 +439,39 @@ class Fetch:
             timeout (float, optional): Total wall-clock timeout in seconds.
                 Defaults to TIMEOUT_DEFAULT.
             proxy (str, optional): Proxy to use for the request. Defaults to None.
+            strategy: Strategy to use. Leave as ``"auto"`` for normal use.
+                Only set this when retrying after auto returned low-quality or
+                unsuitable content. Available choices are narrowed at runtime;
+                ``veilrender`` and ``cdp`` appear only when configured.
 
         Returns:
-            str: Extracted content from the URL.
+            Structured result with content, strategy, quality, cache status,
+            elapsed time, and metadata.
 
         Raises:
             FetchError: If every extraction strategy fails or the deadline
                 is exceeded before any content can be retrieved.
         """
-        # Check cache first.
+        started_at = time.monotonic()
+        strategy = strategy.lower().strip()  # type: ignore[assignment]
+        if strategy not in self._available_strategies():
+            raise ValueError(
+                f"Strategy {strategy!r} is not available. "
+                f"Available: {self._available_strategies()}"
+            )
+
+        cache_key = f"{strategy}:{url}"
         if self._cache is not None:
-            cached = self._cache.get(url)
+            cached = self._cache.get(cache_key)
             if cached is not None:
-                logger.debug(f"Cache hit for {url}")
-                return cached
+                logger.debug(f"Cache hit for {cache_key}")
+                cached = dict(cached)
+                cached["cached"] = True
+                cached["elapsed_ms"] = int((time.monotonic() - started_at) * 1000)
+                return cast(FetchResult, cached)
 
         try:
-            content = _extract(
+            result = _extract(
                 url,
                 timeout=timeout,
                 proxy=proxy,
@@ -384,11 +479,12 @@ class Fetch:
                 cdp_endpoint=self.cdp_endpoint,
                 veilrender_endpoint=self.veilrender_endpoint,
                 veilrender_token=self.veilrender_token,
+                strategy=strategy,
+                started_at=started_at,
             )
-            # Cache successful results only.
             if self._cache is not None:
-                self._cache.put(url, content)
-            return content
+                self._cache.put(cache_key, result)
+            return result
         except FetchError:
             raise
         except Exception as e:
@@ -522,7 +618,7 @@ def _pick_local_content(
     readability_score: float,
     soup_content: str,
     url: str,
-) -> str:
+) -> tuple[str, str, float]:
     """Choose the best local extraction result.
 
     Prefers readability unless soup produced substantially more content
@@ -558,8 +654,8 @@ def _pick_local_content(
             )
             continue
         logger.info(f"Successfully fetched {url} using strategy: {strategy}")
-        return candidate
-    return ""
+        return candidate, strategy, score
+    return "", "", 0.0
 
 
 def _render_with_cdp(
@@ -621,7 +717,9 @@ def _try_cdp_extraction(
         cdp_soup = ""
     else:
         cdp_soup = _extract_with_soup(rendered_html)
-    cdp_best = _pick_local_content(cdp_readability, cdp_score, cdp_soup, url)
+    cdp_best, _strategy, _score = _pick_local_content(
+        cdp_readability, cdp_score, cdp_soup, url
+    )
     if cdp_best:
         logger.info(f"Successfully fetched {url} using strategy: cdp")
         return cdp_best, ""
@@ -704,7 +802,9 @@ def _try_veilrender_extraction(
         vr_soup = ""
     else:
         vr_soup = _extract_with_soup(rendered_html)
-    vr_best = _pick_local_content(vr_readability, vr_score, vr_soup, url)
+    vr_best, _strategy, _score = _pick_local_content(
+        vr_readability, vr_score, vr_soup, url
+    )
     if vr_best:
         logger.info(f"Successfully fetched {url} using strategy: veilrender")
         return vr_best, ""
@@ -813,7 +913,7 @@ def _fetch_body(
     return body, content_type
 
 
-def _try_local_extraction(html: str, url: str) -> tuple[str, str]:
+def _try_local_extraction(html: str, url: str) -> tuple[str, str, str, float]:
     """Run readability and (optionally) soup on *html*.
 
     Returns:
@@ -828,14 +928,139 @@ def _try_local_extraction(html: str, url: str) -> tuple[str, str]:
     else:
         soup_content = _extract_with_soup(html)
 
-    best = _pick_local_content(
+    best, strategy, score = _pick_local_content(
         readability_content,
         readability_score,
         soup_content,
         url,
     )
     local_content = readability_content or soup_content or ""
-    return best, local_content
+    return best, local_content, strategy, score
+
+
+def _extract_with_strategy(
+    url: str,
+    *,
+    strategy: str,
+    timeout: float,
+    proxy: str | None,
+    api_key_parser: APIKeyParser | None,
+    cdp_endpoint: str | None,
+    veilrender_endpoint: str | None,
+    veilrender_token: str | None,
+    deadline: float,
+    started_at: float,
+) -> FetchResult:
+    """Run one explicit fetch strategy."""
+
+    def _remaining() -> float:
+        return max(0.0, deadline - time.monotonic())
+
+    if strategy == "markdown":
+        md_content, _fallback_body, _fallback_ct = _try_markdown_negotiation(
+            url, timeout=min(timeout, _remaining()), proxy=proxy
+        )
+        if not md_content:
+            raise FetchError(f"Markdown negotiation did not return content for {url}")
+        content = _format_text(md_content)
+        return _make_result(
+            content=content,
+            url=url,
+            strategy="markdown",
+            content_type="text/markdown",
+            started_at=started_at,
+            metadata={"content_length": len(content)},
+        )
+
+    if strategy in {"readability", "soup"}:
+        body, content_type = _fetch_raw(
+            url, timeout=min(timeout, _remaining()), proxy=proxy, deadline=deadline
+        )
+        if content_type and _is_binary_content_type(content_type):
+            raise FetchError(
+                f"Unsupported binary content type for {url}: {content_type}"
+            )
+        if strategy == "readability":
+            text, score = _extract_with_readability(body, url)
+            content = _format_text(text)
+            quality = "high" if _is_content_sufficient(text, score) else "low"
+            return _make_result(
+                content=content,
+                url=url,
+                strategy="readability",
+                quality=quality,
+                content_type=content_type,
+                started_at=started_at,
+                metadata={"readability_score": score, "content_length": len(content)},
+            )
+        text = _extract_with_soup(body)
+        content = _format_text(text)
+        quality = "high" if _is_content_sufficient(text) else "low"
+        return _make_result(
+            content=content,
+            url=url,
+            strategy="soup",
+            quality=quality,
+            content_type=content_type,
+            started_at=started_at,
+            metadata={"content_length": len(content)},
+        )
+
+    if strategy == "veilrender":
+        if not veilrender_endpoint:
+            raise FetchError("VeilRender is not configured")
+        result, local = _try_veilrender_extraction(
+            url, veilrender_endpoint, veilrender_token, min(_remaining(), 30.0)
+        )
+        content = _format_text(result or local)
+        return _make_result(
+            content=content,
+            url=url,
+            strategy="veilrender",
+            quality="high" if result else "low",
+            content_type="text/html",
+            started_at=started_at,
+            metadata={"content_length": len(content)},
+        )
+
+    if strategy == "cdp":
+        if not cdp_endpoint:
+            raise FetchError("CDP is not configured")
+        result, local = _try_cdp_extraction(url, cdp_endpoint, min(_remaining(), 15.0))
+        content = _format_text(result or local)
+        return _make_result(
+            content=content,
+            url=url,
+            strategy="cdp",
+            quality="high" if result else "low",
+            content_type="text/html",
+            started_at=started_at,
+            metadata={"content_length": len(content)},
+        )
+
+    if strategy == "jina":
+        content = _try_jina_extraction(
+            url,
+            local_content="",
+            timeout=timeout,
+            remaining=_remaining(),
+            proxy=proxy,
+            api_key_parser=api_key_parser,
+            deadline=deadline,
+        )
+        if not content:
+            raise FetchError(f"Jina Reader did not return content for {url}")
+        formatted = _format_text(content)
+        return _make_result(
+            content=formatted,
+            url=url,
+            strategy="jina",
+            content_type="text/markdown",
+            started_at=started_at,
+            metadata={"content_length": len(formatted)},
+        )
+
+    raise ValueError(f"Unknown strategy: {strategy}")
 
 
 def _extract(
@@ -846,7 +1071,9 @@ def _extract(
     cdp_endpoint: str | None = None,
     veilrender_endpoint: str | None = None,
     veilrender_token: str | None = None,
-) -> str:
+    strategy: str = "auto",
+    started_at: float | None = None,
+) -> FetchResult:
     """Extract content from a given URL using available methods.
 
     Strategies are tried in order:
@@ -874,17 +1101,40 @@ def _extract(
         FetchError: If every extraction strategy fails or the deadline is
             exceeded before any content is retrieved.
     """
+    started_at = started_at or time.monotonic()
     deadline = time.monotonic() + max(0.0, timeout)
 
     def _remaining() -> float:
         return max(0.0, deadline - time.monotonic())
+
+    if strategy != "auto":
+        return _extract_with_strategy(
+            url,
+            strategy=strategy,
+            timeout=timeout,
+            proxy=proxy,
+            api_key_parser=api_key_parser,
+            cdp_endpoint=cdp_endpoint,
+            veilrender_endpoint=veilrender_endpoint,
+            veilrender_token=veilrender_token,
+            deadline=deadline,
+            started_at=started_at,
+        )
 
     # 1. Fetch body (tries markdown negotiation, then raw fetch).
     body, content_type = _fetch_body(url, timeout, proxy, deadline)
 
     # Markdown negotiation succeeded — return directly.
     if content_type == "_markdown":
-        return _format_text(body)
+        content = _format_text(body)
+        return _make_result(
+            content=content,
+            url=url,
+            strategy="markdown",
+            content_type="text/markdown",
+            started_at=started_at,
+            metadata={"content_length": len(content)},
+        )
 
     # Short-circuit: binary content types (images, PDFs, archives, etc.)
     if body and content_type and _is_binary_content_type(content_type):
@@ -896,14 +1146,36 @@ def _extract(
             f"Successfully fetched {url} using strategy: direct "
             f"(content_type: {content_type})"
         )
-        return _format_text(body)
+        content = _format_text(body)
+        return _make_result(
+            content=content,
+            url=url,
+            strategy="direct",
+            content_type=content_type,
+            started_at=started_at,
+            metadata={"content_length": len(content)},
+        )
 
     # 2-3. Local extraction (readability + optional soup).
     local_content = ""
     if body:
-        best, local_content = _try_local_extraction(body, url)
+        best, local_content, local_strategy, local_score = _try_local_extraction(
+            body, url
+        )
         if best:
-            return _format_text(best)
+            content = _format_text(best)
+            return _make_result(
+                content=content,
+                url=url,
+                strategy=local_strategy,
+                quality="high",
+                content_type=content_type,
+                started_at=started_at,
+                metadata={
+                    "readability_score": local_score,
+                    "content_length": len(content),
+                },
+            )
 
     # 4. Try VeilRender (remote browser rendering via REST API).
     if veilrender_endpoint and _remaining() > _MIN_STRATEGY_BUDGET:
@@ -912,7 +1184,15 @@ def _extract(
             url, veilrender_endpoint, veilrender_token, vr_budget
         )
         if vr_result:
-            return _format_text(vr_result)
+            content = _format_text(vr_result)
+            return _make_result(
+                content=content,
+                url=url,
+                strategy="veilrender",
+                content_type="text/html",
+                started_at=started_at,
+                metadata={"content_length": len(content)},
+            )
         if len(vr_local) > len(local_content):
             local_content = vr_local
 
@@ -921,7 +1201,15 @@ def _extract(
         cdp_budget = min(_remaining(), 15.0)
         cdp_result, cdp_local = _try_cdp_extraction(url, cdp_endpoint, cdp_budget)
         if cdp_result:
-            return _format_text(cdp_result)
+            content = _format_text(cdp_result)
+            return _make_result(
+                content=content,
+                url=url,
+                strategy="cdp",
+                content_type="text/html",
+                started_at=started_at,
+                metadata={"content_length": len(content)},
+            )
         if len(cdp_local) > len(local_content):
             local_content = cdp_local
 
@@ -936,7 +1224,15 @@ def _extract(
         deadline=deadline,
     )
     if jina_content:
-        return _format_text(jina_content)
+        content = _format_text(jina_content)
+        return _make_result(
+            content=content,
+            url=url,
+            strategy="jina",
+            content_type="text/markdown",
+            started_at=started_at,
+            metadata={"content_length": len(content)},
+        )
 
     # 6. Fall back to best local result if available.
     if local_content:
@@ -944,7 +1240,16 @@ def _extract(
             f"Successfully fetched {url} using strategy: local_fallback "
             f"(low_quality, length: {len(local_content)})"
         )
-        return _format_text(local_content)
+        content = _format_text(local_content)
+        return _make_result(
+            content=content,
+            url=url,
+            strategy="local_fallback",
+            quality="low",
+            content_type=content_type,
+            started_at=started_at,
+            metadata={"content_length": len(content)},
+        )
 
     logger.warning(f"All extraction strategies failed for {url}")
     raise FetchError(f"Unable to fetch content from {url}")

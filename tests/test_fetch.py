@@ -39,6 +39,20 @@ from toolregistry_hub.fetch import (
 )
 from toolregistry_hub.utils.api_key_parser import APIKeyParser
 
+
+def _fetch_result(content: str) -> dict:
+    return {
+        "content": content,
+        "url": "https://example.com",
+        "strategy": "test",
+        "quality": "high",
+        "content_type": "text/html",
+        "cached": False,
+        "elapsed_ms": 0,
+        "metadata": {},
+    }
+
+
 # ============================================================
 # _is_content_sufficient tests
 # ============================================================
@@ -890,12 +904,31 @@ class TestExtract:
     @patch("toolregistry_hub.fetch._extract_with_readability")
     @patch("toolregistry_hub.fetch._fetch_raw")
     @patch("toolregistry_hub.fetch._try_markdown_negotiation")
+    def test_structured_result_shape(
+        self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
+    ):
+        mock_md.return_value = ("# Markdown Content\nSome text here.", "", "")
+        result = _extract("https://example.com")
+        assert result["content"] == "# Markdown Content\nSome text here."
+        assert result["url"] == "https://example.com"
+        assert result["strategy"] == "markdown"
+        assert result["quality"] == "high"
+        assert result["content_type"] == "text/markdown"
+        assert result["cached"] is False
+        assert isinstance(result["elapsed_ms"], int)
+        assert result["metadata"]["content_length"] == len(result["content"])
+
+    @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
+    @patch("toolregistry_hub.fetch._extract_with_soup")
+    @patch("toolregistry_hub.fetch._extract_with_readability")
+    @patch("toolregistry_hub.fetch._fetch_raw")
+    @patch("toolregistry_hub.fetch._try_markdown_negotiation")
     def test_markdown_negotiation_success(
         self, mock_md, mock_fetch, mock_readability, mock_soup, mock_jina
     ):
         mock_md.return_value = ("# Markdown Content\nSome text here.", "", "")
         result = _extract("https://example.com")
-        assert "Markdown Content" in result
+        assert "Markdown Content" in result["content"]
         mock_fetch.assert_not_called()
         mock_jina.assert_not_called()
 
@@ -912,7 +945,7 @@ class TestExtract:
         mock_readability.return_value = ("This is a long enough article. " * 10, 25.0)
         mock_soup.return_value = "Short soup."
         result = _extract("https://example.com")
-        assert "long enough article" in result
+        assert "long enough article" in result["content"]
         mock_jina.assert_not_called()
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
@@ -929,7 +962,7 @@ class TestExtract:
         high_quality = "Detailed article content. " * 200  # ~5200 chars
         mock_readability.return_value = (high_quality, 150.0)
         result = _extract("https://example.com")
-        assert "Detailed article content" in result
+        assert "Detailed article content" in result["content"]
         mock_soup.assert_not_called()
         mock_jina.assert_not_called()
 
@@ -980,7 +1013,7 @@ class TestExtract:
         mock_readability.return_value = ("", 0.0)
         mock_soup.return_value = "Soup extracted content is good enough. " * 10
         result = _extract("https://example.com")
-        assert "Soup extracted" in result
+        assert "Soup extracted" in result["content"]
         mock_jina.assert_not_called()
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
@@ -1003,7 +1036,7 @@ class TestExtract:
         mock_jina.return_value = "# Real Content\nActual article text here. " * 10
 
         result = _extract("https://example.com")
-        assert "Real Content" in result
+        assert "Real Content" in result["content"]
         mock_jina.assert_called_once()
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
@@ -1019,7 +1052,7 @@ class TestExtract:
         mock_jina.return_value = "# Jina Content\nFetched via Jina. " * 10
 
         result = _extract("https://example.com")
-        assert "Jina Content" in result
+        assert "Jina Content" in result["content"]
         mock_readability.assert_not_called()
         mock_soup.assert_not_called()
 
@@ -1038,7 +1071,7 @@ class TestExtract:
         mock_jina.return_value = ""
 
         result = _extract("https://example.com")
-        assert "Short low quality" in result
+        assert "Short low quality" in result["content"]
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
     @patch("toolregistry_hub.fetch._extract_with_soup")
@@ -1070,7 +1103,7 @@ class TestExtract:
         mock_fetch.return_value = (json_body, "application/json")
 
         result = _extract("https://api.example.com/data")
-        assert "results" in result
+        assert "results" in result["content"]
         # HTML extraction should be skipped entirely
         mock_readability.assert_not_called()
         mock_soup.assert_not_called()
@@ -1090,7 +1123,7 @@ class TestExtract:
         mock_fetch.return_value = (plain_body, "text/plain")
 
         result = _extract("https://example.com/readme.txt")
-        assert "plain text file" in result
+        assert "plain text file" in result["content"]
         mock_readability.assert_not_called()
         mock_soup.assert_not_called()
         mock_jina.assert_not_called()
@@ -1115,7 +1148,7 @@ class TestExtract:
         mock_fetch.return_value = ("some content body", content_type)
 
         result = _extract("https://example.com/file")
-        assert "some content body" in result
+        assert "some content body" in result["content"]
         mock_readability.assert_not_called()
         mock_soup.assert_not_called()
 
@@ -1134,7 +1167,7 @@ class TestExtract:
         mock_soup.return_value = ""
 
         result = _extract("https://example.com")
-        assert "Extracted article" in result
+        assert "Extracted article" in result["content"]
         mock_readability.assert_called_once()
 
     @patch("toolregistry_hub.fetch._get_content_with_jina_reader")
@@ -1154,7 +1187,7 @@ class TestExtract:
         mock_soup.return_value = ""
 
         result = _extract("https://example.com")
-        assert "Real content" in result
+        assert "Real content" in result["content"]
         # Key assertion: _fetch_raw should NOT have been called
         mock_fetch.assert_not_called()
 
@@ -1173,7 +1206,7 @@ class TestExtract:
         mock_soup.return_value = ""
 
         result = _extract("https://example.com")
-        assert "Fallback content" in result
+        assert "Fallback content" in result["content"]
         mock_fetch.assert_called_once()
 
     @patch("toolregistry_hub.fetch._try_markdown_negotiation")
@@ -1326,17 +1359,18 @@ class TestFetchCache:
 
     @patch("toolregistry_hub.fetch._extract")
     def test_second_call_uses_cache(self, mock_extract):
-        mock_extract.return_value = "Extracted content"
+        mock_extract.return_value = _fetch_result("Extracted content")
         fetcher = Fetch()
         result1 = fetcher.fetch_content("https://example.com")
         result2 = fetcher.fetch_content("https://example.com")
-        assert result1 == result2 == "Extracted content"
+        assert result1["content"] == result2["content"] == "Extracted content"
+        assert result2["cached"] is True
         # _extract should only be called once
         mock_extract.assert_called_once()
 
     @patch("toolregistry_hub.fetch._extract")
     def test_different_urls_not_cached(self, mock_extract):
-        mock_extract.return_value = "content"
+        mock_extract.return_value = _fetch_result("content")
         fetcher = Fetch()
         fetcher.fetch_content("https://a.com")
         fetcher.fetch_content("https://b.com")
@@ -1344,18 +1378,18 @@ class TestFetchCache:
 
     @patch("toolregistry_hub.fetch._extract")
     def test_fetch_error_not_cached(self, mock_extract):
-        mock_extract.side_effect = [FetchError("fail"), "success"]
+        mock_extract.side_effect = [FetchError("fail"), _fetch_result("success")]
         fetcher = Fetch()
         with pytest.raises(FetchError):
             fetcher.fetch_content("https://fail.com")
         # Second call should retry (not cached)
         result = fetcher.fetch_content("https://fail.com")
-        assert result == "success"
+        assert result["content"] == "success"
         assert mock_extract.call_count == 2
 
     @patch("toolregistry_hub.fetch._extract")
     def test_clear_cache_forces_refetch(self, mock_extract):
-        mock_extract.return_value = "content"
+        mock_extract.return_value = _fetch_result("content")
         fetcher = Fetch()
         fetcher.fetch_content("https://example.com")
         fetcher._clear_cache()
@@ -1364,7 +1398,7 @@ class TestFetchCache:
 
     @patch("toolregistry_hub.fetch._extract")
     def test_no_cache_mode(self, mock_extract):
-        mock_extract.return_value = "content"
+        mock_extract.return_value = _fetch_result("content")
         fetcher = Fetch(cache_ttl=0)
         fetcher.fetch_content("https://example.com")
         fetcher.fetch_content("https://example.com")
@@ -1773,7 +1807,7 @@ class TestExtractWithCDP:
         mock_cdp.return_value = ("Full article content. " * 10, "")
 
         result = _extract("https://spa.example.com", cdp_endpoint="ws://localhost:9222")
-        assert "Full article content" in result
+        assert "Full article content" in result["content"]
         mock_cdp.assert_called_once()
         mock_jina.assert_not_called()
 
@@ -1795,7 +1829,7 @@ class TestExtractWithCDP:
         mock_jina.return_value = "# Jina Content\nFull article from Jina. " * 10
 
         result = _extract("https://spa.example.com", cdp_endpoint="ws://localhost:9222")
-        assert "Jina Content" in result
+        assert "Jina Content" in result["content"]
         mock_cdp.assert_called_once()
         mock_jina.assert_called_once()
 
@@ -1821,7 +1855,7 @@ class TestExtractWithCDP:
         mock_jina.return_value = sufficient
 
         result = _extract("https://spa.example.com")  # No cdp_endpoint
-        assert "Jina Content" in result
+        assert "Jina Content" in result["content"]
         mock_cdp.assert_not_called()
         mock_jina.assert_called_once()
 
@@ -1846,7 +1880,7 @@ class TestExtractWithCDP:
         mock_jina.return_value = "# Full Jina Content\nComplete article. " * 10
 
         result = _extract("https://spa.example.com", cdp_endpoint="ws://localhost:9222")
-        assert "Full Jina Content" in result
+        assert "Full Jina Content" in result["content"]
         mock_cdp.assert_called_once()
         mock_jina.assert_called_once()
 
