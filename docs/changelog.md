@@ -33,6 +33,11 @@ author: Oaklight
 - **WebSearch：去重时 URL 归一化**（[#143](https://github.com/Oaklight/toolregistry-hub/pull/143)）— 去重现在会在比较前归一化 URL：去除 `www.` 前缀、去除末尾斜杠、过滤常见跟踪参数（`utm_*`、`fbclid`、`gclid`、`msclkid`、`mc_*`）。搜索结果中的原始 URL 保持不变。
 - **Docker：Caddy 网关统一入口**（[#141](https://github.com/Oaklight/toolregistry-hub/pull/141)）— 新增 Caddy 反向代理，将三个服务后端统一到单一端口：`/mcp` → MCP streamable-http、`/sse` → MCP SSE、其余 → OpenAPI。所有后端配置 `flush_interval -1` 防止 SSE/流式传输缓冲，后端服务从 `ports` 改为 `expose`（不再直接暴露到宿主机），新增 `/openapi` 便捷重定向到 `/docs`。
 - **Docker：`deploy-dev` Makefile target**（[#141](https://github.com/Oaklight/toolregistry-hub/pull/141)）— `make deploy-dev SSH_TARGET=host` 可构建 wheel、构建 Docker 镜像、通过 zstd 压缩传输并重启远程服务栈，并运行健康检查。
+- **FileOps：Claude Code 风格 read/edit/write digest 工作流**（[#146](https://github.com/Oaklight/toolregistry-hub/pull/146)）— 用无状态的 digest 版本证明机制替换已弃用的 `read_file` / `write_file` / `append_file` 接口：
+    - `read(path)` → `{content, digest, is_symlink, real_path}` — 读取文件字节，返回 SHA-256 摘要作为版本令牌。允许读取符号链接；返回 `is_symlink` 和 `real_path`，供调用方将实际路径传给写入操作。
+    - `edit(path, old_string, new_string, digest, replace_all=False, start_line=None)` → `{diff, digest}` — 精确字符串替换，由 digest 把守；返回更新后的 digest，支持链式编辑而无需重复读取。
+    - `write(path, content, digest=None, mode="overwrite"|"append")` → `{digest}` — 原子覆盖或追加；新文件不需要 digest，已有文件必须提供匹配的 digest 以防静默覆盖。`append` 模式按原始编码/BOM 解码后以字符串形式追加，再重新编码写入，正确保留 UTF-16 及带 BOM 的 UTF-8 文件。
+    - `edit` 和 `write` 拒绝符号链接路径（包括 `.tmp` 中间路径）。外部修改会导致 digest 失效，强制重新读取。30 个测试；无服务端状态。
 
 ### 内部变更
 
