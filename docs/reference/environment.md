@@ -30,12 +30,15 @@ author: Oaklight
 | `SEARXNG_API_KEY` | SearXNG 搜索 | 可选，用于受保护实例的 API 密钥（作为 `X-API-Key` 请求头发送） |
 | `JINA_API_KEY` | Fetch（Jina Reader） | 可选；逗号分隔支持多密钥轮转 |
 | `CDP_ENDPOINT` | Fetch（CDP 渲染） | 可选，CDP 兼容浏览器的 WebSocket URL（如 `ws://localhost:9222`） |
+| `VEILRENDER_ENDPOINT` | Fetch（VeilRender） | 可选，VeilRender 远程浏览器服务的基础 URL（如 `http://localhost:3000`） |
+| `VEILRENDER_TOKEN` | Fetch（VeilRender） | 可选，VeilRender 认证 Bearer 令牌。若实例无需认证可省略。 |
 
 ## 服务器配置
 
 | 变量 | 描述 |
 |------|------|
 | `WEBSEARCH_PRIORITY` | auto 模式下引擎优先级，逗号分隔（如 `searxng,brave,tavily`） |
+| `WEBSEARCH_PARALLEL_ENGINES` | `engine="parallel"` 时并发查询的引擎，逗号分隔（默认：`brightdata,brave`） |
 | `TOOLS_CONFIG` | `tools.jsonc` 配置文件路径（替代 `--config` CLI 标志） |
 
 ## 自动禁用行为

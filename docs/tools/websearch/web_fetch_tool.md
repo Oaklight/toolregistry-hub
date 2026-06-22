@@ -8,13 +8,13 @@ author: Oaklight
 
 # 网页获取工具
 
-网页获取工具提供从 URL 智能提取网页内容的功能。它采用五级策略链 — Cloudflare 内容协商、Readability 提取、zerodep soup 解析、CDP 浏览器渲染和 Jina Reader API — 并结合**内容质量评估**和**智能回退**机制，从网页中提取干净、可读的内容，同时处理各种网站结构和格式，包括 JavaScript 密集型的单页应用（SPA）。
+网页获取工具提供从 URL 智能提取网页内容的功能。它采用多级策略链 — Cloudflare 内容协商、Readability 提取、zerodep soup 解析、VeilRender 远程浏览器、CDP 浏览器渲染和 Jina Reader API — 并结合**内容质量评估**和**智能回退**机制，从网页中提取干净、可读的内容，同时处理各种网站结构和格式，包括 JavaScript 密集型的单页应用（SPA）。
 
 ## 概览
 
 Fetch 类提供强大的网页内容提取功能：
 
-- **五级策略链**：Cloudflare 内容协商 → Readability 提取 → Soup 解析 → CDP 浏览器渲染 → Jina Reader API
+- **多级策略链**：Cloudflare 内容协商 → Readability 提取 → Soup 解析 → VeilRender 远程浏览器 → CDP 浏览器渲染 → Jina Reader API
 - **响应复用**：内容协商阶段获取的 HTTP 响应会被直接传递给后续提取策略，避免重复网络请求
 - **二进制内容拦截**：自动识别图片、PDF、音视频等二进制 MIME 类型，在进入提取流程前提前终止并返回明确错误
 - **URL 结果缓存**：实例级缓存，TTL 默认 5 分钟，LRU 淘汰上限 128 条，避免重复 URL 的冗余提取
@@ -51,7 +51,7 @@ content = fetcher.fetch_content(
 
 ## API 参考
 
-### `Fetch(api_keys=None, cdp_endpoint=None)`
+### `Fetch(api_keys=None, cdp_endpoint=None, veilrender_endpoint=None, veilrender_token=None)`
 
 初始化 Fetch 内容提取器。
 
@@ -59,8 +59,10 @@ content = fetcher.fetch_content(
 
 - `api_keys` (str, 可选): 逗号分隔的 Jina API 密钥。回退到 `JINA_API_KEY` 环境变量。设置后，Jina Reader 请求会包含 `Authorization: Bearer <key>` 头部，并使用轮询式密钥轮换。
 - `cdp_endpoint` (str, 可选): CDP 兼容浏览器的 WebSocket URL（例如 `ws://localhost:9222`）。回退到 `CDP_ENDPOINT` 环境变量。设置后，启用 CDP 浏览器渲染阶段以提取 SPA 内容。
+- `veilrender_endpoint` (str, 可选): VeilRender 远程浏览器服务的基础 URL（例如 `http://localhost:3000`）。回退到 `VEILRENDER_ENDPOINT` 环境变量。设置后，在自动回退链中 CDP 之前启用 VeilRender 阶段。
+- `veilrender_token` (str, 可选): VeilRender 认证的 Bearer 令牌。回退到 `VEILRENDER_TOKEN` 环境变量。**可选** — 若 VeilRender 实例无需认证可省略。
 
-### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None) -> str`
+### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None, strategy: str = "auto") -> FetchResult`
 
 从给定 URL 使用可用方法提取内容。
 
@@ -69,10 +71,11 @@ content = fetcher.fetch_content(
 - `url` (str): 要获取内容的 URL
 - `timeout` (float): 请求超时时间（秒）（默认：30.0）
 - `proxy` (Optional[str]): 代理服务器 URL（例如："http://proxy.example.com:8080"）
+- `strategy` (str): 使用的提取策略（默认：`"auto"`）。可用值：`auto`、`markdown`、`readability`、`soup`、`jina`（始终可用），以及配置了端点时的 `veilrender` 和 `cdp`。指定策略时绕过自动回退链，仅运行单一目标提取步骤。
 
 **返回值：**
 
-- `str`: 从 URL 提取的内容，如果提取失败则返回 "Unable to fetch content"
+- `FetchResult`: 一个 TypedDict，包含字段：`content`（str）、`url`（str）、`strategy`（使用的策略）、`quality`（`"high"` 或 `"low"`）、`content_type`（str）、`cached`（bool）、`elapsed_ms`（float）、`metadata`（dict，包含策略相关字段，如 `readability_score` 和 `content_length`）。
 
 **异常：**
 
@@ -80,15 +83,16 @@ content = fetcher.fetch_content(
 
 ## 工作原理
 
-### 五级策略链
+### 策略链
 
-网页获取工具使用五阶段提取方法，每一步都进行**内容质量评估**：
+网页获取工具使用多阶段提取方法，每一步都进行**内容质量评估**：
 
 1. **Cloudflare 内容协商**：零成本尝试，直接从源站获取 markdown 内容
 2. **Readability 提取**：使用 Mozilla Readability 风格的文章评分算法，识别并提取主要内容
 3. **Soup 解析**：使用 zerodep soup（零外部依赖）进行轻量级 HTML 解析与 CSS 选择器回退
-4. **CDP 浏览器渲染**：通过 Chrome DevTools Protocol 使用自托管无头浏览器渲染 SPA 页面（需配置 `CDP_ENDPOINT`）
-5. **Jina Reader（降级方案）**：外部 API，使用多引擎重试（`browser` → `cf-browser-rendering`）进行 JavaScript 渲染（SPA 支持）
+4. **VeilRender 远程浏览器**（可选）：通过自托管 VeilRender 服务进行 REST 接口远程浏览器渲染（`POST /render`）。位于 CDP 之前；仅在配置 `VEILRENDER_ENDPOINT` 时启用。未配置时，`veilrender` 策略会从 `strategy` 参数的有效值中隐藏。
+5. **CDP 浏览器渲染**（可选）：通过 Chrome DevTools Protocol 使用自托管无头浏览器渲染 SPA 页面（需配置 `CDP_ENDPOINT`）
+6. **Jina Reader（降级方案）**：外部 API，使用多引擎重试（`browser` → `cf-browser-rendering`）进行 JavaScript 渲染（SPA 支持）
 
 工具尽量减少 HTTP 请求次数：如果 Cloudflare 内容协商返回 `text/html` 而非 markdown（绝大多数情况），响应体会被保留并直接传给 Readability/Soup 提取流程——不会再发送冗余的第二次请求。两种本地策略共享这份 HTML。当 readability 返回高置信度结果（score ≥ 100 且文本 ≥ 2 000 字符）时，soup 提取会被**完全跳过**，节省 30–180 ms。否则工具会比较两种策略的结果并选择更好的一个。如果本地提取不足且配置了 CDP 端点，工具会在无头浏览器中渲染页面并从渲染后的 HTML 中重新提取内容。如果 CDP 不可用或仍然产生不足的内容，则回退到 Jina Reader。
 
@@ -112,7 +116,12 @@ flowchart TD
     SK -->|否| E[Soup 提取]
     E --> F
     F -->|质量充足| Z
-    F -->|太短或 SPA 空壳| CDP{配置了 CDP 端点？}
+    F -->|太短或 SPA 空壳| VR{配置了 VeilRender？}
+    VR -->|是| VR1[VeilRender 远程浏览器]
+    VR1 --> VR2[使用 Readability + Soup 重新提取]
+    VR2 -->|质量充足| Z
+    VR2 -->|不足| CDP{配置了 CDP 端点？}
+    VR -->|否| CDP
     CDP -->|是| CDP1[CDP 浏览器渲染]
     CDP1 --> CDP2[使用 Readability
     + 条件性 Soup 重新提取]
@@ -220,6 +229,23 @@ Readability 提取完成后，工具会决定是否还需要运行 soup。当 re
 - 设置 `CDP_ENDPOINT` 环境变量（例如 `ws://localhost:9222`），或将 `cdp_endpoint` 传递给 `Fetch()` 构造函数
 - CDP 阶段**完全可选** — 如果未配置，工具直接跳到 Jina Reader
 - 所有 CDP 错误都会被静默捕获；CDP 尝试失败不会中断管道
+
+### VeilRender 远程浏览器
+
+VeilRender 是一个可选的自托管远程浏览器服务，在自动回退链中位于 **CDP 之前**。它通过 REST API（`POST /render`）渲染页面，并用 Readability/Soup 重新解析返回的 HTML。
+
+**工作原理：**
+
+- 通过 HTTP POST 将目标 URL 发送给 VeilRender 端点
+- 接收完整渲染后的 HTML 并重新运行本地提取（Readability + Soup）
+- VeilRender 不可用或返回内容不足时，继续回退至 CDP → Jina Reader
+
+**配置：**
+
+- 设置 `VEILRENDER_ENDPOINT`（例如 `http://localhost:3000`），或将 `veilrender_endpoint` 传递给 `Fetch()`
+- `VEILRENDER_TOKEN` **可选** — 仅在 VeilRender 实例需要认证时设置
+- 未配置时，`veilrender` 策略在运行时从 `strategy` 参数的有效值中隐藏
+- 所有 VeilRender 错误都会被静默捕获，并自动回退至下一阶段
 
 **优势：**
 
