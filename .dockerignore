@@ -71,6 +71,12 @@ venv.bak/
 .DS_Store
 Thumbs.db
 
+# Secrets and credentials
+*.key
+*.pem
+*.p12
+*.pfx
+
 # Logs
 *.log
 
