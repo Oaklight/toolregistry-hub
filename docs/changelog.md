@@ -70,6 +70,16 @@ author: Oaklight
 - `Fetch._available_strategies()` 同时驱动运行时验证和 Literal 缩窄；仅在配置了端点时 `veilrender` / `cdp` 才出现。
 - **服务器：采用 toolregistry-server 的 `ServerIdentity` + `CLI` 类**（[#149](https://github.com/Oaklight/toolregistry-hub/pull/149)）—— `HubApp` 现在接受 `ServerIdentity`（`HUB_IDENTITY` 包含名称、版本、描述、Banner 图案），自动流转至 OpenAPI 标题、MCP 服务器名称和 CLI Banner。`HubCLI` 继承 `toolregistry_server.cli.CLI`，仅覆写四个方法（`create_parser`、`get_version_string`、`print_banner`、`dispatch`）而非重新实现主循环。`main()` 缩减为一行：`HubCLI().main(args)`。用户可见的 CLI 接口无任何变化。
 
+## [0.11.2] - 2026-06-22
+
+### 新增
+
+- **运行时标签更新** — 将 `tags` 加入 `_MUTABLE_METADATA_FIELDS`，支持在不重新注册工具的情况下，在运行时更新工具标签。
+
+### 修复
+
+- **简化 nullable `anyOf` schema** — 可空字段现在生成简化版 `anyOf` schema，以提升 MCP 兼容性，避免严格 MCP 客户端产生 schema 校验错误。
+
 ## [0.8.3] - 2026-06-03
 
 ### 新增
