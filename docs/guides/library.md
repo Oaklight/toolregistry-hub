@@ -193,6 +193,25 @@ from toolregistry_hub.server.registry import get_registry
 registry = get_registry()  # 所有工具已注册就绪
 ```
 
+### 运行时标签更新
+
+`toolregistry` v0.11.2 起，工具标签支持运行时可变 —— 无需重新注册即可在注册后调整工具的 `ToolTag` 标签：
+
+```python
+from toolregistry import ToolRegistry
+from toolregistry.utils.tool_metadata import ToolTag
+from toolregistry_hub import BashTool
+
+registry = ToolRegistry()
+registry.register_static_tools(BashTool, namespace="bash")
+
+# 在验证环境后，于运行时将 BashTool 标记为特权工具
+tool = registry["bash-execute"]
+tool.metadata.tags = {ToolTag.PRIVILEGED, ToolTag.DESTRUCTIVE}
+```
+
+适用于需要根据运行时上下文（用户角色、部署环境等）动态管控高权限工具，而无需重建注册表的场景。
+
 ## 环境变量
 
 部分工具需要 API 密钥。无需密钥的工具（Calculator、DateTime、FileOps、BashTool 等）开箱即用。

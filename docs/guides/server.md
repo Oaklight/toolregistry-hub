@@ -168,6 +168,7 @@ print(response.json())
 | 端口被占用 | 使用 `--port` 指定其他端口 |
 | 搜索工具不可用 | 设置 API 密钥 — 见[环境变量](../reference/environment.md) |
 | 认证失败 | 检查 `API_BEARER_TOKEN` 和请求头 |
+| MCP 客户端拒绝可空参数 schema | 升级至 `toolregistry>=0.11.2` — 可空字段现在生成简化版 `anyOf` schema，兼容严格 MCP 校验器 |
 
 ## 另请参阅
 

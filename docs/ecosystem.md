@@ -31,9 +31,11 @@ toolregistry-hub      ← Hub：即用型工具实现
 生态系统的基础。提供：
 
 - 协议无关的工具注册和管理
-- 兼容 OpenAI 的函数调用模式生成
+- 兼容 OpenAI、Anthropic 和 Gemini 的函数调用 schema 生成
 - 多模式并发工具执行
 - MCP、OpenAPI、LangChain 和基于类的工具集成适配器
+- 基于标签的权限系统（`ToolTag`：`READ_ONLY`、`DESTRUCTIVE`、`NETWORK`、`FILE_SYSTEM`、`PRIVILEGED`），支持运行时可变元数据
+- MCP 兼容的 schema 生成（可空字段简化 `anyOf`，适配严格 MCP 客户端）
 
 ### toolregistry-server（服务器）
 
