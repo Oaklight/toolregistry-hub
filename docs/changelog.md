@@ -12,7 +12,27 @@ author: Oaklight
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并在需要时保留项目自身的分类方式。
 
-## [未发布]
+## [0.9.1] - 2026-06-22
+
+### 变更
+
+- **服务器：采用 toolregistry-server 0.4.0 架构**（[#147](https://github.com/Oaklight/toolregistry-hub/pull/147)）— 将 Hub 迁移至上游 `App`/`Adapter`/`registry_builder` 架构。`HubApp(App)` 仅覆写 `prepare_registry()` 实现 Hub 特定的注册表构建；`run_cli()` 和 `Adapter.add_cli_arguments()` 替代手写的同等逻辑。移除 `server/auth.py`、`server/routes/` 及相关重导出，净减少 798 行代码。
+- **服务器：采用 toolregistry-server 的 `ServerIdentity` + `CLI` 类**（[#149](https://github.com/Oaklight/toolregistry-hub/pull/149)）— `HubApp` 现在接受 `ServerIdentity`（`HUB_IDENTITY`：名称、版本、描述、Banner 图案），自动流转至 OpenAPI 标题、MCP 服务器名称和 CLI Banner。`HubCLI` 继承 `toolregistry_server.cli.CLI`，仅覆写四个方法（`configure_subparsers`、`get_version_string`、`print_banner`、`dispatch`）而非重新实现主循环。`main()` 缩减为一行：`HubCLI().main(args)`。用户可见的 CLI 接口无任何变化。
+
+### 优化
+
+- **服务器：`HubApp` 懒加载 + `configure_subparsers` 钩子** — 模块级 `HubApp` 改为首次使用时创建，避免 `HubCLI` 初始化时重复实例化。`create_parser` 不再访问 argparse 私有 API（`_subparsers._actions`），改用 `configure_subparsers(subparsers: dict[str, ArgumentParser])` 回调注入 Hub 特有参数。
+- **服务器：`_run_update_check()` 辅助函数** — 将 `_get_version_string` 和 `_print_hub_banner` 中重复的异步事件循环样板代码提取为共享的 `_run_update_check()` 辅助函数，消除冗余。
+
+### 修复
+
+- **Docker：将 `*.key` 和 `*.pem` 加入 `.dockerignore`** — 防止私钥和证书意外包含在 Docker 构建上下文中。
+
+### 文档
+
+- 修正 jina 策略描述，并明确说明 `VEILRENDER_TOKEN` 为可选配置。
+
+## [0.9.0] - 2026-06-21
 
 ### 新增
 
@@ -69,16 +89,6 @@ author: Oaklight
 - 新增 `_try_browser_rendering()` 封装 auto 流程中的 VeilRender → CDP 级联逻辑。
 - `Fetch._available_strategies()` 同时驱动运行时验证和 Literal 缩窄；仅在配置了端点时 `veilrender` / `cdp` 才出现。
 - **服务器：采用 toolregistry-server 的 `ServerIdentity` + `CLI` 类**（[#149](https://github.com/Oaklight/toolregistry-hub/pull/149)）—— `HubApp` 现在接受 `ServerIdentity`（`HUB_IDENTITY` 包含名称、版本、描述、Banner 图案），自动流转至 OpenAPI 标题、MCP 服务器名称和 CLI Banner。`HubCLI` 继承 `toolregistry_server.cli.CLI`，仅覆写四个方法（`create_parser`、`get_version_string`、`print_banner`、`dispatch`）而非重新实现主循环。`main()` 缩减为一行：`HubCLI().main(args)`。用户可见的 CLI 接口无任何变化。
-
-## [0.11.2] - 2026-06-22
-
-### 新增
-
-- **运行时标签更新** — 将 `tags` 加入 `_MUTABLE_METADATA_FIELDS`，支持在不重新注册工具的情况下，在运行时更新工具标签。
-
-### 修复
-
-- **简化 nullable `anyOf` schema** — 可空字段现在生成简化版 `anyOf` schema，以提升 MCP 兼容性，避免严格 MCP 客户端产生 schema 校验错误。
 
 ## [0.8.3] - 2026-06-03
 
