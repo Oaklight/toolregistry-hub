@@ -70,6 +70,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `Fetch._available_strategies()` drives both runtime validation and Literal narrowing; `veilrender` / `cdp` appear only when their endpoints are set.
 - **Server: Adopt `ServerIdentity` + `CLI` class from toolregistry-server** ([#149](https://github.com/Oaklight/toolregistry-hub/pull/149)) — `HubApp` now accepts a `ServerIdentity` (`HUB_IDENTITY` with name, version, description, banner art), which flows automatically to the OpenAPI title, MCP server name, and CLI banner. `HubCLI` subclasses `toolregistry_server.cli.CLI`, overriding four methods (`create_parser`, `get_version_string`, `print_banner`, `dispatch`) instead of reimplementing the main loop. `main()` is reduced to one line: `HubCLI().main(args)`. No user-visible CLI interface changes.
 
+## [0.11.2] - 2026-06-22
+
+### Added
+
+- **Runtime tag updates** — `tags` added to `_MUTABLE_METADATA_FIELDS`, allowing tool tags to be updated at runtime without re-registering the tool.
+
+### Fixed
+
+- **Nullable `anyOf` schema simplification** — nullable fields now emit a simplified `anyOf` schema for MCP compatibility, avoiding schema validation issues with strict MCP clients.
+
 ## [0.8.3] - 2026-06-03
 
 ### Added
