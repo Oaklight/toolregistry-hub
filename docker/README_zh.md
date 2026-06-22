@@ -103,7 +103,7 @@ docker run -p 8000:8000 --env-file .env toolregistry-hub
 | `soup` | 本地 BeautifulSoup 降级 |
 | `veilrender` | 远程无头浏览器（需配置 `VEILRENDER_ENDPOINT`）|
 | `cdp` | 自托管 Chrome DevTools Protocol（需配置 `CDP_ENDPOINT`）|
-| `jina` | Jina Reader API（需配置 `JINA_API_KEY`）|
+| `jina` | Jina Reader API（始终可用；可选配置 `JINA_API_KEY` 以提升限速上限）|
 
 可选值在运行时动态缩窄—— `veilrender` 和 `cdp` 仅在配置了对应端点时才出现。
 
@@ -119,7 +119,7 @@ VeilRender 是可选的远程无头浏览器服务，专为 JS 渲染页面和 S
 
 ```
 VEILRENDER_ENDPOINT=https://your-veilrender-instance
-VEILRENDER_TOKEN=your_token_here
+VEILRENDER_TOKEN=your_token_here  # 可选
 ```
 
 配置后，`veilrender` 会自动插入到 fallback 链中 `cdp` 之前的位置。

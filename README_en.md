@@ -98,7 +98,7 @@ A new optional `strategy` parameter lets you specify the extraction strategy (de
 | `soup` | Local BeautifulSoup fallback |
 | `veilrender` | Remote headless browser (requires `VEILRENDER_ENDPOINT`) |
 | `cdp` | Self-hosted Chrome DevTools Protocol (requires `CDP_ENDPOINT`) |
-| `jina` | Jina Reader API (requires `JINA_API_KEY`) |
+| `jina` | Jina Reader API (always available; optional `JINA_API_KEY` for higher rate limits) |
 
 Available choices are narrowed at runtime: `veilrender` and `cdp` appear only when their respective endpoints are configured.
 
@@ -114,7 +114,7 @@ VeilRender is a new optional remote headless browser fallback for JS-heavy pages
 
 ```
 VEILRENDER_ENDPOINT=https://your-veilrender-instance
-VEILRENDER_TOKEN=your_token_here
+VEILRENDER_TOKEN=your_token_here  # optional
 ```
 
 ## Contributing
