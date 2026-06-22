@@ -55,6 +55,21 @@ author: Oaklight
 
 - 修正 `README.md` 软链接目标，从 `readme_en.md`（不存在）改为 `README_en.md`。
 
+### 优化（续）
+
+- **Fetch：VeilRender 浏览器 fallback**（[#140](https://github.com/Oaklight/toolregistry-hub/pull/140)）—— 新增 VeilRender 作为可选远程无头浏览器 fallback，在 auto fallback 链中位于 CDP 之前。VeilRender 通过 REST API（`POST /render`）渲染 JS 页面，再用 Readability/Soup 解析返回的 HTML。通过 `VEILRENDER_ENDPOINT` 配置，可选配置 `VEILRENDER_TOKEN`。未配置时，该策略在运行时从 `strategy` Literal 注解中隐藏。
+- **Fetch：结构化返回值**（[#140](https://github.com/Oaklight/toolregistry-hub/pull/140)）—— `fetch_content` 现在返回 `FetchResult` TypedDict 而非纯字符串：`{content, url, strategy, quality, content_type, cached, elapsed_ms, metadata}`。`quality` 字段取値 `"high"` 或 `"low"`；`metadata` 包含策略相关字段，如 `readability_score` 和 `content_length`。
+- **Fetch：显式 `strategy` 参数**（[#140](https://github.com/Oaklight/toolregistry-hub/pull/140)）—— `fetch_content` 新增可选的 `strategy` 参数（默认 `"auto"`）。可选值：`auto`、`markdown`、`readability`、`soup`、`jina`（始终可用），以及配置了对应端点时的 `veilrender` 和 `cdp`。Literal 注解在 `__init__` 时通过 `_narrow_strategy_annotation()` 动态缩窄为当前可用策略。指定策略时绕过 fallback 链，直接运行对应提取逻辑。
+- **Fetch：更新后的 fallback 链**（[#140](https://github.com/Oaklight/toolregistry-hub/pull/140)）—— auto 流程顺序：`markdown → readability → soup → veilrender → cdp → jina → local_fallback`。Docker `compose.yaml` 保留对外直连端口（55093/55094/55095）与 Caddy 网关并存。
+
+### 内部变更（续）
+
+- 新增 `FetchResult` TypedDict、`_make_result()` 工厂函数和 `_extract_with_strategy()` / `_extract_auto()` 拆分，替代原先单一的 `_extract()`。策略处理器拆分为 `_strategy_markdown()`、`_strategy_local()`、`_strategy_browser()`、`_strategy_jina()`。
+- 新增 `_render_with_veilrender()` 和 `_try_veilrender_extraction()`，与现有 CDP 辅助函数对称设计。
+- 新增 `_try_browser_rendering()` 封装 auto 流程中的 VeilRender → CDP 级联逻辑。
+- `Fetch._available_strategies()` 同时驱动运行时验证和 Literal 缩窄；仅在配置了端点时 `veilrender` / `cdp` 才出现。
+- **服务器：采用 toolregistry-server 的 `ServerIdentity` + `CLI` 类**（[#149](https://github.com/Oaklight/toolregistry-hub/pull/149)）—— `HubApp` 现在接受 `ServerIdentity`（`HUB_IDENTITY` 包含名称、版本、描述、Banner 图案），自动流转至 OpenAPI 标题、MCP 服务器名称和 CLI Banner。`HubCLI` 继承 `toolregistry_server.cli.CLI`，仅覆写四个方法（`create_parser`、`get_version_string`、`print_banner`、`dispatch`）而非重新实现主循环。`main()` 缩减为一行：`HubCLI().main(args)`。用户可见的 CLI 接口无任何变化。
+
 ## [0.8.3] - 2026-06-03
 
 ### 新增
