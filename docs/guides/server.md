@@ -168,6 +168,7 @@ Error responses return `{"detail": "Error description"}`.
 | Port already in use | Use `--port` to pick another |
 | Search tools unavailable | Set API keys — see [Environment Variables](../reference/environment.md) |
 | Auth failing | Check `API_BEARER_TOKEN` and request header |
+| MCP client rejects nullable parameter schemas | Upgrade to `toolregistry>=0.11.2` — nullable fields now emit a simplified `anyOf` schema compatible with strict MCP validators |
 
 ## See Also
 

@@ -31,9 +31,11 @@ toolregistry-hub      ← Hub: ready-to-use tool implementations
 The foundation of the ecosystem. Provides:
 
 - Protocol-agnostic tool registration and management
-- OpenAI-compatible function calling schema generation
+- OpenAI-, Anthropic-, and Gemini-compatible function calling schema generation
 - Concurrent tool execution with multiple modes
 - Integration adapters for MCP, OpenAPI, LangChain, and class-based tools
+- Tag-based permission system (`ToolTag`: `READ_ONLY`, `DESTRUCTIVE`, `NETWORK`, `FILE_SYSTEM`, `PRIVILEGED`) with runtime-mutable metadata
+- MCP-compatible schema generation (nullable `anyOf` simplification for strict MCP clients)
 
 ### toolregistry-server (Server)
 

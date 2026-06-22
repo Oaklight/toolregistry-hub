@@ -193,6 +193,25 @@ from toolregistry_hub.server.registry import get_registry
 registry = get_registry()  # all tools registered and ready
 ```
 
+### Runtime Tag Updates
+
+As of `toolregistry` v0.11.2, tool tags are mutable at runtime — you can adjust a tool's `ToolTag` labels after registration without re-registering it:
+
+```python
+from toolregistry import ToolRegistry
+from toolregistry.utils.tool_metadata import ToolTag
+from toolregistry_hub import BashTool
+
+registry = ToolRegistry()
+registry.register_static_tools(BashTool, namespace="bash")
+
+# Mark BashTool as privileged at runtime (e.g., after validating the environment)
+tool = registry["bash-execute"]
+tool.metadata.tags = {ToolTag.PRIVILEGED, ToolTag.DESTRUCTIVE}
+```
+
+This is useful when you need to gate elevated tools based on runtime context (user role, environment, etc.) without rebuilding the registry.
+
 ## Environment Variables
 
 Some tools require API keys. Tools without key requirements (Calculator, DateTime, FileOps, BashTool, etc.) work out of the box.
