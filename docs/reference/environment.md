@@ -30,12 +30,15 @@ If neither is set, the server runs without authentication.
 | `SEARXNG_API_KEY` | SearXNG Search | Optional API key for protected instances (sent as `X-API-Key` header) |
 | `JINA_API_KEY` | Fetch (Jina Reader) | Optional; comma-separated for multi-key rotation |
 | `CDP_ENDPOINT` | Fetch (CDP Rendering) | Optional WebSocket URL of a CDP-compatible browser (e.g., `ws://localhost:9222`) |
+| `VEILRENDER_ENDPOINT` | Fetch (VeilRender) | Optional base URL of a VeilRender remote browser service (e.g., `http://localhost:3000`) |
+| `VEILRENDER_TOKEN` | Fetch (VeilRender) | Optional bearer token for VeilRender authentication. Omit if your instance has no auth. |
 
 ## Server Configuration
 
 | Variable | Description |
 |----------|-------------|
 | `WEBSEARCH_PRIORITY` | Comma-separated engine priority for auto mode (e.g., `searxng,brave,tavily`) |
+| `WEBSEARCH_PARALLEL_ENGINES` | Comma-separated engines to query when `engine="parallel"` (default: `brightdata,brave`) |
 | `TOOLS_CONFIG` | Path to a `tools.jsonc` configuration file (alternative to `--config` CLI flag) |
 
 ## Auto-Disable Behavior

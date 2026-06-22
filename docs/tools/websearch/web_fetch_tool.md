@@ -8,13 +8,13 @@ author: Oaklight
 
 # Web Fetch Tool
 
-The Web Fetch tool provides intelligent webpage content extraction from URLs. It uses a five-stage strategy chain - Cloudflare Content Negotiation, Readability extraction, zerodep soup parsing, CDP Browser Rendering, and Jina Reader API - with **content quality evaluation** and **smart fallback** to extract clean, readable content from webpages while handling various website structures and formats, including JavaScript-heavy Single Page Applications (SPAs).
+The Web Fetch tool provides intelligent webpage content extraction from URLs. It uses a multi-stage strategy chain - Cloudflare Content Negotiation, Readability extraction, zerodep soup parsing, VeilRender remote browser, CDP Browser Rendering, and Jina Reader API - with **content quality evaluation** and **smart fallback** to extract clean, readable content from webpages while handling various website structures and formats, including JavaScript-heavy Single Page Applications (SPAs).
 
 ## Overview
 
 The Fetch class offers robust webpage content extraction:
 
-- **Five-Stage Strategy Chain**: Cloudflare Content Negotiation → Readability extraction → Soup parsing → CDP Browser Rendering → Jina Reader API
+- **Multi-Stage Strategy Chain**: Cloudflare Content Negotiation → Readability extraction → Soup parsing → VeilRender remote browser → CDP Browser Rendering → Jina Reader API
 - **Response Reuse**: HTTP responses from the content negotiation stage are passed directly to subsequent extraction strategies, avoiding redundant network requests
 - **Binary Content Interception**: Automatically detects images, PDFs, audio/video, and other binary MIME types, rejecting them early with a clear error before entering the extraction pipeline
 - **URL Result Cache**: Per-instance cache with TTL (default 5 min) and LRU eviction (128 entries) avoids redundant extraction for repeated URLs
@@ -51,7 +51,7 @@ content = fetcher.fetch_content(
 
 ## API Reference
 
-### `Fetch(api_keys=None, cdp_endpoint=None)`
+### `Fetch(api_keys=None, cdp_endpoint=None, veilrender_endpoint=None, veilrender_token=None)`
 
 Initialize the Fetch content extractor.
 
@@ -59,8 +59,10 @@ Initialize the Fetch content extractor.
 
 - `api_keys` (str, optional): Comma-separated Jina API keys. Falls back to `JINA_API_KEY` environment variable. When set, requests to Jina Reader include an `Authorization: Bearer <key>` header with round-robin key rotation.
 - `cdp_endpoint` (str, optional): WebSocket URL of a CDP-compatible browser (e.g., `ws://localhost:9222`). Falls back to `CDP_ENDPOINT` environment variable. When set, enables the CDP Browser Rendering stage for SPA content extraction.
+- `veilrender_endpoint` (str, optional): Base URL of a VeilRender remote browser service (e.g., `http://localhost:3000`). Falls back to `VEILRENDER_ENDPOINT` environment variable. When set, enables the VeilRender stage, positioned before CDP in the auto fallback chain.
+- `veilrender_token` (str, optional): Bearer token for VeilRender authentication. Falls back to `VEILRENDER_TOKEN` environment variable. Optional — omit if your VeilRender instance requires no auth.
 
-### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None) -> str`
+### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None, strategy: str = "auto") -> FetchResult`
 
 Extract content from a given URL using available methods.
 
@@ -69,10 +71,11 @@ Extract content from a given URL using available methods.
 - `url` (str): The URL to fetch content from
 - `timeout` (float): Request timeout in seconds (default: 30.0)
 - `proxy` (Optional[str]): Proxy server URL (e.g., "http://proxy.example.com:8080")
+- `strategy` (str): Extraction strategy to use (default: `"auto"`). Available values: `auto`, `markdown`, `readability`, `soup`, `jina` (always present), plus `veilrender` and `cdp` when their endpoints are configured. Explicit strategies bypass the auto fallback chain and run a single targeted extraction pass.
 
 **Returns:**
 
-- `str`: Extracted content from the URL, or "Unable to fetch content" if extraction fails
+- `FetchResult`: A TypedDict with fields: `content` (str), `url` (str), `strategy` (str used), `quality` (`"high"` or `"low"`), `content_type` (str), `cached` (bool), `elapsed_ms` (float), `metadata` (dict with strategy-specific fields such as `readability_score` and `content_length`).
 
 **Raises:**
 
@@ -80,15 +83,16 @@ Extract content from a given URL using available methods.
 
 ## How It Works
 
-### Five-Stage Strategy Chain
+### Strategy Chain
 
-The Web Fetch tool uses a five-stage extraction approach with **content quality evaluation** at each step:
+The Web Fetch tool uses a multi-stage extraction approach with **content quality evaluation** at each step:
 
 1. **Cloudflare Content Negotiation**: Zero-cost attempt to get markdown directly from the origin server
 2. **Readability Extraction**: Mozilla Readability-style article scoring to identify and extract main content
 3. **Soup Parsing**: Lightweight HTML parsing with CSS selector fallback using zerodep soup (zero external dependencies)
-4. **CDP Browser Rendering**: Self-hosted headless browser rendering via Chrome DevTools Protocol for SPA pages (requires `CDP_ENDPOINT` configuration)
-5. **Jina Reader (Fallback)**: External API with multi-engine retry (`browser` → `cf-browser-rendering`) for JavaScript rendering (SPA support)
+4. **VeilRender Remote Browser** *(optional)*: REST-based remote browser rendering via a self-hosted VeilRender service (`POST /render`). Positioned before CDP; only active when `VEILRENDER_ENDPOINT` is configured. The `veilrender` strategy is hidden from the `strategy` parameter annotation when unconfigured.
+5. **CDP Browser Rendering** *(optional)*: Self-hosted headless browser rendering via Chrome DevTools Protocol for SPA pages (requires `CDP_ENDPOINT` configuration)
+6. **Jina Reader (Fallback)**: External API with multi-engine retry (`browser` → `cf-browser-rendering`) for JavaScript rendering (SPA support)
 
 The tool minimises HTTP round-trips: if Cloudflare Content Negotiation returns `text/html` instead of markdown (the common case), the response body is preserved and passed directly to the Readability/Soup extraction pipeline - no redundant second request is made. Both local strategies share this single HTML copy. When readability produces a high-confidence result (score ≥ 100 and text ≥ 2 000 characters), the soup pass is **skipped entirely**, saving 30-180 ms depending on document size. Otherwise the tool compares results from both strategies and picks the better one. If local extraction is insufficient and a CDP endpoint is configured, the tool renders the page in a headless browser and re-extracts content from the rendered HTML. If CDP is unavailable or still produces insufficient content, it falls back to Jina Reader.
 
@@ -112,7 +116,12 @@ flowchart TD
     SK -->|No| E[Soup Extraction]
     E --> F
     F -->|Sufficient quality| Z
-    F -->|Too short or SPA shell| CDP{CDP Endpoint configured?}
+    F -->|Too short or SPA shell| VR{VeilRender configured?}
+    VR -->|Yes| VR1[VeilRender remote browser]
+    VR1 --> VR2[Re-extract with Readability + Soup]
+    VR2 -->|Sufficient quality| Z
+    VR2 -->|Insufficient| CDP{CDP Endpoint configured?}
+    VR -->|No| CDP
     CDP -->|Yes| CDP1[CDP Browser Rendering]
     CDP1 --> CDP2[Re-extract with Readability
     + conditional Soup]
@@ -218,8 +227,25 @@ When local extraction produces insufficient content (SPA shell or too short) and
 **Configuration:**
 
 - Set `CDP_ENDPOINT` environment variable (e.g., `ws://localhost:9222`) or pass `cdp_endpoint` to the `Fetch()` constructor
-- The CDP stage is **entirely optional** - if unconfigured, the tool skips directly to Jina Reader
+- The CDP stage is **entirely optional** — if unconfigured, the tool skips directly to Jina Reader
 - All CDP errors are caught silently; a failed CDP attempt never breaks the pipeline
+
+### VeilRender Remote Browser
+
+VeilRender is an optional self-hosted remote browser service positioned **before CDP** in the auto fallback chain. It renders pages via a REST API (`POST /render`) and re-parses the returned HTML with Readability/Soup.
+
+**How it works:**
+
+- Sends the target URL to the VeilRender endpoint via HTTP POST
+- Receives fully-rendered HTML and re-runs local extraction (Readability + Soup)
+- Falls through to CDP → Jina Reader if VeilRender is unavailable or returns insufficient content
+
+**Configuration:**
+
+- Set `VEILRENDER_ENDPOINT` (e.g., `http://localhost:3000`) or pass `veilrender_endpoint` to `Fetch()`
+- `VEILRENDER_TOKEN` is **optional** — only set it if your VeilRender instance requires authentication
+- When unconfigured, the `veilrender` strategy is hidden from the `strategy` parameter's valid values at runtime
+- All VeilRender errors are caught silently and fall through to the next stage
 
 **Benefits:**
 
