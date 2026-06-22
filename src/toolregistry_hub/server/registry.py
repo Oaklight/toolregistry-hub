@@ -13,16 +13,12 @@ Deployment-context filtering (``--profile``) is handled by
 ``toolregistry-server >= 0.3.0`` and is not reimplemented here.
 """
 
-import importlib
-from collections.abc import Callable
-
 from toolregistry import ToolRegistry
-from toolregistry.config import MCPSource, OpenAPISource, PythonSource, ToolConfig
+from toolregistry.config import PythonSource, ToolConfig
 from toolregistry.tool import ToolTag
 
 from .._vendor.structlog import get_logger
 from ..utils.configurable import Configurable
-from ..utils.fn_namespace import _is_all_static_methods
 
 logger = get_logger()
 
@@ -201,148 +197,45 @@ def _discover_config_path() -> str | None:
     return None
 
 
-def _merge_kwargs_into_source(
-    src: PythonSource,
-    tool_kwargs: dict[str, dict],
-) -> PythonSource:
-    """Return a copy of *src* with *tool_kwargs* merged in, or *src* unchanged.
-
-    Args:
-        src: The original ``PythonSource``.
-        tool_kwargs: Namespace-tail → constructor kwargs map.
-
-    Returns:
-        A new ``PythonSource`` with merged kwargs, or the original if no match.
-    """
-    if not src.namespace:
-        return src
-    key = src.namespace.rsplit("/", 1)[-1]
-    extra = tool_kwargs.get(key, {})
-    if not extra:
-        return src
-    return PythonSource(
-        class_path=src.class_path,
-        namespace=src.namespace,
-        kwargs=dict(extra),
-    )
-
-
 def _resolve_config(
-    tools_config_path: str | None,
-    tool_kwargs: dict[str, dict] | None,
+    tools_config_path: str | None = None,
 ) -> ToolConfig:
     """Load or build the tool config to register from.
 
-    Priority: explicit path > ``toolregistry.config`` auto-discovery
+    Priority: explicit path > auto-discovery
     (``TOOLS_CONFIG`` env var / ``tools.jsonc``) > hub ``_DEFAULT_TOOLS``.
 
     Args:
         tools_config_path: Explicit config file path, or ``None``.
-        tool_kwargs: Namespace-tail → constructor kwargs overrides.
 
     Returns:
         A ``ToolConfig`` ready for registration.
     """
-    from toolregistry.config import load_config
+    from toolregistry_server import load_config
 
     path = tools_config_path or _discover_config_path()
-    config = load_config(path) if path else None
+    config = load_config(path) if path is not None else None
 
     if config is None or not config.tools:
-        sources = [
-            _merge_kwargs_into_source(src, tool_kwargs) if tool_kwargs else src
-            for src in _DEFAULT_TOOLS
-        ]
-        return ToolConfig(tools=tuple(sources))
-
-    # File config present — merge tool_kwargs into matching PythonSource entries
-    if tool_kwargs:
-        for src in config.tools:
-            if isinstance(src, PythonSource) and src.namespace:
-                key = src.namespace.rsplit("/", 1)[-1]
-                extra = tool_kwargs.get(key, {})
-                if extra:
-                    src.kwargs.update(extra)
+        return ToolConfig(tools=tuple(_DEFAULT_TOOLS))
 
     return config
 
 
-def _register_python_class_source(
-    registry: ToolRegistry,
-    source: PythonSource,
-    _register_python_source_fn: Callable[..., None],
-) -> None:
-    """Register a single PythonSource with a ``class_path``.
-
-    Handles three cases in order:
-    1. Static-method-only class → register class directly (no hook).
-    2. Class with constructor kwargs → instantiate with kwargs, then register.
-    3. Otherwise → delegate to the server's ``_register_python_source`` helper.
-
-    Args:
-        registry: Destination registry.
-        source: A ``PythonSource`` with a non-empty ``class_path``.
-        _register_python_source_fn: The server helper function reference.
-    """
-    module_path, class_name = source.class_path.rsplit(".", 1)  # type: ignore[union-attr]
-    cls = getattr(importlib.import_module(module_path), class_name)
-    ns: bool | str = source.namespace or False
-
-    if _is_all_static_methods(cls):
-        registry.register_from_class(cls, namespace=ns)
-        return
-
-    if source.kwargs:
-        # Server helper ignores source.kwargs; instantiate ourselves so that
-        # Configurable checks in the post-register hook see the right state.
-        instance = cls(**source.kwargs)
-        registry.register_from_class(instance, namespace=ns)
-        logger.info(f"Loaded class tools from {source.class_path}")
-        return
-
-    _register_python_source_fn(registry, source)
-
-
-def _register_sources(registry: ToolRegistry, config: ToolConfig) -> None:
-    """Register all enabled sources from *config* into *registry*.
-
-    Args:
-        registry: Destination registry (hooks must be attached beforehand).
-        config: Tool config whose sources to register.
-    """
-    from toolregistry_server.cli.openapi import (
-        _register_mcp_source,
-        _register_openapi_source,
-        _register_python_source,
-    )
-
-    for source in config.tools:
-        if not source.enabled:
-            continue
-        try:
-            if isinstance(source, PythonSource) and source.class_path:
-                _register_python_class_source(registry, source, _register_python_source)
-            elif isinstance(source, PythonSource):
-                _register_python_source(registry, source)
-            elif isinstance(source, MCPSource):
-                _register_mcp_source(registry, source)
-            elif isinstance(source, OpenAPISource):
-                _register_openapi_source(registry, source)
-        except Exception as e:
-            logger.warning(f"Failed to load tool source {source}: {e}")
-
-
 def build_registry(
-    tool_kwargs: dict[str, dict] | None = None,
     tools_config_path: str | None = None,
     enable_discovery: bool = True,
     enable_think: bool = True,
 ) -> ToolRegistry:
     """Build the hub tool registry.
 
+    Two-phase construction:
+
+    1. Register built-in tools from ``_DEFAULT_TOOLS`` (or a user config
+       file if provided) via ``toolregistry_server.apply_config``.
+    2. Apply Hub-specific metadata overrides (tags, defer).
+
     Args:
-        tool_kwargs: Namespace-tail → constructor kwargs.
-            Example: ``{"brave_search": {"api_keys": "my-key"}}``
         tools_config_path: Path to a JSONC/YAML config file, or ``None`` for
             auto-discovery (``TOOLS_CONFIG`` env var / ``tools.jsonc``).
         enable_discovery: Register ``discover_tools`` and mark deferred tools.
@@ -351,15 +244,18 @@ def build_registry(
     Returns:
         A fully configured ``ToolRegistry`` instance.
     """
-    config = _resolve_config(tools_config_path, tool_kwargs)
+    from toolregistry_server import apply_config
+
+    config = _resolve_config(tools_config_path)
 
     registry = ToolRegistry(name="hub", think_augment=enable_think)
     registry.add_post_register_hook(configurable_hook)
 
-    _register_sources(registry, config)
+    # Register tools from config (built-in defaults or user override)
+    apply_config(registry, config)
+
+    # Hub-specific metadata overrides (tags, defer)
     _apply_tool_metadata(registry)
-    if config.tool_metadata:
-        registry.apply_metadata_config(config.tool_metadata)
 
     if enable_discovery:
         registry.enable_tool_discovery()
