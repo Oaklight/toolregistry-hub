@@ -28,24 +28,24 @@ class HubCLI(CLI):
     def __init__(self) -> None:
         super().__init__(app=HubApp())
 
-    def create_parser(self) -> argparse.ArgumentParser:
+    def configure_subparsers(
+        self, subparsers: dict[str, argparse.ArgumentParser]
+    ) -> None:
         """Add Hub-specific arguments to each subparser."""
-        parser = super().create_parser()
-
-        # Find subparsers and add hub args to each
-        for action in parser._subparsers._actions:
-            if isinstance(action, argparse._SubParsersAction):
-                for sub_parser in action.choices.values():
-                    _add_hub_arguments(sub_parser)
-
-        return parser
+        for sub_parser in subparsers.values():
+            _add_hub_arguments(sub_parser)
 
     def get_version_string(self) -> str:
         """Hub version with update check."""
         return _get_version_string()
 
     def print_banner(self) -> None:
-        """Hub banner with update check."""
+        """Print Hub banner with PyPI update check.
+
+        Overrides the base implementation because Hub needs to
+        check for updates and display extra lines — logic that
+        the base ``ServerIdentity``-driven banner doesn't support.
+        """
         _print_hub_banner()
 
     def dispatch(self, parsed: argparse.Namespace) -> None:
@@ -103,70 +103,66 @@ def _add_hub_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _get_version_string() -> str:
-    """Build Hub version string with update check."""
+def _run_update_check() -> dict | None:
+    """Run the async update check synchronously.
+
+    Returns the update info dict, or ``None`` if a running event
+    loop is detected or the check fails.
+    """
     import asyncio
 
     from ..version_check import check_for_updates
 
     try:
-        try:
-            asyncio.get_running_loop()
-            return f"toolregistry-hub {__version__}"
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                info = loop.run_until_complete(check_for_updates())
-            finally:
-                loop.close()
-                asyncio.set_event_loop(None)
+        asyncio.get_running_loop()
+        return None  # can't block inside an existing loop
+    except RuntimeError:
+        pass
 
-        if info["update_available"]:
-            return (
-                f"toolregistry-hub {info['current_version']}\n"
-                f"Update available: v{info['latest_version']}\n"
-                "Run: pip install --upgrade toolregistry-hub"
-            )
-        return f"toolregistry-hub {info['current_version']} (Latest)"
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(check_for_updates())
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
     except Exception:
+        return None
+
+
+def _get_version_string() -> str:
+    """Build Hub version string with update check."""
+    info = _run_update_check()
+    if info is None:
         return f"toolregistry-hub {__version__}"
+    if info["update_available"]:
+        return (
+            f"toolregistry-hub {info['current_version']}\n"
+            f"Update available: v{info['latest_version']}\n"
+            "Run: pip install --upgrade toolregistry-hub"
+        )
+    return f"toolregistry-hub {info['current_version']} (Latest)"
 
 
 def _print_hub_banner() -> None:
     """Print Hub banner with version check."""
-    import asyncio
-
     from toolregistry_server.cli import print_banner
 
-    from ..version_check import check_for_updates
     from .banner import BANNER_ART
 
-    try:
-        try:
-            asyncio.get_running_loop()
-            version = __version__
-            extra_lines = None
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                info = loop.run_until_complete(check_for_updates())
-            finally:
-                loop.close()
-                asyncio.set_event_loop(None)
-
-            if info["update_available"]:
-                version = info["current_version"]
-                extra_lines = [
-                    f"UPDATE AVAILABLE: v{info['latest_version']}",
-                    "Run: pip install --upgrade toolregistry-hub",
-                ]
-            else:
-                version = f"{info['current_version']} (Latest)"
-                extra_lines = None
-    except Exception:
+    info = _run_update_check()
+    if info is None:
         version = __version__
+        extra_lines = None
+    elif info["update_available"]:
+        version = info["current_version"]
+        extra_lines = [
+            f"UPDATE AVAILABLE: v{info['latest_version']}",
+            "Run: pip install --upgrade toolregistry-hub",
+        ]
+    else:
+        version = f"{info['current_version']} (Latest)"
         extra_lines = None
 
     print_banner(version=version, banner_art=BANNER_ART, extra_lines=extra_lines)
