@@ -12,7 +12,27 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with project-specific grouping where useful.
 
-## [Unreleased]
+## [0.9.1] - 2026-06-22
+
+### Changed
+
+- **Server: Adopt toolregistry-server 0.4.0 architecture** ([#147](https://github.com/Oaklight/toolregistry-hub/pull/147)) — migrates Hub to the upstream `App`/`Adapter`/`registry_builder` architecture. `HubApp(App)` overrides only `prepare_registry()` for Hub-specific registry construction; `run_cli()` and `Adapter.add_cli_arguments()` replace hand-rolled equivalents. Removes `server/auth.py`, `server/routes/`, and associated re-exports. Net −798 lines.
+- **Server: Adopt `ServerIdentity` + `CLI` class from toolregistry-server** ([#149](https://github.com/Oaklight/toolregistry-hub/pull/149)) — `HubApp` now accepts a `ServerIdentity` (`HUB_IDENTITY`: name, version, description, banner art) that flows automatically to the OpenAPI title, MCP server name, and CLI banner. `HubCLI` subclasses `toolregistry_server.cli.CLI`, overriding four methods (`configure_subparsers`, `get_version_string`, `print_banner`, `dispatch`) instead of reimplementing the main loop. `main()` reduced to one line: `HubCLI().main(args)`. No user-visible CLI changes.
+
+### Improved
+
+- **Server: Lazy-init `HubApp` + `configure_subparsers` hook** — module-level `HubApp` is now created on first use, preventing double-instantiation when `HubCLI` creates its own instance. `create_parser` no longer digs into argparse private API (`_subparsers._actions`); Hub-specific arguments are now injected via the `configure_subparsers(subparsers: dict[str, ArgumentParser])` callback.
+- **Server: `_run_update_check()` helper** — async event-loop boilerplate in `_get_version_string` and `_print_hub_banner` extracted into a shared `_run_update_check()` helper, eliminating duplication.
+
+### Fixed
+
+- **Docker: add `*.key` and `*.pem` to `.dockerignore`** — prevents private keys and certificates from being inadvertently included in Docker build context.
+
+### Docs
+
+- Fix jina strategy description and clarify that `VEILRENDER_TOKEN` is optional.
+
+## [0.9.0] - 2026-06-21
 
 ### Added
 
@@ -69,16 +89,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add `_try_browser_rendering()` to encapsulate the VeilRender → CDP cascade in the auto pipeline.
 - `Fetch._available_strategies()` drives both runtime validation and Literal narrowing; `veilrender` / `cdp` appear only when their endpoints are set.
 - **Server: Adopt `ServerIdentity` + `CLI` class from toolregistry-server** ([#149](https://github.com/Oaklight/toolregistry-hub/pull/149)) — `HubApp` now accepts a `ServerIdentity` (`HUB_IDENTITY` with name, version, description, banner art), which flows automatically to the OpenAPI title, MCP server name, and CLI banner. `HubCLI` subclasses `toolregistry_server.cli.CLI`, overriding four methods (`create_parser`, `get_version_string`, `print_banner`, `dispatch`) instead of reimplementing the main loop. `main()` is reduced to one line: `HubCLI().main(args)`. No user-visible CLI interface changes.
-
-## [0.11.2] - 2026-06-22
-
-### Added
-
-- **Runtime tag updates** — `tags` added to `_MUTABLE_METADATA_FIELDS`, allowing tool tags to be updated at runtime without re-registering the tool.
-
-### Fixed
-
-- **Nullable `anyOf` schema simplification** — nullable fields now emit a simplified `anyOf` schema for MCP compatibility, avoiding schema validation issues with strict MCP clients.
 
 ## [0.8.3] - 2026-06-03
 
