@@ -55,6 +55,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Fix `README.md` symlink target from `readme_en.md` (nonexistent) to `README_en.md`.
 
+### Improved (continued)
+
+- **Fetch: VeilRender browser fallback** ([#140](https://github.com/Oaklight/toolregistry-hub/pull/140)) — adds VeilRender as an optional remote headless browser fallback, positioned before CDP in the auto fallback chain. VeilRender renders JS-heavy pages via a REST API (`POST /render`) and re-parses the returned HTML with Readability/Soup. Configure via `VEILRENDER_ENDPOINT` and optionally `VEILRENDER_TOKEN`. When unconfigured, the strategy is hidden from the `strategy` Literal annotation at runtime.
+- **Fetch: Structured return value** ([#140](https://github.com/Oaklight/toolregistry-hub/pull/140)) — `fetch_content` now returns a `FetchResult` TypedDict instead of a plain string: `{content, url, strategy, quality, content_type, cached, elapsed_ms, metadata}`. The `quality` field is `"high"` or `"low"`; `metadata` carries strategy-specific fields such as `readability_score` and `content_length`.
+- **Fetch: Explicit `strategy` parameter** ([#140](https://github.com/Oaklight/toolregistry-hub/pull/140)) — `fetch_content` accepts an optional `strategy` argument (default `"auto"`). Available choices: `auto`, `markdown`, `readability`, `soup`, `jina` (always present), plus `veilrender` and `cdp` when their respective endpoints are configured. The Literal annotation is narrowed to available strategies at `__init__` time via `_narrow_strategy_annotation()`. Explicit strategies bypass the fallback chain and run a single targeted extraction.
+- **Fetch: Updated fallback chain** ([#140](https://github.com/Oaklight/toolregistry-hub/pull/140)) — auto pipeline order: `markdown → readability → soup → veilrender → cdp → jina → local_fallback`. Docker `compose.yaml` retains direct service port mappings (55093/55094/55095) alongside the Caddy gateway.
+
+### Internal (continued)
+
+- Add `FetchResult` TypedDict, `_make_result()` factory, and `_extract_with_strategy()` / `_extract_auto()` split to replace the monolithic `_extract()`. Strategy-specific handlers factored into `_strategy_markdown()`, `_strategy_local()`, `_strategy_browser()`, `_strategy_jina()`.
+- Add `_render_with_veilrender()` and `_try_veilrender_extraction()` mirroring the existing CDP helpers.
+- Add `_try_browser_rendering()` to encapsulate the VeilRender → CDP cascade in the auto pipeline.
+- `Fetch._available_strategies()` drives both runtime validation and Literal narrowing; `veilrender` / `cdp` appear only when their endpoints are set.
+- **Server: Adopt `ServerIdentity` + `CLI` class from toolregistry-server** ([#149](https://github.com/Oaklight/toolregistry-hub/pull/149)) — `HubApp` now accepts a `ServerIdentity` (`HUB_IDENTITY` with name, version, description, banner art), which flows automatically to the OpenAPI title, MCP server name, and CLI banner. `HubCLI` subclasses `toolregistry_server.cli.CLI`, overriding four methods (`create_parser`, `get_version_string`, `print_banner`, `dispatch`) instead of reimplementing the main loop. `main()` is reduced to one line: `HubCLI().main(args)`. No user-visible CLI interface changes.
+
 ## [0.8.3] - 2026-06-03
 
 ### Added
