@@ -73,8 +73,24 @@ class HubApp(App):
         return registry
 
 
-# Module-level convenience
-_app = HubApp()
+# Module-level convenience (lazy-init default HubApp)
 
-serve_openapi = _app.serve_openapi
-serve_mcp = _app.serve_mcp
+_app: HubApp | None = None
+
+
+def _get_default_app() -> HubApp:
+    """Return the shared default HubApp, creating it on first use."""
+    global _app
+    if _app is None:
+        _app = HubApp()
+    return _app
+
+
+def serve_openapi(**kwargs) -> None:
+    """Build registry and start an OpenAPI server."""
+    _get_default_app().serve_openapi(**kwargs)
+
+
+def serve_mcp(**kwargs) -> None:
+    """Build registry and start an MCP server."""
+    _get_default_app().serve_mcp(**kwargs)
