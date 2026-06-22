@@ -14,23 +14,31 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from toolregistry_server import ServerIdentity
 from toolregistry_server.app import App
 
+from .. import __version__
 from .._vendor.structlog import get_logger
+from .banner import BANNER_ART
 
 logger = get_logger()
 
 if TYPE_CHECKING:
     from toolregistry import ToolRegistry
 
+HUB_IDENTITY = ServerIdentity(
+    name="ToolRegistry Hub",
+    version=__version__,
+    description="Pre-configured tool server with various utilities",
+    banner_art=BANNER_ART,
+)
+
 
 class HubApp(App):
-    """Hub-specific server application.
+    """Hub-specific server application."""
 
-    Builds the registry from Hub's built-in tool list (or a user
-    config file override), applies Hub metadata, and optionally
-    enables the admin panel.
-    """
+    def __init__(self, identity: ServerIdentity | None = None) -> None:
+        super().__init__(identity=identity or HUB_IDENTITY)
 
     def prepare_registry(self, **kwargs) -> ToolRegistry:
         """Build the Hub registry.
@@ -65,7 +73,7 @@ class HubApp(App):
         return registry
 
 
-# Module-level convenience (default HubApp)
+# Module-level convenience
 _app = HubApp()
 
 serve_openapi = _app.serve_openapi

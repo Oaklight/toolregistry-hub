@@ -1,26 +1,106 @@
 """Command-line interface for ToolRegistry Hub Server.
 
-Reuses toolregistry-server's CLI infrastructure via ``run_cli``,
-providing Hub-specific banner, version check, and dispatch.
+Subclasses :class:`toolregistry_server.cli.CLI` with Hub-specific
+banner (version check), extra arguments, and dispatch.
 
 Usage:
     toolregistry-hub openapi [OPTIONS]
     toolregistry-hub mcp [OPTIONS]
 """
 
+from __future__ import annotations
+
 import argparse
 from typing import NoReturn
 
+from toolregistry_server.cli import CLI
+
 from .. import __version__
 from .._vendor.structlog import get_logger
-from .banner import BANNER_ART
+from .app import HubApp
 
 logger = get_logger()
 
 
+class HubCLI(CLI):
+    """Hub CLI — extends server CLI with Hub-specific features."""
+
+    def __init__(self) -> None:
+        super().__init__(app=HubApp())
+
+    def create_parser(self) -> argparse.ArgumentParser:
+        """Add Hub-specific arguments to each subparser."""
+        parser = super().create_parser()
+
+        # Find subparsers and add hub args to each
+        for action in parser._subparsers._actions:
+            if isinstance(action, argparse._SubParsersAction):
+                for sub_parser in action.choices.values():
+                    _add_hub_arguments(sub_parser)
+
+        return parser
+
+    def get_version_string(self) -> str:
+        """Hub version with update check."""
+        return _get_version_string()
+
+    def print_banner(self) -> None:
+        """Hub banner with update check."""
+        _print_hub_banner()
+
+    def dispatch(self, parsed: argparse.Namespace) -> None:
+        """Route to HubApp with Hub-specific kwargs."""
+        common = {
+            "tools_config_path": getattr(parsed, "config", None),
+            "enable_discovery": getattr(parsed, "tool_discovery", True),
+            "enable_think": getattr(parsed, "think_augment", True),
+            "profile": getattr(parsed, "profile", None),
+            "admin_port": getattr(parsed, "admin_port", None),
+        }
+
+        if parsed.command == "openapi":
+            self.app.serve_openapi(
+                host=parsed.host,
+                port=parsed.port,
+                tokens_path=getattr(parsed, "tokens", None),
+                reload=getattr(parsed, "reload", False),
+                **common,
+            )
+        elif parsed.command == "mcp":
+            self.app.serve_mcp(
+                transport=parsed.transport,
+                host=parsed.host,
+                port=parsed.port,
+                **common,
+            )
+
+
 # ---------------------------------------------------------------------------
-# Hub-specific version / banner
+# Hub-specific helpers
 # ---------------------------------------------------------------------------
+
+
+def _add_hub_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add Hub-specific arguments on top of server defaults."""
+    parser.add_argument(
+        "--admin-port",
+        type=int,
+        default=None,
+        metavar="PORT",
+        help="Enable the admin panel on the specified port (e.g. 8081)",
+    )
+    parser.add_argument(
+        "--tool-discovery",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable/disable tool discovery (default: enabled)",
+    )
+    parser.add_argument(
+        "--think-augment",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable/disable think-augmented function calling (default: enabled)",
+    )
 
 
 def _get_version_string() -> str:
@@ -60,6 +140,7 @@ def _print_hub_banner() -> None:
     from toolregistry_server.cli import print_banner
 
     from ..version_check import check_for_updates
+    from .banner import BANNER_ART
 
     try:
         try:
@@ -92,109 +173,13 @@ def _print_hub_banner() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Parser
-# ---------------------------------------------------------------------------
-
-
-def _add_hub_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add Hub-specific arguments on top of server defaults."""
-    parser.add_argument(
-        "--admin-port",
-        type=int,
-        default=None,
-        metavar="PORT",
-        help="Enable the admin panel on the specified port (e.g. 8081)",
-    )
-    parser.add_argument(
-        "--tool-discovery",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Enable/disable tool discovery (default: enabled)",
-    )
-    parser.add_argument(
-        "--think-augment",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Enable/disable think-augmented function calling (default: enabled)",
-    )
-
-
-def create_parser() -> argparse.ArgumentParser:
-    """Create the Hub CLI argument parser."""
-    from toolregistry_server.adapters.mcp import MCPAdapter
-    from toolregistry_server.adapters.openapi import OpenAPIAdapter
-
-    parser = argparse.ArgumentParser(
-        prog="toolregistry-hub",
-        description="ToolRegistry Hub - Pre-configured tool server",
-    )
-    parser.add_argument("--version", "-V", action="store_true", help="Show version")
-    parser.add_argument("--no-banner", action="store_true", help="Disable banner")
-
-    sub = parser.add_subparsers(dest="command", metavar="{openapi,mcp}")
-
-    openapi = sub.add_parser("openapi", help="Start OpenAPI server")
-    OpenAPIAdapter.add_cli_arguments(openapi)
-    _add_hub_arguments(openapi)
-
-    mcp = sub.add_parser("mcp", help="Start MCP server")
-    MCPAdapter.add_cli_arguments(mcp)
-    _add_hub_arguments(mcp)
-
-    return parser
-
-
-# ---------------------------------------------------------------------------
-# Dispatch
-# ---------------------------------------------------------------------------
-
-
-def _hub_dispatch(parsed: argparse.Namespace) -> None:
-    """Dispatch parsed args to HubApp."""
-    from .app import HubApp
-
-    app = HubApp()
-    common = {
-        "tools_config_path": getattr(parsed, "config", None),
-        "enable_discovery": getattr(parsed, "tool_discovery", True),
-        "enable_think": getattr(parsed, "think_augment", True),
-        "profile": getattr(parsed, "profile", None),
-        "admin_port": getattr(parsed, "admin_port", None),
-    }
-
-    if parsed.command == "openapi":
-        app.serve_openapi(
-            host=parsed.host,
-            port=parsed.port,
-            tokens_path=getattr(parsed, "tokens", None),
-            reload=getattr(parsed, "reload", False),
-            **common,
-        )
-    elif parsed.command == "mcp":
-        app.serve_mcp(
-            transport=parsed.transport,
-            host=parsed.host,
-            port=parsed.port,
-            **common,
-        )
-
-
-# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
 
 def main(args: list[str] | None = None) -> NoReturn | None:
     """Main entry point for the Hub CLI."""
-    from toolregistry_server.cli import run_cli
-
-    parsed = create_parser().parse_args(args)
-    return run_cli(
-        parsed,
-        version_string=_get_version_string(),
-        banner_fn=_print_hub_banner,
-        dispatch_fn=_hub_dispatch,
-    )
+    return HubCLI().main(args)
 
 
 if __name__ == "__main__":
