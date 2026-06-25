@@ -11,6 +11,6 @@ Usage::
 """
 
 from .bashtool import BashTool
-from .bashtool.bashtool import validate_command as _validate_command
+from .bashtool import validate_command as _validate_command
 
 __all__ = ["BashTool", "_validate_command"]
