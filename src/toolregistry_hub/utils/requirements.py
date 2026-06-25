@@ -29,7 +29,7 @@ def requires_env(*envs: str):
     """
 
     def decorator(cls: type) -> type:
-        cls._required_envs = list(envs)
+        cls._required_envs = list(envs)  # ty: ignore[unresolved-attribute]
         return cls
 
     return decorator

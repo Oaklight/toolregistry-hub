@@ -40,7 +40,7 @@ def _fetch_json(location: str) -> dict:
     try:
         resp = _http_get(url, timeout=_TIMEOUT)
         resp.raise_for_status()
-        return resp.json()
+        return resp.json()  # ty: ignore[unresolved-attribute]
     except HttpTimeoutError as exc:
         raise WeatherError(f"Request timed out for location: {location}") from exc
     except (HTTPError, HttpConnectionError) as exc:

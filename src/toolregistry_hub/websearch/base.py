@@ -42,8 +42,9 @@ class BaseSearch(ABC):
         Returns:
             True if the instance is properly configured, False otherwise.
         """
-        if hasattr(self, "api_key_parser"):
-            return bool(self.api_key_parser.api_keys)
+        parser = getattr(self, "api_key_parser", None)
+        if parser is not None:
+            return bool(parser.api_keys)
         return True
 
     @abstractmethod
@@ -131,15 +132,18 @@ class BaseSearch(ABC):
             ``True`` if the caller should retry with the next key,
             ``False`` if the error is terminal.
         """
+        parser = getattr(self, "api_key_parser", None)
         status = error.status_code
         if status in (401, 403):
-            self.api_key_parser.mark_key_failed(api_key, f"HTTP {status}", ttl=3600.0)
+            if parser is not None:
+                parser.mark_key_failed(api_key, f"HTTP {status}", ttl=3600.0)
             logger.warning(
                 f"{provider_name} API key auth failed (HTTP {status}), trying next key"
             )
             return True
         if status == 429:
-            self.api_key_parser.mark_key_failed(api_key, "rate limited", ttl=300.0)
+            if parser is not None:
+                parser.mark_key_failed(api_key, "rate limited", ttl=300.0)
             logger.warning(f"{provider_name} API rate limit exceeded, trying next key")
             return True
         logger.error(f"{provider_name} API HTTP error {status}: {error.body}")
