@@ -33,7 +33,7 @@ async def get_latest_pypi_version(
                 timeout=5.0,
             )
             response.raise_for_status()
-            data = response.json()
+            data = response.json()  # ty: ignore[unresolved-attribute]
             return data["info"]["version"]
     except Exception as e:
         logger.debug(f"Failed to fetch latest version from PyPI: {e}")

@@ -778,7 +778,7 @@ def _render_with_veilrender(
             timeout=timeout,
         )
 
-        data = resp.json()
+        data = resp.json()  # ty: ignore[unresolved-attribute]
         html = data.get("content", {}).get("html", "")
         if html:
             logger.debug(f"VeilRender rendered {url}: {len(html)} chars of HTML")
