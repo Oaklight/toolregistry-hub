@@ -1380,8 +1380,8 @@ class TestFetchCache:
     def test_fetch_error_not_cached(self, mock_extract):
         mock_extract.side_effect = [FetchError("fail"), _fetch_result("success")]
         fetcher = Fetch()
-        with pytest.raises(FetchError):
-            fetcher.fetch_content("https://fail.com")
+        err_result = fetcher.fetch_content("https://fail.com")
+        assert err_result["quality"] == "error"
         # Second call should retry (not cached)
         result = fetcher.fetch_content("https://fail.com")
         assert result["content"] == "success"
@@ -1535,21 +1535,22 @@ class TestJinaApiKey:
 
 
 class TestFetchContentErrorSignaling:
-    """`fetch_content` must raise on failure so MCP can set isError=true."""
+    """`fetch_content` returns quality='error' result on failure."""
 
     @patch("toolregistry_hub.fetch._extract")
-    def test_raises_fetch_error_on_unrecoverable_failure(self, mock_extract):
+    def test_returns_error_result_on_unrecoverable_failure(self, mock_extract):
         mock_extract.side_effect = FetchError("Unable to fetch content from x")
-        with pytest.raises(FetchError):
-            Fetch().fetch_content("https://this-domain-does-not-exist-12345.com")
+        result = Fetch().fetch_content("https://this-domain-does-not-exist-12345.com")
+        assert result["quality"] == "error"
+        assert "Unable to fetch content from x" in result["content"]
 
     @patch("toolregistry_hub.fetch._extract")
-    def test_wraps_unexpected_exceptions_as_fetch_error(self, mock_extract):
-        """Non-FetchError exceptions still surface as FetchError."""
+    def test_wraps_unexpected_exceptions_as_error_result(self, mock_extract):
+        """Non-FetchError exceptions return an error result."""
         mock_extract.side_effect = RuntimeError("boom")
-        with pytest.raises(FetchError) as excinfo:
-            Fetch().fetch_content("https://example.com")
-        assert isinstance(excinfo.value.__cause__, RuntimeError)
+        result = Fetch().fetch_content("https://example.com")
+        assert result["quality"] == "error"
+        assert "boom" in result["content"]
 
     @patch("toolregistry_hub.fetch._extract")
     def test_returns_string_on_success(self, mock_extract):

@@ -458,11 +458,9 @@ class Fetch:
 
         Returns:
             Structured result with content, strategy, quality, cache status,
-            elapsed time, and metadata.
-
-        Raises:
-            FetchError: If every extraction strategy fails or the deadline
-                is exceeded before any content can be retrieved.
+            elapsed time, and metadata.  When extraction fails, a result
+            with ``quality="error"`` and an error message in ``content``
+            is returned instead of raising an exception.
         """
         started_at = time.monotonic()
         strategy = strategy.lower().strip()  # type: ignore[assignment]
@@ -497,11 +495,30 @@ class Fetch:
             if self._cache is not None:
                 self._cache.put(cache_key, result)
             return result
-        except FetchError:
-            raise
+        except FetchError as e:
+            logger.warning(f"FetchError for {url}: {e}")
+            return FetchResult(
+                content=f"[FetchError] {e}",
+                url=url,
+                strategy=strategy,
+                quality="error",
+                content_type="",
+                cached=False,
+                elapsed_ms=int((time.monotonic() - started_at) * 1000),
+                metadata={},
+            )
         except Exception as e:
             logger.error(f"Failed to fetch content from {url}: {e}")
-            raise FetchError(f"Failed to fetch content from {url}: {e}") from e
+            return FetchResult(
+                content=f"[FetchError] Failed to fetch content from {url}: {e}",
+                url=url,
+                strategy=strategy,
+                quality="error",
+                content_type="",
+                cached=False,
+                elapsed_ms=int((time.monotonic() - started_at) * 1000),
+                metadata={},
+            )
 
 
 def _should_skip_soup(
