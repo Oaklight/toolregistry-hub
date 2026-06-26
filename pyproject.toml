@@ -37,9 +37,9 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = [
-    "ty>=0.0.21",
-    "ruff>=0.1.0",
-    "complexipy>=5.2.0",
+    "ty==0.0.54",
+    "ruff==0.15.20",
+    "complexipy==5.6.1",
     "python-dotenv>=1.0.1",
     "build>=1.2.2.post1",
     "twine>=6.1.0",
