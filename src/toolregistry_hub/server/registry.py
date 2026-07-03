@@ -257,6 +257,10 @@ def build_registry(
     # Hub-specific metadata overrides (tags, defer)
     _apply_tool_metadata(registry)
 
+    # Re-apply user config overrides so they take precedence over hub defaults
+    if config.tool_metadata:
+        registry.apply_metadata_config(config.tool_metadata)
+
     if enable_discovery:
         registry.enable_tool_discovery()
 
