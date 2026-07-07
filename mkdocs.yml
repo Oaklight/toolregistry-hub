@@ -1,7 +1,7 @@
 site_name: ToolRegistry Hub
 site_description: 面向 LLM Agent 的即用工具集合 — 网络搜索、文件操作、代码执行等
 site_author: Peng Ding
-site_url: https://toolregistry-hub.readthedocs.io/zh-cn/latest
+site_url: https://oaklight.github.io/toolregistry-hub/
 repo_name: Oaklight/toolregistry-hub
 repo_url: https://github.com/Oaklight/toolregistry-hub
 copyright: Copyright &copy; 2025 Peng Ding
@@ -74,10 +74,10 @@ plugins:
       sections:
         首页:
           - index.md
-        快速上手:
+        快速开始:
           - get-started/installation.md
           - get-started/quickstart.md
-        工具:
+        指南:
           - tools/index.md
           - tools/calculator.md
           - tools/unit_converter.md
@@ -99,10 +99,11 @@ plugins:
           - tools/cron_tool.md
           - tools/think_tool.md
           - tools/todo_list.md
-        指南:
           - guides/library.md
           - guides/server.md
           - guides/docker.md
+        示例:
+          - examples/index.md
         参考:
           - reference/cli.md
           - reference/endpoints.md
@@ -147,14 +148,6 @@ extra:
       link: https://github.com/Oaklight/toolregistry-hub
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/toolregistry-hub/
-  alternate:
-    - name: English
-      link: /en/latest/
-      lang: en
-    - name: 中文
-      link: /zh-cn/latest/
-      lang: zh
-
 extra_css:
   - stylesheets/toolregistry-hub.css
 
@@ -164,11 +157,11 @@ extra_javascript:
 
 nav:
   - 首页: index.md
-  - 快速上手:
+  - 快速开始:
       - 安装: get-started/installation.md
-      - 快速上手: get-started/quickstart.md
-  - 工具:
-      - tools/index.md
+      - 快速入门: get-started/quickstart.md
+  - 指南:
+      - 工具概览: tools/index.md
       - 计算与转换:
           - 计算器工具: tools/calculator.md
           - 单位转换: tools/unit_converter.md
@@ -197,10 +190,12 @@ nav:
       - 其他工具:
           - 思考工具: tools/think_tool.md
           - 待办事项工具: tools/todo_list.md
-  - 指南:
-      - 库使用方式: guides/library.md
-      - 服务器模式: guides/server.md
-      - Docker 部署: guides/docker.md
+      - 使用方式:
+          - 库使用方式: guides/library.md
+          - 服务器模式: guides/server.md
+          - Docker 部署: guides/docker.md
+  - 示例:
+      - examples/index.md
   - 参考:
       - CLI: reference/cli.md
       - API 端点: reference/endpoints.md
