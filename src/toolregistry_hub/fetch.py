@@ -1411,7 +1411,7 @@ def _try_markdown_negotiation(
         # Capture body and content-type before status check so we can
         # return them on non-markdown 2xx responses.
         body = response.text
-        raw_ct = response.headers.get("content-type", "")
+        raw_ct = response.headers.get("content-type") or ""
         ct = raw_ct.split(";")[0].strip().lower()
 
         # On error status, don't reuse — let _fetch_raw handle retries.
@@ -1669,7 +1669,7 @@ def _fetch_raw(
             )
             response.raise_for_status()
             # Extract the MIME type (drop charset and parameters).
-            raw_ct = response.headers.get("content-type", "")
+            raw_ct = response.headers.get("content-type") or ""
             content_type = raw_ct.split(";")[0].strip().lower()
             return response.text, content_type
         except HTTPError as e:
