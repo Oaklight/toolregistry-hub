@@ -20,6 +20,9 @@ pip install toolregistry-hub
 
 如果需要将工具暴露为 REST API 或 MCP 端点：
 
+!!! tip
+    **zsh 用户**（macOS 默认 shell）：需要用引号包裹包名，例如 `pip install 'toolregistry-hub[server]'` — zsh 会将 `[]` 解释为通配符。
+
 ```bash
 # 完整服务器（OpenAPI + MCP，Python 3.10+）
 pip install toolregistry-hub[server]
