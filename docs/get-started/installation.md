@@ -20,6 +20,9 @@ This gives you every tool as a direct Python import — no server, no extra depe
 
 If you want to expose tools as REST API or MCP endpoints:
 
+!!! tip
+    **zsh users** (default on macOS): wrap the package name in quotes, e.g. `pip install 'toolregistry-hub[server]'` — zsh treats `[]` as glob patterns.
+
 ```bash
 # Full server (OpenAPI + MCP, Python 3.10+)
 pip install toolregistry-hub[server]
