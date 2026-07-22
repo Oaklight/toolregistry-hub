@@ -170,6 +170,10 @@ nav:
   - Get Started:
       - Installation: get-started/installation.md
       - Quick Start: get-started/quickstart.md
+  - Guides:
+      - Library Usage: guides/library.md
+      - Server Mode: guides/server.md
+      - Docker Deployment: guides/docker.md
   - Tools:
       - tools/index.md
       - Calculation & Conversion:
@@ -200,10 +204,6 @@ nav:
       - Other Tools:
           - Think Tool: tools/think_tool.md
           - Todo List Tool: tools/todo_list.md
-  - Guides:
-      - Library Usage: guides/library.md
-      - Server Mode: guides/server.md
-      - Docker Deployment: guides/docker.md
   - Reference:
       - CLI: reference/cli.md
       - API Endpoints: reference/endpoints.md

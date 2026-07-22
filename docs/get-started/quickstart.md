@@ -12,9 +12,7 @@ This page gets you from zero to working code in under a minute. For the full too
 
 ## Prerequisites
 
-```bash
-pip install toolregistry-hub
-```
+Make sure you have [installed toolregistry-hub](installation.md) first.
 
 ## Try It
 

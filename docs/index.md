@@ -21,6 +21,10 @@ hide:
   <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-365314?labelColor=475569"></a>
 </p>
 
+```bash
+pip install toolregistry-hub
+```
+
 <div class="tr-actions" markdown>
 [Get Started](get-started/installation.md){ .tr-button .tr-button--primary }
 [Browse Tools](tools/){ .tr-button .tr-button--secondary }
@@ -78,19 +82,6 @@ FileSearch.grep(r"TODO", path="src/")      # search code
 ```
 
 Every tool is a plain Python class — no instantiation, no state, no server needed. **[Quick Start →](get-started/quickstart.md)**
-
-## Available Tools
-
-| Category | Tools | Highlights |
-|----------|-------|------------|
-| **Calculation** | [Calculator](tools/calculator.md), [UnitConverter](tools/unit_converter.md) | Expression evaluation, 100+ unit conversions |
-| **Date & Time** | [DateTime](tools/datetime.md) | Timezone-aware, cross-timezone conversion |
-| **File Management** | [FileOps](tools/file_ops.md), [FileReader](tools/file_reader.md), [FileSearch](tools/file_search.md), [PathInfo](tools/path_info.md) | Exact-string edit, glob/grep/tree, PDF & notebook reading |
-| **Shell** | [BashTool](tools/bash_tool.md) | Shell execution with built-in deny list |
-| **Web** | [Fetch](tools/websearch/web_fetch_tool.md), [BraveSearch](tools/websearch/brave.md), [TavilySearch](tools/websearch/tavily.md), … | Content extraction, multi-engine search |
-| **Cognitive** | [ThinkTool](tools/think_tool.md), [TodoList](tools/todo_list.md) | Structured reasoning, task management |
-
-**[Full tool catalog →](tools/)**
 
 ## Ecosystem
 
