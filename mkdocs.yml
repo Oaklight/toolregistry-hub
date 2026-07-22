@@ -170,6 +170,10 @@ nav:
   - 快速上手:
       - 安装: get-started/installation.md
       - 快速上手: get-started/quickstart.md
+  - 指南:
+      - 库使用方式: guides/library.md
+      - 服务器模式: guides/server.md
+      - Docker 部署: guides/docker.md
   - 工具:
       - tools/index.md
       - 计算与转换:
@@ -200,10 +204,6 @@ nav:
       - 其他工具:
           - 思考工具: tools/think_tool.md
           - 待办事项工具: tools/todo_list.md
-  - 指南:
-      - 库使用方式: guides/library.md
-      - 服务器模式: guides/server.md
-      - Docker 部署: guides/docker.md
   - 参考:
       - CLI: reference/cli.md
       - API 端点: reference/endpoints.md

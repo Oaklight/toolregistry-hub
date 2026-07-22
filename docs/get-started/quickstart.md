@@ -12,9 +12,7 @@ author: Oaklight
 
 ## 前提条件
 
-```bash
-pip install toolregistry-hub
-```
+请先完成 [安装](installation.md)。
 
 ## 试试看
 

@@ -21,6 +21,10 @@ hide:
   <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-365314?labelColor=475569"></a>
 </p>
 
+```bash
+pip install toolregistry-hub
+```
+
 <div class="tr-actions" markdown>
 [快速上手](get-started/installation.md){ .tr-button .tr-button--primary }
 [浏览工具](tools/){ .tr-button .tr-button--secondary }
@@ -78,19 +82,6 @@ FileSearch.grep(r"TODO", path="src/")      # 搜索代码
 ```
 
 每个工具都是普通 Python 类 — 无需实例化、无需状态、无需服务器。**[快速上手 →](get-started/quickstart.md)**
-
-## 可用工具
-
-| 分类 | 工具 | 亮点 |
-|------|------|------|
-| **计算** | [计算器](tools/calculator.md)、[单位转换](tools/unit_converter.md) | 表达式求值、100+ 单位转换 |
-| **日期时间** | [DateTime](tools/datetime.md) | 时区感知、跨时区转换 |
-| **文件管理** | [FileOps](tools/file_ops.md)、[FileReader](tools/file_reader.md)、[FileSearch](tools/file_search.md)、[PathInfo](tools/path_info.md) | 精确字符串编辑、glob/grep/tree、PDF 和 Notebook 读取 |
-| **Shell** | [BashTool](tools/bash_tool.md) | 内置拒绝列表的 Shell 执行 |
-| **网络** | [Fetch](tools/websearch/web_fetch_tool.md)、[BraveSearch](tools/websearch/brave.md)、[TavilySearch](tools/websearch/tavily.md)、… | 内容提取、多引擎搜索 |
-| **认知** | [ThinkTool](tools/think_tool.md)、[TodoList](tools/todo_list.md) | 结构化推理、任务管理 |
-
-**[完整工具目录 →](tools/)**
 
 ## 生态系统
 
