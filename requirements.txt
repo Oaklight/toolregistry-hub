@@ -11,4 +11,4 @@ pymdown-extensions>=10.0.0
 toolregistry-hub @ git+https://github.com/Oaklight/toolregistry-hub.git@master
 
 # LLM-friendly documentation
-llmstxt-standalone
+pyyaml
