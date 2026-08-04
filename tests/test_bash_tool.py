@@ -1,6 +1,6 @@
 """Unit tests for BashTool module."""
 
-import importlib
+import sys
 import tempfile
 
 import pytest
@@ -142,38 +142,25 @@ class TestBashToolDangerousCommands:
 class TestUnsafeMode:
     """Verify BASHTOOL_UNSAFE environment variable behavior."""
 
+    @pytest.fixture(autouse=True)
+    def _reset_warned(self, monkeypatch):
+        impl = sys.modules["toolregistry_hub.bashtool.bashtool"]
+        monkeypatch.setattr(impl, "_UNSAFE_WARNED", False)
+
     def test_unsafe_mode_skips_validation(self, monkeypatch):
         monkeypatch.setenv("BASHTOOL_UNSAFE", "1")
-        import toolregistry_hub.bashtool.bashtool as mod
-
-        importlib.reload(mod)
-        try:
-            assert mod.UNSAFE_MODE is True
-            mod.validate_command("rm -rf /")
-        finally:
-            monkeypatch.delenv("BASHTOOL_UNSAFE")
-            importlib.reload(mod)
+        _validate_command("rm -rf /")
 
     def test_unsafe_mode_off_by_default(self, monkeypatch):
         monkeypatch.delenv("BASHTOOL_UNSAFE", raising=False)
-        import toolregistry_hub.bashtool.bashtool as mod
-
-        importlib.reload(mod)
-        assert mod.UNSAFE_MODE is False
         with pytest.raises(ValueError):
-            mod.validate_command("rm -rf /")
+            _validate_command("rm -rf /")
 
     @pytest.mark.parametrize("val", ["0", "false", ""])
     def test_unsafe_mode_falsy_values(self, monkeypatch, val):
         monkeypatch.setenv("BASHTOOL_UNSAFE", val)
-        import toolregistry_hub.bashtool.bashtool as mod
-
-        importlib.reload(mod)
-        try:
-            assert mod.UNSAFE_MODE is False
-        finally:
-            monkeypatch.delenv("BASHTOOL_UNSAFE", raising=False)
-            importlib.reload(mod)
+        with pytest.raises(ValueError):
+            _validate_command("rm -rf /")
 
 
 class TestBashToolEdgeCases:
