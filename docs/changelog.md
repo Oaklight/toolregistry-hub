@@ -12,6 +12,25 @@ author: Oaklight
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并在需要时保留项目自身的分类方式。
 
+## [0.9.2] - 2026-08-06
+
+### 变更
+
+- **BashTool 提取为子模块**：用 `bashtool` 子模块（v0.2.0）替代内联的 `BashTool` 实现。从默认拒绝列表中移除 `sudo`；新增 `BASHTOOL_UNSAFE` 环境变量以启用不受限模式。简化了 unsafe 模式测试。
+- **Core 依赖提升至 `toolregistry>=0.15.0`**：确保用户获得 core 的执行栈重构（`ainvoke`、`aexecute_tool_calls`、按工具解析后端、MCP v2 兼容）。
+- **Server 依赖提升至 `toolregistry-server>=0.4.3`**：确保 server 侧 MCP v2 兼容层与 core 匹配。
+
+### 修复
+
+- **用户配置 `tool_metadata` 覆盖 hub 默认值**：之前 hub 提供的元数据静默覆盖用户配置；现在用户提供的 `tool_metadata` 优先。
+- **shim 中 `_validate_command` 使用稳定导入路径**：修复 `bashtool` 子模块内部路径变更时的导入异常。
+- **解决 ty 0.0.53+ 类型检查警告**。
+
+### 基础设施
+
+- 更新 vendor 依赖：`httpclient` 0.4.4 → 0.4.5、`readability` 0.1.0 → 0.2.0、`validate` 0.4.3 → 0.6.1。
+- 固定开发工具版本：`ruff==0.15.20`、`ty==0.0.54`、`complexipy==5.6.1`。
+
 ## [0.9.1] - 2026-06-22
 
 ### 变更
