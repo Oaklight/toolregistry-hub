@@ -12,7 +12,13 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with project-specific grouping where useful.
 
-## [0.9.2] - 2026-08-06
+## [0.9.3] - 2026-08-06
+
+### Fixed
+
+- **Release CI: include git submodules in build** — v0.9.2 shipped without the `bashtool` submodule, causing `ModuleNotFoundError` on import. Added `submodules: recursive` to the release workflow's checkout step.
+
+## [0.9.2] - 2026-08-06 [YANKED]
 
 ### Changed
 
