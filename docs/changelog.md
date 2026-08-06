@@ -12,6 +12,25 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with project-specific grouping where useful.
 
+## [0.9.2] - 2026-08-06
+
+### Changed
+
+- **BashTool extracted to submodule**: Replaced the inline `BashTool` implementation with the `bashtool` submodule (v0.2.0). Removes `sudo` from the default deny list; adds `BASHTOOL_UNSAFE` env var to opt into unrestricted mode. Simplifies unsafe-mode tests.
+- **Core dependency bumped to `toolregistry>=0.15.0`**: Ensures users get the execution-stack refactor (`ainvoke`, `aexecute_tool_calls`, per-tool backend resolution, MCP v2 compatibility) from core.
+- **Server dependency bumped to `toolregistry-server>=0.4.3`**: Ensures server-side MCP v2 compatibility layer matches core.
+
+### Fixed
+
+- **User config `tool_metadata` overrides hub defaults**: Previously hub-supplied metadata silently won over user configuration; user-supplied `tool_metadata` now takes precedence.
+- **Stable import path for `_validate_command` in shim**: Fixes breakage when internal paths changed in the `bashtool` submodule.
+- **ty 0.0.53+ type-check warnings resolved**.
+
+### Infrastructure
+
+- Vendored dependencies updated: `httpclient` 0.4.4 → 0.4.5, `readability` 0.1.0 → 0.2.0, `validate` 0.4.3 → 0.6.1.
+- Dev tool versions pinned: `ruff==0.15.20`, `ty==0.0.54`, `complexipy==5.6.1`.
+
 ## [0.9.1] - 2026-06-22
 
 ### Changed
