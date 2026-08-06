@@ -12,7 +12,13 @@ author: Oaklight
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并在需要时保留项目自身的分类方式。
 
-## [0.9.2] - 2026-08-06
+## [0.9.3] - 2026-08-06
+
+### 修复
+
+- **发布 CI：构建时包含 git 子模块** — v0.9.2 发布时未包含 `bashtool` 子模块，导致导入时 `ModuleNotFoundError`。在发布 workflow 的 checkout 步骤中添加 `submodules: recursive`。
+
+## [0.9.2] - 2026-08-06 [已撤回]
 
 ### 变更
 
