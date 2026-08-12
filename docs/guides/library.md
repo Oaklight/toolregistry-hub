@@ -220,6 +220,7 @@ See **[Environment Variables Reference](../reference/environment.md)** for the f
 
 ## See Also
 
-- **[Tools Reference](../tools/)** — detailed API docs for each tool
-- **[Server Mode](server.md)** — deploy as REST API or MCP server
+- **[Tools Reference](../tools/index.md)** — detailed API docs for each tool
+- **[Launch a Server](../get-started/server.md)** — deploy as REST API or MCP server
+- **[Server Configuration](server.md)** — auth, tool selection, profiles
 - **[Ecosystem](../ecosystem.md)** — how hub fits into the toolregistry family

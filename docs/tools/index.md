@@ -24,7 +24,7 @@
 
 - **[Web Fetch Tool](websearch/web_fetch_tool.md)** - Extract content from webpages
 - **[Unified Web Search](websearch/websearch_unified.md)** - Single entry point for all search providers with auto-selection and fallback
-- **[Web Search Tools](websearch/)** - Individual search provider implementations
+- **[Web Search Tools](websearch/index.md)** - Individual search provider implementations
 
 ## Scheduling
 

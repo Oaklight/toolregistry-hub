@@ -8,7 +8,7 @@ author: Oaklight
 
 # Quick Start
 
-This page gets you from zero to working code in under a minute. For the full tool catalog, see **[Tools](../tools/)**.
+This page gets you from zero to working code in under a minute. For the full tool catalog, see **[Tools](../tools/index.md)**.
 
 ## Prerequisites
 
@@ -87,8 +87,8 @@ toolregistry-hub openapi --port 8000
 
 | I want to…                     | Go to                                       |
 |--------------------------------|---------------------------------------------|
-| Browse all available tools     | [Tools](../tools/)                          |
+| Browse all available tools     | [Tools](../tools/index.md)                  |
 | Use tools as Python imports    | [Library Usage](../guides/library.md)       |
-| Deploy as REST API or MCP      | [Server Mode](../guides/server.md)          |
+| Deploy as REST API or MCP      | [Launch a Server](server.md)                |
 | Run in Docker                  | [Docker Deployment](../guides/docker.md)    |
 | Register tools with an agent   | [Library Usage → AI Agents](../guides/library.md#use-in-ai-agents) |

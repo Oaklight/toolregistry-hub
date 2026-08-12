@@ -27,8 +27,8 @@ pip install toolregistry-hub
 
 <div class="tr-actions" markdown>
 [Get Started](get-started/installation.md){ .tr-button .tr-button--primary }
-[Browse Tools](tools/){ .tr-button .tr-button--secondary }
-[Deploy Server](guides/server.md){ .tr-button .tr-button--secondary }
+[Browse Tools](tools/index.md){ .tr-button .tr-button--secondary }
+[Deploy Server](get-started/server.md){ .tr-button .tr-button--secondary }
 </div>
 </section>
 
@@ -50,7 +50,7 @@ pip install toolregistry-hub
 
     Expose all tools as OpenAPI or MCP endpoints.
 
-    [:octicons-arrow-right-24: Server Guide](guides/server.md)
+    [:octicons-arrow-right-24: Launch a Server](get-started/server.md)
 
 -   :material-tools:{ .lg .middle } **Browse the Tools**
 
@@ -58,7 +58,7 @@ pip install toolregistry-hub
 
     15+ tools for search, files, compute, shell, and more.
 
-    [:octicons-arrow-right-24: Tool Catalog](tools/)
+    [:octicons-arrow-right-24: Tool Catalog](tools/index.md)
 
 -   :material-docker:{ .lg .middle } **Run in Docker**
 
@@ -97,7 +97,7 @@ ToolRegistry Hub is part of a three-package ecosystem. See the [Ecosystem](ecosy
 
 - **[GitHub Repository](https://github.com/Oaklight/toolregistry-hub)** — Source code and issues
 - **[中文文档](../zh/)** — Chinese documentation
-- **[Tools Documentation](tools/)** — Complete tool reference
+- **[Tools Documentation](tools/index.md)** — Complete tool reference
 
 ---
 

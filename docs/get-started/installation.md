@@ -56,4 +56,5 @@ print(Calculator.evaluate("1 + 1"))  # 2
 
 - **[Quick Start](quickstart.md)** — try tools in 60 seconds
 - **[Library Usage](../guides/library.md)** — full library guide
-- **[Server Mode](../guides/server.md)** — deploy as an API server
+- **[Launch a Server](server.md)** — start an API server
+- **[Server Configuration](../guides/server.md)** — auth, tool selection, profiles

@@ -1,25 +1,24 @@
+---
+title: Docker Deployment
+summary: Deploy ToolRegistry Hub server with Docker and Docker Compose
+description: Run the hub server in a container with Caddy gateway, tool configuration, and production tips.
+keywords: docker, compose, caddy, deployment, container
+author: Oaklight
+---
+
 # Docker Deployment
 
-This document provides information about deploying ToolRegistry Hub server using Docker.
-
-## Overview
-
-ToolRegistry Hub provides Docker support for easy deployment and containerization. This approach offers several advantages:
-
-- Consistent environment across different platforms
-- Simplified dependency management
-- Easy scaling and deployment
-- Isolation from the host system
+Pre-built Docker images bundle the hub server with all dependencies. A Docker Compose stack adds a Caddy reverse proxy that exposes OpenAPI + MCP on a single port.
 
 ## Docker Files
 
 The project includes several Docker-related files in the `docker/` directory:
 
-- [`Dockerfile`](../../docker/Dockerfile) - Container definition
-- [`compose.yaml`](../../docker/compose.yaml) - Docker Compose configuration with Caddy gateway
-- [`.env.sample`](../../docker/.env.sample) - Sample environment variables file
-- [`Caddyfile`](../../docker/Caddyfile) - Caddy reverse proxy configuration
-- [`Makefile`](../../docker/Makefile) - Build automation and deployment targets
+- [`Dockerfile`](https://github.com/Oaklight/toolregistry-hub/blob/master/docker/Dockerfile) — Container definition
+- [`compose.yaml`](https://github.com/Oaklight/toolregistry-hub/blob/master/docker/compose.yaml) — Docker Compose configuration with Caddy gateway
+- [`.env.sample`](https://github.com/Oaklight/toolregistry-hub/blob/master/docker/.env.sample) — Sample environment variables file
+- [`Caddyfile`](https://github.com/Oaklight/toolregistry-hub/blob/master/docker/Caddyfile) — Caddy reverse proxy configuration
+- [`Makefile`](https://github.com/Oaklight/toolregistry-hub/blob/master/docker/Makefile) — Build automation and deployment targets
 
 ## Quick Start
 
@@ -130,7 +129,7 @@ You can customize which tools are loaded at startup using a `tools.jsonc` config
 - **`enabled`**: Namespaces to enable (allowlist mode)
 - **`tools`**: Custom tool class list (optional, overrides built-in defaults)
 
-For full configuration details, see the [Server Mode — Tool Configuration](server.md#tool-configuration) documentation.
+For full configuration details, see the [Server Configuration — Tool Configuration](server.md#tool-configuration) documentation.
 
 !!! tip "No Configuration File"
     If no `tools.jsonc` file is present, the server loads all available tools with default settings. The volume mount will simply be ignored if the file doesn't exist.
@@ -151,20 +150,11 @@ This target:
 4. Restarts the remote Docker Compose stack
 5. Runs a health check against the deployed service
 
-## Production Deployment Recommendations
-
-For production environments, consider the following:
-
-1. **Enable HTTPS**: Configure Caddy with your domain for automatic TLS
-2. **Set Up Monitoring**: Implement health checks and monitoring
-3. **Configure Logging**: Set up centralized logging
-4. **Use Docker Swarm or Kubernetes**: For high availability and scaling
-
 ## Troubleshooting
 
-Common issues and solutions:
-
-1. **Container fails to start** - Check logs with `docker logs toolregistry-hub-server`
-2. **Cannot connect to the server** - Ensure ports are correctly mapped
-3. **Authentication issues** - Verify `API_BEARER_TOKEN` is set correctly
-4. **Search functionality not working** - Confirm API keys for search services are valid
+| Issue | Solution |
+|-------|----------|
+| Container fails to start | `docker logs toolregistry-hub-server` |
+| Cannot connect to server | Check port mapping and firewall rules |
+| Auth failing | Verify `API_BEARER_TOKEN` matches the request header |
+| Search tools unavailable | Confirm API keys are set — see [Environment Variables](../reference/environment.md) |
