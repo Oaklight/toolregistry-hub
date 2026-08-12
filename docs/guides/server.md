@@ -1,54 +1,14 @@
 ---
-title: 服务器模式
-summary: 将 ToolRegistry Hub 工具部署为 REST API 或 MCP 端点
-description: 启动 OpenAPI 或 MCP 服务器，将所有 hub 工具暴露为可远程调用的端点。
-keywords: server, openapi, mcp, rest api, deployment, fastapi
+title: 服务器配置
+summary: 配置认证、工具加载和自定义工具注册
+description: 设置 Bearer Token 认证、控制加载哪些工具、注册自定义工具，以及使用部署配置文件。
+keywords: server, configuration, authentication, tools.jsonc, custom tools, profiles
 author: Oaklight
 ---
 
-# 服务器模式
+# 服务器配置
 
-ToolRegistry Hub 可以将所有工具暴露为网络端点 — OpenAPI (REST) 服务器或 MCP 服务器。两种模式都自动注册所有可用工具，只需选择协议并启动即可。
-
-## 安装
-
-```bash
-# 完整服务器（OpenAPI + MCP，Python 3.10+）
-pip install toolregistry-hub[server]
-
-# 仅 OpenAPI
-pip install toolregistry-hub[server_openapi]
-
-# 仅 MCP（Python 3.10+）
-pip install toolregistry-hub[server_mcp]
-```
-
-## 启动服务器
-
-### OpenAPI
-
-```bash
-toolregistry-hub openapi --host 0.0.0.0 --port 8000
-```
-
-启动后：
-
-- API 根路径：`http://localhost:8000`
-- 交互式文档：`http://localhost:8000/docs`
-- OpenAPI 规范：`http://localhost:8000/openapi.json`
-
-### MCP
-
-```bash
-# 可流式 HTTP（推荐用于远程客户端）
-toolregistry-hub mcp --transport streamable-http --host 0.0.0.0 --port 8000
-
-# SSE 传输
-toolregistry-hub mcp --transport sse --host 0.0.0.0 --port 8000
-
-# Stdio 传输（用于本地 Agent 集成）
-toolregistry-hub mcp --transport stdio
-```
+本指南涵盖认证、工具选择、自定义工具注册和部署配置文件。如需启动服务器，请参阅**[启动服务器](../get-started/server.md)**。
 
 ## 认证
 
@@ -59,13 +19,13 @@ toolregistry-hub mcp --transport stdio
 === "单个令牌"
 
     ```bash
-    export API_BEARER_TOKEN="***"
+    export API_BEARER_TOKEN="your-secret-token"
     ```
 
 === "多个令牌"
 
     ```bash
-    export API_BEARER_TOKEN="token1…ken3"
+    export API_BEARER_TOKEN="token1,token2,token3"
     ```
 
 === "令牌文件"
@@ -79,10 +39,16 @@ toolregistry-hub mcp --transport stdio
 ### 使用
 
 ```http
-Authorization: Bearer ***
+Authorization: Bearer your-valid-token
 ```
 
 如果未设置任何令牌变量，则不启用认证。
+
+也可以通过 CLI 直接指定令牌文件：
+
+```bash
+toolregistry-hub openapi --tokens /path/to/tokens.txt
+```
 
 ## 工具配置
 
@@ -98,6 +64,8 @@ toolregistry-hub openapi --config path/to/tools.jsonc
 
 ### 拒绝列表模式（默认）
 
+加载所有工具，排除明确禁用的：
+
 ```jsonc
 {
   "mode": "denylist",
@@ -107,6 +75,8 @@ toolregistry-hub openapi --config path/to/tools.jsonc
 
 ### 允许列表模式
 
+仅加载指定的工具：
+
 ```jsonc
 {
   "mode": "allowlist",
@@ -114,7 +84,9 @@ toolregistry-hub openapi --config path/to/tools.jsonc
 }
 ```
 
-### 自定义工具注册
+## 自定义工具注册
+
+可以在内置工具之外注册自定义工具类：
 
 ```jsonc
 {
@@ -125,53 +97,52 @@ toolregistry-hub openapi --config path/to/tools.jsonc
 }
 ```
 
-## 调用 API
+自定义类需遵循与内置工具相同的接口。每个工具类在指定的命名空间下注册。
 
-### curl
+## 部署配置文件
+
+`--profile` 参数根据部署场景过滤注册的工具：
+
+| 配置文件 | 效果                                     |
+| -------- | ---------------------------------------- |
+| `remote` | 禁用本地文件系统/Shell/定时任务工具       |
+| `local`  | 仅保留本地工具；禁用网络工具             |
+| *(无)*   | 注册所有工具（默认）                     |
 
 ```bash
-curl -X POST "http://localhost:8000/tools/calculator/evaluate" \
-  -H "Content-Type: application/json" \
-  -d '{"expression": "2 + 2 * 3"}'
-```
+# 远程部署 — 禁用文件系统和 Shell 访问
+toolregistry-hub openapi --profile remote
 
-### Python
-
-```python
-import requests
-
-response = requests.post(
-    "http://localhost:8000/tools/calculator/evaluate",
-    json={"expression": "2 + 2 * 3"}
-)
-print(response.json())
+# 仅本地 — 禁用网络搜索和抓取
+toolregistry-hub mcp --profile local
 ```
 
 ## 错误处理
 
 标准 HTTP 状态码：
 
-| 状态码 | 含义 |
-|--------|------|
-| `200` | 成功 |
-| `400` | 请求错误 / 参数无效 |
-| `401` | 认证失败 |
-| `500` | 服务器内部错误 |
+| 状态码 | 含义                    |
+| ------ | ----------------------- |
+| `200`  | 成功                    |
+| `400`  | 请求错误 / 参数无效     |
+| `401`  | 认证失败                |
+| `500`  | 服务器内部错误          |
 
 错误响应格式：`{"detail": "错误描述"}`。
 
 ## 故障排除
 
-| 问题 | 解决方案 |
-|------|---------|
-| 依赖安装失败 | 确保 Python 3.10+ |
-| 端口被占用 | 使用 `--port` 指定其他端口 |
-| 搜索工具不可用 | 设置 API 密钥 — 见[环境变量](../reference/environment.md) |
-| 认证失败 | 检查 `API_BEARER_TOKEN` 和请求头 |
+| 问题             | 解决方案                                              |
+| ---------------- | ----------------------------------------------------- |
+| 依赖安装失败     | 确保 Python 3.10+                                     |
+| 端口被占用       | 使用 `--port` 指定其他端口                            |
+| 搜索工具不可用   | 设置 API 密钥 — 见[环境变量](../reference/environment.md) |
+| 认证失败         | 检查 `API_BEARER_TOKEN` 和请求头                      |
 | MCP 客户端拒绝可空参数 schema | 升级至 `toolregistry>=0.11.2` — 可空字段现在生成简化版 `anyOf` schema，兼容严格 MCP 校验器 |
 
 ## 另请参阅
 
+- **[启动服务器](../get-started/server.md)** — 安装和运行
 - **[CLI 参考](../reference/cli.md)** — 所有命令行选项
 - **[API 端点](../reference/endpoints.md)** — 完整端点列表
 - **[Docker 部署](docker.md)** — 容器化部署

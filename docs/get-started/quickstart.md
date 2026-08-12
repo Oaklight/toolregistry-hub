@@ -8,7 +8,7 @@ author: Oaklight
 
 # 快速上手
 
-本页帮你在一分钟内从零开始写出可运行的代码。完整工具目录请参阅 **[工具](../tools/)**。
+本页帮你在一分钟内从零开始写出可运行的代码。完整工具目录请参阅 **[工具](../tools/index.md)**。
 
 ## 前提条件
 
@@ -87,7 +87,7 @@ toolregistry-hub openapi --port 8000
 
 | 我想…                          | 前往                                        |
 |-------------------------------|---------------------------------------------|
-| 浏览所有可用工具                | [工具](../tools/)                           |
+| 浏览所有可用工具                | [工具](../tools/index.md)                   |
 | 作为 Python 导入使用            | [库使用方式](../guides/library.md)           |
 | 部署为 REST API 或 MCP          | [服务器模式](../guides/server.md)            |
 | 在 Docker 中运行               | [Docker 部署](../guides/docker.md)           |

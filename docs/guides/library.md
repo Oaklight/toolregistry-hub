@@ -220,6 +220,6 @@ tool.metadata.tags = {ToolTag.PRIVILEGED, ToolTag.DESTRUCTIVE}
 
 ## 另请参阅
 
-- **[工具参考](../tools/)** — 每个工具的详细 API 文档
+- **[工具参考](../tools/index.md)** — 每个工具的详细 API 文档
 - **[服务器模式](server.md)** — 部署为 REST API 或 MCP 服务器
 - **[生态系统](../ecosystem.md)** — hub 在 toolregistry 家族中的定位

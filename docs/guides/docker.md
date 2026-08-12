@@ -15,11 +15,11 @@ ToolRegistry Hub 提供了 Docker 支持，便于部署和容器化。这种方�
 
 项目在 `docker/` 目录中包含几个与 Docker 相关的文件：
 
-- [`Dockerfile`](../../docker/Dockerfile) - 容器定义
-- [`compose.yaml`](../../docker/compose.yaml) - Docker Compose 配置（含 Caddy 网关）
-- [`.env.sample`](../../docker/.env.sample) - 环境变量示例文件
-- [`Caddyfile`](../../docker/Caddyfile) - Caddy 反向代理配置
-- [`Makefile`](../../docker/Makefile) - 构建自动化和部署目标
+- [`Dockerfile`](https://github.com/Oaklight/toolregistry-hub/blob/master/docker/Dockerfile) — 容器定义
+- [`compose.yaml`](https://github.com/Oaklight/toolregistry-hub/blob/master/docker/compose.yaml) — Docker Compose 配置（含 Caddy 网关）
+- [`.env.sample`](https://github.com/Oaklight/toolregistry-hub/blob/master/docker/.env.sample) — 环境变量示例文件
+- [`Caddyfile`](https://github.com/Oaklight/toolregistry-hub/blob/master/docker/Caddyfile) — Caddy 反向代理配置
+- [`Makefile`](https://github.com/Oaklight/toolregistry-hub/blob/master/docker/Makefile) — 构建自动化和部署目标
 
 ## 快速开始
 

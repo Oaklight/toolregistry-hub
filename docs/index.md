@@ -27,8 +27,8 @@ pip install toolregistry-hub
 
 <div class="tr-actions" markdown>
 [快速上手](get-started/installation.md){ .tr-button .tr-button--primary }
-[浏览工具](tools/){ .tr-button .tr-button--secondary }
-[部署服务器](guides/server.md){ .tr-button .tr-button--secondary }
+[浏览工具](tools/index.md){ .tr-button .tr-button--secondary }
+[部署服务器](get-started/server.md){ .tr-button .tr-button--secondary }
 </div>
 </section>
 
@@ -50,7 +50,7 @@ pip install toolregistry-hub
 
     将所有工具暴露为 OpenAPI 或 MCP 端点。
 
-    [:octicons-arrow-right-24: 服务器指南](guides/server.md)
+    [:octicons-arrow-right-24: 启动服务器](get-started/server.md)
 
 -   :material-tools:{ .lg .middle } **浏览工具**
 
@@ -58,7 +58,7 @@ pip install toolregistry-hub
 
     15+ 工具，覆盖搜索、文件、计算、Shell 等。
 
-    [:octicons-arrow-right-24: 工具目录](tools/)
+    [:octicons-arrow-right-24: 工具目录](tools/index.md)
 
 -   :material-docker:{ .lg .middle } **Docker 运行**
 
@@ -97,7 +97,7 @@ ToolRegistry Hub 是三包生态系统的一部分。详见[生态系统](ecosys
 
 - **[GitHub 仓库](https://github.com/Oaklight/toolregistry-hub)** — 源代码和 Issues
 - **[English Docs](../en/)** — 英文文档
-- **[工具文档](tools/)** — 完整工具参考
+- **[工具文档](tools/index.md)** — 完整工具参考
 
 ---
 
