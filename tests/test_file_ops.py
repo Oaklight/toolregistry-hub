@@ -43,6 +43,23 @@ class TestFileOps:
         with pytest.raises(FileNotFoundError):
             FileOps.read(os.path.join(self.temp_dir, "missing.txt"))
 
+    def test_read_metadata_before_content(self):
+        result = self._read()
+        keys = list(result.keys())
+        assert keys.index("digest") < keys.index("content")
+
+    def test_read_digest_only(self):
+        result = FileOps.read(self.test_file, digest_only=True)
+        assert isinstance(result["digest"], str)
+        assert result["is_symlink"] is False
+        assert result["real_path"] == os.path.realpath(self.test_file)
+        assert "content" not in result
+
+    def test_read_digest_only_matches_full_read(self):
+        full = self._read()
+        digest_only = FileOps.read(self.test_file, digest_only=True)
+        assert full["digest"] == digest_only["digest"]
+
     def test_read_symlink_allowed(self):
         link_path = os.path.join(self.temp_dir, "link.txt")
         os.symlink(self.test_file, link_path)

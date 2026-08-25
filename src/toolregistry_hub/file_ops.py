@@ -79,7 +79,7 @@ class FileOps:
     # ======================
 
     @staticmethod
-    def read(path: str) -> dict[str, str | bool]:
+    def read(path: str, digest_only: bool = False) -> dict[str, str | bool]:
         """Read text file content and return a digest for safe edits/writes.
 
         Symlinks are allowed for reading. Writes through symlinks are rejected,
@@ -88,18 +88,24 @@ class FileOps:
 
         Args:
             path: File path to read.
+            digest_only: If True, return only metadata (digest, is_symlink,
+                real_path) without file content. Useful when the caller only
+                needs the digest for a subsequent edit or write.
 
         Returns:
-            Dict with ``content``, ``digest``, ``is_symlink``, and ``real_path``.
+            Dict with ``digest``, ``is_symlink``, ``real_path``, and
+            (unless ``digest_only``) ``content``.
         """
         raw = FileOps._read_raw(path)
-        text, _encoding, _bom = FileOps._decode(raw)
-        return {
-            "content": text,
+        result: dict[str, str | bool] = {
             "digest": FileOps._digest(raw),
             "is_symlink": os.path.islink(path),
             "real_path": FileOps._real_path(path),
         }
+        if not digest_only:
+            text, _encoding, _bom = FileOps._decode(raw)
+            result["content"] = text
+        return result
 
     @staticmethod
     def edit(
