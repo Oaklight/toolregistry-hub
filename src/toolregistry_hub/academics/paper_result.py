@@ -19,5 +19,5 @@ class PaperResult:
     score: float = 1.0
 
     def get(self, key: str, default: Any | None = None) -> Any:
-        """Support dict-like get method for backward compatibility."""
+        """Dict-like access for duck-typing with dict-based consumers."""
         return getattr(self, key, default)

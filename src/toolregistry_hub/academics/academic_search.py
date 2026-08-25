@@ -78,6 +78,14 @@ class AcademicSearch:
         self._narrow_engine_annotation()
 
     def _narrow_engine_annotation(self) -> None:
+        """Narrow the ``engine`` Literal to only configured providers.
+
+        The toolregistry runtime reads method annotations to generate the
+        tool schema exposed to LLM clients. By narrowing the Literal at
+        instance construction time, the schema only advertises engines
+        that are actually available — preventing the LLM from selecting
+        an unconfigured provider.
+        """
         configured = self._configured_engine_names()
         if not configured:
             return

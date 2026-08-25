@@ -115,14 +115,11 @@ class OpenAlexSearch(BaseAcademicSearch):
 
             except HttpTimeoutError:
                 logger.error(f"OpenAlex API request timed out after {timeout}s")
-                return []
+                raise
             except HTTPError as e:
                 if self._handle_http_error(e, api_key, "OpenAlex"):
                     continue
-                return []
-            except Exception as e:
-                logger.error(f"OpenAlex API request failed: {e}")
-                return []
+                raise
 
         return []
 

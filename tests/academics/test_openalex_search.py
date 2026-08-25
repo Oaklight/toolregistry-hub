@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from toolregistry_hub._vendor.httpclient import HTTPError, HttpTimeoutError
 from toolregistry_hub.academics.openalex_search import OpenAlexSearch
 from toolregistry_hub.academics.paper_result import PaperResult
@@ -90,7 +92,7 @@ class TestOpenAlexSearch:
         mock_client.assert_not_called()
 
     @patch("toolregistry_hub.academics.openalex_search.Client")
-    def test_search_timeout(self, mock_client):
+    def test_search_timeout_raises(self, mock_client):
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
@@ -98,8 +100,8 @@ class TestOpenAlexSearch:
         mock_client.return_value = mock_client_instance
 
         search = OpenAlexSearch(api_keys="test_key")
-        results = search.search("test query")
-        assert results == []
+        with pytest.raises(HttpTimeoutError):
+            search.search("test query")
 
     @patch("toolregistry_hub.academics.openalex_search.Client")
     def test_search_http_401_marks_key_failed(self, mock_client):

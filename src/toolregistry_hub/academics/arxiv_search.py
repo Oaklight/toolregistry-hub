@@ -30,7 +30,7 @@ class ArxivSearch(BaseAcademicSearch):
     """arXiv search client with courtesy rate limiting."""
 
     def __init__(self, rate_limit_delay: float = 1.0):
-        self.base_url = "http://export.arxiv.org/api/query"
+        self.base_url = "https://export.arxiv.org/api/query"
         self._rate_limit_delay = rate_limit_delay
         self._last_request_time: float = 0.0
         self._lock = threading.Lock()
@@ -107,13 +107,10 @@ class ArxivSearch(BaseAcademicSearch):
 
         except HttpTimeoutError:
             logger.error(f"arXiv API request timed out after {timeout}s")
-            return []
+            raise
         except HTTPError as e:
             logger.error(f"arXiv API HTTP error {e.status_code}: {e.body}")
-            return []
-        except Exception as e:
-            logger.error(f"arXiv API request failed: {e}")
-            return []
+            raise
 
     def _parse_results(self, raw_results: str) -> list[PaperResult]:
         try:
