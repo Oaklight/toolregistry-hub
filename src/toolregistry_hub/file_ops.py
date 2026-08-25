@@ -42,6 +42,15 @@ class FileOps:
         return hashlib.sha256(raw).hexdigest()
 
     @staticmethod
+    def _digest_file(path: str, buf_size: int = 65536) -> str:
+        """Return SHA-256 digest by streaming the file without loading it all into memory."""
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            while chunk := f.read(buf_size):
+                h.update(chunk)
+        return h.hexdigest()
+
+    @staticmethod
     def _read_raw(path: str) -> bytes:
         """Read file as bytes."""
         with open(path, "rb") as f:
@@ -96,18 +105,22 @@ class FileOps:
             Dict with ``digest``, ``is_symlink``, ``real_path``, and
             (unless ``digest_only``) ``content``.
         """
-        raw = FileOps._read_raw(path)
         # Keys ordered so metadata serializes before content — if MCP
         # transport truncates large responses, digest/symlink info survives.
-        result: dict[str, str | bool] = {
+        if digest_only:
+            return {
+                "digest": FileOps._digest_file(path),
+                "is_symlink": os.path.islink(path),
+                "real_path": FileOps._real_path(path),
+            }
+        raw = FileOps._read_raw(path)
+        text, _encoding, _bom = FileOps._decode(raw)
+        return {
             "digest": FileOps._digest(raw),
             "is_symlink": os.path.islink(path),
             "real_path": FileOps._real_path(path),
+            "content": text,
         }
-        if not digest_only:
-            text, _encoding, _bom = FileOps._decode(raw)
-            result["content"] = text
-        return result
 
     @staticmethod
     def edit(
