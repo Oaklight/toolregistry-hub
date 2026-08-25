@@ -57,6 +57,10 @@ _DEFAULT_TOOLS: list[PythonSource] = [
         class_path="toolregistry_hub.websearch.websearch_unified.WebSearch",
         namespace="web/websearch",
     ),
+    PythonSource(
+        class_path="toolregistry_hub.academics.academic_search.AcademicSearch",
+        namespace="academics",
+    ),
 ]
 
 # Metadata overrides for registered tools, keyed by namespace.
@@ -91,6 +95,12 @@ _TOOL_METADATA: dict[str, dict] = {
     "todolist": {"defer": True, "tags": {ToolTag.READ_ONLY}},
     "unit_converter": {"defer": True, "tags": {ToolTag.READ_ONLY}},
     "weather": {"defer": True, "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
+    "academics": {
+        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
+        "methods": {
+            "list_engines": {"defer": True},
+        },
+    },
 }
 
 
