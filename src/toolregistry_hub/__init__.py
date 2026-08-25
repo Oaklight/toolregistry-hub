@@ -19,6 +19,7 @@ Example:
 
 from .academics import (
     AcademicSearch,
+    AcademicSearchBackendError,
     ArxivSearch,
     OpenAlexSearch,
     PaperResult,
@@ -59,6 +60,7 @@ __all__ = [
     "FetchError",
     # ------- Academic search tools -------
     "AcademicSearch",
+    "AcademicSearchBackendError",
     "ArxivSearch",
     "OpenAlexSearch",
     "PaperResult",
