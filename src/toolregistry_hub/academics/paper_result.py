@@ -16,7 +16,6 @@ class PaperResult:
     pdf_url: str | None = None
     cited_by_count: int | None = None
     source: str = ""
-    score: float = 1.0
 
     def get(self, key: str, default: Any | None = None) -> Any:
         """Dict-like access for duck-typing with dict-based consumers."""

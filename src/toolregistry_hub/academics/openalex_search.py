@@ -114,7 +114,7 @@ class OpenAlexSearch(BaseAcademicSearch):
                 api_key = self.api_key_parser.get_next_valid_key()
             except ValueError:
                 logger.error("All OpenAlex API keys are currently unavailable")
-                break
+                raise
 
             self.api_key_parser.wait_for_rate_limit(api_key=api_key)
 
