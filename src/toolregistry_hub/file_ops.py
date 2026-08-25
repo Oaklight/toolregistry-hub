@@ -97,6 +97,8 @@ class FileOps:
             (unless ``digest_only``) ``content``.
         """
         raw = FileOps._read_raw(path)
+        # Keys ordered so metadata serializes before content — if MCP
+        # transport truncates large responses, digest/symlink info survives.
         result: dict[str, str | bool] = {
             "digest": FileOps._digest(raw),
             "is_symlink": os.path.islink(path),
