@@ -17,6 +17,12 @@ Example:
     ```
 """
 
+from .academics import (
+    AcademicSearch,
+    ArxivSearch,
+    OpenAlexSearch,
+    PaperResult,
+)
 from .bash_tool import BashTool
 from .calculator import BaseCalculator, Calculator
 from .cron_tool import CronTool
@@ -51,6 +57,11 @@ __all__ = [
     # WebSearch related tools
     "Fetch",
     "FetchError",
+    # ------- Academic search tools -------
+    "AcademicSearch",
+    "ArxivSearch",
+    "OpenAlexSearch",
+    "PaperResult",
     # ------- WebSearch tools -------
     "SearchResult",
     "BraveSearch",
