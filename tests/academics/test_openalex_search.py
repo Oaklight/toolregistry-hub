@@ -51,11 +51,16 @@ class TestOpenAlexSearch:
         search = OpenAlexSearch()
         assert search.api_key_parser.api_keys[0] == "env_key"
 
-    def test_init_without_key_unconfigured(self):
+    def test_init_without_key_still_configured(self):
         with patch.dict("os.environ", {}, clear=True):
             search = OpenAlexSearch()
             assert search.api_key_parser.key_count == 0
-            assert not search._is_configured()
+            assert search._is_configured()
+
+    @patch.dict("os.environ", {"OPENALEX_MAILTO": "test@example.com"})
+    def test_init_mailto_from_env(self):
+        search = OpenAlexSearch()
+        assert search._mailto == "test@example.com"
 
     @patch("toolregistry_hub.academics.openalex_search.Client")
     def test_search_basic(self, mock_client):
@@ -134,6 +139,27 @@ class TestOpenAlexSearch:
         failed = search.api_key_parser.failed_keys
         assert "key1" in failed
         assert "rate limited" in failed["key1"]
+
+    @patch("toolregistry_hub.academics.openalex_search.Client")
+    def test_search_polite_pool_no_key(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.__enter__.return_value = mock_client_instance
+        mock_client_instance.__exit__.return_value = None
+        mock_client_instance.get.return_value = mock_response
+        mock_client.return_value = mock_client_instance
+
+        with patch.dict("os.environ", {}, clear=True):
+            search = OpenAlexSearch(mailto="user@example.com")
+            search.search("test")
+
+        call_kwargs = mock_client_instance.get.call_args
+        params = call_kwargs.kwargs.get("params", {})
+        assert "api_key" not in params
+        assert params.get("mailto") == "user@example.com"
 
     @patch("toolregistry_hub.academics.openalex_search.Client")
     def test_search_uses_api_key_in_params(self, mock_client):
