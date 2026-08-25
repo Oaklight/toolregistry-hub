@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from toolregistry_hub._vendor.httpclient import HTTPError, HttpTimeoutError
 from toolregistry_hub.academics.arxiv_search import ArxivSearch
 from toolregistry_hub.academics.paper_result import PaperResult
@@ -42,7 +44,7 @@ SAMPLE_XML_MINIMAL = """<?xml version="1.0" encoding="UTF-8"?>
 class TestArxivSearch:
     def test_init_defaults(self):
         search = ArxivSearch()
-        assert search.base_url == "http://export.arxiv.org/api/query"
+        assert search.base_url == "https://export.arxiv.org/api/query"
         assert search._rate_limit_delay == 1.0
 
     def test_always_configured(self):
@@ -102,7 +104,7 @@ class TestArxivSearch:
         mock_client.assert_not_called()
 
     @patch("toolregistry_hub.academics.arxiv_search.Client")
-    def test_search_timeout(self, mock_client):
+    def test_search_timeout_raises(self, mock_client):
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
@@ -110,22 +112,22 @@ class TestArxivSearch:
         mock_client.return_value = mock_client_instance
 
         search = ArxivSearch(rate_limit_delay=0)
-        results = search.search("test query")
-        assert results == []
+        with pytest.raises(HttpTimeoutError):
+            search.search("test query")
 
     @patch("toolregistry_hub.academics.arxiv_search.Client")
-    def test_search_http_error(self, mock_client):
+    def test_search_http_error_raises(self, mock_client):
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
         mock_client_instance.get.side_effect = HTTPError(
-            503, "Service Unavailable", "http://export.arxiv.org/api/query"
+            503, "Service Unavailable", "https://export.arxiv.org/api/query"
         )
         mock_client.return_value = mock_client_instance
 
         search = ArxivSearch(rate_limit_delay=0)
-        results = search.search("test query")
-        assert results == []
+        with pytest.raises(HTTPError):
+            search.search("test query")
 
     @patch("toolregistry_hub.academics.arxiv_search.Client")
     def test_search_wraps_plain_query(self, mock_client):
