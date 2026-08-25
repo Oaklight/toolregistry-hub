@@ -3,20 +3,26 @@
 OpenAlex provides free access to a catalog of 250M+ scholarly works
 with metadata including citations, authors, institutions, and open-access links.
 
-Setup:
+Works without any key via the "polite pool" (lower rate limits).
+Set OPENALEX_API_KEY for 10x higher daily budget:
+
     export OPENALEX_API_KEY="your-api-key"
 
     Free API key available at https://openalex.org/settings/api (instant registration).
 
+Optionally set OPENALEX_MAILTO for polite pool identification:
+
+    export OPENALEX_MAILTO="you@example.com"
+
 API Documentation: https://help.openalex.org/api/
 """
 
+import os
 from typing import Any, cast
 
 from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError, Response
 from .._vendor.structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
-from ..utils.requirements import requires_env
 from .base import TIMEOUT_DEFAULT, BaseAcademicSearch
 from .paper_result import PaperResult
 
@@ -37,17 +43,31 @@ _SELECT_FIELDS = ",".join(
 )
 
 
-@requires_env("OPENALEX_API_KEY")
 class OpenAlexSearch(BaseAcademicSearch):
-    """OpenAlex academic search client with multi-key rotation."""
+    """OpenAlex academic search client.
 
-    def __init__(self, api_keys: str | None = None, rate_limit_delay: float = 0.1):
+    Works without a key via the polite pool. Set ``OPENALEX_API_KEY`` for
+    10x higher daily budget. Set ``OPENALEX_MAILTO`` for polite pool
+    identification when no key is configured.
+    """
+
+    def __init__(
+        self,
+        api_keys: str | None = None,
+        rate_limit_delay: float = 0.1,
+        mailto: str | None = None,
+    ):
         self.api_key_parser = APIKeyParser(
             api_keys=api_keys,
             env_var_name="OPENALEX_API_KEY",
             rate_limit_delay=rate_limit_delay,
         )
         self.base_url = "https://api.openalex.org"
+        self._mailto = mailto or os.getenv("OPENALEX_MAILTO", "")
+
+    def _is_configured(self) -> bool:
+        """Always configured — polite pool works without a key."""
+        return True
 
     def search(
         self,
@@ -78,7 +98,16 @@ class OpenAlexSearch(BaseAcademicSearch):
     def _search_impl(self, query: str, **kwargs) -> list[PaperResult]:
         max_results = kwargs.get("max_results", 5)
         timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
-        max_attempts = max(self.api_key_parser.key_count, 1)
+
+        has_keys = bool(self.api_key_parser.api_keys)
+        if has_keys:
+            return self._search_with_keys(query, max_results, timeout)
+        return self._search_polite(query, max_results, timeout)
+
+    def _search_with_keys(
+        self, query: str, max_results: int, timeout: float
+    ) -> list[PaperResult]:
+        max_attempts = self.api_key_parser.key_count
 
         for _attempt in range(max_attempts):
             try:
@@ -97,24 +126,8 @@ class OpenAlexSearch(BaseAcademicSearch):
             }
 
             try:
-                with Client(timeout=timeout) as client:
-                    response = cast(
-                        Response,
-                        client.get(
-                            f"{self.base_url}/works",
-                            params=params,
-                        ),
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-                    results = self._parse_results(data)
-                    logger.info(
-                        f"OpenAlex search for '{query}' returned {len(results)} results"
-                    )
-                    return results
-
+                return self._do_request(query, params, timeout)
             except HttpTimeoutError:
-                logger.error(f"OpenAlex API request timed out after {timeout}s")
                 raise
             except HTTPError as e:
                 if self._handle_http_error(e, api_key, "OpenAlex"):
@@ -122,6 +135,34 @@ class OpenAlexSearch(BaseAcademicSearch):
                 raise
 
         return []
+
+    def _search_polite(
+        self, query: str, max_results: int, timeout: float
+    ) -> list[PaperResult]:
+        params: dict[str, Any] = {
+            "search": query,
+            "per_page": max_results,
+            "select": _SELECT_FIELDS,
+        }
+        if self._mailto:
+            params["mailto"] = self._mailto
+        return self._do_request(query, params, timeout)
+
+    def _do_request(
+        self, query: str, params: dict[str, Any], timeout: float
+    ) -> list[PaperResult]:
+        with Client(timeout=timeout) as client:
+            response = cast(
+                Response,
+                client.get(f"{self.base_url}/works", params=params),
+            )
+            response.raise_for_status()
+            data = response.json()
+            results = self._parse_results(data)
+            logger.info(
+                f"OpenAlex search for '{query}' returned {len(results)} results"
+            )
+            return results
 
     def _parse_results(self, raw_results: dict) -> list[PaperResult]:
         results = []
