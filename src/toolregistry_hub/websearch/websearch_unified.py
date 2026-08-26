@@ -41,6 +41,7 @@ EngineName = Literal[
     "brightdata",
     "scrapeless",
     "serper",
+    "reddit",
 ]
 
 
@@ -77,6 +78,7 @@ _ENGINE_REGISTRY: dict[str, tuple[str, str]] = {
         "ScrapelessSearch",
     ),
     "serper": ("toolregistry_hub.websearch.websearch_serper", "SerperSearch"),
+    "reddit": ("toolregistry_hub.websearch.websearch_reddit", "RedditSearch"),
 }
 
 
