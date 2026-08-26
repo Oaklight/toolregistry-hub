@@ -39,10 +39,11 @@ logger = get_logger()
 
 _DEFAULT_BASE_URL = "https://arctic-shift.photon-reddit.com"
 
-_SUBREDDIT_RE = re.compile(r"(?<!\w)/?r/(\w+)|subreddit:(\w+)", re.IGNORECASE)
+_SUBREDDIT_RE = re.compile(r"(?<!\w)(?:/?r/(\w+)|subreddit:(\w+))", re.IGNORECASE)
 
 _SELFTEXT_MAX_LEN = 500
 
+# Arctic Shift query filter params (not response fields)
 _OPTIONAL_PARAMS = frozenset(
     {
         "after",
@@ -144,11 +145,11 @@ class RedditSearch(BaseSearch):
             )
             return []
 
-        kwargs["subreddit"] = subreddit
-        kwargs["limit"] = max_results
-        kwargs["timeout"] = timeout
+        impl_kwargs = dict(kwargs, limit=max_results, timeout=timeout)
+        if subreddit:
+            impl_kwargs["subreddit"] = subreddit
 
-        results = self._search_impl(query=cleaned, **kwargs)
+        results = self._search_impl(query=cleaned, **impl_kwargs)
         return results[:max_results]
 
     def _build_params(self, query: str, **kwargs) -> dict:
@@ -161,7 +162,9 @@ class RedditSearch(BaseSearch):
         if query.strip():
             params["query"] = query
         params["limit"] = kwargs.get("limit", 25)
-        params["sort"] = kwargs.get("sort", "desc")
+        # API sort param controls ordering direction (desc = newest first)
+        if sort := kwargs.get("sort"):
+            params["sort"] = sort
         for key in _OPTIONAL_PARAMS:
             if key in kwargs:
                 params[key] = kwargs[key]
@@ -185,7 +188,7 @@ class RedditSearch(BaseSearch):
                 response.raise_for_status()
                 data = response.json()
                 results = self._parse_results(data)
-                logger.info(f"Reddit search returned {len(results)} results")
+                logger.info("Reddit search returned results", count=len(results))
                 return results
         except HttpTimeoutError:
             logger.error(f"Arctic Shift API timed out after {timeout}s")
@@ -202,10 +205,9 @@ class RedditSearch(BaseSearch):
     @staticmethod
     def _post_body(post: dict) -> str:
         """Extract and truncate the post body text."""
-        title = post.get("title") or "No title"
         selftext = (post.get("selftext") or "").strip()
         if selftext in ("[removed]", "[deleted]", ""):
-            return title
+            return ""
         if len(selftext) <= _SELFTEXT_MAX_LEN:
             return selftext
         return selftext[:_SELFTEXT_MAX_LEN] + "…"
@@ -241,7 +243,8 @@ class RedditSearch(BaseSearch):
             )
             body = self._post_body(post)
             meta = self._post_meta(post)
-            content = f"{body} | {' | '.join(meta)}" if meta else body
+            meta_str = " | ".join(meta)
+            content = f"{body} | {meta_str}" if body and meta_str else body or meta_str
             results.append(SearchResult(title=title, url=url, content=content))
         return results
 

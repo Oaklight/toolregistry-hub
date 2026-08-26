@@ -352,8 +352,8 @@ class TestRedditParseResults:
         }
         results = search._parse_results(raw)
         assert len(results) == 1
-        assert "Removed post" in results[0].content
         assert "[removed]" not in results[0].content
+        assert "r/test" in results[0].content
 
     def test_deleted_selftext(self):
         search = RedditSearch()
