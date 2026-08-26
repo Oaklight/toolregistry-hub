@@ -66,7 +66,7 @@ Perform a web search via the selected engine.
 
 - `query` (str): The search query string
 - `count` (int): Number of results to return (default 5, max 20)
-- `engine` (str): Provider to use. `"auto"` (default) tries configured engines in priority order. `"parallel"` queries multiple engines concurrently and deduplicates with BM25 re-ranking. Specific values: `"brave"`, `"tavily"`, `"searxng"`, `"brightdata"`, `"scrapeless"`, `"serper"`
+- `engine` (str): Provider to use. `"auto"` (default) tries configured engines in priority order. `"parallel"` queries multiple engines concurrently and deduplicates with BM25 re-ranking. Specific values: `"brave"`, `"tavily"`, `"searxng"`, `"brightdata"`, `"scrapeless"`, `"serper"`, `"reddit"`
 - `fallback` (bool): If `True` and the chosen engine fails, automatically try the next available engine instead of raising an error. Default: `False`
 - `timeout` (float): Per-request timeout in seconds. Default: 10.0
 

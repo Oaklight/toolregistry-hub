@@ -17,6 +17,7 @@ Here's a quick overview of free tier offerings for each search provider:
 | **Tavily** | Yes | 1,000 queries | AI-optimized search |
 | **Scrapeless** | No | - | Paid plans only |
 | **SearXNG** | Free | Unlimited | Self-hosted, open source |
+| **Reddit (Arctic Shift)** | Free | Unlimited | Keyless, no auth required |
 
 ### tip "Maximizing Free Usage"
 
@@ -44,6 +45,7 @@ Currently supported search engines include:
 - [SearXNG Search](searxng.md) - Using SearXNG meta search engine (Privacy-focused)
 - [BrightData Search](brightdata.md) - Using BrightData for Google results
 - [Scrapeless Search](scrapeless.md) - Using Scrapeless Universal API with support for multiple search engines
+- [Reddit Search](reddit.md) - Using Arctic Shift API for Reddit post search (keyless)
 - [Bing Search](bing.md) - **REMOVED** - Previously used Bing search engine (removed in v0.6.0)
 
 ## Basic Usage
@@ -145,4 +147,5 @@ for result in results:
 - [SearXNG Search](searxng.md) - Implementation of SearXNG search engine
 - [BrightData Search](brightdata.md) - Implementation of BrightData for Google results
 - [Scrapeless Search](scrapeless.md) - Implementation of Scrapeless Universal API
+- [Reddit Search](reddit.md) - Implementation of Reddit post search via Arctic Shift API
 - [Bing Search](bing.md) - **REMOVED** Implementation of Bing search engine (removed in v0.6.0)
