@@ -2,8 +2,8 @@
 GitHub Search API Implementation
 
 Searches GitHub repositories via the GitHub REST Search API.
-Works unauthenticated (60 requests/hour) or with personal access tokens
-for higher throughput (5,000 requests/hour per token, 30 search requests/minute).
+Works unauthenticated (10 search requests/minute) or with personal access
+tokens for higher throughput (30 search requests/minute per token).
 
 Setup (optional — works without tokens at reduced rate limits):
     export GITHUB_TOKENS="ghp_token1,ghp_token2"
@@ -20,7 +20,7 @@ Usage:
         print(f"Info: {result.content}")
 
 API Documentation: https://docs.github.com/en/rest/search/search#search-repositories
-Rate limits: https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api
+Rate limits: https://docs.github.com/en/rest/search/search#rate-limit
 """
 
 from typing import cast
@@ -28,7 +28,7 @@ from typing import cast
 from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError, Response
 from .._vendor.structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
-from .base import TIMEOUT_DEFAULT, BaseSearch
+from .base import TIMEOUT_DEFAULT, BaseSearch, SearchBackendError
 from .search_result import SearchResult
 
 logger = get_logger()
@@ -71,6 +71,7 @@ class GitHubSearch(BaseSearch):
         headers = {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "toolregistry-hub/GitHubSearch",
         }
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
@@ -149,18 +150,18 @@ class GitHubSearch(BaseSearch):
         timeout = kwargs.get("timeout", TIMEOUT_DEFAULT)
         max_attempts = max(self.api_key_parser.key_count, 1)
 
-        for _attempt in range(max_attempts):
-            api_key = None
-            if self.api_key_parser.key_count > 0:
-                try:
-                    api_key = self.api_key_parser.get_next_valid_key()
-                except ValueError:
-                    logger.error("All GitHub tokens are currently unavailable")
-                    break
-                self.api_key_parser.wait_for_rate_limit(api_key=api_key)
+        with Client(timeout=timeout) as client:
+            for _attempt in range(max_attempts):
+                api_key = None
+                if self.api_key_parser.key_count > 0:
+                    try:
+                        api_key = self.api_key_parser.get_next_valid_key()
+                    except ValueError:
+                        logger.error("All GitHub tokens are currently unavailable")
+                        break
+                    self.api_key_parser.wait_for_rate_limit(api_key=api_key)
 
-            try:
-                with Client(timeout=timeout) as client:
+                try:
                     response = cast(
                         Response,
                         client.get(
@@ -172,26 +173,41 @@ class GitHubSearch(BaseSearch):
                     response.raise_for_status()
 
                     data = response.json()
+                    if data.get("incomplete_results"):
+                        logger.warning(
+                            "GitHub search returned incomplete results",
+                            query=query,
+                        )
                     results = self._parse_results(data)
 
                     logger.info(
-                        f"GitHub search for '{query}' returned {len(results)} results"
+                        "GitHub search returned results",
+                        query=query,
+                        count=len(results),
                     )
                     return results
 
-            except HttpTimeoutError:
-                logger.error(f"GitHub API request timed out after {timeout}s")
-                return []
-            except HTTPError as e:
-                if api_key and self._handle_http_error(e, api_key, "GitHub"):
-                    continue
-                logger.error(f"GitHub API HTTP error {e.status_code}: {e.body}")
-                return []
-            except Exception as e:
-                logger.error(f"GitHub API request failed: {e}")
-                return []
+                except HttpTimeoutError:
+                    logger.error(
+                        "GitHub API request timed out",
+                        timeout=timeout,
+                    )
+                    return []
+                except HTTPError as e:
+                    if api_key and self._handle_http_error(e, api_key, "GitHub"):
+                        continue
+                    raise SearchBackendError(
+                        f"GitHub API error {e.status_code}: {e.body}"
+                    ) from e
+                except SearchBackendError:
+                    raise
+                except Exception as e:
+                    logger.error("GitHub API request failed", error=str(e))
+                    return []
 
-        return []
+        raise SearchBackendError(
+            "GitHub search failed: all tokens exhausted or unavailable"
+        )
 
     def _parse_results(self, raw_results: dict) -> list[SearchResult]:
         """Parse GitHub API response into SearchResult objects.
