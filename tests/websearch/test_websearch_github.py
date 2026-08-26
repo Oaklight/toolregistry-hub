@@ -2,7 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from toolregistry_hub._vendor.httpclient import HTTPError, HttpTimeoutError
+from toolregistry_hub.websearch.base import SearchBackendError
 from toolregistry_hub.websearch.search_result import SearchResult
 from toolregistry_hub.websearch.websearch_github import GitHubSearch
 
@@ -73,6 +76,7 @@ class TestGitHubSearch:
         assert headers["Authorization"] == "Bearer ghp_test"
         assert headers["Accept"] == "application/vnd.github+json"
         assert headers["X-GitHub-Api-Version"] == "2022-11-28"
+        assert headers["User-Agent"] == "toolregistry-hub/GitHubSearch"
 
     def test_build_headers_without_key(self):
         """Test _build_headers omits Authorization when no key."""
@@ -83,6 +87,7 @@ class TestGitHubSearch:
             assert "Authorization" not in headers
             assert headers["Accept"] == "application/vnd.github+json"
             assert headers["X-GitHub-Api-Version"] == "2022-11-28"
+            assert "User-Agent" in headers
 
     @patch("toolregistry_hub.websearch.websearch_github.Client")
     def test_search_basic(self, mock_client):
@@ -174,8 +179,8 @@ class TestGitHubSearch:
         assert results == []
 
     @patch("toolregistry_hub.websearch.websearch_github.Client")
-    def test_search_http_401_error(self, mock_client):
-        """Test search with 401 authentication error."""
+    def test_search_http_401_raises(self, mock_client):
+        """Test search with 401 raises SearchBackendError after exhausting keys."""
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
@@ -185,13 +190,12 @@ class TestGitHubSearch:
         mock_client.return_value = mock_client_instance
 
         search = GitHubSearch(api_keys="ghp_invalid")
-        results = search.search("test query")
-
-        assert results == []
+        with pytest.raises(SearchBackendError, match="all tokens exhausted"):
+            search.search("test query")
 
     @patch("toolregistry_hub.websearch.websearch_github.Client")
-    def test_search_http_403_error(self, mock_client):
-        """Test search with 403 secondary rate limit error."""
+    def test_search_http_403_raises(self, mock_client):
+        """Test search with 403 raises SearchBackendError after exhausting keys."""
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
@@ -201,13 +205,12 @@ class TestGitHubSearch:
         mock_client.return_value = mock_client_instance
 
         search = GitHubSearch(api_keys="ghp_test")
-        results = search.search("test query")
-
-        assert results == []
+        with pytest.raises(SearchBackendError, match="all tokens exhausted"):
+            search.search("test query")
 
     @patch("toolregistry_hub.websearch.websearch_github.Client")
-    def test_search_http_429_error(self, mock_client):
-        """Test search with 429 rate limit error."""
+    def test_search_http_429_raises(self, mock_client):
+        """Test search with 429 raises SearchBackendError after exhausting keys."""
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
@@ -217,13 +220,12 @@ class TestGitHubSearch:
         mock_client.return_value = mock_client_instance
 
         search = GitHubSearch(api_keys="ghp_test")
-        results = search.search("test query")
-
-        assert results == []
+        with pytest.raises(SearchBackendError, match="all tokens exhausted"):
+            search.search("test query")
 
     @patch("toolregistry_hub.websearch.websearch_github.Client")
-    def test_search_http_422_error(self, mock_client):
-        """Test search with 422 validation error (malformed query)."""
+    def test_search_http_422_raises(self, mock_client):
+        """Test search with 422 raises SearchBackendError (malformed query)."""
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
@@ -233,13 +235,12 @@ class TestGitHubSearch:
         mock_client.return_value = mock_client_instance
 
         search = GitHubSearch(api_keys="ghp_test")
-        results = search.search("test query")
-
-        assert results == []
+        with pytest.raises(SearchBackendError, match="422"):
+            search.search("test query")
 
     @patch("toolregistry_hub.websearch.websearch_github.Client")
-    def test_search_unauthenticated_rate_limit(self, mock_client):
-        """Test that unauthenticated 403 does not retry (no key to rotate)."""
+    def test_search_unauthenticated_rate_limit_raises(self, mock_client):
+        """Test that unauthenticated 403 raises SearchBackendError."""
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
@@ -250,10 +251,53 @@ class TestGitHubSearch:
 
         with patch.dict("os.environ", {}, clear=True):
             search = GitHubSearch()
-            results = search.search("test query")
+            with pytest.raises(SearchBackendError, match="403"):
+                search.search("test query")
 
-        assert results == []
-        assert mock_client_instance.get.call_count == 1
+    @patch("toolregistry_hub.websearch.websearch_github.Client")
+    def test_search_http_401_retries_with_multiple_keys(self, mock_client):
+        """Test that 401 triggers key rotation before raising."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = SAMPLE_GITHUB_RESPONSE
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.__enter__.return_value = mock_client_instance
+        mock_client_instance.__exit__.return_value = None
+        mock_client_instance.get.side_effect = [
+            HTTPError(
+                401, "Bad credentials", "https://api.github.com/search/repositories"
+            ),
+            mock_response,
+        ]
+        mock_client.return_value = mock_client_instance
+
+        search = GitHubSearch(api_keys="ghp_bad,ghp_good")
+        results = search.search("test query")
+
+        assert len(results) == 2
+        assert mock_client_instance.get.call_count == 2
+
+    @patch("toolregistry_hub.websearch.websearch_github.Client")
+    def test_search_incomplete_results_logs_warning(self, mock_client):
+        """Test that incomplete_results triggers a warning log."""
+        incomplete_response = {**SAMPLE_GITHUB_RESPONSE, "incomplete_results": True}
+        mock_response = MagicMock()
+        mock_response.json.return_value = incomplete_response
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.__enter__.return_value = mock_client_instance
+        mock_client_instance.__exit__.return_value = None
+        mock_client_instance.get.return_value = mock_response
+        mock_client.return_value = mock_client_instance
+
+        search = GitHubSearch(api_keys="ghp_test")
+        with patch("toolregistry_hub.websearch.websearch_github.logger") as mock_logger:
+            results = search.search("broad query")
+
+        assert len(results) == 2
+        mock_logger.warning.assert_called_once()
 
     def test_parse_results(self):
         """Test parsing of API results."""
@@ -298,7 +342,11 @@ class TestGitHubSearch:
     def test_search_request_params(self, mock_client):
         """Test that request parameters are correctly formatted."""
         mock_response = MagicMock()
-        mock_response.json.return_value = {"total_count": 0, "items": []}
+        mock_response.json.return_value = {
+            "total_count": 0,
+            "incomplete_results": False,
+            "items": [],
+        }
         mock_response.raise_for_status = MagicMock()
 
         mock_client_instance = MagicMock()
@@ -320,7 +368,11 @@ class TestGitHubSearch:
     def test_search_with_sort(self, mock_client):
         """Test search with sort parameter."""
         mock_response = MagicMock()
-        mock_response.json.return_value = {"total_count": 0, "items": []}
+        mock_response.json.return_value = {
+            "total_count": 0,
+            "incomplete_results": False,
+            "items": [],
+        }
         mock_response.raise_for_status = MagicMock()
 
         mock_client_instance = MagicMock()
@@ -344,6 +396,7 @@ class TestGitHubSearch:
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "total_count": 10,
+            "incomplete_results": False,
             "items": [
                 {
                     "full_name": f"user/repo{i}",
@@ -374,7 +427,11 @@ class TestGitHubSearch:
     def test_search_gets_correct_endpoint(self, mock_client):
         """Test that the search uses GET to the correct endpoint."""
         mock_response = MagicMock()
-        mock_response.json.return_value = {"total_count": 0, "items": []}
+        mock_response.json.return_value = {
+            "total_count": 0,
+            "incomplete_results": False,
+            "items": [],
+        }
         mock_response.raise_for_status = MagicMock()
 
         mock_client_instance = MagicMock()
@@ -389,3 +446,27 @@ class TestGitHubSearch:
         mock_client_instance.get.assert_called_once()
         call_args = mock_client_instance.get.call_args
         assert call_args[0][0] == "https://api.github.com/search/repositories"
+
+    @patch("toolregistry_hub.websearch.websearch_github.Client")
+    def test_search_reuses_client_across_retries(self, mock_client):
+        """Test that the Client is created once and reused across retries."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = SAMPLE_GITHUB_RESPONSE
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.__enter__.return_value = mock_client_instance
+        mock_client_instance.__exit__.return_value = None
+        mock_client_instance.get.side_effect = [
+            HTTPError(
+                429, "Rate limited", "https://api.github.com/search/repositories"
+            ),
+            mock_response,
+        ]
+        mock_client.return_value = mock_client_instance
+
+        search = GitHubSearch(api_keys="ghp_key1,ghp_key2")
+        results = search.search("test query")
+
+        assert len(results) == 2
+        mock_client.assert_called_once()
