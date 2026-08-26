@@ -66,7 +66,7 @@ print(ws.list_engines())
 
 - `query` (str): 搜索查询字符串
 - `count` (int): 返回结果数量（默认 5，最大 20）
-- `engine` (str): 使用的引擎。`"auto"`（默认）按优先级尝试已配置引擎。`"parallel"` 并发查询多个引擎并使用 BM25 重新排序。可选值：`"brave"`、`"tavily"`、`"searxng"`、`"brightdata"`、`"scrapeless"`、`"serper"`
+- `engine` (str): 使用的引擎。`"auto"`（默认）按优先级尝试已配置引擎。`"parallel"` 并发查询多个引擎并使用 BM25 重新排序。可选值：`"brave"`、`"tavily"`、`"searxng"`、`"brightdata"`、`"scrapeless"`、`"serper"`、`"reddit"`
 - `fallback` (bool): 指定引擎失败时，`True` 自动尝试下一个可用引擎，`False`（默认）抛出错误
 - `timeout` (float): 单次请求超时秒数。默认：10.0
 

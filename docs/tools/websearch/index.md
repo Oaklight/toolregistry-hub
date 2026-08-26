@@ -17,6 +17,7 @@
 | **Tavily** | 有 | 1,000 次查询 | AI 优化搜索 |
 | **Scrapeless** | 无 | - | 仅付费计划 |
 | **SearXNG** | 免费 | 无限制 | 自托管，开源 |
+| **Reddit (Arctic Shift)** | 免费 | 无限制 | 无需 API Key，无需认证 |
 
 !!! tip "最大化免费使用"
     - **多 API 密钥轮转**：所有提供商都支持多个 API 密钥进行负载均衡
@@ -43,6 +44,7 @@
 - [SearXNG 搜索](searxng.md) - 使用 SearXNG 元搜索引擎（注重隐私）
 - [BrightData 搜索](brightdata.md) - 使用 BrightData 获取 Google 搜索结果
 - [Scrapeless 搜索](scrapeless.md) - 使用 Scrapeless Universal API，支持多个搜索引擎
+- [Reddit 搜索](reddit.md) - 使用 Arctic Shift API 搜索 Reddit 帖子（无需 API Key）
 - [Bing 搜索](bing.md) - **已移除** — 曾使用 Bing 搜索引擎（v0.6.0 中移除）
 
 ## 基本使用
@@ -144,4 +146,6 @@ for result in results:
 - [SearXNG 搜索](searxng.md) - SearXNG 搜索引擎的实现
 - [BrightData 搜索](brightdata.md) - BrightData 获取 Google 搜索结果的实现
 - [Scrapeless 搜索](scrapeless.md) - Scrapeless DeepSERP API 的实现
+- [Reddit 搜索](reddit.md) - 使用 Arctic Shift API 搜索 Reddit 帖子（无需 API Key）
+- [Reddit 搜索](reddit.md) - Reddit 帖子搜索（Arctic Shift API）
 - [Bing 搜索](bing.md) - **已移除** Bing 搜索引擎的实现（v0.6.0 中移除）
