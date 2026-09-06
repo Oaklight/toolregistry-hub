@@ -195,6 +195,7 @@ nav:
               - Tavily Search: tools/websearch/tavily.md
               - SearXNG Search: tools/websearch/searxng.md
               - Reddit Search: tools/websearch/reddit.md
+              - GitHub Search: tools/websearch/github.md
       - Shell:
           - Bash Tool: tools/bash_tool.md
       - Scheduling:
