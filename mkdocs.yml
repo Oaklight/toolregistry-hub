@@ -195,6 +195,7 @@ nav:
               - Tavily 搜索: tools/websearch/tavily.md
               - SearXNG 搜索: tools/websearch/searxng.md
               - Reddit 搜索: tools/websearch/reddit.md
+              - GitHub 搜索: tools/websearch/github.md
       - Shell:
           - Bash 工具: tools/bash_tool.md
       - 定时任务:
