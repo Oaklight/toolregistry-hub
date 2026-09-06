@@ -186,7 +186,7 @@ nav:
       - Web Tools:
           - Web Fetch Tool: tools/websearch/web_fetch_tool.md
           - Web Search Tools:
-              - Overview: tools/websearch/index.md
+              - tools/websearch/index.md
               - Unified Web Search: tools/websearch/websearch_unified.md
               - Brave Search: tools/websearch/brave.md
               - BrightData Search: tools/websearch/brightdata.md
