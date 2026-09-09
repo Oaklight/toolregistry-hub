@@ -129,3 +129,6 @@ unresolved-attribute = "warn"
 paths = ["src/toolregistry_hub"]
 max-complexity-allowed = 20
 exclude = ["_vendor", "bashtool"]
+
+[tool.zerodep]
+vendor-dir = "src/toolregistry_hub/_vendor"
