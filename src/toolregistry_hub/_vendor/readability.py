@@ -1,9 +1,9 @@
 # /// zerodep
-# version = "0.2.0"
+# version = "0.2.1"
 # deps = ["soup"]
 # tier = "medium"
 # category = "text"
-# note = "Install/update via: https://zerodep.readthedocs.io/en/latest/guide/cli/"
+# note = "Install/update via `zerodep add readability`"
 # ///
 
 """HTML readability content extractor — zero-dep, stdlib only, Python 3.10+.
@@ -67,11 +67,12 @@ log = logging.getLogger(__name__)
 
 
 def _ensure_sibling_path(name: str) -> str:
-    """Add a sibling module directory to ``sys.path`` if not present."""
-    sibling_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", name))
-    if sibling_dir not in sys.path:
-        sys.path.insert(0, sibling_dir)
-    return sibling_dir
+    """Add sibling module paths to ``sys.path`` for flat and nested layouts."""
+    base = os.path.dirname(os.path.abspath(__file__))
+    for candidate in [base, os.path.normpath(os.path.join(base, "..", name))]:
+        if candidate not in sys.path:
+            sys.path.insert(0, candidate)
+    return base
 
 
 def _load_soup():
