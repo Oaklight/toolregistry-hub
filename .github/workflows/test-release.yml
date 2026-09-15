@@ -44,3 +44,13 @@ jobs:
           name: dist
           path: dist/*
           retention-days: 7
+
+  docker:
+    needs: build-publish
+    uses: ./.github/workflows/docker.yml
+    with:
+      tag: ${{ inputs.version }}
+      testpypi: true
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

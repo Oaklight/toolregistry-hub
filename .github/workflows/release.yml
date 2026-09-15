@@ -85,3 +85,12 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "v${{ inputs.version }}" \
             --generate-notes
+
+  docker:
+    needs: build-publish
+    uses: ./.github/workflows/docker.yml
+    with:
+      tag: ${{ inputs.version }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

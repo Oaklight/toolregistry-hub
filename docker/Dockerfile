@@ -1,87 +1,56 @@
 # syntax=docker/dockerfile:1
 
-# Comments are provided throughout this file to help you get started.
-# If you need more help, visit the Dockerfile reference guide at
-# https://docs.docker.com/go/dockerfile-reference/
-
-# Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
-
 ARG PYTHON_VERSION=3.10
-# Accept registry mirror as build argument
 ARG REGISTRY_MIRROR
 FROM ${REGISTRY_MIRROR:-docker.io}/python:${PYTHON_VERSION}-slim AS base
 
-# Accept PyPI mirror as optional build argument
+# PyPI configuration
 ARG PYPI_MIRROR
-# Accept local wheel file path as build argument
+ARG EXTRA_INDEX_URL
+# Install source: local wheel or PyPI
 ARG LOCAL_WHEEL
-# Accept package version as build argument
 ARG PACKAGE_VERSION
 
-# Prevents Python from writing pyc files.
 ENV PYTHONDONTWRITEBYTECODE=1
-
-# Keeps Python from buffering stdout and stderr to avoid situations where
-# the application crashes without emitting any logs due to buffering.
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Create a non-privileged user that the app will run under.
-# See https://docs.docker.com/go/dockerfile-user-best-practices/
 ARG UID=10001
 RUN adduser \
     --disabled-password \
     --gecos "" \
-    # --home "/nonexistent" \
-    # --shell "/sbin/nologin" \
-    # --no-create-home \
     --uid "${UID}" \
     appuser
 
-# Create temporary directory for potential local wheels
 RUN mkdir -p /tmp/dist/
 
-# Copy only the dist/ directory for local wheels (never copy the full tree —
-# even with .dockerignore, a broad COPY risks leaking secrets into layers).
+# Copy only dist/ for local wheels (never COPY the full tree).
 COPY dist/ /tmp/dist/
 
-# Configure pip mirror based on geographic location
-# RUN pip config set global.index-url https://mirrors.cernet.edu.cn/pypi/web/simple;
-
-# Install the package with server extras - prioritize local wheel, then specific version from PyPI, then latest
-# All three paths use [server] extra so dependencies are managed solely by pyproject.toml
-RUN if [ -n "$LOCAL_WHEEL" ] && [ -f "/tmp/dist/$LOCAL_WHEEL" ]; then \
+# Build pip flags from optional build args
+RUN PIP_FLAGS="--no-cache-dir"; \
+    if [ -n "$PYPI_MIRROR" ]; then \
+        PIP_FLAGS="$PIP_FLAGS -i $PYPI_MIRROR"; \
+    fi; \
+    if [ -n "$EXTRA_INDEX_URL" ]; then \
+        PIP_FLAGS="$PIP_FLAGS --extra-index-url $EXTRA_INDEX_URL"; \
+    fi; \
+    if [ -n "$LOCAL_WHEEL" ] && [ -f "/tmp/dist/$LOCAL_WHEEL" ]; then \
         echo "Installing from local wheel: $LOCAL_WHEEL[server]"; \
-        if [ -n "$PYPI_MIRROR" ]; then \
-            pip install -i "$PYPI_MIRROR" --no-cache-dir "/tmp/dist/${LOCAL_WHEEL}[server]"; \
-        else \
-            pip install --no-cache-dir "/tmp/dist/${LOCAL_WHEEL}[server]"; \
-        fi; \
+        pip install $PIP_FLAGS "/tmp/dist/${LOCAL_WHEEL}[server]"; \
     elif [ -n "$PACKAGE_VERSION" ]; then \
-        echo "Installing toolregistry-hub[server] version: $PACKAGE_VERSION"; \
-        if [ -n "$PYPI_MIRROR" ]; then \
-            pip install -i "$PYPI_MIRROR" --no-cache-dir "toolregistry-hub[server]==$PACKAGE_VERSION"; \
-        else \
-            pip install --no-cache-dir "toolregistry-hub[server]==$PACKAGE_VERSION"; \
-        fi; \
+        echo "Installing toolregistry-hub[server]==$PACKAGE_VERSION"; \
+        pip install $PIP_FLAGS "toolregistry-hub[server]==$PACKAGE_VERSION"; \
     else \
         echo "Installing latest toolregistry-hub[server] from PyPI"; \
-        if [ -n "$PYPI_MIRROR" ]; then \
-            pip install -i "$PYPI_MIRROR" --no-cache-dir "toolregistry-hub[server]"; \
-        else \
-            pip install --no-cache-dir "toolregistry-hub[server]"; \
-        fi; \
+        pip install $PIP_FLAGS "toolregistry-hub[server]"; \
     fi && \
     rm -rf /tmp/dist/
 
-# Switch to the non-privileged user to run the application.
 USER appuser
 
-# Expose the port that the application listens on.
 EXPOSE 8000
-# Admin panel port
 EXPOSE 8001
 
-# Run the application using the installed console script
 CMD ["toolregistry-hub", "openapi", "--host=0.0.0.0", "--port=8000", "--admin-port=8001"]

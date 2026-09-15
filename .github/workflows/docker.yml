@@ -1,0 +1,118 @@
+name: Docker
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Version to build (e.g. 0.10.0)"
+        required: true
+        type: string
+      testpypi:
+        description: "Install from Test PyPI instead of PyPI"
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: true
+      DOCKERHUB_TOKEN:
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version to build (e.g. 0.10.0)"
+        required: true
+        type: string
+      testpypi:
+        description: "Install from Test PyPI instead of PyPI"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: meta
+        run: |
+          VERSION="${{ inputs.tag }}"
+          VERSION="${VERSION#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure dist/ exists
+        run: mkdir -p dist
+
+      - name: Wait for PyPI availability
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          if [ "${{ inputs.testpypi }}" = "true" ]; then
+            PYPI_URL="https://test.pypi.org/pypi/toolregistry-hub/$VERSION/json"
+            LABEL="Test PyPI"
+          else
+            PYPI_URL="https://pypi.org/pypi/toolregistry-hub/$VERSION/json"
+            LABEL="PyPI"
+          fi
+          echo "Waiting for toolregistry-hub==$VERSION on $LABEL..."
+          for i in $(seq 1 30); do
+            CODE=$(curl -fsS -o /dev/null -w "%{http_code}" "$PYPI_URL" || true)
+            if [ "$CODE" = "200" ]; then
+              echo "Found on $LABEL (attempt $i)"
+              exit 0
+            fi
+            echo "  Attempt $i/30: waiting 20s..."
+            sleep 20
+          done
+          echo "::error::Not found on $LABEL after 10 minutes"
+          exit 1
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Determine tags
+        id: tags
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          IMAGE="oaklight/toolregistry-hub-server"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual trigger: version tag only (don't overwrite :latest)
+            echo "tags=${IMAGE}:${VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            # Called from release.yml: version + latest
+            echo "tags=${IMAGE}:${VERSION},${IMAGE}:latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare build args
+        id: build-args
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          ARGS="PACKAGE_VERSION=${VERSION}"
+          if [ "${{ inputs.testpypi }}" = "true" ]; then
+            ARGS="${ARGS}
+          EXTRA_INDEX_URL=https://test.pypi.org/simple/"
+          fi
+          echo "args<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$ARGS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: ${{ steps.build-args.outputs.args }}
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
