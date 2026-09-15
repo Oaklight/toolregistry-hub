@@ -67,7 +67,8 @@ class HubApp(App):
         admin_port = kwargs.get("admin_port")
         if admin_port is not None:
             registry.enable_logging()
-            info = registry.enable_admin(port=admin_port)
+            admin_host = kwargs.get("host", "127.0.0.1")
+            info = registry.enable_admin(host=admin_host, port=admin_port)
             logger.info(f"Admin panel enabled at {info.url}")
 
         return registry
