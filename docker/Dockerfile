@@ -28,17 +28,23 @@ RUN mkdir -p /tmp/dist/
 # Copy only dist/ for local wheels (never COPY the full tree).
 COPY dist/ /tmp/dist/
 
-# Build pip flags from optional build args
+# Install the package with server extras.
+# When EXTRA_INDEX_URL is set (e.g. Test PyPI), install the package itself
+# with --no-deps first, then install deps from regular PyPI only. This avoids
+# pulling broken transitive dependencies from Test PyPI.
 RUN PIP_FLAGS="--no-cache-dir"; \
     if [ -n "$PYPI_MIRROR" ]; then \
         PIP_FLAGS="$PIP_FLAGS -i $PYPI_MIRROR"; \
     fi; \
-    if [ -n "$EXTRA_INDEX_URL" ]; then \
-        PIP_FLAGS="$PIP_FLAGS --extra-index-url $EXTRA_INDEX_URL"; \
-    fi; \
     if [ -n "$LOCAL_WHEEL" ] && [ -f "/tmp/dist/$LOCAL_WHEEL" ]; then \
         echo "Installing from local wheel: $LOCAL_WHEEL[server]"; \
         pip install $PIP_FLAGS "/tmp/dist/${LOCAL_WHEEL}[server]"; \
+    elif [ -n "$EXTRA_INDEX_URL" ] && [ -n "$PACKAGE_VERSION" ]; then \
+        echo "Installing toolregistry-hub==$PACKAGE_VERSION from $EXTRA_INDEX_URL (no-deps)"; \
+        pip install $PIP_FLAGS --extra-index-url "$EXTRA_INDEX_URL" --no-deps \
+            "toolregistry-hub[server]==$PACKAGE_VERSION"; \
+        echo "Installing dependencies from PyPI"; \
+        pip install $PIP_FLAGS "toolregistry-hub[server]==$PACKAGE_VERSION"; \
     elif [ -n "$PACKAGE_VERSION" ]; then \
         echo "Installing toolregistry-hub[server]==$PACKAGE_VERSION"; \
         pip install $PIP_FLAGS "toolregistry-hub[server]==$PACKAGE_VERSION"; \
