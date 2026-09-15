@@ -3,6 +3,26 @@
 }
 
 :8080 {
+	# Admin panels (password-protected)
+	# Generate hash: docker run --rm caddy:2-alpine caddy hash-password --plaintext YOUR_PASSWORD
+	basicauth /admin/* {
+		admin $2a$14$REPLACE_WITH_BCRYPT_HASH
+	}
+
+	handle_path /admin/openapi/* {
+		reverse_proxy openapi:8001
+	}
+	handle_path /admin/mcp-http/* {
+		reverse_proxy mcp-streamable-http:8001
+	}
+	handle_path /admin/mcp-sse/* {
+		reverse_proxy mcp-sse:8001
+	}
+	handle /admin {
+		respond "Admin Panels:\n- /admin/openapi/\n- /admin/mcp-http/\n- /admin/mcp-sse/\n" 200
+	}
+
+	# API endpoints
 	handle /mcp {
 		reverse_proxy mcp-streamable-http:8000 {
 			import unbuffered

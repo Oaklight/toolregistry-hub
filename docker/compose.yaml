@@ -2,7 +2,7 @@ services:
   gateway:
     image: caddy:2-alpine
     ports:
-      - "${GATEWAY_PORT:-55090}:8080"
+      - "${GATEWAY_PORT:-8080}:8080"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:
@@ -13,11 +13,9 @@ services:
 
   openapi:
     image: oaklight/toolregistry-hub-server:${IMAGE_TAG:-latest}
-    ports:
-      - "55093:8000"
-      # - "55193:8001"
     expose:
       - "8000"
+      - "8001"
     env_file:
       - .env
     volumes:
@@ -28,17 +26,16 @@ services:
         "openapi",
         "--host=0.0.0.0",
         "--port=8000",
+        "--admin-port=8001",
         "--profile=remote",
       ]
     restart: unless-stopped
 
   mcp-streamable-http:
     image: oaklight/toolregistry-hub-server:${IMAGE_TAG:-latest}
-    ports:
-      - "55094:8000"
-      # - "55194:8001"
     expose:
       - "8000"
+      - "8001"
     env_file:
       - .env
     volumes:
@@ -50,17 +47,16 @@ services:
         "--transport=streamable-http",
         "--host=0.0.0.0",
         "--port=8000",
+        "--admin-port=8001",
         "--profile=remote",
       ]
     restart: unless-stopped
 
   mcp-sse:
     image: oaklight/toolregistry-hub-server:${IMAGE_TAG:-latest}
-    ports:
-      - "55095:8000"
-      # - "55195:8001"
     expose:
       - "8000"
+      - "8001"
     env_file:
       - .env
     volumes:
@@ -72,6 +68,7 @@ services:
         "--transport=sse",
         "--host=0.0.0.0",
         "--port=8000",
+        "--admin-port=8001",
         "--profile=remote",
       ]
     restart: unless-stopped
