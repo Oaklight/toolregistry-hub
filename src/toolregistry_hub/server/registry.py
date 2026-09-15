@@ -13,6 +13,10 @@ Deployment-context filtering (``--profile``) is handled by
 ``toolregistry-server >= 0.3.0`` and is not reimplemented here.
 """
 
+from __future__ import annotations
+
+from typing import Any
+
 from toolregistry import ToolRegistry
 from toolregistry.config import PythonSource, ToolConfig
 from toolregistry.tool import ToolTag
@@ -129,11 +133,11 @@ def configurable_hook(name: str, tool: object, registry: ToolRegistry) -> str | 
     return None
 
 
-def _collect_overrides(overrides: dict) -> dict:
+def _collect_overrides(overrides: dict) -> dict[str, Any]:
     """Extract metadata update fields from an overrides dict.
 
     Returns a dict suitable for passing as kwargs to
-    ``registry._replace_tool_metadata()`` or ``dataclasses.replace()``.
+    ``registry._replace_tool_metadata()``.
 
     Args:
         overrides: Dict with optional ``defer``, ``tags``, and/or
