@@ -269,14 +269,16 @@ class TestToolMetadataAndDiscovery(unittest.TestCase):
                 )
 
     def test_discovery_enabled(self):
-        """Test that enable_discovery=True registers discover_tools."""
+        """Test that enable_discovery=True registers discover_tools and call_deferred."""
         reg = build_registry(enable_discovery=True)
         self.assertIn("discover_tools", reg._tools)
+        self.assertIn("call_deferred", reg._tools)
 
     def test_discovery_disabled(self):
-        """Test that enable_discovery=False does not register discover_tools."""
+        """Test that enable_discovery=False does not register discover_tools or call_deferred."""
         reg = build_registry(enable_discovery=False)
         self.assertNotIn("discover_tools", reg._tools)
+        self.assertNotIn("call_deferred", reg._tools)
 
     def test_think_augment_enabled(self):
         """Test that enable_think=True activates think-augmented calling."""

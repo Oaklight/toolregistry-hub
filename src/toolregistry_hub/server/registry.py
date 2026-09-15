@@ -129,34 +129,32 @@ def configurable_hook(name: str, tool: object, registry: ToolRegistry) -> str | 
     return None
 
 
-def _apply_overrides(tool: object, overrides: dict) -> None:
-    """Apply a single overrides dict to a tool's metadata.
+def _collect_overrides(overrides: dict) -> dict:
+    """Extract metadata update fields from an overrides dict.
 
-    Supported keys: ``defer``, ``tags``, ``search_hint``.
+    Returns a dict suitable for passing as kwargs to
+    ``registry._replace_tool_metadata()`` or ``dataclasses.replace()``.
 
     Args:
-        tool: A ``Tool`` instance (duck-typed via ``.metadata``).
         overrides: Dict with optional ``defer``, ``tags``, and/or
             ``search_hint`` keys.
+
+    Returns:
+        A dict of metadata field updates (may be empty).
     """
-    meta = getattr(tool, "metadata", None)
-    if meta is None:
-        return
-    if "defer" in overrides:
-        meta.defer = overrides["defer"]
-    if "tags" in overrides:
-        meta.tags = overrides["tags"]
-    if "search_hint" in overrides:
-        meta.search_hint = overrides["search_hint"]
+    updates: dict = {}
+    for key in ("defer", "tags", "search_hint"):
+        if key in overrides:
+            updates[key] = overrides[key]
+    return updates
 
 
 def _apply_tool_metadata(registry: ToolRegistry) -> None:
     """Apply tag and defer overrides from ``_TOOL_METADATA`` to all tools.
 
     Namespace-level overrides are applied first; method-level overrides
-    (nested under the ``methods`` key) are applied afterwards and take
-    precedence for the matched tool.  Method lookup is by
-    ``tool.method_name`` so it is independent of the name separator.
+    (nested under the ``methods`` key) are merged on top.  Uses
+    ``_replace_tool_metadata()`` since Tool and ToolMetadata are frozen.
 
     Example ``_TOOL_METADATA`` entry with method-level override::
 
@@ -170,20 +168,27 @@ def _apply_tool_metadata(registry: ToolRegistry) -> None:
     Args:
         registry: The registry whose tools should be annotated.
     """
+    # Collect all updates first — _replace_tool_metadata mutates the
+    # _tools dict, so we cannot modify it while iterating.
+    updates: list[tuple[str, dict]] = []
     for tool in registry._tools.values():
         ns = tool.namespace
         if not ns or ns not in _TOOL_METADATA:
             continue
         ns_meta = _TOOL_METADATA[ns]
-        _apply_overrides(tool, ns_meta)
-        # Method-level override — keyed by method_name, separator-independent
+        merged = _collect_overrides(ns_meta)
         method_overrides: dict[str, dict] = ns_meta.get("methods", {})
         if (
             method_overrides
             and tool.method_name
             and tool.method_name in method_overrides
         ):
-            _apply_overrides(tool, method_overrides[tool.method_name])
+            merged.update(_collect_overrides(method_overrides[tool.method_name]))
+        if merged:
+            updates.append((tool.name, merged))
+
+    for name, meta_updates in updates:
+        registry._replace_tool_metadata(name, **meta_updates)
 
 
 def _discover_config_path() -> str | None:
