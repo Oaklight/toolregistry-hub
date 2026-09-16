@@ -308,10 +308,12 @@ class TestEngineLoading:
             second = ws._get_engine("brave")
 
         assert first is second
-        # __init__ warms the cache for every engine in the priority list (one
-        # construction call per priority entry); after that, repeat lookups
+        # __init__ warms the cache for every engine in the registry (one
+        # construction call per entry); after that, repeat lookups
         # for "brave" must hit the cache rather than re-instantiate.
-        assert fake_cls.call_count == len(ws._priority)
+        from toolregistry_hub.websearch.websearch_unified import _ENGINE_REGISTRY
+
+        assert fake_cls.call_count == len(_ENGINE_REGISTRY)
 
     def test_get_engine_returns_none_when_unconfigured(self):
         instance = MagicMock()
@@ -410,10 +412,11 @@ class TestEngineAnnotationNarrowing:
         assert results[0].title == "ok"
 
     def test_narrowing_respects_custom_priority(self, mock_engines, monkeypatch):
-        """Narrowed list should include only configured engines from the priority."""
+        """Narrowed list should include all configured engines, priority first."""
         monkeypatch.setenv("WEBSEARCH_PRIORITY", "searxng,brave")
         mock_engines["brave"] = MagicMock()
-        # tavily is configured but NOT in the priority list — must be excluded
+        # tavily is configured but NOT in the priority list — still included
+        # as a non-priority engine since _configured_engine_names includes all
         mock_engines["tavily"] = MagicMock()
 
         ws = WebSearch()
@@ -422,7 +425,7 @@ class TestEngineAnnotationNarrowing:
         assert "auto" in narrowed
         assert "parallel" in narrowed
         assert "brave" in narrowed
-        assert "tavily" not in narrowed
+        assert "tavily" in narrowed
 
 
 # ---------------------------------------------------------------------------
