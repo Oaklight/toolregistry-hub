@@ -26,6 +26,10 @@
 - **[统一网络搜索](websearch/websearch_unified.md)** - 所有搜索引擎的统一入口，支持自动选择和降级
 - **[网络搜索工具](websearch/index.md)** - 各搜索引擎独立实现
 
+## 学术搜索
+
+- **[学术搜索](academic_search.md)** - 通过 OpenAlex 和 arXiv 搜索学术论文
+
 ## 定时任务
 
 - **[定时任务工具](cron_tool.md)** - 基于 cron 表达式的定时提示执行

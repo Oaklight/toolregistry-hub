@@ -96,6 +96,7 @@ plugins:
           - tools/websearch/serper.md
           - tools/websearch/tavily.md
           - tools/websearch/searxng.md
+          - tools/academic_search.md
           - tools/bash_tool.md
           - tools/cron_tool.md
           - tools/think_tool.md
@@ -196,6 +197,8 @@ nav:
               - SearXNG 搜索: tools/websearch/searxng.md
               - Reddit 搜索: tools/websearch/reddit.md
               - GitHub 搜索: tools/websearch/github.md
+      - 学术搜索:
+          - 学术搜索: tools/academic_search.md
       - Shell:
           - Bash 工具: tools/bash_tool.md
       - 定时任务:

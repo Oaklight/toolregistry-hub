@@ -12,6 +12,31 @@ author: Oaklight
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并在需要时保留项目自身的分类方式。
 
+## [0.10.0] - 2026-09-16
+
+### 新增
+
+- **学术搜索工具** — 新增 `academics` 命名空间，支持 OpenAlex 和 arXiv 引擎。OpenAlex 支持免密钥的 polite-pool 模式（通过 `OPENALEX_MAILTO` 配置）。优先级可通过 `ACADEMIC_SEARCH_PRIORITY` 配置。
+- **GitHub 搜索引擎** — 通过 REST API 搜索 GitHub 仓库。公共仓库无需令牌；可选 `GITHUB_TOKEN` 以获得更高的速率限制，支持多密钥轮换。
+- **Reddit 搜索引擎** — 通过 Arctic Shift API 搜索 Reddit 帖子（免费，无需认证）。查询需指定子版块（如 `r/python web scraping`）。
+- **Docker CI 工作流** — 多架构（amd64 + arm64）Docker 构建集成到发布流水线。镜像发布到 DockerHub，名称为 `oaklight/toolregistry-hub-server`。
+- **Test PyPI 发布工作流** — 向 Test PyPI 发布开发版本的 CI 工作流，Docker 构建支持 `testpypi` 标志。
+- **管理面板 Caddy 路由** — 通过 `/admin/openapi/`、`/admin/mcp-http/`、`/admin/mcp-sse/` 集中访问管理面板，受 HTTP Basic Auth 保护。管理面板绑定与主服务相同的网络接口，兼容 Docker 网络。
+
+### 变更
+
+- **`toolregistry-server` 依赖**升级至 `>=0.6.0`。
+- **适配 toolregistry 0.18.0** — 冻结 `Tool`/`ToolMetadata` 数据类和 `call_deferred` 集成。
+
+### 修复
+
+- **引擎 Schema 收窄** — `_configured_engine_names()` 现在包含所有已配置引擎（包括 reddit、github），而不仅限于优先级列表中的引擎。此前 `engine="reddit"` 和 `engine="github"` 会触发 API Schema 验证失败。
+- **文件摘要丢失** — 修复 `file_ops-read` 输出截断时摘要丢失的问题。
+
+### 改进
+
+- **流式摘要** — `file_ops-read` digest_only 模式下使用流式摘要计算，提升性能。
+
 ## [0.9.3] - 2026-08-06
 
 ### 修复

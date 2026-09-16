@@ -64,6 +64,26 @@ Docker Compose 服务栈使用 Caddy 反向代理作为统一入口。三个服�
 
 后端服务使用 `expose` 而非 `ports`——不直接暴露到宿主机，仅通过 Caddy 网关访问。
 
+### 管理面板访问
+
+每个服务在端口 8001 上运行管理面板（`--admin-port=8001`）。Caddy 网关在受密码保护的子路径下暴露它们：
+
+| 路径 | 后端 |
+|------|------|
+| `/admin/openapi/` | OpenAPI 服务器管理面板 |
+| `/admin/mcp-http/` | MCP Streamable HTTP 管理面板 |
+| `/admin/mcp-sse/` | MCP SSE 管理面板 |
+
+要设置 Basic Auth，先生成 bcrypt 密码哈希：
+
+```bash
+docker run --rm caddy:2-alpine caddy hash-password --plaintext YOUR_PASSWORD
+```
+
+然后在 Caddyfile 的 `basic_auth` 块中配置。
+
+Docker 镜像同时支持 `linux/amd64` 和 `linux/arm64` 架构。多架构镜像在每次发布时自动构建并发布到 DockerHub。
+
 ## 服务器模式
 
 使用 Caddy 网关时，所有模式通过单一端口同时可用。单独使用时：

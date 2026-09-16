@@ -32,6 +32,9 @@ author: Oaklight
 | `CDP_ENDPOINT` | Fetch（CDP 渲染） | 可选，CDP 兼容浏览器的 WebSocket URL（如 `ws://localhost:9222`） |
 | `VEILRENDER_ENDPOINT` | Fetch（VeilRender） | 可选，VeilRender 远程浏览器服务的基础 URL（如 `http://localhost:3000`） |
 | `VEILRENDER_TOKEN` | Fetch（VeilRender） | 可选，VeilRender 认证 Bearer 令牌。若实例无需认证可省略。 |
+| `OPENALEX_MAILTO` | 学术搜索（OpenAlex） | polite pool 邮箱（推荐设置以获得更高速率限制） |
+| `GITHUB_TOKEN` | GitHub 搜索 | 个人访问令牌，用于更高速率限制；逗号分隔支持多密钥轮转 |
+| `ARCTIC_SHIFT_URL` | Reddit 搜索 | Arctic Shift API 基础 URL（默认：公共实例） |
 
 ## 服务器配置
 
@@ -40,6 +43,7 @@ author: Oaklight
 | `WEBSEARCH_PRIORITY` | auto 模式下引擎优先级，逗号分隔（如 `searxng,brave,tavily`） |
 | `WEBSEARCH_PARALLEL_ENGINES` | `engine="parallel"` 时并发查询的引擎，逗号分隔（默认：`brightdata,brave`） |
 | `TOOLS_CONFIG` | `tools.jsonc` 配置文件路径（替代 `--config` CLI 标志） |
+| `ACADEMIC_SEARCH_PRIORITY` | 学术搜索引擎优先级，逗号分隔（默认：`openalex,arxiv`） |
 
 ## 自动禁用行为
 

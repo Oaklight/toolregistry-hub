@@ -89,6 +89,13 @@ author: Oaklight
 !!! note "延迟加载工具"
     标记为 *（延迟加载）* 的端点已注册但默认隐藏。可通过 `discover_tools` 工具发现，或在禁用工具发现功能时可见。
 
+## 学术搜索
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| POST | `/tools/academics/search` | 搜索学术论文 |
+| POST | `/tools/academics/list_engines` *（延迟加载）* | 列出可用的学术搜索引擎 |
+
 ## Bash
 
 | 方法 | 路径 | 描述 |
