@@ -214,12 +214,23 @@ class WebSearch:
         self.search = types.MethodType(new_func, self)  # type: ignore[method-assign]
 
     def _configured_engine_names(self) -> list[str]:
-        """Return the priority-ordered list of engine names that are configured.
+        """Return configured engine names, priority engines first.
 
         Returns:
-            List of engine names with valid API keys, in priority order.
+            List of engine names with valid API keys. Priority engines
+            appear first, followed by any other configured engines
+            (e.g. reddit, github) in registry order.
         """
-        return [n for n in self._priority if self._get_engine(n) is not None]
+        priority_configured = [
+            n for n in self._priority if self._get_engine(n) is not None
+        ]
+        priority_set = set(self._priority)
+        other_configured = [
+            n
+            for n in _ENGINE_REGISTRY
+            if n not in priority_set and self._get_engine(n) is not None
+        ]
+        return priority_configured + other_configured
 
     def _is_configured(self) -> bool:
         """Configured iff at least one underlying engine is configured."""
