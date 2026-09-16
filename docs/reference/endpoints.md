@@ -89,6 +89,13 @@ When running in OpenAPI mode, the server exposes the following endpoints. Intera
 !!! note "Deferred Tools"
     Endpoints marked *(deferred)* are registered but hidden by default when tool discovery is enabled. They become visible through the `discover_tools` tool or when tool discovery is disabled.
 
+## Academic Search
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/tools/academics/search` | Search academic papers |
+| POST | `/tools/academics/list_engines` *(deferred)* | List available academic engines |
+
 ## Bash
 
 | Method | Path | Description |

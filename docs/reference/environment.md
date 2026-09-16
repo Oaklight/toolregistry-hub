@@ -32,6 +32,9 @@ If neither is set, the server runs without authentication.
 | `CDP_ENDPOINT` | Fetch (CDP Rendering) | Optional WebSocket URL of a CDP-compatible browser (e.g., `ws://localhost:9222`) |
 | `VEILRENDER_ENDPOINT` | Fetch (VeilRender) | Optional base URL of a VeilRender remote browser service (e.g., `http://localhost:3000`) |
 | `VEILRENDER_TOKEN` | Fetch (VeilRender) | Optional bearer token for VeilRender authentication. Omit if your instance has no auth. |
+| `OPENALEX_MAILTO` | Academic Search (OpenAlex) | Email for polite pool (recommended for higher rate limits) |
+| `GITHUB_TOKEN` | GitHub Search | Personal access token(s) for higher rate limits; comma-separated for rotation |
+| `ARCTIC_SHIFT_URL` | Reddit Search | Arctic Shift API base URL (default: public instance) |
 
 ## Server Configuration
 
@@ -40,6 +43,7 @@ If neither is set, the server runs without authentication.
 | `WEBSEARCH_PRIORITY` | Comma-separated engine priority for auto mode (e.g., `searxng,brave,tavily`) |
 | `WEBSEARCH_PARALLEL_ENGINES` | Comma-separated engines to query when `engine="parallel"` (default: `brightdata,brave`) |
 | `TOOLS_CONFIG` | Path to a `tools.jsonc` configuration file (alternative to `--config` CLI flag) |
+| `ACADEMIC_SEARCH_PRIORITY` | Comma-separated academic engine priority (default: `openalex,arxiv`) |
 
 ## Auto-Disable Behavior
 

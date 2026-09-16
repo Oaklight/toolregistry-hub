@@ -12,6 +12,31 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with project-specific grouping where useful.
 
+## [0.10.0] - 2026-09-16
+
+### Added
+
+- **Academic search tools** — new `academics` namespace with OpenAlex and arXiv engines. OpenAlex supports keyless polite-pool mode via `OPENALEX_MAILTO`. Priority order configurable via `ACADEMIC_SEARCH_PRIORITY`.
+- **GitHub search engine** — search GitHub repositories via REST API. No token required for public repos; optional `GITHUB_TOKEN` for higher rate limits with multi-key rotation.
+- **Reddit search engine** — search Reddit posts via Arctic Shift API (free, no auth). Requires subreddit scope in query (e.g. `r/python web scraping`).
+- **Docker CI workflow** — multi-arch (amd64 + arm64) Docker builds integrated into the release pipeline. Images published to DockerHub as `oaklight/toolregistry-hub-server`.
+- **Test PyPI release workflow** — CI workflow for publishing dev versions to Test PyPI, with Docker build support via `testpypi` flag.
+- **Admin panel Caddy routing** — centralized admin panel access at `/admin/openapi/`, `/admin/mcp-http/`, `/admin/mcp-sse/` with HTTP basic auth. Admin panel binds to the same host as the main server for Docker networking compatibility.
+
+### Changed
+
+- **`toolregistry-server` dependency** bumped to `>=0.6.0`.
+- **Adapted to toolregistry 0.18.0** — frozen `Tool`/`ToolMetadata` dataclasses and `call_deferred` integration.
+
+### Fixed
+
+- **Engine schema narrowing** — `_configured_engine_names()` now includes all configured engines (including reddit, github), not just priority-list engines. Previously `engine="reddit"` and `engine="github"` failed API schema validation.
+- **File digest loss** — prevent digest loss when `file_ops-read` output is truncated.
+
+### Improved
+
+- **Streaming digest** in `file_ops-read` digest_only mode for better performance.
+
 ## [0.9.3] - 2026-08-06
 
 ### Fixed

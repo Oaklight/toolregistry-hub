@@ -63,6 +63,26 @@ All backends are configured with `flush_interval -1` to prevent SSE/streaming bu
 
 Backend services use `expose` instead of `ports` — they are not directly accessible from the host, only through the Caddy gateway.
 
+### Admin Panel Access
+
+Each service runs an admin panel on port 8001 (`--admin-port=8001`). The Caddy gateway exposes them under password-protected sub-paths:
+
+| Path | Backend |
+|------|---------|
+| `/admin/openapi/` | OpenAPI server admin |
+| `/admin/mcp-http/` | MCP Streamable HTTP admin |
+| `/admin/mcp-sse/` | MCP SSE admin |
+
+To set up basic auth, generate a bcrypt password hash:
+
+```bash
+docker run --rm caddy:2-alpine caddy hash-password --plaintext YOUR_PASSWORD
+```
+
+Then configure it in the Caddyfile's `basic_auth` block.
+
+The Docker image is available for both `linux/amd64` and `linux/arm64` architectures. Multi-arch images are automatically built and published to DockerHub on each release.
+
 ## Server Modes
 
 With the Caddy gateway, all modes are available simultaneously on a single port. For standalone use without the gateway:

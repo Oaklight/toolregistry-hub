@@ -26,6 +26,10 @@
 - **[Unified Web Search](websearch/websearch_unified.md)** - Single entry point for all search providers with auto-selection and fallback
 - **[Web Search Tools](websearch/index.md)** - Individual search provider implementations
 
+## Academic
+
+- **[Academic Search](academic_search.md)** - Search academic papers via OpenAlex and arXiv
+
 ## Scheduling
 
 - **[Cron Tool](cron_tool.md)** - Scheduled prompt execution with cron expressions
