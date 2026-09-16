@@ -36,6 +36,13 @@ RUN PIP_FLAGS="--no-cache-dir"; \
     if [ -n "$PYPI_MIRROR" ]; then \
         PIP_FLAGS="$PIP_FLAGS -i $PYPI_MIRROR"; \
     fi; \
+    # Pre-install any extra local wheels (e.g. unreleased dependencies) \
+    for whl in /tmp/dist/*.whl; do \
+        case "$(basename "$whl")" in \
+            "${LOCAL_WHEEL}") ;; \
+            *) pip install $PIP_FLAGS "$whl" 2>/dev/null || true ;; \
+        esac; \
+    done; \
     if [ -n "$LOCAL_WHEEL" ] && [ -f "/tmp/dist/$LOCAL_WHEEL" ]; then \
         echo "Installing from local wheel: $LOCAL_WHEEL[server]"; \
         pip install $PIP_FLAGS "/tmp/dist/${LOCAL_WHEEL}[server]"; \
