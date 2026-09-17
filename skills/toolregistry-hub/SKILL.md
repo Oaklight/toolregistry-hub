@@ -19,11 +19,65 @@ Call tools hosted on a ToolRegistry Hub server via its OpenAPI REST endpoints.
 Use this when you need calculator, web search, academic search, weather,
 datetime, unit conversion, web fetch, or other registered tools via HTTP.
 
-## Setup
+## Deploy with Docker
+
+The fastest way to get a running instance. Multi-arch images (amd64 + arm64)
+are published to DockerHub on every release.
+
+### Standalone (single mode)
+
+```bash
+# OpenAPI mode (default)
+docker run -d -p 8000:8000 \
+  -e API_BEARER_TOKEN=changeme \
+  oaklight/toolregistry-hub-server:latest
+
+# MCP Streamable HTTP
+docker run -d -p 8000:8000 \
+  -e API_BEARER_TOKEN=changeme \
+  oaklight/toolregistry-hub-server:latest \
+  toolregistry-hub mcp --transport=streamable-http --host=0.0.0.0 --port=8000
+```
+
+### Full stack (OpenAPI + MCP + Caddy gateway)
+
+```bash
+# Grab the compose files
+curl -LO https://raw.githubusercontent.com/Oaklight/toolregistry-hub/master/docker/compose.yaml
+curl -LO https://raw.githubusercontent.com/Oaklight/toolregistry-hub/master/docker/Caddyfile
+
+# Create .env
+cat > .env << 'ENV'
+API_BEARER_TOKEN=your-secret-token
+GATEWAY_PORT=8080
+IMAGE_TAG=latest
+ENV
+
+# Start
+docker compose up -d
+```
+
+The Caddy gateway exposes everything on a single port:
+
+| Path | Backend |
+|------|---------|
+| `/docs` | OpenAPI interactive docs |
+| `/mcp` | MCP Streamable HTTP |
+| `/sse` | MCP SSE |
+| `/admin/openapi/` | Admin panel (basic auth) |
+| `/admin/mcp-http/` | Admin panel (basic auth) |
+| `/admin/mcp-sse/` | Admin panel (basic auth) |
+| `/*` | OpenAPI endpoints |
+
+For tool customization, optional env vars, and admin panel setup, see the
+full [Docker Deployment Guide](https://toolregistry-hub.readthedocs.io/en/latest/guides/docker/).
+
+Source code: <https://github.com/Oaklight/toolregistry-hub>
+
+## Connect to a running instance
 
 Config persisted in `~/.config/toolregistry-hub/config.json` (`0600`).
 
-Load saved config (or detect env vars), then verify:
 ```bash
 eval $(python3 -c "
 import json, os, pathlib
@@ -35,6 +89,7 @@ token = os.environ.get('TOOLREGISTRY_HUB_TOKEN') or cfg.get('token', '')
 print(f'export TOOLREGISTRY_HUB_URL=\"{url}\"')
 print(f'export TOOLREGISTRY_HUB_TOKEN=\"{token}\"')
 ")
+# Verify — should print tool count
 curl -sf -H "Authorization: Bearer $TOOLREGISTRY_HUB_TOKEN" \
   "$TOOLREGISTRY_HUB_URL/tools" | jq '[.[] | .name] | length'
 ```
@@ -51,7 +106,7 @@ os.chmod(p, 0o600); print(f'Saved to {p}')
 "
 ```
 
-## Calling a tool
+## Calling tools
 
 All tools use `POST /tools/<namespace>/<name>` with JSON body:
 
@@ -62,7 +117,7 @@ curl -s -X POST "$TOOLREGISTRY_HUB_URL/tools/<namespace>/<name>" \
   -d '{"param1": "value1"}' | jq .
 ```
 
-## Available tools
+## Tool reference
 
 ### Calculator
 
@@ -125,12 +180,6 @@ curl -s -X POST "$TOOLREGISTRY_HUB_URL/tools/web/websearch/search" \
   -H "Authorization: Bearer $TOOLREGISTRY_HUB_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"query": "r/LocalLLaMA tool calling", "engine": "reddit", "count": 3}' | jq .
-
-# List configured engines
-curl -s -X POST "$TOOLREGISTRY_HUB_URL/tools/web/websearch/list_engines" \
-  -H "Authorization: Bearer $TOOLREGISTRY_HUB_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{}' | jq .
 ```
 
 | Parameter | Type | Default | Description |
@@ -142,7 +191,6 @@ curl -s -X POST "$TOOLREGISTRY_HUB_URL/tools/web/websearch/list_engines" \
 ### Academic Search
 
 ```bash
-# Search papers (auto-select engine)
 curl -s -X POST "$TOOLREGISTRY_HUB_URL/tools/academics/search" \
   -H "Authorization: Bearer $TOOLREGISTRY_HUB_TOKEN" \
   -H "Content-Type: application/json" \
@@ -160,7 +208,7 @@ Results include: `title`, `authors`, `abstract`, `url`, `year`, `venue`, `doi`, 
 ### Weather
 
 ```bash
-# Current weather
+# Current conditions
 curl -s -X POST "$TOOLREGISTRY_HUB_URL/tools/weather/get_current" \
   -H "Authorization: Bearer $TOOLREGISTRY_HUB_TOKEN" \
   -H "Content-Type: application/json" \
@@ -228,13 +276,3 @@ curl -s -X POST "$TOOLREGISTRY_HUB_URL/tools/default/call_deferred" \
 | 404 | Tool not found | Check tool name / namespace |
 | 422 | Validation error | Check request parameters |
 | 500 | Tool execution failed | See `detail` field for error message |
-
-## Self-hosting
-
-```bash
-docker run -d -p 8000:8000 \
-  -e API_BEARER_TOKEN=your-token \
-  oaklight/toolregistry-hub-server:latest
-```
-
-Multi-arch images available for `linux/amd64` and `linux/arm64`.
