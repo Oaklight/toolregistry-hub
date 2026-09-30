@@ -4,7 +4,7 @@
 PACKAGE_NAME := toolregistry-hub
 DIST_DIR := dist
 DOCKER_IMAGE := oaklight/toolregistry-hub-server
-VERSION := $(shell grep -oE '__version__[[:space:]]*=[[:space:]]*"[^"]+"' src/toolregistry_hub/__init__.py | grep -oE '"[^"]+"' | tr -d '"' || echo "0.5.5")
+VERSION := $(shell sed -n 's/^__version__ = "\(.*\)"/\1/p' src/toolregistry_hub/__init__.py || echo "0.5.5")
 
 # Optional variables
 V ?= $(VERSION)
@@ -31,6 +31,21 @@ clean-package:
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pyo" -delete
 	@echo "Cleanup complete."
+
+# Build wheel with dev version stamp (x.y.z.devN+gHASH)
+build-wheel: clean-package
+	@set -e; \
+	git submodule update --init --recursive; \
+	ORIG_VER=$(VERSION); \
+	COMMIT=$$(git rev-parse --short HEAD); \
+	DEV_VER=$$(printf '%s' "$$ORIG_VER" | grep -q '\.dev[0-9]' && printf '%s+g%s' "$$ORIG_VER" "$$COMMIT" || printf '%s.dev0+g%s' "$$ORIG_VER" "$$COMMIT"); \
+	INIT=src/toolregistry_hub/__init__.py; \
+	cp "$$INIT" "$$INIT.bak"; \
+	trap 'mv "$$INIT.bak" "$$INIT"' EXIT; \
+	sed 's/^__version__ = ".*"/__version__ = "'"$$DEV_VER"'"/' "$$INIT.bak" > "$$INIT"; \
+	echo "Building wheel $$DEV_VER..."; \
+	python -m build --wheel -q; \
+	echo "Built: $$(ls dist/*.whl)"
 
 # Build Docker image
 build-docker:
@@ -115,21 +130,13 @@ SSH_TARGET ?=
 DEVTEST_STACK ?= /dockervol/dockge/stacks/toolregistry-server-dev
 DEVTEST_PORT ?= 55080
 
-# Build a dev-test wheel + Docker image, push to remote, restart the stack.
+# Build a dev-test Docker image, push to remote, restart the stack.
 # Usage: make deploy-dev SSH_TARGET=cloud.usa1
-deploy-dev:
+deploy-dev: build-wheel
 ifndef SSH_TARGET
 	$(error SSH_TARGET is required. Usage: make deploy-dev SSH_TARGET=cloud.usa1)
 endif
 	@set -e; \
-	COMMIT=$$(git rev-parse --short HEAD); \
-	ORIG_VER=$(VERSION); \
-	DEV_VER="$$ORIG_VER.dev0+g$$COMMIT"; \
-	echo "==> Building dev wheel $$DEV_VER..."; \
-	python -c "from pathlib import Path; p=Path('src/toolregistry_hub/__init__.py'); s=p.read_text(); p.write_text(s.replace('__version__ = \"$$ORIG_VER\"', '__version__ = \"$$DEV_VER\"'))"; \
-	rm -rf dist build; \
-	python -m build --wheel -q; \
-	python -c "from pathlib import Path; p=Path('src/toolregistry_hub/__init__.py'); s=p.read_text(); p.write_text(s.replace('__version__ = \"$$DEV_VER\"', '__version__ = \"$$ORIG_VER\"'))"; \
 	WHEEL=$$(ls dist/*.whl | head -1 | xargs basename); \
 	echo "==> Building Docker image from $$WHEEL..."; \
 	cd docker && docker build -f Dockerfile --build-arg LOCAL_WHEEL=$$WHEEL -t $(DOCKER_IMAGE):dev-test -q .. && cd ..; \
@@ -143,7 +150,7 @@ endif
 		 curl -sS -o /dev/null -w "%{http_code} /docs\n" http://localhost:$(DEVTEST_PORT)/docs && \
 		 curl -sS -o /dev/null -w "%{http_code} /mcp\n" -X POST http://localhost:$(DEVTEST_PORT)/mcp && \
 		 curl -sS -o /dev/null -w "%{http_code} /sse\n" --max-time 3 http://localhost:$(DEVTEST_PORT)/sse'; \
-	echo "==> Dev-test deployed successfully ($$DEV_VER)."
+	echo "==> Dev-test deployed successfully."
 
 # Help target
 help:
@@ -153,6 +160,7 @@ help:
 	@echo "  build-package  - Build the Python package"
 	@echo "  push-package   - Push the package to PyPI"
 	@echo "  clean-package  - Clean up build and distribution files"
+	@echo "  build-wheel    - Build wheel with dev version stamp and submodule check"
 	@echo ""
 	@echo "Docker targets:"
 	@echo "  build-docker   - Build Docker image"
@@ -186,4 +194,4 @@ help:
 	@echo "Examples:"
 	@echo "  make deploy-dev SSH_TARGET=cloud.usa1"
 
-.PHONY: build-package push-package clean-package build-docker push-docker clean-docker deploy-dev lint fmt test help
+.PHONY: build-package push-package clean-package build-wheel build-docker push-docker clean-docker deploy-dev lint fmt test help
