@@ -390,7 +390,14 @@ class TestToolAnnotations(unittest.TestCase):
             self.assertIs(
                 self._tool(name).execution_hints["open_world_hint"], True, name
             )
-        for name in ("datetime-now", "file_ops-read", "cron-list"):
+        for name in (
+            "datetime-now",
+            "file_ops-read",
+            "cron-list",
+            # Enumerating configured engines is a local read.
+            "web/websearch-list_engines",
+            "academics-list_engines",
+        ):
             self.assertIs(
                 self._tool(name).execution_hints["open_world_hint"], False, name
             )

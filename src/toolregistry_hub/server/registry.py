@@ -141,7 +141,12 @@ _TOOL_METADATA: dict[str, dict] = {
         "idempotent_hint": False,
         "open_world_hint": True,
         "methods": {
-            "list_engines": {"defer": True, "idempotent_hint": True},
+            "list_engines": {
+                "defer": True,
+                "idempotent_hint": True,
+                # Enumerates configured engines locally; no network call.
+                "open_world_hint": False,
+            },
             "search": {"title": "Web Search"},
         },
     },
@@ -234,7 +239,12 @@ _TOOL_METADATA: dict[str, dict] = {
         "idempotent_hint": False,
         "open_world_hint": True,
         "methods": {
-            "list_engines": {"defer": True, "idempotent_hint": True},
+            "list_engines": {
+                "defer": True,
+                "idempotent_hint": True,
+                # Enumerates configured engines locally; no network call.
+                "open_world_hint": False,
+            },
             "search": {"title": "Academic Search"},
         },
     },
