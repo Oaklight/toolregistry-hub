@@ -12,6 +12,13 @@ This page documents all notable changes to the toolregistry-hub project since th
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with project-specific grouping where useful.
 
+## [Unreleased]
+
+### Added
+
+- **MCP execution hints for the built-in tool set** (#280): every tool now declares `readOnlyHint`, and most declare `destructiveHint`, `idempotentHint` and `openWorldHint`, so MCP hosts can auto-approve read-only calls (`datetime-now`, `weather-*`, `websearch-search`, `academics-search`, `reader-*`, `fs/*`, `think`, `calculator`, `unit_converter`, `todolist`) and reserve confirmation for `bash-execute`, `file_ops-edit`/`write` and `cron-create`/`delete`/`shutdown`. `file_ops-read` is now correctly declared read-only instead of inheriting the namespace's destructive tag, and `cron-list` is read-only. Human-readable titles are set for the main entry points.
+- **Hub metadata overrides accept `title` and execution hints**: `_TOOL_METADATA` entries can set `title`, `read_only_hint`, `destructive_hint`, `idempotent_hint` and `open_world_hint`, at namespace or method level. Fields the installed `toolregistry` does not define are skipped, so the hub keeps working against older cores.
+
 ## [0.10.0] - 2026-09-16
 
 ### Added
