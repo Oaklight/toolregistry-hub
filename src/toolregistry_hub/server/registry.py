@@ -15,16 +15,27 @@ Deployment-context filtering (``--profile``) is handled by
 
 from __future__ import annotations
 
+from dataclasses import fields as dataclass_fields
 from typing import Any
 
 from toolregistry import ToolRegistry
 from toolregistry.config import PythonSource, ToolConfig
-from toolregistry.tool import ToolTag
+from toolregistry.tool import ToolMetadata, ToolTag
 
 from .._vendor.structlog import get_logger
 from ..utils.configurable import Configurable
 
 logger = get_logger()
+
+# Fields the installed toolregistry accepts on ToolMetadata.  Execution
+# hints and ``title`` were added after some supported releases, and Hub can
+# be installed against an older core (it is pulled in through
+# toolregistry-server).  Overrides for unknown fields are skipped instead
+# of raising in ``dataclasses.replace``; annotations then simply stay
+# absent until the core is upgraded.
+_METADATA_FIELDS: frozenset[str] = frozenset(
+    f.name for f in dataclass_fields(ToolMetadata)
+)
 
 # Hub's built-in tool list expressed as PythonSource entries.
 _DEFAULT_TOOLS: list[PythonSource] = [
@@ -68,41 +79,162 @@ _DEFAULT_TOOLS: list[PythonSource] = [
 ]
 
 # Metadata overrides for registered tools, keyed by namespace.
+#
+# Execution hints are what MCP hosts use to decide whether a call needs
+# human approval (MCP 2025-06-18 annotations).  They are set explicitly
+# here rather than left to the tag-derived defaults so that every tool in
+# the hub makes a claim: a host that treats a missing ``readOnlyHint`` as
+# write-capable would otherwise prompt for ``datetime-now``.
+# ``idempotent_hint`` / ``open_world_hint`` are never derived from tags,
+# so they are declared alongside.  See #280.
 _TOOL_METADATA: dict[str, dict] = {
-    "calculator": {"defer": True, "tags": {ToolTag.READ_ONLY}},
+    "calculator": {
+        "defer": True,
+        "tags": {ToolTag.READ_ONLY},
+        "read_only_hint": True,
+        "idempotent_hint": True,
+        "open_world_hint": False,
+    },
     "datetime": {
         "tags": {ToolTag.READ_ONLY},
+        "read_only_hint": True,
+        "idempotent_hint": True,
+        "open_world_hint": False,
         "methods": {
-            "convert_timezone": {"defer": True},
+            "convert_timezone": {"defer": True, "title": "Convert Timezone"},
+            "now": {"title": "Current Date and Time"},
         },
     },
-    "think": {"tags": {ToolTag.READ_ONLY}},
-    "file_ops": {"tags": {ToolTag.FILE_SYSTEM, ToolTag.DESTRUCTIVE}},
-    "web/fetch": {"tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
+    "think": {
+        "tags": {ToolTag.READ_ONLY},
+        "read_only_hint": True,
+        "idempotent_hint": True,
+        "open_world_hint": False,
+        "methods": {"think": {"title": "Think"}},
+    },
+    "file_ops": {
+        "tags": {ToolTag.FILE_SYSTEM, ToolTag.DESTRUCTIVE},
+        "read_only_hint": False,
+        "destructive_hint": True,
+        "open_world_hint": False,
+        "methods": {
+            "read": {
+                "read_only_hint": True,
+                "destructive_hint": False,
+                "idempotent_hint": True,
+                "title": "Read File",
+            },
+            "edit": {"idempotent_hint": False, "title": "Edit File"},
+            "write": {"idempotent_hint": True, "title": "Write File"},
+        },
+    },
+    "web/fetch": {
+        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
+        "read_only_hint": True,
+        "idempotent_hint": True,
+        "open_world_hint": True,
+        "methods": {"fetch_content": {"title": "Fetch URL Content"}},
+    },
     "web/websearch": {
         "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
+        "read_only_hint": True,
+        "idempotent_hint": False,
+        "open_world_hint": True,
         "methods": {
-            "list_engines": {"defer": True},
+            "list_engines": {"defer": True, "idempotent_hint": True},
+            "search": {"title": "Web Search"},
         },
     },
-    "reader": {"defer": True, "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY}},
+    "reader": {
+        "defer": True,
+        "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
+        "read_only_hint": True,
+        "idempotent_hint": True,
+        "open_world_hint": False,
+    },
     "fs/file_search": {
         "defer": True,
         "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
+        "read_only_hint": True,
+        "idempotent_hint": True,
+        "open_world_hint": False,
     },
     "fs/path_info": {
         "defer": True,
         "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
+        "read_only_hint": True,
+        "idempotent_hint": True,
+        "open_world_hint": False,
+        "methods": {"info": {"title": "Path Info"}},
     },
-    "bash": {"defer": True, "tags": {ToolTag.DESTRUCTIVE, ToolTag.PRIVILEGED}},
-    "cron": {"defer": True, "tags": {ToolTag.PRIVILEGED}},
-    "todolist": {"defer": True, "tags": {ToolTag.READ_ONLY}},
-    "unit_converter": {"defer": True, "tags": {ToolTag.READ_ONLY}},
-    "weather": {"defer": True, "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY}},
+    "bash": {
+        "defer": True,
+        "tags": {ToolTag.DESTRUCTIVE, ToolTag.PRIVILEGED},
+        "read_only_hint": False,
+        "destructive_hint": True,
+        "idempotent_hint": False,
+        "open_world_hint": True,
+        "methods": {"execute": {"title": "Execute Shell Command"}},
+    },
+    "cron": {
+        "defer": True,
+        "tags": {ToolTag.PRIVILEGED},
+        "read_only_hint": False,
+        "destructive_hint": True,
+        "open_world_hint": False,
+        "methods": {
+            "create": {
+                "destructive_hint": False,
+                "idempotent_hint": False,
+                "title": "Schedule Job",
+            },
+            "delete": {"idempotent_hint": True, "title": "Delete Scheduled Job"},
+            "list": {
+                "read_only_hint": True,
+                "destructive_hint": False,
+                "idempotent_hint": True,
+                "title": "List Scheduled Jobs",
+            },
+            "shutdown": {"idempotent_hint": True, "title": "Stop Scheduler"},
+        },
+    },
+    "todolist": {
+        "defer": True,
+        # Process-local state only; classified read-only like the tag it
+        # already carried, so permission behaviour does not change.
+        "tags": {ToolTag.READ_ONLY},
+        "read_only_hint": True,
+        "idempotent_hint": True,
+        "open_world_hint": False,
+        "methods": {"update": {"title": "Update Todo List"}},
+    },
+    "unit_converter": {
+        "defer": True,
+        "tags": {ToolTag.READ_ONLY},
+        "read_only_hint": True,
+        "idempotent_hint": True,
+        "open_world_hint": False,
+    },
+    "weather": {
+        "defer": True,
+        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
+        "read_only_hint": True,
+        "idempotent_hint": False,
+        "open_world_hint": True,
+        "methods": {
+            "get_current": {"title": "Current Weather"},
+            "get_forecast": {"title": "Weather Forecast"},
+            "get_astronomy": {"title": "Astronomy"},
+        },
+    },
     "academics": {
         "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
+        "read_only_hint": True,
+        "idempotent_hint": False,
+        "open_world_hint": True,
         "methods": {
-            "list_engines": {"defer": True},
+            "list_engines": {"defer": True, "idempotent_hint": True},
+            "search": {"title": "Academic Search"},
         },
     },
 }
@@ -140,15 +272,26 @@ def _collect_overrides(overrides: dict) -> dict[str, Any]:
     ``registry._replace_tool_metadata()``.
 
     Args:
-        overrides: Dict with optional ``defer``, ``tags``, and/or
-            ``search_hint`` keys.
+        overrides: Dict with optional ``defer``, ``tags``, ``search_hint``,
+            ``title`` and execution-hint keys (``read_only_hint``,
+            ``destructive_hint``, ``idempotent_hint``, ``open_world_hint``).
 
     Returns:
-        A dict of metadata field updates (may be empty).
+        A dict of metadata field updates (may be empty).  Keys the installed
+        :class:`ToolMetadata` does not define are dropped.
     """
     updates: dict = {}
-    for key in ("defer", "tags", "search_hint"):
-        if key in overrides:
+    for key in (
+        "defer",
+        "tags",
+        "search_hint",
+        "title",
+        "read_only_hint",
+        "destructive_hint",
+        "idempotent_hint",
+        "open_world_hint",
+    ):
+        if key in overrides and key in _METADATA_FIELDS:
             updates[key] = overrides[key]
     return updates
 
