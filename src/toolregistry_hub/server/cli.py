@@ -71,6 +71,11 @@ class HubCLI(CLI):
                 transport=parsed.transport,
                 host=parsed.host,
                 port=parsed.port,
+                # Public origin for OAuth protected-resource metadata.  The
+                # Hub builds serve_mcp kwargs explicitly, so the flag the
+                # server subparser adds has to be forwarded here or it is
+                # silently dropped (#78).
+                server_url=getattr(parsed, "server_url", None),
                 **common,
             )
 
