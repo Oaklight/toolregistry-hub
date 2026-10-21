@@ -76,6 +76,11 @@ class HubCLI(CLI):
                 # server subparser adds has to be forwarded here or it is
                 # silently dropped (#78).
                 server_url=getattr(parsed, "server_url", None),
+                # tools/list cache hints, same reasoning: built explicitly
+                # here, so an added server flag is dropped unless forwarded
+                # (#83).
+                tools_list_ttl_ms=getattr(parsed, "tools_list_ttl_ms", None),
+                tools_list_cache_scope=getattr(parsed, "tools_list_cache_scope", None),
                 **common,
             )
 

@@ -55,6 +55,30 @@ class TestMCPDispatch:
 
         assert mock_serve.call_args.kwargs["server_url"] is None
 
+    def test_forwards_cache_hints(self):
+        """tools/list cache flags reach serve_mcp instead of being dropped (#83)."""
+        cli = HubCLI()
+        parsed = _mcp_namespace(tools_list_ttl_ms=0, tools_list_cache_scope="public")
+
+        with patch.object(type(cli.app), "serve_mcp") as mock_serve:
+            cli.dispatch(parsed)
+
+        kwargs = mock_serve.call_args.kwargs
+        assert kwargs["tools_list_ttl_ms"] == 0
+        assert kwargs["tools_list_cache_scope"] == "public"
+
+    def test_cache_hints_default_to_none(self):
+        """A namespace without the attributes still dispatches (older server)."""
+        cli = HubCLI()
+        parsed = _mcp_namespace()
+
+        with patch.object(type(cli.app), "serve_mcp") as mock_serve:
+            cli.dispatch(parsed)
+
+        kwargs = mock_serve.call_args.kwargs
+        assert kwargs["tools_list_ttl_ms"] is None
+        assert kwargs["tools_list_cache_scope"] is None
+
     def test_forwards_transport_and_host(self):
         """The kwargs the Hub already passed are unaffected."""
         cli = HubCLI()
