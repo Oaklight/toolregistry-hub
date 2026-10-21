@@ -314,5 +314,88 @@ class TestGetRegistry(unittest.TestCase):
         self.assertIs(reg1, reg2)
 
 
+@unittest.skipUnless(
+    "read_only_hint" in registry_module._METADATA_FIELDS,
+    "installed toolregistry predates execution hints",
+)
+class TestToolAnnotations(unittest.TestCase):
+    """Every hub tool declares MCP execution hints and key tools a title."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.registry = build_registry(enable_discovery=False, enable_think=False)
+
+    def _tool(self, name):
+        return self.registry._tools[name]
+
+    def test_every_tool_declares_read_only_hint(self):
+        """A missing readOnlyHint makes hosts prompt for read-only tools."""
+        missing = [
+            tool.name
+            for tool in self.registry._tools.values()
+            if "read_only_hint" not in tool.execution_hints
+        ]
+        self.assertEqual(missing, [])
+
+    def test_read_only_tools(self):
+        for name in (
+            "datetime-now",
+            "weather-get_current",
+            "web/websearch-search",
+            "academics-search",
+            "reader-read",
+            "fs/file_search-grep",
+            "think-think",
+            "calculator-evaluate",
+        ):
+            hints = self._tool(name).execution_hints
+            self.assertIs(hints["read_only_hint"], True, name)
+            self.assertIs(hints["destructive_hint"], False, name)
+
+    def test_write_and_destructive_tools(self):
+        bash = self._tool("bash-execute").execution_hints
+        self.assertIs(bash["read_only_hint"], False)
+        self.assertIs(bash["destructive_hint"], True)
+
+        write = self._tool("file_ops-write").execution_hints
+        self.assertIs(write["read_only_hint"], False)
+        self.assertIs(write["destructive_hint"], True)
+
+        edit = self._tool("file_ops-edit").execution_hints
+        self.assertIs(edit["read_only_hint"], False)
+        self.assertIs(edit["destructive_hint"], True)
+
+        # Reading a file is not destructive, even though the namespace is.
+        read = self._tool("file_ops-read").execution_hints
+        self.assertIs(read["read_only_hint"], True)
+        self.assertIs(read["destructive_hint"], False)
+
+        cron_list = self._tool("cron-list").execution_hints
+        self.assertIs(cron_list["read_only_hint"], True)
+        cron_delete = self._tool("cron-delete").execution_hints
+        self.assertIs(cron_delete["destructive_hint"], True)
+
+    def test_open_world_hint(self):
+        for name in ("web/websearch-search", "weather-get_current", "bash-execute"):
+            self.assertIs(
+                self._tool(name).execution_hints["open_world_hint"], True, name
+            )
+        for name in ("datetime-now", "file_ops-read", "cron-list"):
+            self.assertIs(
+                self._tool(name).execution_hints["open_world_hint"], False, name
+            )
+
+    def test_titles(self):
+        self.assertEqual(
+            self._tool("datetime-now").metadata.title, "Current Date and Time"
+        )
+        self.assertEqual(
+            self._tool("bash-execute").metadata.title, "Execute Shell Command"
+        )
+        self.assertEqual(
+            self._tool("web/websearch-search").metadata.title, "Web Search"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
