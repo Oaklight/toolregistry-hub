@@ -319,7 +319,14 @@ class TestGetRegistry(unittest.TestCase):
     "installed toolregistry predates execution hints",
 )
 class TestToolAnnotations(unittest.TestCase):
-    """Every hub tool declares MCP execution hints and key tools a title."""
+    """Hints and titles for the tools the hub itself builds.
+
+    Built with ``enable_discovery=False``, so this covers the hub's own tool
+    set. The core's ``discover_tools`` / ``call_deferred`` proxies are not
+    annotated: ``discover_tools`` is a pure lookup and could claim read-only,
+    while ``call_deferred`` cannot make a claim because its effect is
+    whatever the target tool does. Both are a #280 follow-up.
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -329,7 +336,10 @@ class TestToolAnnotations(unittest.TestCase):
         return self.registry._tools[name]
 
     def test_every_tool_declares_read_only_hint(self):
-        """A missing readOnlyHint makes hosts prompt for read-only tools."""
+        """A missing readOnlyHint makes hosts prompt for read-only tools.
+
+        Scope: every tool this registry builds (discovery disabled).
+        """
         missing = [
             tool.name
             for tool in self.registry._tools.values()

@@ -200,8 +200,9 @@ _TOOL_METADATA: dict[str, dict] = {
     },
     "todolist": {
         "defer": True,
-        # Process-local state only; classified read-only like the tag it
-        # already carried, so permission behaviour does not change.
+        # ``update`` renders the list the caller passes and stores nothing;
+        # the host keeps the state. Read-only, matching the existing tag, so
+        # permission behaviour does not change.
         "tags": {ToolTag.READ_ONLY},
         "read_only_hint": True,
         "idempotent_hint": True,
