@@ -12,6 +12,13 @@ author: Oaklight
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并在需要时保留项目自身的分类方式。
 
+## [未发布]
+
+### 新增
+
+- **内置工具集声明 MCP 执行提示**（#280）：所有工具现在都会声明 `readOnlyHint`，多数还会声明 `destructiveHint`、`idempotentHint` 与 `openWorldHint`，使 MCP 宿主可以自动批准只读调用（`datetime-now`、`weather-*`、`websearch-search`、`academics-search`、`reader-*`、`fs/*`、`think`、`calculator`、`unit_converter`、`todolist`），并把确认留给 `bash-execute`、`file_ops-edit`/`write` 以及 `cron-create`/`delete`/`shutdown`。`file_ops-read` 现在正确声明为只读，而不再继承命名空间的破坏性标记；`cron-list` 为只读。主要入口还设置了人类可读的标题。
+- **Hub 元数据覆盖支持 `title` 与执行提示**：`_TOOL_METADATA` 条目可在命名空间或方法级别设置 `title`、`read_only_hint`、`destructive_hint`、`idempotent_hint` 和 `open_world_hint`。当前安装的 `toolregistry` 未定义的字段会被跳过，因此 Hub 在较旧的 core 上仍可正常工作。
+
 ## [0.10.0] - 2026-09-16
 
 ### 新增
