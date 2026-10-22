@@ -89,6 +89,8 @@ Record your cognitive process - thinking, reasoning, planning, or recalling.
 
 3. `thought_process` (str): Your detailed stream of thoughts. **Write this LAST**. Can be long and messy.
 
+**Returns:** a one-line acknowledgement such as `"[reasoning] probe recorded"` (mode only when `focus_area` is omitted). The thought is already in the conversation; the acknowledgement just confirms the call landed.
+
 **Thinking Mode Descriptions:**
 
 | Mode | Purpose | When to Use |
