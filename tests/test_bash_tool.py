@@ -87,6 +87,16 @@ class TestBashToolSafeCommands:
             "grep -r 'import' src/",
             "sudo apt update",
             "sudo systemctl restart nginx",
+            # eval/exec as an argument is not execution (#191).
+            "find . -name '*.py' -exec wc -l {} +",
+            "python -m pytest -k exec",
+            "grep -rn eval src/",
+            "echo done > eval.txt",
+            # Recursive deletion of a local directory is normal work.
+            "rm -rf ./build",
+            "rm --recursive=false -f ./build/out.txt",
+            "sh -c 'grep exec f'",
+            "find . -exec grep -l TODO {} +",
         ],
     )
     def test_safe_commands_pass(self, cmd):
@@ -121,6 +131,23 @@ class TestBashToolDangerousCommands:
             ("reboot", "reboot"),
             ("halt", "halt"),
             ("kill -9 1", "init process"),
+            # The same rm flags spelled separately or long-form (#191).
+            ("rm -r -f /home/user", "Recursive forced deletion"),
+            ("rm -f -r /home/user", "Recursive forced deletion"),
+            ("rm --recursive --force /home/user", "Recursive forced deletion"),
+            ("rm -Rf /home/user", "Recursive forced deletion"),
+            ("echo ok | rm -rf /home/user", "Recursive forced deletion"),
+            # Wrapper chains and find/shell payloads are commands of their own.
+            ("sudo -u root rm -r -f /home/user", "Recursive forced deletion"),
+            ("env -i rm -r -f /home/user", "Recursive forced deletion"),
+            ("timeout 5 rm -r -f /home/user", "Recursive forced deletion"),
+            ("xargs rm -r -f /home/user", "Recursive forced deletion"),
+            ("find / -exec rm -rf {} +", "Recursive forced deletion"),
+            ("find . -execdir rm -rf {} +", "Recursive forced deletion"),
+            ("sh -c 'rm -r -f /home/user'", "Recursive forced deletion"),
+            ("bash -c 'exec \"$X\"'", "exec"),
+            ('env exec "$X"', "exec"),
+            ("echo ok | eval 'echo hi'", "evaluation"),
         ],
     )
     def test_dangerous_commands_blocked(self, cmd, reason_fragment):
