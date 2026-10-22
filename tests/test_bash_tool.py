@@ -97,6 +97,17 @@ class TestBashToolSafeCommands:
             "rm --recursive=false -f ./build/out.txt",
             "sh -c 'grep exec f'",
             "find . -exec grep -l TODO {} +",
+            # Concrete paths outside home trees are routine cleanup (#6).
+            "rm -rf /tmp/build",
+            "rm -rf /var/tmp/cache",
+            "rm -rf /srv/app/cache",
+            "rm -rf /etc/nginx/cache",
+            # Only rm's own operands are judged, not quoted text (#6).
+            "echo 'rm -rf /'",
+            "git commit -m 'fix: avoid exec/eval pitfalls'",
+            # Compound statements are fine when the body is harmless.
+            "(cd /tmp && ls)",
+            "case x in a) echo ok;; esac",
         ],
     )
     def test_safe_commands_pass(self, cmd):
@@ -148,6 +159,31 @@ class TestBashToolDangerousCommands:
             ("bash -c 'exec \"$X\"'", "exec"),
             ('env exec "$X"', "exec"),
             ("echo ok | eval 'echo hi'", "evaluation"),
+            # Protected targets beyond root and home (#6).
+            ("rm -rf /etc", "Recursive forced deletion"),
+            ("rm -rf /home/user/project", "Recursive forced deletion"),
+            ("rm -rf $HOME", "Recursive forced deletion"),
+            ("rm -rf ..", "Recursive forced deletion"),
+            ("rm -rf /*", "Recursive forced deletion"),
+            ("rm -rf /usr/lib", "Recursive forced deletion"),
+            ("busybox rm -rf /", "Recursive forced deletion"),
+            # Spellings the kernel and the shell treat as those paths.
+            ("rm -rf //etc", "Recursive forced deletion"),
+            ("rm -rf ./", "Recursive forced deletion"),
+            ("rm -rf ../..", "Recursive forced deletion"),
+            ("rm -rf /et?", "Recursive forced deletion"),
+            ("rm -rf /{etc,usr}", "Recursive forced deletion"),
+            ("rm --rec -f /etc", "Recursive forced deletion"),
+            # Substitution bodies, wrapper chains and shell flags.
+            ("rm -rf $(rm -rf /)", "Recursive forced deletion"),
+            ("find / -exec sudo -u root rm -rf {} +", "Recursive forced deletion"),
+            ("xargs rm -r -f", "Recursive forced deletion"),
+            ("bash -lc 'rm -rf /'", "Recursive forced deletion"),
+            # Separators outside quotes, and compound statements.
+            ("echo hi & rm -rf /", "Recursive forced deletion"),
+            ("( rm -rf / )", "Recursive forced deletion"),
+            ("if true; then rm -rf /; fi", "Recursive forced deletion"),
+            ("f() { rm -rf /; }", "Recursive forced deletion"),
         ],
     )
     def test_dangerous_commands_blocked(self, cmd, reason_fragment):
