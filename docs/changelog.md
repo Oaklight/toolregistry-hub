@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **`bash-execute` timeouts are errors** (#188, #190): `BashTool.execute()` now raises `CommandTimeoutError` instead of returning `{"timed_out": true, "exit_code": -1}` as a successful result, so MCP reports `isError: true` and the model sees why the command produced no output. The exception carries the partial stdout/stderr written before the kill. The timeout also kills the whole process tree now — previously only the `shell=True` child died and background children such as `sleep 300 &` kept running. Behaviour comes from `bashtool` 0.3.0, which this release pins.
 
+### Fixed
+
+- **A failing search engine is now an error, not an empty list** (#193): `brave`, `tavily`, `serper`, `github` and `scrapeless` returned `[]` on HTTP errors, timeouts, exhausted API keys and unparseable responses, so a caller could not tell "no results" from "this engine is broken" — and a pinned `engine=` looked like an empty topic. They now raise `SearchBackendError`, matching the policy `searxng` and `brightdata` already followed. `auto` and `parallel` still fall back to other engines; only a request that cannot be served raises, and it surfaces as `isError: true` with the provider's message.
+
 ## [0.10.0] - 2026-09-16
 
 ### Added
