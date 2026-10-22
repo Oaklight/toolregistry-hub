@@ -24,6 +24,7 @@ author: Oaklight
 ### 修复
 
 - **`bash-execute` 的拒绝列表依据 `rm` 删除的内容判断，而不是路径写法**（#6）：`rm -rf /tmp/build`、`/srv/app/cache`、`/etc/nginx/cache` 重新可用，而根目录、系统目录名本身、无法重装的目录（`/usr/lib`、`/boot`、`/dev`、`/var/lib`、`/etc/ssh` 等）、`$HOME`/`~`、`.`/`..` 及其 Shell 写法（`//etc`、`./`、`/et?`、`/{etc,usr}`）仍被阻止。只判断 `rm` 自己的操作数，因此 `echo 'rm -rf /'` 可以执行。命令在引号之外的 `;`、`&`、`|` 与换行处切分，分组与复合语法会被剥离（`( … )`、`{ …; }`、`!`、`then`/`do`、case 分支、函数体），命令替换（`$(…)`、反引号）与 `find -exec` / `sh -c` / `bash -lc` 负载都会被检查，无操作数的 `xargs` 会被拒绝，GNU 长选项的无歧义前缀（`rm --rec -f`）也能识别。行为来自本版本固定的 `bashtool` 0.3.2 + 0.3.3；镜像用例位于 `tests/test_bash_tool.py`，Bash 工具文档的安全章节已更新为新规则。
+- **`todolist-update` 会确认简单更新，而不再返回 `None`**（#212）：`format="simple"` 是默认值，而该方法以 `return None` 结束，因此最常见的调用会把字面量 `"None"` 交给模型——模型无法分辨"已记录"与"什么都没发生"，这与 #185 和 #202 在别处修复的问题相同。默认路径现在返回 `"todo list updated"`（输入为空时返回 `"todo list cleared"`），返回类型标注为 `str`，markdown/ascii 输出保持不变。
 - **`cron-shutdown` 会确认已停止，而不再返回 `None`**（#202）：该方法此前标注为 `-> None`，因此 `tools/call` 会把字面字符串 `None` 交给模型，看起来像调用失败或没有结果。现在返回 `"scheduler stopped"`。连同 #185（`think`）在内，这是 `build_registry()` 产出的工具中最后一个 `NoneType` 返回值。
 - **Reddit 超时现在是错误，而不是空结果**（#205）：`reddit` 是 `_ENGINE_REGISTRY` 中最后一个在 Arctic Shift 超时时仍返回 `[]` 的引擎，因此在服务故障期间指定 `engine="reddit"` 会被误认为「该话题没有帖子」——正是 #193 描述的症状，只是换了一个引擎。现在它与其他引擎一样抛出 `SearchBackendError`；请求成功但没有帖子的情况仍返回 `[]`。`auto` 与 `parallel` 会改回退到其他引擎，而不是报告空结果。
 - **`think` 返回确认信息而非 `None`**（#185）：该方法原先标注为 `-> None` 并以裸 `return` 结束，导致每次 `tools/call` 都把字面量 `"None"` 交给模型——在对话记录中毫无意义，还容易被当成失败标记。现在返回类似 `"[reasoning] probe recorded"` 的确认（未提供 `focus_area` 时只包含模式名）。

@@ -60,7 +60,7 @@ print(progress_report)
 
 **返回值:**
 
-- `Optional[str]`: 格式化的任务列表输出（simple 格式返回 None）
+- `str`: 默认的 `"simple"` 格式返回简短确认——`"todo list updated"`，`todos` 为空时返回 `"todo list cleared"`——其他格式返回渲染后的表格。这项确认对工具调用很重要：返回 `None` 会被序列化为字面量 `"None"`，模型无法判断调用是否生效。
 
 **状态值:**
 
