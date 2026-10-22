@@ -66,9 +66,40 @@ def test_think_custom_mode():
 
 def test_think_without_optional_params():
     """Test think without optional parameters."""
-    ThinkTool.think(
+    result = ThinkTool.think(
         thought_process="Analyzing the problem step by step to find the root cause."
     )
+    assert result == "[thinking] recorded"
+
+
+def test_think_returns_acknowledgement_not_none():
+    """The model must see an ack, not the string "None" (#185)."""
+    result = ThinkTool.think(
+        thinking_mode="reasoning",
+        focus_area="probe",
+        thought_process="probe",
+    )
+    assert result == "[reasoning] probe recorded"
+    assert result != "None"
+
+
+def test_think_without_focus_area_returns_mode_only():
+    """Without a focus area the acknowledgement names only the mode."""
+    result = ThinkTool.think(
+        thinking_mode="planning",
+        thought_process="Drafting the release checklist.",
+    )
+    assert result == "[planning] recorded"
+
+
+def test_think_custom_mode_is_echoed():
+    """A custom mode string is echoed back verbatim."""
+    result = ThinkTool.think(
+        thinking_mode="trade_off_analysis",
+        focus_area="Architecture",
+        thought_process="Weighing options.",
+    )
+    assert result == "[trade_off_analysis] Architecture recorded"
 
 
 def test_think_without_focus_area():

@@ -33,7 +33,7 @@ class ThinkTool:
         | None = None,
         focus_area: str | None = None,
         thought_process: str = "",
-    ) -> None:
+    ) -> str:
         """Record your cognitive process - thinking, reasoning, planning, or recalling.
 
         USAGE GUIDE:
@@ -58,5 +58,13 @@ class ThinkTool:
             focus_area: What specific problem or topic you're thinking about. Set this SECOND.
             thought_process: Your detailed stream of thoughts. Write this LAST.
                 Can be long and messy. Don't summarize - show your actual thought process.
+
+        Returns:
+            A one-line acknowledgement such as ``"[reasoning] probe recorded"``.
+            The thought itself is already in the conversation; this only tells
+            the model the call landed, instead of handing it ``"None"``.
         """
-        return
+        mode = thinking_mode or "thinking"
+        if focus_area:
+            return f"[{mode}] {focus_area} recorded"
+        return f"[{mode}] recorded"
