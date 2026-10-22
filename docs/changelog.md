@@ -27,6 +27,10 @@ author: Oaklight
 
 - **`bash-execute` 超时现在属于错误**（#188、#190）：`BashTool.execute()` 在超时时抛出 `CommandTimeoutError`，而不再把 `{"timed_out": true, "exit_code": -1}` 当作成功结果返回，因此 MCP 会报告 `isError: true`，模型能知道命令为何没有输出。异常会携带被杀之前写入的部分 stdout/stderr。超时现在还会杀掉整个进程树——此前只杀掉 `shell=True` 的子进程，像 `sleep 300 &` 这样的后台子进程会继续运行。该行为来自本版本锁定的 `bashtool` 0.3.0。
 
+### 修复
+
+- **搜索引擎失败现在属于错误，而不再返回空列表**（#193）：`brave`、`tavily`、`serper`、`github` 与 `scrapeless` 在 HTTP 错误、超时、API key 耗尽以及响应无法解析时都返回 `[]`，调用方因此无法区分「没有结果」与「该引擎已损坏」——指定 `engine=` 时更像是一个不存在的话题。现在它们会抛出 `SearchBackendError`，与 `searxng` 和 `brightdata` 已有的策略保持一致。`auto` 与 `parallel` 仍会回退到其他引擎；只有确实无法完成的请求才会抛错，并以 `isError: true` 携带提供方的错误信息返回。
+
 ## [0.10.0] - 2026-09-16
 
 ### 新增
