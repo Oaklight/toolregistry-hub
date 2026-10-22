@@ -168,7 +168,7 @@ class TodoList:
     def update(
         todos: list[str],
         format: Literal["markdown", "simple", "ascii"] | None = "simple",
-    ) -> str | None:
+    ) -> str:
         """Update or create todo list with optional formatting output.
 
         Args:
@@ -190,7 +190,10 @@ class TodoList:
             format: Output format - 'simple' (no output), 'markdown', or 'ascii'.
 
         Returns:
-            Formatted todo list if format is not 'simple', otherwise None. 'simple' should suffice most cases.
+            A short acknowledgement for the default 'simple' format
+            (``"todo list updated"``, or ``"todo list cleared"`` when the
+            list is empty), otherwise the rendered table. A model needs to
+            be able to tell that the call took effect.
 
         Raises:
             TypeError: If input format is invalid.
@@ -201,7 +204,7 @@ class TodoList:
 
         if not todos:
             if format == "simple":
-                return None
+                return "todo list cleared"
             elif format == "markdown":
                 return TodoList._render_markdown_table([])
             elif format == "ascii":
@@ -234,7 +237,7 @@ class TodoList:
 
         # Return formatted output based on format parameter
         if format == "simple":
-            return None
+            return "todo list updated"
         elif format == "markdown":
             return TodoList._render_markdown_table(rows)
         elif format == "ascii":
