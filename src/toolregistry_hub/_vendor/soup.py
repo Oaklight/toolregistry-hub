@@ -1,5 +1,5 @@
 # /// zerodep
-# version = "0.6.0"
+# version = "0.8.1"
 # deps = []
 # tier = "medium"
 # category = "text"
@@ -18,6 +18,10 @@ the vast majority of real-world scraping scripts.
 
 Supports CSS pseudo-selectors: ``:first-child``, ``:last-child``,
 ``:only-child``, and ``:not(selector)``.
+
+Attribute selectors match the HTML Standard's legacy attribute set ASCII
+case-insensitively; soupsieve 2.10 folds only ``type``, so the two
+intentionally diverge on the rest of that set.
 
 Does NOT implement: ``.prettify()``, ``.stripped_strings``, ``.descendants``
 iterator, ``.next_sibling`` / ``.previous_sibling``, ``NavigableString`` class,
@@ -60,6 +64,64 @@ SELF_CLOSING_TAGS = frozenset(
         "source",
         "track",
         "wbr",
+    }
+)
+
+# Legacy attributes whose values an HTML attribute selector matches ASCII
+# case-insensitively.  Source: the HTML Standard, "Case-sensitivity of
+# selectors" --
+# https://html.spec.whatwg.org/multipage/semantics-other.html#case-sensitivity-of-selectors
+# The names are stored ASCII-lowercased, and a selector's attribute name is
+# folded the same way before the membership test.  Every other attribute
+# value, and every attribute name, is matched case-sensitively.
+_ASCII_CASE_INSENSITIVE_ATTRS = frozenset(
+    {
+        "accept",
+        "accept-charset",
+        "align",
+        "alink",
+        "axis",
+        "bgcolor",
+        "charset",
+        "checked",
+        "clear",
+        "codetype",
+        "color",
+        "compact",
+        "declare",
+        "defer",
+        "dir",
+        "direction",
+        "disabled",
+        "enctype",
+        "face",
+        "frame",
+        "hreflang",
+        "http-equiv",
+        "lang",
+        "language",
+        "link",
+        "media",
+        "method",
+        "multiple",
+        "nohref",
+        "noresize",
+        "noshade",
+        "nowrap",
+        "readonly",
+        "rel",
+        "rev",
+        "rules",
+        "scope",
+        "scrolling",
+        "selected",
+        "shape",
+        "target",
+        "text",
+        "type",
+        "valign",
+        "valuetype",
+        "vlink",
     }
 )
 
@@ -422,18 +484,58 @@ class Tag:
         """Return all descendants matching a CSS selector (simple subset).
 
         Supported patterns: ``tag``, ``.class``, ``#id``, ``[attr]``,
-        ``[attr="value"]``, descendant (``a b``), child (``a > b``),
-        compound (``div.cls#id``), multiple classes (``div.a.b``).
+        ``[attr=value]`` and the other attribute operators (``~=``, ``|=``,
+        ``^=``, ``$=``, ``*=``), descendant (``a b``), child (``a > b``),
+        compound (``div.cls#id``), multiple classes (``div.a.b``), and
+        selector lists (``a, b``).  A comma separates list groups only when
+        it is outside a quoted value, outside brackets and outside
+        parentheses, so ``[title="a,b"], [title="c"]`` is the union of two
+        groups and not a descendant selector.
+
+        Unsupported attribute syntax raises ``ValueError`` instead of dropping
+        the constraint, which would silently widen the match.
+
+        Attribute values are matched case-sensitively, except for the legacy
+        HTML attributes that attribute selectors match ASCII
+        case-insensitively (``type``, ``lang``, ``dir``, ``rel``, ``method``
+        and the rest of the HTML Standard's list; see
+        ``_ASCII_CASE_INSENSITIVE_ATTRS``).  Only ASCII case is folded, and
+        attribute names themselves stay case-sensitive.
 
         Args:
             css_selector: The CSS selector string.
 
         Returns:
             A list of matching ``Tag`` objects.
+
+        Raises:
+            ValueError: If the selector uses attribute syntax this parser
+                cannot read.  That set is the compatibility contract for a
+                vendoring caller, because these selectors previously widened
+                the match silently instead:
+
+                - Valid CSS the reference accepts, not implemented here: the
+                  Selectors L4 case-sensitivity flags ``[attr="v" i]`` and
+                  ``[attr="v" s]``, the namespace forms ``[svg|use]``,
+                  ``[*|href]`` and ``[|href]``, and the jQuery-style
+                  ``[attr!="x"]``.
+                - Valid CSS this parser's tokeniser cannot read: a ``]``
+                  inside a quoted value, as in ``[title="a]b"]``.
+                - Rejected by the reference as well, so consistent with it:
+                  ``[=x]``, unterminated quotes such as
+                  ``[title="unterminated]``, and ``[xlink:href]``.
+
+                A pseudo-element such as ``::before`` raises as well: it is
+                valid CSS the reference rejects with ``NotImplementedError``,
+                and dropping it used to make ``select`` return an empty list.
         """
-        parts = _parse_selector(css_selector)
+        groups = _parse_selector_list(css_selector)
         candidates: list[Tag] = self._all_descendants()
-        return [tag for tag in candidates if _selector_matches(tag, parts)]
+        return [
+            tag
+            for tag in candidates
+            if any(_selector_matches(tag, parts) for parts in groups)
+        ]
 
     def select_one(self, css_selector: str) -> Tag | None:
         """Like ``select``, but return only the first match (or ``None``).
@@ -444,9 +546,9 @@ class Tag:
         Returns:
             The first matching ``Tag``, or ``None``.
         """
-        parts = _parse_selector(css_selector)
+        groups = _parse_selector_list(css_selector)
         for tag in self._all_descendants():
-            if _selector_matches(tag, parts):
+            if any(_selector_matches(tag, parts) for parts in groups):
                 return tag
         return None
 
@@ -602,11 +704,20 @@ _ATTR_RE = re.compile(
     r"""
     \[
     \s*(?P<name>[a-zA-Z_-][a-zA-Z0-9_-]*)
-    (?:\s*=\s*["']?(?P<value>[^"'\]]*)["']?)?
+    (?:
+        \s*(?P<op>[~|^$*]?=)\s*
+        (?P<value>"[^"]*"|'[^']*'|[^"'\]]*)
+    )?
     \s*\]
     """,
     re.VERBOSE,
 )
+
+# CSS attribute operators: ``=`` exact (against the serialised attribute),
+# ``~=`` whitespace-separated list, ``|=`` exact or hyphen-prefixed,
+# ``^=``/``$=``/``*=`` substring forms.  ``_attr_operator_matches`` is the one
+# place that dispatches on them, and it rejects an operator the regex has no
+# branch for.
 
 SelectorStep = tuple[str, dict[str, Any]]
 
@@ -639,6 +750,34 @@ def _tokenize_whitespace(
     return pos + 1
 
 
+def _unquote(value: str) -> str:
+    """Strip one pair of matching surrounding quotes from *value*."""
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
+
+
+def _parse_attr_token(token: str) -> tuple[str, str | None, str] | None:
+    """Parse an ``[attr]`` / ``[attr op value]`` selector token.
+
+    Args:
+        token: The raw ``[...]`` text as matched by ``_SIMPLE_RE``.
+
+    Returns:
+        ``(name, operator, value)`` with ``operator`` set to ``None`` for a
+        bare ``[attr]`` presence test, or ``None`` when the token uses syntax
+        this parser does not implement.  Returning ``None`` lets the caller
+        fail loudly rather than drop the constraint and widen the match.
+    """
+    m = _ATTR_RE.fullmatch(token)
+    if m is None:
+        return None
+    op = m.group("op")
+    if op is None:
+        return (m.group("name"), None, "")
+    return (m.group("name"), op, _unquote(m.group("value")))
+
+
 def _apply_regex_match(m: re.Match[str], compound: dict[str, Any]) -> None:
     """Populate *compound* dict from a single ``_SIMPLE_RE`` match."""
     if m.group("tag"):
@@ -648,11 +787,17 @@ def _apply_regex_match(m: re.Match[str], compound: dict[str, Any]) -> None:
     elif m.group("id"):
         compound["id"] = m.group("id")[1:]
     elif m.group("attr"):
-        am = _ATTR_RE.match(m.group("attr"))
-        if am:
-            compound.setdefault("attrs", []).append(
-                (am.group("name"), am.group("value"))
+        attr = _parse_attr_token(m.group("attr"))
+        if attr is None:
+            raise ValueError(
+                f"unsupported attribute selector: {m.group('attr')} "
+                "(supported: [attr] and [attr<op>value] with =, ~=, |=, ^=, "
+                '$=, *=; the Selectors L4 flags [attr="v" i] and '
+                '[attr="v" s], the namespace forms, and != are not '
+                "implemented, and a ] inside a quoted value cannot be "
+                "tokenised)"
             )
+        compound.setdefault("attrs", []).append(attr)
     elif m.group("pseudo"):
         compound.setdefault("pseudos", []).append(m.group("pseudo")[1:])
 
@@ -733,10 +878,95 @@ def _parse_selector(selector: str) -> list[SelectorStep]:
         compound, pos = _parse_compound(selector, pos)
         if compound is not None:
             tokens.append(compound)
+        elif selector.startswith("::", pos):
+            raise ValueError(
+                f"unsupported pseudo-element: {selector[pos:]!r} "
+                "(pseudo-elements are not implemented; only the pseudo-classes "
+                ":first-child, :last-child, :only-child and :not() are "
+                "supported)"
+            )
         else:
             pos += 1  # skip unknown character to avoid infinite loop
 
     return _tokens_to_steps(tokens)
+
+
+def _split_selector_list(selector: str) -> list[str]:
+    """Split a selector list on top-level commas.
+
+    A comma separates two groups only when it is outside a quoted string,
+    outside square brackets and outside parentheses.  A backslash escapes the
+    next character inside a quoted string, so ``\\"`` does not close it.
+
+    Args:
+        selector: The raw selector string, e.g. ``'[title="a,b"], [title="c"]'``.
+
+    Returns:
+        The group strings, in order.  A selector with no top-level comma comes
+        back as a single-element list, so callers keep the single-selector
+        behaviour for free.
+    """
+    groups: list[str] = []
+    start = 0
+    bracket_depth = 0
+    paren_depth = 0
+    quote = ""
+    i = 0
+    n = len(selector)
+    while i < n:
+        ch = selector[i]
+        if quote:
+            if ch == "\\" and i + 1 < n:
+                i += 2
+                continue
+            if ch == quote:
+                quote = ""
+        elif ch in "\"'":
+            quote = ch
+        elif ch == "[":
+            bracket_depth += 1
+        elif ch == "]":
+            if bracket_depth:
+                bracket_depth -= 1
+        elif ch == "(":
+            paren_depth += 1
+        elif ch == ")":
+            if paren_depth:
+                paren_depth -= 1
+        elif ch == "," and not bracket_depth and not paren_depth:
+            groups.append(selector[start:i])
+            start = i + 1
+        i += 1
+    groups.append(selector[start:])
+    return groups
+
+
+def _parse_selector_list(selector: str) -> list[list[SelectorStep]]:
+    """Parse a selector list into one step list per comma-separated group.
+
+    The caller treats the groups as a union, which is how the reference reads
+    a selector list: a tag matches when *any* group matches it.
+
+    Args:
+        selector: The raw selector string.
+
+    Returns:
+        A list with one parsed step list per group.
+
+    Raises:
+        ValueError: If a non-empty selector list contains an empty group,
+            such as a trailing comma.  An empty group parses to the match-all
+            selector, so it would silently widen the whole list.
+    """
+    groups = _split_selector_list(selector)
+    if selector.strip():
+        for group in groups:
+            if not group.strip():
+                raise ValueError(
+                    "empty selector group: a selector list cannot contain "
+                    "an empty group, which would match every element"
+                )
+    return [_parse_selector(group) for group in groups]
 
 
 def _classes_match(tag: Tag, required_classes: list[str]) -> bool:
@@ -749,20 +979,91 @@ def _classes_match(tag: Tag, required_classes: list[str]) -> bool:
     return all(cls in tag_classes for cls in required_classes)
 
 
-def _attr_value_matches(actual: str | list[str], expected: str) -> bool:
-    """Return True if *actual* attribute value equals *expected*."""
-    if isinstance(actual, list):
-        return expected in actual
-    return actual == expected
+_ASCII_LOWER = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
 
 
-def _selector_attrs_match(tag: Tag, attrs: list[tuple[str, str | None]]) -> bool:
+def _ascii_lower(value: str) -> str:
+    """Lowercase the ASCII letters in *value* and leave every other character.
+
+    The HTML Standard defines selector case-insensitivity as *ASCII*
+    case-insensitivity, so a non-ASCII letter such as ``É`` is not folded.
+    """
+    return value.translate(_ASCII_LOWER)
+
+
+def _attr_text(actual: str | list[str]) -> str:
+    """Return an attribute value as one string for substring matching.
+
+    ``class`` is stored as a list, so it is joined with spaces, which is how
+    the attribute appears in the source document.
+    """
+    return " ".join(actual) if isinstance(actual, list) else actual
+
+
+def _attr_operator_matches(
+    actual: str | list[str],
+    op: str,
+    expected: str,
+    *,
+    case_insensitive: bool = False,
+) -> bool:
+    """Return True if *actual* satisfies the CSS attribute operator *op*.
+
+    Args:
+        actual: The tag's attribute value; a list for ``class``.
+        op: One of ``=``, ``~=``, ``|=``, ``^=``, ``$=``, ``*=``.
+        expected: The value written in the selector, unquoted.
+        case_insensitive: Fold ASCII case in both sides before comparing.
+            Set for the legacy HTML attributes whose values selectors match
+            ASCII case-insensitively (``_ASCII_CASE_INSENSITIVE_ATTRS``).
+
+    Returns:
+        Whether the attribute satisfies the operator.  The empty-value cases
+        follow Selectors Level 4: the empty-string exclusion applies to
+        ``~=``, ``^=``, ``$=`` and ``*=` (sections 6.1 and 6.2), so they never
+        match an empty *expected*.  ``=`` has no exclusion and matches a value
+        that is exactly empty.  ``|=`` has none either, so an empty *expected*
+        matches a value that is exactly empty or begins with ``-`` (U+002D).
+    """
+    text = _attr_text(actual)
+    if case_insensitive:
+        text = _ascii_lower(text)
+        expected = _ascii_lower(expected)
+    if op == "=":
+        # Compare the serialised attribute, as the reference does.  For the
+        # list-valued ``class`` that makes ``[class="btn primary"]`` match and
+        # ``[class="btn"]`` not match: the single-token form is ``~=``.
+        return text == expected
+    if op == "~=":
+        return bool(expected) and expected in text.split()
+    if op == "|=":
+        # No bool(expected) guard here: Selectors 6.1 defines ``|=`` as
+        # "exactly val, or beginning with val immediately followed by '-'"
+        # and gives it no empty-string exclusion, so ``[attr|=""]`` matches
+        # an exactly-empty value *and* one beginning with ``-``.  The guard
+        # belongs on ``~=``/``^=``/``$=``/``*=`` only.
+        return text == expected or text.startswith(expected + "-")
+    if op == "^=":
+        return bool(expected) and text.startswith(expected)
+    if op == "$=":
+        return bool(expected) and text.endswith(expected)
+    if op == "*=":
+        return bool(expected) and expected in text
+    raise ValueError(f"unsupported attribute operator: {op}")  # pragma: no cover
+
+
+def _selector_attrs_match(tag: Tag, attrs: list[tuple[str, str | None, str]]) -> bool:
     """Return True if *tag* satisfies all attribute constraints from a selector."""
-    for attr_name, attr_val in attrs:
+    for attr_name, op, attr_val in attrs:
         actual = tag.attrs.get(attr_name)
         if actual is None:
             return False
-        if attr_val is not None and not _attr_value_matches(actual, attr_val):
+        if op is not None and not _attr_operator_matches(
+            actual,
+            op,
+            attr_val,
+            case_insensitive=_ascii_lower(attr_name) in _ASCII_CASE_INSENSITIVE_ATTRS,
+        ):
             return False
     return True
 
