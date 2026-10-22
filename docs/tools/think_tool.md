@@ -89,6 +89,8 @@ ThinkTool.think(
 
 3. `thought_process` (str)：你详细的思考流。**最后写这个**。可以很长且杂乱。
 
+**返回值：**一行确认信息，例如 `"[reasoning] probe recorded"`（未提供 `focus_area` 时只包含模式名）。思考内容本身已经在对话中，这条确认只是告诉模型调用已生效。
+
 **思考模式说明：**
 
 | 模式 | 用途 | 何时使用 |
