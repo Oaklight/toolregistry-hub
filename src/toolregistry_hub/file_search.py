@@ -11,6 +11,8 @@ import fnmatch
 import re
 from pathlib import Path
 
+from .gitignore import GitIgnoreFilter
+
 # Hard caps to prevent oversized returns
 _MAX_GLOB_RESULTS = 1000
 _MAX_GREP_RESULTS = 200
@@ -25,6 +27,7 @@ class FileSearch:
         pattern: str,
         root: str = ".",
         recursive: bool = True,
+        respect_gitignore: bool | None = None,
     ) -> list[str]:
         """Find files matching a glob pattern.
 
@@ -32,6 +35,10 @@ class FileSearch:
             pattern: Glob pattern (e.g. ``"**/*.py"``, ``"src/**/*.ts"``).
             root: Root directory to search from. Defaults to current directory.
             recursive: Whether ``**`` matches subdirectories. Defaults to True.
+            respect_gitignore: Skip paths ignored by ``.gitignore``.  ``None``
+                (default) does so inside a git repository and does not outside
+                one; ``True`` always applies the rules found under *root*;
+                ``False`` disables the filter.
 
         Returns:
             List of matching file paths relative to *root*, sorted by
@@ -52,6 +59,10 @@ class FileSearch:
             # Non-recursive: only match in the root directory itself
             matches = [p for p in root_path.glob(pattern) if p.parent == root_path]
 
+        ignore = FileSearch._gitignore(root_path, respect_gitignore)
+        if ignore is not None:
+            matches = [p for p in matches if not ignore.is_ignored(p)]
+
         # Sort by modification time, most recent first
         matches.sort(key=lambda p: p.stat().st_mtime, reverse=True)
 
@@ -67,6 +78,7 @@ class FileSearch:
         recursive: bool = True,
         file_pattern: str | None = None,
         max_results: int = 50,
+        respect_gitignore: bool | None = None,
     ) -> list[dict]:
         """Search file contents using regex.
 
@@ -77,6 +89,11 @@ class FileSearch:
             file_pattern: Optional glob to filter files (e.g. ``"*.py"``).
             max_results: Maximum number of match results to return.
                 Clamped to an internal cap of 200.
+            respect_gitignore: Skip files ignored by ``.gitignore``.  ``None``
+                (default) does so inside a git repository and does not outside
+                one; ``True`` always applies the rules found under *path*;
+                ``False`` disables the filter.  An explicitly named file is
+                always searched.
 
         Returns:
             List of dicts, each with keys:
@@ -103,11 +120,14 @@ class FileSearch:
 
         # Directory search
         files = target.rglob("*") if recursive else target.iterdir()
+        ignore = FileSearch._gitignore(target, respect_gitignore)
 
         for filepath in sorted(files):
             if len(results) >= effective_max:
                 break
             if not filepath.is_file():
+                continue
+            if ignore is not None and ignore.is_ignored(filepath):
                 continue
             if file_pattern and not fnmatch.fnmatch(filepath.name, file_pattern):
                 continue
@@ -155,6 +175,7 @@ class FileSearch:
         max_depth: int = 3,
         show_hidden: bool = False,
         file_pattern: str | None = None,
+        respect_gitignore: bool | None = None,
     ) -> str:
         """Display directory tree structure.
 
@@ -163,6 +184,10 @@ class FileSearch:
             max_depth: Maximum depth to display. Defaults to 3.
             show_hidden: Whether to show hidden files/directories.
             file_pattern: Optional glob to filter displayed files.
+            respect_gitignore: Hide entries ignored by ``.gitignore``.  ``None``
+                (default) does so inside a git repository and does not outside
+                one; ``True`` always applies the rules found under *path*;
+                ``False`` disables the filter.
 
         Returns:
             Tree-formatted string representation of the directory.
@@ -181,9 +206,10 @@ class FileSearch:
 
         lines: list[str] = [root.name + "/"]
         count = [0]  # mutable counter for the nested function
+        ignore = FileSearch._gitignore(root, respect_gitignore)
 
         FileSearch._build_tree(
-            root, "", max_depth, 1, show_hidden, file_pattern, lines, count
+            root, "", max_depth, 1, show_hidden, file_pattern, ignore, lines, count
         )
 
         if count[0] >= _MAX_TREE_ENTRIES:
@@ -196,6 +222,7 @@ class FileSearch:
         directory: Path,
         show_hidden: bool,
         file_pattern: str | None,
+        ignore: GitIgnoreFilter | None = None,
     ) -> list[Path]:
         """List and filter directory entries for tree display.
 
@@ -207,6 +234,7 @@ class FileSearch:
             directory: Directory to list.
             show_hidden: Whether to include hidden entries.
             file_pattern: Optional glob to filter files.
+            ignore: Optional ``.gitignore`` filter for the entries.
 
         Returns:
             Sorted, filtered list of entries, or empty list on
@@ -221,6 +249,9 @@ class FileSearch:
 
         if not show_hidden:
             entries = [e for e in entries if not e.name.startswith(".")]
+
+        if ignore is not None:
+            entries = [e for e in entries if not ignore.is_ignored(e)]
 
         if file_pattern:
             entries = [
@@ -239,6 +270,7 @@ class FileSearch:
         current_depth: int,
         show_hidden: bool,
         file_pattern: str | None,
+        ignore: GitIgnoreFilter | None,
         lines: list[str],
         count: list[int],
     ) -> None:
@@ -251,13 +283,14 @@ class FileSearch:
             current_depth: Current recursion depth.
             show_hidden: Whether to show hidden entries.
             file_pattern: Optional glob to filter files.
+            ignore: Optional ``.gitignore`` filter for the entries.
             lines: Accumulator for output lines.
             count: Single-element list used as a mutable counter.
         """
         if current_depth > max_depth:
             return
 
-        entries = FileSearch._list_entries(directory, show_hidden, file_pattern)
+        entries = FileSearch._list_entries(directory, show_hidden, file_pattern, ignore)
 
         for i, entry in enumerate(entries):
             if count[0] >= _MAX_TREE_ENTRIES:
@@ -278,6 +311,23 @@ class FileSearch:
                     current_depth + 1,
                     show_hidden,
                     file_pattern,
+                    ignore,
                     lines,
                     count,
                 )
+
+    @staticmethod
+    def _gitignore(root: Path, respect: bool | None) -> GitIgnoreFilter | None:
+        """Build the ``.gitignore`` filter for a search root.
+
+        Args:
+            root: Directory being searched.
+            respect: ``None`` follows the repository (on inside a checkout,
+                off elsewhere); ``True`` / ``False`` force the behaviour.
+
+        Returns:
+            A filter, or ``None`` when ignore rules should not be applied.
+        """
+        if respect is False:
+            return None
+        return GitIgnoreFilter.for_path(root, require_repo=respect is None)
