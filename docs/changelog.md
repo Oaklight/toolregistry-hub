@@ -23,6 +23,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **`think` returns an acknowledgement instead of `None`** (#185): the method was annotated `-> None` and ended in a bare `return`, so every `tools/call` handed the model the literal text `"None"` — meaningless in the transcript and easily read as a failure marker. It now returns e.g. `"[reasoning] probe recorded"` (mode only when `focus_area` is omitted).
 
+### Changed
+
+- **`bash-execute` timeouts are errors** (#188, #190): `BashTool.execute()` now raises `CommandTimeoutError` instead of returning `{"timed_out": true, "exit_code": -1}` as a successful result, so MCP reports `isError: true` and the model sees why the command produced no output. The exception carries the partial stdout/stderr written before the kill. The timeout also kills the whole process tree now — previously only the `shell=True` child died and background children such as `sleep 300 &` kept running. Behaviour comes from `bashtool` 0.3.0, which this release pins.
+
 ## [0.10.0] - 2026-09-16
 
 ### Added
