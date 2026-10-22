@@ -6,6 +6,7 @@ import tempfile
 import pytest
 
 from toolregistry_hub.bash_tool import BashTool, _validate_command
+from toolregistry_hub.bashtool import CommandTimeoutError
 
 
 class TestBashToolExecute:
@@ -31,10 +32,15 @@ class TestBashToolExecute:
         assert result["exit_code"] == 42
         assert result["timed_out"] is False
 
-    def test_timeout(self):
-        result = BashTool.execute("sleep 10", timeout=1)
-        assert result["timed_out"] is True
-        assert result["exit_code"] == -1
+    def test_timeout_raises(self):
+        """A killed command must not come back as a successful result (#188)."""
+        with pytest.raises(CommandTimeoutError) as excinfo:
+            BashTool.execute("sleep 10", timeout=1)
+
+        assert excinfo.value.timed_out is True
+        assert excinfo.value.exit_code == -1
+        # The MCP layer surfaces str(exc) to the model.
+        assert "timed out" in str(excinfo.value)
 
     def test_cwd(self):
         with tempfile.TemporaryDirectory() as tmpdir:
