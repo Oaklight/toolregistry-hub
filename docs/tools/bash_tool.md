@@ -33,8 +33,9 @@ result = BashTool.execute("long_running_script.sh", timeout=300)
 |-----|------|-------------|
 | `stdout` | `str` | 捕获的标准输出（截断上限 64 KB） |
 | `stderr` | `str` | 捕获的标准错误（截断上限 64 KB） |
-| `exit_code` | `int` | 进程退出码，超时时为 `-1` |
-| `timed_out` | `bool` | 进程是否因超时被终止 |
+| `exit_code` | `int` | 进程退出码 |
+
+超时**不会**返回字典：`execute()` 会抛出 `CommandTimeoutError`（自 bash-execute 0.3.2 起），因此 MCP 会返回 `isError: true`，而不是一个看起来成功的结果。该异常携带 `command`、`timeout`、被终止前写入的部分 `stdout` / `stderr` 以及 `exit_code = -1`；`str(exc)` 会说明命令与超时预算。
 
 ### 错误处理
 
@@ -44,10 +45,12 @@ result = BashTool.execute("ls /nonexistent")
 if result["exit_code"] != 0:
     print(f"Error: {result['stderr']}")
 
-# 超时
-result = BashTool.execute("sleep 60", timeout=5)
-if result["timed_out"]:
-    print("命令超时")
+# 超时（抛出 CommandTimeoutError，可从 toolregistry_hub.bashtool 导入）
+try:
+    BashTool.execute("sleep 60", timeout=5)
+except CommandTimeoutError as exc:
+    print(f"{exc.command} 在 {exc.timeout} 秒后超时")
+    print(exc.stdout, exc.stderr)  # 被终止前写入的部分输出
 
 # 危险命令（抛出 ValueError）
 try:
