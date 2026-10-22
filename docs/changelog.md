@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **Vendored zerodep modules are flat again, with stale duplicates removed**: `soup` and `readability` existed both as single modules and as package directories (`soup.py` + `soup/soup.py`), and `cdp`/`websocket` were package-only, so `zerodep outdated` could not see them. Everything is re-vendored with `zerodep add` in its default (flat) layout, which is what the CLI and the update workflow expect; the package copies are gone and `zerodep outdated` now reports all nine modules. Along the way `soup` goes 0.6.0 → 0.8.1 and `httpclient` 0.5.0 → 0.5.1. No hub code changes.
 - **`bash-execute` timeouts are errors** (#188, #190): `BashTool.execute()` now raises `CommandTimeoutError` instead of returning `{"timed_out": true, "exit_code": -1}` as a successful result, so MCP reports `isError: true` and the model sees why the command produced no output. The exception carries the partial stdout/stderr written before the kill. The timeout also kills the whole process tree now — previously only the `shell=True` child died and background children such as `sleep 300 &` kept running. Behaviour comes from `bashtool` 0.3.0, which this release pins.
 
 ### Fixed
