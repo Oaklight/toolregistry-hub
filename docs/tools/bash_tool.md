@@ -33,8 +33,9 @@ result = BashTool.execute("long_running_script.sh", timeout=300)
 |-----|------|-------------|
 | `stdout` | `str` | Captured standard output (truncated at 64 KB) |
 | `stderr` | `str` | Captured standard error (truncated at 64 KB) |
-| `exit_code` | `int` | Process exit code, or `-1` on timeout |
-| `timed_out` | `bool` | Whether the process was killed due to timeout |
+| `exit_code` | `int` | Process exit code |
+
+A timeout does **not** return a dict: `execute()` raises `CommandTimeoutError` (since bash-execute 0.3.2), so MCP reports `isError: true` instead of a result that looks successful. The exception carries `command`, `timeout`, the partial `stdout` / `stderr` written before the kill and `exit_code = -1`; `str(exc)` names the command and the budget.
 
 ### Handling Errors
 
@@ -44,10 +45,12 @@ result = BashTool.execute("ls /nonexistent")
 if result["exit_code"] != 0:
     print(f"Error: {result['stderr']}")
 
-# Timeout
-result = BashTool.execute("sleep 60", timeout=5)
-if result["timed_out"]:
-    print("Command timed out")
+# Timeout (raises CommandTimeoutError, importable from toolregistry_hub.bashtool)
+try:
+    BashTool.execute("sleep 60", timeout=5)
+except CommandTimeoutError as exc:
+    print(f"{exc.command} timed out after {exc.timeout}s")
+    print(exc.stdout, exc.stderr)  # partial output written before the kill
 
 # Dangerous command (raises ValueError)
 try:
