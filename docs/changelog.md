@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- **A Reddit timeout is an error, not an empty result** (#205): `reddit` was the one engine in `_ENGINE_REGISTRY` that still returned `[]` when Arctic Shift timed out, so pinning `engine="reddit"` during an outage looked like "this topic has no posts" — the symptom #193 describes, one engine over. It now raises `SearchBackendError`, like the other engines; a successful response with no posts still returns `[]`. `auto` and `parallel` fall back to another engine instead of reporting an empty result.
 - **`think` returns an acknowledgement instead of `None`** (#185): the method was annotated `-> None` and ended in a bare `return`, so every `tools/call` handed the model the literal text `"None"` — meaningless in the transcript and easily read as a failure marker. It now returns e.g. `"[reasoning] probe recorded"` (mode only when `focus_area` is omitted).
 
 ### Changed
