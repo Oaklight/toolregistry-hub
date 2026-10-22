@@ -31,6 +31,10 @@ author: Oaklight
 
 - **搜索引擎失败现在属于错误，而不再返回空列表**（#193）：`brave`、`tavily`、`serper`、`github` 与 `scrapeless` 在 HTTP 错误、超时、API key 耗尽以及响应无法解析时都返回 `[]`，调用方因此无法区分「没有结果」与「该引擎已损坏」——指定 `engine=` 时更像是一个不存在的话题。现在它们会抛出 `SearchBackendError`，与 `searxng` 和 `brightdata` 已有的策略保持一致。`auto` 与 `parallel` 仍会回退到其他引擎；只有确实无法完成的请求才会抛错，并以 `isError: true` 携带提供方的错误信息返回。
 
+### 修复
+
+- **`bash-execute` 拒绝列表的精度**（#191）：`eval`/`exec` 只有在作为被调用的命令时才会被拦截，因此 `find … -exec`、`grep eval` 与 `echo > eval.txt` 恢复正常。`rm` 的参数会被归一化，`rm -r -f /x`、`rm --recursive --force /x`、`rm -Rf /x` 与 `rm -rf /x` 一样被拦截，包括置于包装命令之后（`sudo -u root`、`env -i`、`nice -n`、`timeout`、`xargs`）以及 `find -exec`/`-execdir` 载荷和 `sh -c` 字符串之中。命令分段现在会按单个 `|` 切分，因此检查能覆盖管道两侧。`rm -rf ./build` 仍然允许。该行为来自本版本锁定的 `bashtool` 0.3.1。
+
 ## [0.10.0] - 2026-09-16
 
 ### 新增
