@@ -23,6 +23,10 @@ author: Oaklight
 
 - **`think` 返回确认信息而非 `None`**（#185）：该方法原先标注为 `-> None` 并以裸 `return` 结束，导致每次 `tools/call` 都把字面量 `"None"` 交给模型——在对话记录中毫无意义，还容易被当成失败标记。现在返回类似 `"[reasoning] probe recorded"` 的确认（未提供 `focus_area` 时只包含模式名）。
 
+### 变更
+
+- **`bash-execute` 超时现在属于错误**（#188、#190）：`BashTool.execute()` 在超时时抛出 `CommandTimeoutError`，而不再把 `{"timed_out": true, "exit_code": -1}` 当作成功结果返回，因此 MCP 会报告 `isError: true`，模型能知道命令为何没有输出。异常会携带被杀之前写入的部分 stdout/stderr。超时现在还会杀掉整个进程树——此前只杀掉 `shell=True` 的子进程，像 `sleep 300 &` 这样的后台子进程会继续运行。该行为来自本版本锁定的 `bashtool` 0.3.0。
+
 ## [0.10.0] - 2026-09-16
 
 ### 新增
