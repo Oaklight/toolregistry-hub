@@ -28,6 +28,9 @@ from toolregistry_hub.websearch import websearch_brightdata, websearch_scrapeles
 # Configure logger for debugging
 logger = setup_logging(level="DEBUG", renderer="console")
 
+# Live API calls: skipped unless run explicitly with `-m integration`.
+pytestmark = pytest.mark.integration
+
 
 class TestBrightDataDebug:
     """Debug tests for Bright Data API responses."""
