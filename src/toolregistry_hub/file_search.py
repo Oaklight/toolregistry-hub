@@ -10,8 +10,20 @@ from __future__ import annotations
 import fnmatch
 import re
 from pathlib import Path
+from typing import Annotated
+
+from toolregistry.parameter_models import Doc
 
 from .gitignore import GitIgnoreFilter
+
+#: Shown in each tool's ``inputSchema`` so a model knows the filter is a
+#: per-call choice rather than a fixed behaviour.  ``Doc`` is the public
+#: toolregistry helper that attaches a description to an argument.
+_RESPECT_GITIGNORE_DOC = Doc(
+    "Honour .gitignore when searching. Omit to follow the repository (on "
+    "inside a git checkout, off elsewhere); true always applies the rules "
+    "found under the search root; false returns ignored paths too."
+)
 
 # Hard caps to prevent oversized returns
 _MAX_GLOB_RESULTS = 1000
@@ -27,7 +39,7 @@ class FileSearch:
         pattern: str,
         root: str = ".",
         recursive: bool = True,
-        respect_gitignore: bool | None = None,
+        respect_gitignore: Annotated[bool | None, _RESPECT_GITIGNORE_DOC] = None,
     ) -> list[str]:
         """Find files matching a glob pattern.
 
@@ -78,7 +90,7 @@ class FileSearch:
         recursive: bool = True,
         file_pattern: str | None = None,
         max_results: int = 50,
-        respect_gitignore: bool | None = None,
+        respect_gitignore: Annotated[bool | None, _RESPECT_GITIGNORE_DOC] = None,
     ) -> list[dict]:
         """Search file contents using regex.
 
@@ -175,7 +187,7 @@ class FileSearch:
         max_depth: int = 3,
         show_hidden: bool = False,
         file_pattern: str | None = None,
-        respect_gitignore: bool | None = None,
+        respect_gitignore: Annotated[bool | None, _RESPECT_GITIGNORE_DOC] = None,
     ) -> str:
         """Display directory tree structure.
 
