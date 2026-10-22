@@ -60,7 +60,7 @@ Update or create a todo list with optional formatting output for workflow tracki
 
 **Returns:**
 
-- `Optional[str]`: Formatted task list output (None for 'simple' format)
+- `str`: A short acknowledgement for the default `"simple"` format — `"todo list updated"`, or `"todo list cleared"` when `todos` is empty — otherwise the rendered table. The acknowledgement matters for tool use: returning `None` serialises to the literal string `"None"`, which tells a model nothing about whether the call took effect.
 
 **Status Values:**
 
