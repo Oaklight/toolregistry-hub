@@ -125,6 +125,15 @@ unresolved-import = "ignore"
 invalid-assignment = "ignore"
 unresolved-attribute = "warn"
 
+[tool.pytest.ini_options]
+# Integration tests make live API calls with real credentials. They are
+# deselected by default so a developer's .env (or a CI runner with keys)
+# cannot change which tests run; use `pytest -m integration` to run them.
+addopts = "-m 'not integration'"
+markers = [
+    "integration: makes live network calls and needs real credentials",
+]
+
 [tool.complexipy]
 paths = ["src/toolregistry_hub"]
 max-complexity-allowed = 20

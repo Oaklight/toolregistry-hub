@@ -15,12 +15,7 @@ import json
 import os
 from urllib.parse import quote_plus
 
-from dotenv import load_dotenv
-
 from toolregistry_hub._vendor.httpclient import Client, HTTPError
-
-# Load environment variables
-load_dotenv()
 
 
 def build_search_url(engine: str, query: str, page: int = 0) -> str:
@@ -182,4 +177,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # Only when run as a script: importing the module must not mutate
+    # ``os.environ`` for every test collected after it (#210).
+    from dotenv import load_dotenv
+
+    load_dotenv()
     main()

@@ -81,7 +81,7 @@ pytest -m "not slow"
 测试使用 pytest 标记进行分类：
 
 - `@pytest.mark.unit` - 单元测试
-- `@pytest.mark.integration` - 集成测试
+- `@pytest.mark.integration` - 集成测试。**默认被排除**（`addopts = -m 'not integration'`）：这些用例会带着真实凭据发起线上请求，不能因为开发者本地存在 `.env` 就改变测试集合。需要时显式运行 `pytest -m integration`。
 - `@pytest.mark.slow` - 慢速测试
 - `@pytest.mark.websearch` - WebSearch 相关测试
 - `@pytest.mark.calculator` - Calculator 相关测试

@@ -19,6 +19,9 @@ from toolregistry_hub.websearch.websearch_serper import SerperSearch
 
 logger = setup_logging(level="DEBUG", renderer="console")
 
+# Live API calls: skipped unless run explicitly with `-m integration`.
+pytestmark = pytest.mark.integration
+
 
 class TestSerperIntegration:
     """Integration tests for Serper Search API with real API calls."""
