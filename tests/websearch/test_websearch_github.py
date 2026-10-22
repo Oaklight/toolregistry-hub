@@ -174,9 +174,8 @@ class TestGitHubSearch:
         mock_client.return_value = mock_client_instance
 
         search = GitHubSearch(api_keys="ghp_test")
-        results = search.search("test query")
-
-        assert results == []
+        with pytest.raises(SearchBackendError, match="timed out"):
+            search.search("test query")
 
     @patch("toolregistry_hub.websearch.websearch_github.Client")
     def test_search_http_401_raises(self, mock_client):

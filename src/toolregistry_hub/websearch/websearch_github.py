@@ -187,12 +187,10 @@ class GitHubSearch(BaseSearch):
                     )
                     return results
 
-                except HttpTimeoutError:
-                    logger.error(
-                        "GitHub API request timed out",
-                        timeout=timeout,
-                    )
-                    return []
+                except HttpTimeoutError as e:
+                    raise SearchBackendError(
+                        f"GitHub API request timed out after {timeout}s"
+                    ) from e
                 except HTTPError as e:
                     if api_key and self._handle_http_error(e, api_key, "GitHub"):
                         continue
@@ -202,8 +200,7 @@ class GitHubSearch(BaseSearch):
                 except SearchBackendError:
                     raise
                 except Exception as e:
-                    logger.error("GitHub API request failed", error=str(e))
-                    return []
+                    raise SearchBackendError(f"GitHub API request failed: {e}") from e
 
         raise SearchBackendError(
             "GitHub search failed: all tokens exhausted or unavailable"

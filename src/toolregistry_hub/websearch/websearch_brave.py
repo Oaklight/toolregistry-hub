@@ -31,7 +31,7 @@ from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError, Response
 from .._vendor.structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
 from ..utils.requirements import requires_env
-from .base import TIMEOUT_DEFAULT, BaseSearch
+from .base import TIMEOUT_DEFAULT, BaseSearch, SearchBackendError
 from .search_result import SearchResult
 
 logger = get_logger()
@@ -172,9 +172,10 @@ class BraveSearch(BaseSearch):
         for _attempt in range(max_attempts):
             try:
                 api_key = self.api_key_parser.get_next_valid_key()
-            except ValueError:
-                logger.error("All Brave API keys are currently unavailable")
-                break
+            except ValueError as e:
+                raise SearchBackendError(
+                    "All Brave API keys are currently unavailable"
+                ) from e
 
             self.api_key_parser.wait_for_rate_limit(api_key=api_key)
 
@@ -198,18 +199,22 @@ class BraveSearch(BaseSearch):
                     )
                     return results
 
-            except HttpTimeoutError:
-                logger.error(f"Brave API request timed out after {timeout}s")
-                return []
+            except HttpTimeoutError as e:
+                raise SearchBackendError(
+                    f"Brave API request timed out after {timeout}s"
+                ) from e
             except HTTPError as e:
                 if self._handle_http_error(e, api_key, "Brave"):
                     continue
-                return []
+                raise SearchBackendError(
+                    f"Brave API HTTP {e.status_code}: {e.body}"
+                ) from e
+            except SearchBackendError:
+                raise
             except Exception as e:
-                logger.error(f"Brave API request failed: {e}")
-                return []
+                raise SearchBackendError(f"Brave API request failed: {e}") from e
 
-        return []
+        raise SearchBackendError("Brave search failed after exhausting all API keys")
 
     def _parse_results(self, raw_results: dict) -> list[SearchResult]:
         """Parse Brave API response into standardized format.

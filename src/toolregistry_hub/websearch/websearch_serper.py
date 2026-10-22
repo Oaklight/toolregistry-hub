@@ -33,7 +33,7 @@ from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError, Response
 from .._vendor.structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
 from ..utils.requirements import requires_env
-from .base import TIMEOUT_DEFAULT, BaseSearch
+from .base import TIMEOUT_DEFAULT, BaseSearch, SearchBackendError
 from .search_result import SearchResult
 
 logger = get_logger()
@@ -188,9 +188,10 @@ class SerperSearch(BaseSearch):
         for _attempt in range(max_attempts):
             try:
                 api_key = self.api_key_parser.get_next_valid_key()
-            except ValueError:
-                logger.error("All Serper API keys are currently unavailable")
-                break
+            except ValueError as e:
+                raise SearchBackendError(
+                    "All Serper API keys are currently unavailable"
+                ) from e
 
             self.api_key_parser.wait_for_rate_limit(api_key=api_key)
 
@@ -214,21 +215,26 @@ class SerperSearch(BaseSearch):
                     )
                     return results
 
-            except HttpTimeoutError:
-                logger.error(f"Serper API request timed out after {timeout}s")
-                return []
+            except HttpTimeoutError as e:
+                raise SearchBackendError(
+                    f"Serper API request timed out after {timeout}s"
+                ) from e
             except HTTPError as e:
                 if self._handle_http_error(e, api_key, "Serper"):
                     continue
-                return []
+                raise SearchBackendError(
+                    f"Serper API HTTP {e.status_code}: {e.body}"
+                ) from e
             except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse Serper API response: {e}")
-                return []
+                raise SearchBackendError(
+                    f"Serper API returned a non-JSON response: {e}"
+                ) from e
+            except SearchBackendError:
+                raise
             except Exception as e:
-                logger.error(f"Serper API request failed: {e}")
-                return []
+                raise SearchBackendError(f"Serper API request failed: {e}") from e
 
-        return []
+        raise SearchBackendError("Serper search failed after exhausting all API keys")
 
     def _parse_results(self, raw_results: Any) -> list[SearchResult]:
         """Parse Serper API response into standardized format.
