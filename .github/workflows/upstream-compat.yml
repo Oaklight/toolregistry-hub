@@ -30,6 +30,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          # bashtool is a git submodule; without it, `toolregistry_hub` cannot
+          # be imported and every test module fails at collection (#174, #196).
+          submodules: recursive
+
+      - name: Verify submodules are present
+        run: |
+          test -f src/toolregistry_hub/bashtool/__init__.py || {
+            echo "::error::bashtool submodule is missing; check out with submodules: recursive"
+            exit 1
+          }
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v6
