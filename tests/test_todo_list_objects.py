@@ -4,15 +4,24 @@ from toolregistry_hub.todo_list import Todo, TodoList
 
 
 def test_todolist_update_simple_format():
-    """Test update with simple format (no output)."""
+    """Test update with simple format (short acknowledgement)."""
     todos = [
         "[task1] Task one (planned)",
         "[task2] Task two (done)",
     ]
     result = TodoList.update(todos, format="simple")
 
-    # Should return None for simple format
-    assert result is None
+    # The default path must report that the update took effect: a None here
+    # is serialised to the literal string "None" and tells the model nothing.
+    assert result == "todo list updated"
+
+
+def test_todolist_update_simple_format_is_the_default():
+    """The default call returns the same acknowledgement (#212)."""
+    result = TodoList.update(["[task1] Task one (planned)"])
+
+    assert isinstance(result, str)
+    assert result == "todo list updated"
 
 
 def test_todolist_update_markdown_format():
@@ -56,7 +65,7 @@ def test_todolist_update_empty_list():
     """Test update with empty list."""
     # Simple format
     result = TodoList.update([], format="simple")
-    assert result is None
+    assert result == "todo list cleared"
 
     # Markdown format
     result = TodoList.update([], format="markdown")
