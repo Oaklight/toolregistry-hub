@@ -73,6 +73,7 @@ print(FileSearch.tree(".", show_hidden=True))
 | `pattern` | `str` | 必填 | Glob 模式（如 `"**/*.py"`） |
 | `root` | `str` | `"."` | 搜索的根目录 |
 | `recursive` | `bool` | `True` | `**` 是否匹配子目录 |
+| `respect_gitignore` | `bool \| None` | `None` | 跳过被 `.gitignore` 忽略的路径（在仓库内默认开启） |
 
 #### `grep()`
 
@@ -83,6 +84,7 @@ print(FileSearch.tree(".", show_hidden=True))
 | `recursive` | `bool` | `True` | 是否搜索子目录 |
 | `file_pattern` | `str \| None` | `None` | 文件过滤 glob（如 `"*.py"`） |
 | `max_results` | `int` | `50` | 最大结果数（上限 200） |
+| `respect_gitignore` | `bool \| None` | `None` | 跳过被 `.gitignore` 忽略的文件（在仓库内默认开启）；显式指定的文件总是会被搜索 |
 
 #### `tree()`
 
@@ -92,6 +94,18 @@ print(FileSearch.tree(".", show_hidden=True))
 | `max_depth` | `int` | `3` | 最大显示深度 |
 | `show_hidden` | `bool` | `False` | 是否显示隐藏文件/目录 |
 | `file_pattern` | `str \| None` | `None` | 文件过滤 glob |
+| `respect_gitignore` | `bool \| None` | `None` | 隐藏被 `.gitignore` 忽略的条目（在仓库内默认开启） |
+
+### 忽略构建产物
+
+当搜索根目录位于 Git 仓库内时，三个工具默认遵循 `.gitignore`，结果不会再被 `node_modules/`、`__pycache__/` 和构建产物填满。规则按层级读取（先仓库根目录，再叠加嵌套文件），支持取反（`!keep.log`）、仅目录规则（`build/`）、锚定（`/secret.txt`）、`**`、`?` 与字符类——实现位于本仓库内，不依赖外部库。
+
+`respect_gitignore` 可覆盖默认行为：`False` 搜索全部内容，`True` 即使在非 Git 目录下也会应用搜索根目录下的规则。显式传给 `grep()` 的文件总是会被搜索。
+
+```python
+# 连同被忽略的文件一起搜索
+FileSearch.glob("**/*.py", root=".", respect_gitignore=False)
+```
 
 ### 安全上限
 
