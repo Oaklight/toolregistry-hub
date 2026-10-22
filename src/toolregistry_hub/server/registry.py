@@ -7,6 +7,8 @@ Hub-specific concerns (content, not infrastructure):
 
 - ``_DEFAULT_TOOLS``: built-in tool list as ``PythonSource`` entries
 - ``_TOOL_METADATA``: namespace → tag/defer overrides applied post-registration
+- ``output_schemas.OUTPUT_SCHEMAS``: declared result shapes, published as
+  MCP ``outputSchema`` / ``structuredContent``
 - ``configurable_hook``: post-register hook that auto-disables unconfigured tools
 
 Deployment-context filtering (``--profile``) is handled by
@@ -24,6 +26,7 @@ from toolregistry.tool import ToolMetadata, ToolTag
 
 from .._vendor.structlog import get_logger
 from ..utils.configurable import Configurable
+from .output_schemas import OUTPUT_SCHEMAS
 
 logger = get_logger()
 
@@ -307,6 +310,30 @@ def _collect_overrides(overrides: dict) -> dict[str, Any]:
     return updates
 
 
+def _output_schema_update(namespace: str, tool: Any) -> dict:
+    """Return the ``extra`` metadata update carrying a declared result schema.
+
+    A declared schema lives in ``ToolMetadata.extra["output_schema"]`` because
+    that is where ``toolregistry-server`` reads it.  Merge rather than replace:
+    another integration may already have written keys there.
+
+    Args:
+        namespace: The tool's namespace.
+        tool: The registered tool.
+
+    Returns:
+        A dict with an ``extra`` key, or an empty dict when this tool declares
+        no schema or the installed core has no ``extra`` field.
+    """
+    if "extra" not in _METADATA_FIELDS:
+        return {}
+    schema = OUTPUT_SCHEMAS.get(namespace, {}).get(tool.method_name or "")
+    if schema is None:
+        return {}
+    existing = tool.metadata.extra if tool.metadata else {}
+    return {"extra": {**(existing or {}), "output_schema": schema}}
+
+
 def _apply_tool_metadata(registry: ToolRegistry) -> None:
     """Apply tag and defer overrides from ``_TOOL_METADATA`` to all tools.
 
@@ -342,6 +369,7 @@ def _apply_tool_metadata(registry: ToolRegistry) -> None:
             and tool.method_name in method_overrides
         ):
             merged.update(_collect_overrides(method_overrides[tool.method_name]))
+        merged.update(_output_schema_update(ns, tool))
         if merged:
             updates.append((tool.name, merged))
 
