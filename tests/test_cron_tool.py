@@ -276,3 +276,21 @@ class TestDurablePersistence:
         data = json.loads(jobs_file.read_text())
         assert len(data) == 1
         assert data[0]["prompt"] == "durable one"
+
+
+class TestShutdown:
+    def test_shutdown_returns_acknowledgement(self, cron_tool):
+        """The model must see an ack, not the string "None" (#202)."""
+        tool, _ = cron_tool
+
+        result = tool.shutdown()
+
+        assert result == "scheduler stopped"
+        assert isinstance(result, str)
+
+    def test_shutdown_is_idempotent(self, cron_tool):
+        """A second shutdown reports the same acknowledgement."""
+        tool, _ = cron_tool
+        tool.shutdown()
+
+        assert tool.shutdown() == "scheduler stopped"

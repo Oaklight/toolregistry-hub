@@ -214,9 +214,16 @@ class CronTool:
 
         return "\n".join(lines)
 
-    def shutdown(self) -> None:
-        """Stop the scheduler and clean up resources."""
+    def shutdown(self) -> str:
+        """Stop the scheduler and clean up resources.
+
+        Returns:
+            A short acknowledgement.  The MCP layer stringifies the return
+            value, so a bare ``None`` would reach the model as the literal
+            text ``"None"`` — indistinguishable from a failed call (#202).
+        """
         self._scheduler.shutdown(wait=False)
+        return "scheduler stopped"
 
     # -- Internal helpers --
 
