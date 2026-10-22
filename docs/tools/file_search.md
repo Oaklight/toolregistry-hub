@@ -73,6 +73,7 @@ print(FileSearch.tree(".", show_hidden=True))
 | `pattern` | `str` | required | Glob pattern (e.g. `"**/*.py"`) |
 | `root` | `str` | `"."` | Root directory to search from |
 | `recursive` | `bool` | `True` | Whether `**` matches subdirectories |
+| `respect_gitignore` | `bool \| None` | `None` | Skip `.gitignore`d paths (on inside a repo by default) |
 
 #### `grep()`
 
@@ -83,6 +84,7 @@ print(FileSearch.tree(".", show_hidden=True))
 | `recursive` | `bool` | `True` | Search subdirectories |
 | `file_pattern` | `str \| None` | `None` | Glob to filter files (e.g. `"*.py"`) |
 | `max_results` | `int` | `50` | Maximum results (capped at 200) |
+| `respect_gitignore` | `bool \| None` | `None` | Skip `.gitignore`d files (on inside a repo by default); an explicitly named file is always searched |
 
 #### `tree()`
 
@@ -92,6 +94,18 @@ print(FileSearch.tree(".", show_hidden=True))
 | `max_depth` | `int` | `3` | Maximum depth to display |
 | `show_hidden` | `bool` | `False` | Show hidden files/directories |
 | `file_pattern` | `str \| None` | `None` | Glob to filter displayed files |
+| `respect_gitignore` | `bool \| None` | `None` | Hide `.gitignore`d entries (on inside a repo by default) |
+
+### Ignoring Build Output
+
+All three tools honour `.gitignore` by default when the search root is inside a git repository, so results do not fill up with `node_modules/`, `__pycache__/` or build artifacts. Rules are read hierarchically (root `.gitignore` first, nested files on top) and support negation (`!keep.log`), directory-only rules (`build/`), anchoring (`/secret.txt`), `**`, `?` and character classes — implemented in-tree with no external dependency.
+
+`respect_gitignore` overrides the default: `False` searches everything, `True` applies the rules found under the search root even outside a checkout. A file passed explicitly to `grep()` is always searched.
+
+```python
+# Include ignored files too
+FileSearch.glob("**/*.py", root=".", respect_gitignore=False)
+```
 
 ### Safety Caps
 
