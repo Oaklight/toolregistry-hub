@@ -196,9 +196,8 @@ class SearXNGSearch(BaseSearch):
                 )
                 return results
 
-        except HttpTimeoutError:
-            logger.error(f"SearXNG API request timed out after {timeout}s")
-            return []
+        except HttpTimeoutError as e:
+            raise SearchBackendError(f"SearXNG API timed out after {timeout}s") from e
         except HTTPError as e:
             raise SearchBackendError(
                 f"SearXNG instance {self.base_url} returned HTTP {e.status_code}: "
