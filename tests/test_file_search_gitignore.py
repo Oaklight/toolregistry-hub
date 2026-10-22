@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from toolregistry import Tool
 
 from toolregistry_hub.file_search import FileSearch
 from toolregistry_hub.gitignore import GitIgnoreFilter
@@ -191,3 +192,13 @@ class TestPatterns:
         _write(tmp_path, {"a.tmp": "x\n"})
         flt = GitIgnoreFilter.for_path(tmp_path)
         assert flt.is_ignored(tmp_path / "a.tmp")
+
+
+class TestToolSchema:
+    def test_parameter_describes_the_override(self):
+        """The model must see that the filter can be turned off per call."""
+        for method in (FileSearch.glob, FileSearch.grep, FileSearch.tree):
+            tool = Tool.from_function(method)
+            spec = tool.parameters["properties"]["respect_gitignore"]
+            assert spec["type"] == "boolean"
+            assert "false returns ignored paths" in spec["description"]
