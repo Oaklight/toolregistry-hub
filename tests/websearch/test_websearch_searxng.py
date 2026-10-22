@@ -146,7 +146,7 @@ class TestSearXNGSearch:
 
     @patch("toolregistry_hub.websearch.websearch_searxng.Client")
     def test_search_timeout_error(self, mock_client):
-        """Test search with timeout error."""
+        """A timeout is a backend failure, not an empty result set (#211)."""
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
@@ -154,9 +154,25 @@ class TestSearXNGSearch:
         mock_client.return_value = mock_client_instance
 
         searcher = SearXNGSearch("http://localhost:8080")
-        results = searcher.search("test query")
+        with pytest.raises(SearchBackendError, match="timed out"):
+            searcher.search("test query")
 
-        assert results == []
+    @patch("toolregistry_hub.websearch.websearch_searxng.Client")
+    def test_search_empty_success_returns_empty_list(self, mock_client):
+        """A successful response with no results is a genuine empty result."""
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {"results": []}
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.__enter__.return_value = mock_client_instance
+        mock_client_instance.__exit__.return_value = None
+        mock_client_instance.post.return_value = mock_response
+        mock_client.return_value = mock_client_instance
+
+        searcher = SearXNGSearch("http://localhost:8080")
+
+        assert searcher.search("test query") == []
 
     @patch("toolregistry_hub.websearch.websearch_searxng.Client")
     def test_search_http_error(self, mock_client):

@@ -498,9 +498,10 @@ class BrightDataSearch(BaseSearch):
 
             except SearchBackendError:
                 raise
-            except HttpTimeoutError:
-                logger.error(f"Bright Data API request timed out after {timeout}s")
-                return []
+            except HttpTimeoutError as e:
+                raise SearchBackendError(
+                    f"Bright Data API timed out after {timeout}s"
+                ) from e
             except HTTPError as e:
                 if e.status_code == 422:
                     raise SearchBackendError(

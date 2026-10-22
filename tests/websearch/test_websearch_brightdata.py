@@ -162,7 +162,7 @@ class TestBrightDataSearch:
     )
     @patch("toolregistry_hub.websearch.websearch_brightdata.Client")
     def test_search_timeout_error(self, mock_client, mock_ensure):
-        """Test search with timeout error."""
+        """A timeout is a backend failure, not an empty result set (#211)."""
         mock_client_instance = MagicMock()
         mock_client_instance.__enter__.return_value = mock_client_instance
         mock_client_instance.__exit__.return_value = None
@@ -170,9 +170,8 @@ class TestBrightDataSearch:
         mock_client.return_value = mock_client_instance
 
         search = BrightDataSearch(api_keys="test_token")
-        results = search.search("test query")
-
-        assert results == []
+        with pytest.raises(SearchBackendError, match="timed out"):
+            search.search("test query")
 
     @patch(
         "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch._ensure_zone_exists_for_all_keys"
