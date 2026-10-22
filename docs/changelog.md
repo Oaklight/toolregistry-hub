@@ -31,6 +31,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **A failing search engine is now an error, not an empty list** (#193): `brave`, `tavily`, `serper`, `github` and `scrapeless` returned `[]` on HTTP errors, timeouts, exhausted API keys and unparseable responses, so a caller could not tell "no results" from "this engine is broken" — and a pinned `engine=` looked like an empty topic. They now raise `SearchBackendError`, matching the policy `searxng` and `brightdata` already followed. `auto` and `parallel` still fall back to other engines; only a request that cannot be served raises, and it surfaces as `isError: true` with the provider's message.
 
+### Fixed
+
+- **`bash-execute` deny list precision** (#191): `eval`/`exec` are only blocked when they are the invoked command, so `find … -exec`, `grep eval` and `echo > eval.txt` work again. `rm` flags are normalised, so `rm -r -f /x`, `rm --recursive --force /x` and `rm -Rf /x` are blocked like `rm -rf /x`, including behind wrappers (`sudo -u root`, `env -i`, `nice -n`, `timeout`, `xargs`) and inside `find -exec`/`-execdir` payloads and `sh -c` strings. Segments now split on a single `|`, so checks see both sides of a pipe. `rm -rf ./build` remains allowed. Behaviour comes from `bashtool` 0.3.1, which this release pins.
+
 ## [0.10.0] - 2026-09-16
 
 ### Added
