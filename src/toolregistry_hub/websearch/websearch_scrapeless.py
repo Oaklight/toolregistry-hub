@@ -36,7 +36,7 @@ from .._vendor.httpclient import Client, HTTPError, HttpTimeoutError, Response
 from .._vendor.structlog import get_logger
 from ..utils.api_key_parser import APIKeyParser
 from ..utils.requirements import requires_env
-from .base import BaseSearch
+from .base import BaseSearch, SearchBackendError
 from .google_parser import SCRAPELESS_CONFIG, GoogleResultParser
 from .search_result import SearchResult
 
@@ -234,9 +234,10 @@ class ScrapelessSearch(BaseSearch):
                     )
                     return results
 
-            except HttpTimeoutError:
-                logger.error(f"Scrapeless API request timed out after {timeout}s")
-                return []
+            except HttpTimeoutError as e:
+                raise SearchBackendError(
+                    f"Scrapeless API request timed out after {timeout}s"
+                ) from e
             except HTTPError as e:
                 status = e.status_code
                 if status in (401, 403):
@@ -255,16 +256,21 @@ class ScrapelessSearch(BaseSearch):
                         "Scrapeless API rate limit exceeded, trying next key"
                     )
                     continue
-                logger.error(f"Scrapeless API HTTP error {status}: {e.body}")
-                return []
+                raise SearchBackendError(
+                    f"Scrapeless API HTTP {status}: {e.body}"
+                ) from e
             except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse Scrapeless API response: {e}")
-                return []
+                raise SearchBackendError(
+                    f"Scrapeless API returned a non-JSON response: {e}"
+                ) from e
+            except SearchBackendError:
+                raise
             except Exception as e:
-                logger.error(f"Scrapeless API request failed: {e}")
-                return []
+                raise SearchBackendError(f"Scrapeless API request failed: {e}") from e
 
-        return []
+        raise SearchBackendError(
+            "Scrapeless search failed after exhausting all API keys"
+        )
 
     def _parse_results(self, raw_results: Any) -> list[SearchResult]:
         """Parse raw search results into standardized format.

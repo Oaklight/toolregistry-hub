@@ -2,7 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from toolregistry_hub._vendor.httpclient import HTTPError
+from toolregistry_hub.websearch.base import SearchBackendError
 from toolregistry_hub.websearch.websearch_brave import BraveSearch
 
 
@@ -91,7 +94,7 @@ class TestWebSearchFailover:
 
     @patch("toolregistry_hub.websearch.websearch_brave.Client")
     def test_all_keys_fail(self, mock_client_cls):
-        """All keys return 401 -> empty results."""
+        """All keys return 401 -> a loud backend error, not an empty list."""
         search = self._make_search(2)
 
         response_401 = MagicMock()
@@ -107,9 +110,9 @@ class TestWebSearchFailover:
         client_instance.get.side_effect = [response_401, response_401]
         mock_client_cls.return_value = client_instance
 
-        results = search.search("test query", max_results=5)
+        with pytest.raises(SearchBackendError, match="exhausting"):
+            search.search("test query", max_results=5)
 
-        assert results == []
         assert len(search.api_key_parser.failed_keys) == 2
 
     @patch("toolregistry_hub.websearch.websearch_brave.Client")

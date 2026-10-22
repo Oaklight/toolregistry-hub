@@ -2,7 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from toolregistry_hub._vendor.httpclient import HTTPError, HttpTimeoutError
+from toolregistry_hub.websearch.base import SearchBackendError
 from toolregistry_hub.websearch.search_result import SearchResult
 from toolregistry_hub.websearch.websearch_serper import SerperSearch
 
@@ -93,9 +96,8 @@ class TestSerperSearch:
         mock_client.return_value = mock_client_instance
 
         search = SerperSearch(api_keys="test_key")
-        results = search.search("test query")
-
-        assert results == []
+        with pytest.raises(SearchBackendError, match="timed out"):
+            search.search("test query")
 
     @patch("toolregistry_hub.websearch.websearch_serper.Client")
     def test_search_http_401_error(self, mock_client):
@@ -113,9 +115,8 @@ class TestSerperSearch:
         mock_client.return_value = mock_client_instance
 
         search = SerperSearch(api_keys="invalid_key")
-        results = search.search("test query")
-
-        assert results == []
+        with pytest.raises(SearchBackendError):
+            search.search("test query")
 
     @patch("toolregistry_hub.websearch.websearch_serper.Client")
     def test_search_http_429_error(self, mock_client):
@@ -133,9 +134,8 @@ class TestSerperSearch:
         mock_client.return_value = mock_client_instance
 
         search = SerperSearch(api_keys="test_key")
-        results = search.search("test query")
-
-        assert results == []
+        with pytest.raises(SearchBackendError):
+            search.search("test query")
 
     def test_parse_results(self):
         """Test parsing of API results."""
