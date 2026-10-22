@@ -25,6 +25,7 @@ author: Oaklight
 
 ### 变更
 
+- **vendored 的 zerodep 模块恢复为扁平布局并清除重复副本**：`soup` 与 `readability` 同时以单文件与包目录形式存在（`soup.py` + `soup/soup.py`），而 `cdp`/`websocket` 只有包形式，导致 `zerodep outdated` 无法识别它们。现在全部用 `zerodep add` 以默认（扁平）布局重新 vendor——这正是 CLI 与更新工作流期望的形式；包副本已删除，`zerodep outdated` 现在能报告全部九个模块。期间 `soup` 从 0.6.0 升到 0.8.1，`httpclient` 从 0.5.0 升到 0.5.1。Hub 业务代码无需改动。
 - **`bash-execute` 超时现在属于错误**（#188、#190）：`BashTool.execute()` 在超时时抛出 `CommandTimeoutError`，而不再把 `{"timed_out": true, "exit_code": -1}` 当作成功结果返回，因此 MCP 会报告 `isError: true`，模型能知道命令为何没有输出。异常会携带被杀之前写入的部分 stdout/stderr。超时现在还会杀掉整个进程树——此前只杀掉 `shell=True` 的子进程，像 `sleep 300 &` 这样的后台子进程会继续运行。该行为来自本版本锁定的 `bashtool` 0.3.0。
 
 ### 修复
