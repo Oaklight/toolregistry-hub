@@ -190,9 +190,13 @@ class RedditSearch(BaseSearch):
                 results = self._parse_results(data)
                 logger.info("Reddit search returned results", count=len(results))
                 return results
-        except HttpTimeoutError:
-            logger.error(f"Arctic Shift API timed out after {timeout}s")
-            return []
+        except HttpTimeoutError as e:
+            # A timeout is a backend failure, not "no posts match": returning
+            # [] here looked like a successful empty search to the caller and
+            # hid the failure behind the same value (#205, #193).
+            raise SearchBackendError(
+                f"Arctic Shift API timed out after {timeout}s"
+            ) from e
         except HTTPError as e:
             raise SearchBackendError(
                 f"Arctic Shift API HTTP {e.status_code}: {e.body}"

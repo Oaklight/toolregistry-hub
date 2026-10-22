@@ -227,15 +227,24 @@ class TestRedditSearchSearch:
 
     @patch("toolregistry_hub.websearch.websearch_reddit.Client")
     def test_search_timeout_error(self, mock_client_cls):
+        """A timeout is a backend failure, not an empty result set (#205)."""
         mock_cls, mock_instance = _mock_client(
             None, side_effect=HttpTimeoutError("Timeout")
         )
         mock_client_cls.return_value = mock_cls.return_value
 
         search = RedditSearch()
-        results = search.search("r/python web scraping")
+        with pytest.raises(SearchBackendError, match="timed out"):
+            search.search("r/python web scraping")
 
-        assert results == []
+    @patch("toolregistry_hub.websearch.websearch_reddit.Client")
+    def test_search_empty_success_returns_empty_list(self, mock_client_cls):
+        """A successful response with no posts is a genuine empty result."""
+        mock_cls, mock_instance = _mock_client({"data": []})
+        mock_client_cls.return_value = mock_cls.return_value
+
+        search = RedditSearch()
+        assert search.search("r/python nothing-here") == []
 
     @patch("toolregistry_hub.websearch.websearch_reddit.Client")
     def test_search_http_429_error(self, mock_client_cls):
