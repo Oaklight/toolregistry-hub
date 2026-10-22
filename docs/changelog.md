@@ -16,6 +16,7 @@ author: Oaklight
 
 ### 新增
 
+- **为结构化工具声明结果 Schema**（#189）：十个工具现在会发布 MCP `outputSchema`，并在文本块之外返回 `structuredContent`，客户端可以直接把结果当作数据读取，而不必再从文本块里重新解析 JSON：`weather-get_current`/`get_forecast`/`get_astronomy`、`datetime-convert_timezone`、`file_ops-read`/`edit`/`write`、`fs/path_info-info`、`web/fetch-fetch_content` 与 `bash-execute`。这些 Schema 通过新增的 `toolregistry_hub.server.output_schemas` 表声明在 `ToolMetadata.extra["output_schema"]` 上，描述每个工具必定返回的键；不含 `required` 列表并设置 `additionalProperties: true`，因此上游 API 省略某个字段时（`fs/path_info-info` 对不存在的路径只返回 `{"exists": false}`）也不会与已发布的 Schema 冲突。返回数组的工具（`fs/file_search-glob`/`grep`、`web/websearch-search`、`academics-search`）有意不做声明，因为 MCP 的 `structuredContent` 必须是对象。
 - **内置工具集声明 MCP 执行提示**（#280）：所有工具现在都会声明 `readOnlyHint`，多数还会声明 `destructiveHint`、`idempotentHint` 与 `openWorldHint`，使 MCP 宿主可以自动批准只读调用（`datetime-now`、`weather-*`、`websearch-search`、`academics-search`、`reader-*`、`fs/*`、`think`、`calculator`、`unit_converter`、`todolist`），并把确认留给 `bash-execute`、`file_ops-edit`/`write` 以及 `cron-create`/`delete`/`shutdown`。`file_ops-read` 现在正确声明为只读，而不再继承命名空间的破坏性标记；`cron-list` 为只读。主要入口还设置了人类可读的标题。
 - **Hub 元数据覆盖支持 `title` 与执行提示**：`_TOOL_METADATA` 条目可在命名空间或方法级别设置 `title`、`read_only_hint`、`destructive_hint`、`idempotent_hint` 和 `open_world_hint`。当前安装的 `toolregistry` 未定义的字段会被跳过，因此 Hub 在较旧的 core 上仍可正常工作。
 
