@@ -60,18 +60,20 @@ except ValueError as e:
 
 ### Built-in Deny List
 
-BashTool includes a hardcoded deny list that blocks known-dangerous command patterns. This deny list **cannot be disabled** and serves as a safety floor.
+BashTool includes a deny list that blocks known-dangerous command patterns. It is a safety floor, not a sandbox, and is disabled only when `BASHTOOL_UNSAFE` is set in the environment (which prints a warning on first use).
 
-Commands are segmented by shell operators (`&&`, `||`, `;`) and each segment is checked independently against the deny list.
+Commands are split on `;`, `&`, `&&`, `||`, `|` and newlines that appear **outside quotes**, and each segment is checked independently: `echo hi & rm -rf /` is two commands, while `echo 'a; rm -rf / b'` is one. Grouping and compound syntax is unwrapped before a segment is judged — `( … )`, `{ …; }`, `!`, function definitions, case arms and the keywords `then` / `do` / `else` / `elif` / `if` / `while` / `until` — along with wrapper chains (`sudo -u …`, `env -i`, `nice -n`, `timeout 5`, `xargs`, `busybox`), `find -exec` payloads, `sh -c` / `bash -lc` payloads (including clustered flags) and `$(…)` / backtick substitutions.
 
 | Category | Blocked Patterns |
 |----------|-----------------|
-| Destructive FS | `rm -rf /`, `rm -rf ~`, `rm -rf *`, `mkfs`, `dd if=`, `> /dev/sd*` |
+| Destructive FS | `rm -rf /`, `rm -rf /etc`, `rm -rf $HOME`, `rm -rf /*`, `rm -rf /usr/lib`, `rm -rf //etc`, `mkfs`, `dd if=`, `> /dev/sd*` |
 | Privilege escalation | `sudo`, `su -`, `chmod -R 777 /`, `chown -R` |
-| Code injection | `eval`, `exec`, `curl\|sh`, `wget\|sh` |
+| Code injection | `eval`, `exec` as the invoked command, `curl\|sh`, `wget\|sh`, `$(rm -rf /)` |
 | Fork bomb | `:(){ :\|:& };:` |
 | Git destructive | `git push --force`, `git reset --hard`, `git clean -f` |
 | System control | `shutdown`, `reboot`, `halt`, `kill -9 1` |
+
+`rm` is judged by **what it deletes**, not by how the path is spelled. Refused: the root; the system directory names themselves; trees that cannot be reinstalled (`/usr/bin`, `/usr/lib*`, `/lib*`, `/boot`, `/dev`, `/proc`, `/sys`, `/var/lib`, `/etc/ssh`, …); `$HOME`, `~` and anything under `/home/` or `/root/`; `.`, `..` and any target made only of parent segments; and wildcard, glob or brace spellings that resolve to those (`/*`, `/et?`, `/{etc,usr}`). Allowed: concrete paths elsewhere, which is ordinary cleanup — `rm -rf /tmp/build`, `/srv/app/cache`, `/var/tmp/cache`, `/etc/nginx/cache`, `/var/log/app/*`, `./build`. Recursive-and-force is required for a refusal, and the flags may be clustered, separated, long-form or an unambiguous GNU prefix (`rm --rec -f`). Text inside single quotes is not a command, so `echo 'rm -rf /'` runs.
 
 ### Design Rationale
 
@@ -81,7 +83,7 @@ The deny list is based on a survey of security approaches across 6 AI coding CLI
 
 - OS-level sandboxing (use containers or VM isolation at the deployment level)
 - Interactive approval prompts (MCP protocol limitation)
-- AST-based shell parsing (regex-based for v1)
+- AST-based shell parsing: `rm`, `eval` and `exec` are judged structurally, the rest by pattern. Targets that only a shell can resolve are out of reach — relative spellings of a protected tree (`rm -rf usr/lib`, since the working directory is unknown) and values that exist only at runtime (`rm -rf "$VAR"`, `for d in /; do rm -rf $d; done`).
 
 ## MCP Server Endpoint
 
