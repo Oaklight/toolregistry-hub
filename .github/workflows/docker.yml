@@ -52,23 +52,26 @@ jobs:
         run: |
           VERSION="${{ steps.meta.outputs.version }}"
           if [ "${{ inputs.testpypi }}" = "true" ]; then
-            PYPI_URL="https://test.pypi.org/pypi/toolregistry-hub/$VERSION/json"
+            SIMPLE_URL="https://test.pypi.org/simple/toolregistry-hub/"
             LABEL="Test PyPI"
           else
-            PYPI_URL="https://pypi.org/pypi/toolregistry-hub/$VERSION/json"
+            SIMPLE_URL="https://pypi.org/simple/toolregistry-hub/"
             LABEL="PyPI"
           fi
+          # Poll the simple index, not the JSON API: pip resolves against
+          # /simple/, and its CDN cache can lag the JSON endpoint by more
+          # than a minute.  Release 0.11.0 failed here because the JSON API
+          # answered 200 while pip still saw only 0.10.0.
           echo "Waiting for toolregistry-hub==$VERSION on $LABEL..."
           for i in $(seq 1 30); do
-            CODE=$(curl -fsS -o /dev/null -w "%{http_code}" "$PYPI_URL" || true)
-            if [ "$CODE" = "200" ]; then
+            if curl -fsS "$SIMPLE_URL" | grep -q "toolregistry_hub-${VERSION}-"; then
               echo "Found on $LABEL (attempt $i)"
               exit 0
             fi
             echo "  Attempt $i/30: waiting 20s..."
             sleep 20
           done
-          echo "::error::Not found on $LABEL after 10 minutes"
+          echo "::error::toolregistry_hub-${VERSION} not on $LABEL after 10 minutes"
           exit 1
 
       - uses: docker/setup-qemu-action@v3
