@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **The bare install now pulls the core library** (#226, #225): `[project].dependencies` was empty, so `pip install toolregistry-hub` installed nothing that `toolregistry_hub` imports — every tool subclasses `toolregistry.Tool` and `file_search` imports `toolregistry.parameter_models`. The core library only arrived through the `server` extras, which is why server deployments worked and the documented library quickstart (`pip install toolregistry-hub`, then `from toolregistry_hub import Calculator`) failed with `ModuleNotFoundError`. `toolregistry>=0.19.0,<1.0.0` is now a runtime dependency, matching the floor `toolregistry-server>=0.7.0` already required; a packaging test asserts it stays there. This affects every published version, including 0.11.0.
+
 ## [0.12.0] - 2026-10-23
 
 ### Changed
