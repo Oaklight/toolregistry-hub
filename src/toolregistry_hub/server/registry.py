@@ -50,18 +50,16 @@ _DEFAULT_TOOLS: list[PythonSource] = [
     PythonSource(
         class_path="toolregistry_hub.datetime_utils.DateTime", namespace="datetime"
     ),
-    PythonSource(class_path="toolregistry_hub.fetch.Fetch", namespace="web/fetch"),
+    PythonSource(class_path="toolregistry_hub.fetch.Fetch", namespace="web"),
     PythonSource(class_path="toolregistry_hub.file_ops.FileOps", namespace="file_ops"),
     PythonSource(
         class_path="toolregistry_hub.file_reader.FileReader", namespace="reader"
     ),
     PythonSource(
         class_path="toolregistry_hub.file_search.FileSearch",
-        namespace="fs/file_search",
+        namespace="fs",
     ),
-    PythonSource(
-        class_path="toolregistry_hub.path_info.PathInfo", namespace="fs/path_info"
-    ),
+    PythonSource(class_path="toolregistry_hub.path_info.PathInfo", namespace="fs"),
     PythonSource(class_path="toolregistry_hub.think_tool.ThinkTool", namespace="think"),
     PythonSource(
         class_path="toolregistry_hub.todo_list.TodoList", namespace="todolist"
@@ -73,7 +71,7 @@ _DEFAULT_TOOLS: list[PythonSource] = [
     PythonSource(class_path="toolregistry_hub.weather.Weather", namespace="weather"),
     PythonSource(
         class_path="toolregistry_hub.websearch.websearch_unified.WebSearch",
-        namespace="web/websearch",
+        namespace="web",
     ),
     PythonSource(
         class_path="toolregistry_hub.academics.academic_search.AcademicSearch",
@@ -131,19 +129,13 @@ _TOOL_METADATA: dict[str, dict] = {
             "write": {"idempotent_hint": True, "title": "Write File"},
         },
     },
-    "web/fetch": {
-        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
-        "read_only_hint": True,
-        "idempotent_hint": True,
-        "open_world_hint": True,
-        "methods": {"fetch_content": {"title": "Fetch URL Content"}},
-    },
-    "web/websearch": {
+    "web": {
         "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
         "read_only_hint": True,
         "idempotent_hint": False,
         "open_world_hint": True,
         "methods": {
+            "fetch_content": {"idempotent_hint": True, "title": "Fetch URL Content"},
             "list_engines": {
                 "defer": True,
                 "idempotent_hint": True,
@@ -160,14 +152,7 @@ _TOOL_METADATA: dict[str, dict] = {
         "idempotent_hint": True,
         "open_world_hint": False,
     },
-    "fs/file_search": {
-        "defer": True,
-        "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
-        "read_only_hint": True,
-        "idempotent_hint": True,
-        "open_world_hint": False,
-    },
-    "fs/path_info": {
+    "fs": {
         "defer": True,
         "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
         "read_only_hint": True,

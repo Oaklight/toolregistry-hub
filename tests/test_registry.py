@@ -1,6 +1,7 @@
 """Test central registry functionality."""
 
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -65,9 +66,7 @@ class TestBuildRegistry(unittest.TestCase):
 
             reg = build_registry()
 
-            brave_tools = [
-                t for t in reg._tools if reg._tools[t].namespace == "web/brave_search"
-            ]
+            brave_tools = [t for t in reg._tools if reg._tools[t].namespace == "brave"]
             for tool_name in brave_tools:
                 self.assertFalse(
                     reg.is_enabled(tool_name),
@@ -75,7 +74,7 @@ class TestBuildRegistry(unittest.TestCase):
                 )
 
             searxng_tools = [
-                t for t in reg._tools if reg._tools[t].namespace == "web/searxng_search"
+                t for t in reg._tools if reg._tools[t].namespace == "searxng"
             ]
             for tool_name in searxng_tools:
                 self.assertFalse(
@@ -88,9 +87,7 @@ class TestBuildRegistry(unittest.TestCase):
         with patch.dict(os.environ, {"BRAVE_API_KEY": "test-key-for-brave"}):
             reg = build_registry()
 
-            ws_tools = [
-                t for t in reg._tools if reg._tools[t].namespace == "web/websearch"
-            ]
+            ws_tools = [t for t in reg._tools if reg._tools[t].namespace == "web"]
             self.assertGreater(len(ws_tools), 0)
             for tool_name in ws_tools:
                 self.assertTrue(
@@ -104,12 +101,12 @@ class TestBuildRegistry(unittest.TestCase):
             reg = build_registry()
 
             for ns in (
-                "web/brave_search",
-                "web/tavily_search",
-                "web/searxng_search",
-                "web/brightdata_search",
-                "web/scrapeless_search",
-                "web/serper_search",
+                "brave",
+                "tavily",
+                "searxng",
+                "brightdata",
+                "scrapeless",
+                "serper",
             ):
                 tools = [t for t in reg._tools if reg._tools[t].namespace == ns]
                 self.assertEqual(
@@ -155,8 +152,8 @@ tools:
             }
             self.assertIn("calculator", namespaces)
             self.assertIn("datetime", namespaces)
-            self.assertNotIn("web/fetch", namespaces)
-            self.assertNotIn("web/brave_search", namespaces)
+            self.assertNotIn("web", namespaces)
+            self.assertNotIn("brave", namespaces)
         finally:
             os.unlink(config_path)
 
@@ -174,7 +171,7 @@ tools:
             }
             self.assertIn("calculator", namespaces)
             self.assertIn("datetime", namespaces)
-            self.assertIn("web/fetch", namespaces)
+            self.assertIn("web", namespaces)
         finally:
             os.unlink(config_path)
 
@@ -246,8 +243,8 @@ class TestToolMetadataAndDiscovery(unittest.TestCase):
         primary_tools = {
             "datetime-now",
             "think-think",
-            "web/fetch-fetch_content",
-            "web/websearch-search",
+            "web-fetch_content",
+            "web-search",
         }
         for name in primary_tools:
             if name in reg._tools:
@@ -289,6 +286,52 @@ class TestToolMetadataAndDiscovery(unittest.TestCase):
         """Test that enable_think=False deactivates think-augmented calling."""
         reg = build_registry(enable_discovery=False, enable_think=False)
         self.assertFalse(reg._think_augment)
+
+
+class TestClientSafeNames(unittest.TestCase):
+    """Tool names must survive provider name constraints (#186)."""
+
+    # OpenAI/Anthropic function names and the MCP "Tool Names" recommendation.
+    CLIENT_SAFE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+
+    def test_every_registered_name_is_client_safe_and_unique(self):
+        with patch.dict(os.environ, {}, clear=True):
+            reg = build_registry()
+        names = reg.list_tools(include_disabled=True)
+        self.assertEqual(names, list(dict.fromkeys(names)))
+        unsafe = [n for n in names if not self.CLIENT_SAFE.match(n)]
+        self.assertEqual(unsafe, [])
+
+    def test_no_namespace_contains_a_slash(self):
+        for source in registry_module._DEFAULT_TOOLS:
+            self.assertNotIn("/", source.namespace or "")
+
+    def test_renamed_tools_keep_their_meaning(self):
+        with patch.dict(os.environ, {}, clear=True):
+            reg = build_registry()
+        names = set(reg.list_tools(include_disabled=True))
+        self.assertLessEqual(
+            {
+                "web-search",
+                "web-list_engines",
+                "web-fetch_content",
+                "fs-glob",
+                "fs-grep",
+                "fs-tree",
+                "fs-info",
+            },
+            names,
+        )
+
+    def test_shipped_config_namespaces_are_flat(self):
+        config = (
+            os.path.join(os.path.dirname(__file__), "..", "src", "toolregistry_hub")
+            + "/data/tools.yaml"
+        )
+        with open(config, encoding="utf-8") as handle:
+            text = handle.read()
+        self.assertNotIn("namespace: web/", text)
+        self.assertNotIn("namespace: fs/", text)
 
 
 class TestGetRegistry(unittest.TestCase):
@@ -351,10 +394,10 @@ class TestToolAnnotations(unittest.TestCase):
         for name in (
             "datetime-now",
             "weather-get_current",
-            "web/websearch-search",
+            "web-search",
             "academics-search",
             "reader-read",
-            "fs/file_search-grep",
+            "fs-grep",
             "think-think",
             "calculator-evaluate",
         ):
@@ -386,7 +429,7 @@ class TestToolAnnotations(unittest.TestCase):
         self.assertIs(cron_delete["destructive_hint"], True)
 
     def test_open_world_hint(self):
-        for name in ("web/websearch-search", "weather-get_current", "bash-execute"):
+        for name in ("web-search", "weather-get_current", "bash-execute"):
             self.assertIs(
                 self._tool(name).execution_hints["open_world_hint"], True, name
             )
@@ -395,7 +438,7 @@ class TestToolAnnotations(unittest.TestCase):
             "file_ops-read",
             "cron-list",
             # Enumerating configured engines is a local read.
-            "web/websearch-list_engines",
+            "web-list_engines",
             "academics-list_engines",
         ):
             self.assertIs(
@@ -409,9 +452,7 @@ class TestToolAnnotations(unittest.TestCase):
         self.assertEqual(
             self._tool("bash-execute").metadata.title, "Execute Shell Command"
         )
-        self.assertEqual(
-            self._tool("web/websearch-search").metadata.title, "Web Search"
-        )
+        self.assertEqual(self._tool("web-search").metadata.title, "Web Search")
 
 
 if __name__ == "__main__":
