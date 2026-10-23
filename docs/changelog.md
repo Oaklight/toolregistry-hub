@@ -14,6 +14,8 @@ author: Oaklight
 
 ## [未发布]
 
+## [0.12.0] - 2026-10-23
+
 ### 变更
 
 - **工具名现在对客户端安全且风格统一**（#186，**破坏性变更**）：命名空间不再包含 `/`，冗余前缀也已去除。`web/websearch-search` → `web-search`、`web/websearch-list_engines` → `web-list_engines`、`web/fetch-fetch_content` → `web-fetch_content`、`fs/file_search-*` → `fs-*`、`fs/path_info-info` → `fs-info`；各搜索服务分别注册为 `brave-search`、`tavily-search`、`searxng-search`、`brightdata-search`、`scrapeless-search` 与 `serper-search`。所有名称现在都匹配 `[A-Za-z0-9_.-]{1,64}`，客户端可原样放入各家 API 的函数名字段。HTTP 路径随之调整（`/tools/fs/glob`、`/tools/web/search`）。新增回归测试，断言默认注册表与随包发布的 `data/tools.yaml` 只会注册客户端安全且不重复的名称。请同步更新提示词、已保存的工具名以及按命名空间配置的条目。
