@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-23
+
 ### Added
 
 - **`FileSearch` honours `.gitignore`** (#73): `glob()`, `grep()` and `tree()` skip ignored paths by default when the search root is inside a git repository, so results no longer fill up with `node_modules/`, `__pycache__/` and build artifacts. Rules are read hierarchically (root file first, nested files on top) by a new dependency-free `toolregistry_hub.gitignore` matcher supporting negation, directory-only rules, anchoring, `**`, `?` and character classes; git's rule that a path under an ignored directory cannot be re-included is preserved. A new `respect_gitignore` parameter (`None` = follow the repository, `True` = always apply rules found under the root, `False` = off) overrides the default on all three tools, and an explicitly named file passed to `grep()` is always searched.
@@ -32,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **Server floor is `toolregistry-server>=0.7.0`** (#187): the server now encodes dataclass tool results structurally, so `web/websearch-search` and `academics-search` return real JSON objects (`title`, `url`, `content`, `score`, …) instead of Python `repr()` strings inside the text block. No hub API change.
 - **A developer's `.env` no longer changes which tests run** (#210): `tests/websearch/test_brightdata_engines.py` called `load_dotenv()` at module scope, so every test collected after it inherited the keys and the `skipif` guards in unrelated modules stopped skipping — with a `.env` present, the live-call modules hit real APIs and failed on quota or response shape, and without one they skipped. The call now sits under `if __name__ == "__main__":`, `test_debug_google_apis.py` and `test_serper_integration.py` carry `pytestmark = pytest.mark.integration` and are deselected by default (`pytest -m integration` to run them), and `tests/test_no_implicit_dotenv.py` fails if a new module reintroduces an import-scope `load_dotenv()`.
 - **Vendored zerodep modules are flat again, with stale duplicates removed**: `soup` and `readability` existed both as single modules and as package directories (`soup.py` + `soup/soup.py`), and `cdp`/`websocket` were package-only, so `zerodep outdated` could not see them. Everything is re-vendored with `zerodep add` in its default (flat) layout, which is what the CLI and the update workflow expect; the package copies are gone and `zerodep outdated` now reports all nine modules. Along the way `soup` goes 0.6.0 → 0.8.1 and `httpclient` 0.5.0 → 0.5.1. No hub code changes.
 - **`bash-execute` timeouts are errors** (#188, #190): `BashTool.execute()` now raises `CommandTimeoutError` instead of returning `{"timed_out": true, "exit_code": -1}` as a successful result, so MCP reports `isError: true` and the model sees why the command produced no output. The exception carries the partial stdout/stderr written before the kill. The timeout also kills the whole process tree now — previously only the `shell=True` child died and background children such as `sleep 300 &` kept running. Behaviour comes from `bashtool` 0.3.0, which this release pins.
