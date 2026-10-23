@@ -14,6 +14,10 @@ author: Oaklight
 
 ## [未发布]
 
+### 修复
+
+- **裸安装现在会一并安装核心库**（#226、#225）：`[project].dependencies` 原本为空，`pip install toolregistry-hub` 不会安装 `toolregistry_hub` 真正 import 的任何东西——所有工具类都继承 `toolregistry.Tool`，`file_search` 还依赖 `toolregistry.parameter_models`。核心库此前只通过 `server` extras 间接到位，所以服务器部署正常，而文档中的库模式快速开始（`pip install toolregistry-hub` 后 `from toolregistry_hub import Calculator`）会报 `ModuleNotFoundError`。现在 `toolregistry>=0.19.0,<1.0.0` 是运行时依赖，与 `toolregistry-server>=0.7.0` 已有的下限一致，并新增打包测试防止回退。该问题影响所有已发布版本，包括 0.11.0。
+
 ## [0.12.0] - 2026-10-23
 
 ### 变更
