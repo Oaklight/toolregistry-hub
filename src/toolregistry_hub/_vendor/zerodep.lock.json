@@ -1,0 +1,82 @@
+{
+  "generated_by": "zerodep 2026.10.23.1",
+  "lock_version": 1,
+  "modules": {
+    "cdp": {
+      "files": {
+        "cdp.py": "6518b9c9582ba8fa109f8fd3608853647a0d7b8f1754f2888732183d3271b5cb"
+      },
+      "requested": true,
+      "upstream_hash": "a95910894a2ce329debb14aa8cad904e2f7a957ae23b776204397812b71c9796",
+      "version": "0.1.1"
+    },
+    "httpclient": {
+      "files": {
+        "httpclient.py": "01d2af5ebd00d272f506e61e213d8997e66652498cbbe0bde947f31ceee3872e"
+      },
+      "requested": true,
+      "upstream_hash": "0ca30195bf729aea7be56c40868f254904032f3755d74d3f8044f57e234180e2",
+      "version": "0.6.1"
+    },
+    "readability": {
+      "files": {
+        "readability.py": "4b8fe3c305a10af660610dfc059a17e821d4fbe0bab03b0e2dec1f6b350bf52c"
+      },
+      "requested": true,
+      "upstream_hash": "f37bcf6832e2de7735d901bace73c69cd5ef0a6f1b8b9d8837eac47bad425b3a",
+      "version": "0.2.1"
+    },
+    "scheduler": {
+      "files": {
+        "scheduler.py": "38a6cfdab64cb0040afc93cdcb6a8cb2335e00abb07b30ab5cd8428d149414d7"
+      },
+      "requested": true,
+      "upstream_hash": "fe2d6d5a1037a99e48102f5e5d983e706decca2b1616de31d804d9ef333752ea",
+      "version": "0.3.1"
+    },
+    "soup": {
+      "files": {
+        "soup.py": "abc68d2e93fe1a3efe57bc183a11ca5b92069aa786471e43c1cdb21d4a79c8a7"
+      },
+      "requested": true,
+      "upstream_hash": "8ac7c2ab8fd47210c5f889cbe9621af7c83d808f6888ccfcf99c73b22b54d001",
+      "version": "0.9.0"
+    },
+    "structlog": {
+      "files": {
+        "structlog.py": "6340d09bd07480fc691a61a64b323ba8d736c2c8fa5596ae3b455ac3fffc9d93"
+      },
+      "requested": true,
+      "upstream_hash": "d2616b1a69fe42b1367d413888c69dd2026c00e58c36e1e83acda77fd3633ed6",
+      "version": "0.3.0"
+    },
+    "useragent": {
+      "files": {
+        "useragent.py": "979d6e48e829b9fbc7e1c786985391b9ceaedbeb542ded33f1ab0e03d6b18d73"
+      },
+      "requested": true,
+      "upstream_hash": "a2cfc9d3b07bcf670a94477df013f4cc4006d422539b3e7750c479435e6759bd",
+      "version": "0.1.0"
+    },
+    "validate": {
+      "files": {
+        "validate.py": "d1d08edb3fd7b0441ead44b8a75607a7914f984a83ec80c16d94dcf5aabe0e15"
+      },
+      "requested": true,
+      "upstream_hash": "77e8f097941779d6231dfe5466aa5ded8e6d764a5982b3c8d0a8d63a5b7e2713",
+      "version": "0.7.1"
+    },
+    "websocket": {
+      "files": {
+        "websocket.py": "cc68bd3089a0b449814e363a5015dc031565d6e5e82c52db2f3752919f9b5453"
+      },
+      "requested": true,
+      "upstream_hash": "4c95286e6bb0fcbbfa7bef5660be9b5e47a3c9c25a6a7247098cb48b2668c765",
+      "version": "0.1.0"
+    }
+  },
+  "source": {
+    "ref": "v2026.10.23.1",
+    "repo": "Oaklight/zerodep"
+  }
+}
