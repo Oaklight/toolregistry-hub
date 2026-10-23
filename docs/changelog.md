@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-23
+
 ### Changed
 
 - **Tool names are client-safe and consistent** (#186, **breaking**): namespaces no longer contain `/` and the redundant prefixes are gone. `web/websearch-search` → `web-search`, `web/websearch-list_engines` → `web-list_engines`, `web/fetch-fetch_content` → `web-fetch_content`, `fs/file_search-*` → `fs-*`, `fs/path_info-info` → `fs-info`; the individual providers register as `brave-search`, `tavily-search`, `searxng-search`, `brightdata-search`, `scrapeless-search` and `serper-search`. Every name now matches `[A-Za-z0-9_.-]{1,64}`, so a client can forward it to a provider's function-name field unchanged. HTTP paths follow the same scheme (`/tools/fs/glob`, `/tools/web/search`). A regression test asserts that the default registry and the shipped `data/tools.yaml` only ever register client-safe, unique names. Update prompts, saved tool names and per-namespace configs.
