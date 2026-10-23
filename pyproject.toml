@@ -33,7 +33,13 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = []
+dependencies = [
+    # Every tool class subclasses toolregistry.Tool and the reader/search
+    # modules import toolregistry.parameter_models, so the core library is a
+    # hard runtime dependency of the bare install, not just of the server
+    # extras.
+    "toolregistry>=0.19.0,<1.0.0",
+]
 
 [project.optional-dependencies]
 dev = [
