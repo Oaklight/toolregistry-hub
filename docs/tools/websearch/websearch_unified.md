@@ -162,9 +162,9 @@ ws = WebSearch()
 
 ## Server Mode
 
-In server mode, `WebSearch` is registered at the `web/websearch` namespace. The 6 individual provider tools are marked as deferred - discoverable via `discover_tools` but not included in the initial schema. This reduces schema size while keeping all providers accessible.
+In server mode, `WebSearch` is registered at the `web` namespace. The 6 individual provider tools are marked as deferred - discoverable via `discover_tools` but not included in the initial schema. This reduces schema size while keeping all providers accessible.
 
 ```
-POST /tools/web/websearch/search
-POST /tools/web/websearch/list_engines
+POST /tools/web/search
+POST /tools/web/list_engines
 ```

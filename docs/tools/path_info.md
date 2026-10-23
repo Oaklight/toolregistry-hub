@@ -54,7 +54,7 @@ PathInfo consolidates five separate metadata queries (`exists`, `is_file`, `is_d
 ## MCP Server Endpoint
 
 ```
-POST /tools/fs/path_info/info
+POST /tools/fs/info
 ```
 
 **Parameters:**

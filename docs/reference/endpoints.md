@@ -57,34 +57,34 @@ When running in OpenAPI mode, the server exposes the following endpoints. Intera
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/tools/fs/file_search/glob` | Find files matching a glob pattern |
-| POST | `/tools/fs/file_search/grep` | Search file contents using regex |
-| POST | `/tools/fs/file_search/tree` | Display directory tree structure |
+| POST | `/tools/fs/glob` | Find files matching a glob pattern |
+| POST | `/tools/fs/grep` | Search file contents using regex |
+| POST | `/tools/fs/tree` | Display directory tree structure |
 
 ## Path Info
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/tools/fs/path_info/info` | Get file/directory metadata |
+| POST | `/tools/fs/info` | Get file/directory metadata |
 
 ## Web Fetch
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/tools/web/fetch/fetch_content` | Extract readable content from a URL |
+| POST | `/tools/web/fetch_content` | Extract readable content from a URL |
 
 ## Web Search
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/tools/web/websearch/search` | Unified search (auto-selects engine) |
-| POST | `/tools/web/websearch/list_engines` | List available engines and their status |
-| POST | `/tools/web/brave_search/search` | Brave Search *(deferred)* |
-| POST | `/tools/web/tavily_search/search` | Tavily Search *(deferred)* |
-| POST | `/tools/web/searxng_search/search` | SearXNG Search *(deferred)* |
-| POST | `/tools/web/scrapeless_search/search` | Scrapeless Search *(deferred)* |
-| POST | `/tools/web/brightdata_search/search` | BrightData Search *(deferred)* |
-| POST | `/tools/web/serper_search/search` | Serper Search *(deferred)* |
+| POST | `/tools/web/search` | Unified search (auto-selects engine) |
+| POST | `/tools/web/list_engines` | List available engines and their status |
+| POST | `/tools/brave/search` | Brave Search *(deferred)* |
+| POST | `/tools/tavily/search` | Tavily Search *(deferred)* |
+| POST | `/tools/searxng/search` | SearXNG Search *(deferred)* |
+| POST | `/tools/scrapeless/search` | Scrapeless Search *(deferred)* |
+| POST | `/tools/brightdata/search` | BrightData Search *(deferred)* |
+| POST | `/tools/serper/search` | Serper Search *(deferred)* |
 
 !!! note "Deferred Tools"
     Endpoints marked *(deferred)* are registered but hidden by default when tool discovery is enabled. They become visible through the `discover_tools` tool or when tool discovery is disabled.

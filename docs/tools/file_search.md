@@ -116,9 +116,9 @@ FileSearch.glob("**/*.py", root=".", respect_gitignore=False)
 ## MCP Server Endpoints
 
 ```
-POST /tools/fs/file_search/glob
-POST /tools/fs/file_search/grep
-POST /tools/fs/file_search/tree
+POST /tools/fs/glob
+POST /tools/fs/grep
+POST /tools/fs/tree
 ```
 
 ## API Reference
