@@ -57,34 +57,34 @@ author: Oaklight
 
 | 方法 | 路径 | 描述 |
 |------|------|------|
-| POST | `/tools/fs/file_search/glob` | 按 glob 模式查找文件 |
-| POST | `/tools/fs/file_search/grep` | 使用正则表达式搜索文件内容 |
-| POST | `/tools/fs/file_search/tree` | 显示目录树结构 |
+| POST | `/tools/fs/glob` | 按 glob 模式查找文件 |
+| POST | `/tools/fs/grep` | 使用正则表达式搜索文件内容 |
+| POST | `/tools/fs/tree` | 显示目录树结构 |
 
 ## 路径信息
 
 | 方法 | 路径 | 描述 |
 |------|------|------|
-| POST | `/tools/fs/path_info/info` | 获取文件/目录元数据 |
+| POST | `/tools/fs/info` | 获取文件/目录元数据 |
 
 ## 网页抓取
 
 | 方法 | 路径 | 描述 |
 |------|------|------|
-| POST | `/tools/web/fetch/fetch_content` | 从 URL 提取可读内容 |
+| POST | `/tools/web/fetch_content` | 从 URL 提取可读内容 |
 
 ## 网络搜索
 
 | 方法 | 路径 | 描述 |
 |------|------|------|
-| POST | `/tools/web/websearch/search` | 统一搜索（自动选择引擎） |
-| POST | `/tools/web/websearch/list_engines` | 列出可用引擎及其状态 |
-| POST | `/tools/web/brave_search/search` | Brave 搜索 *（延迟加载）* |
-| POST | `/tools/web/tavily_search/search` | Tavily 搜索 *（延迟加载）* |
-| POST | `/tools/web/searxng_search/search` | SearXNG 搜索 *（延迟加载）* |
-| POST | `/tools/web/scrapeless_search/search` | Scrapeless 搜索 *（延迟加载）* |
-| POST | `/tools/web/brightdata_search/search` | BrightData 搜索 *（延迟加载）* |
-| POST | `/tools/web/serper_search/search` | Serper 搜索 *（延迟加载）* |
+| POST | `/tools/web/search` | 统一搜索（自动选择引擎） |
+| POST | `/tools/web/list_engines` | 列出可用引擎及其状态 |
+| POST | `/tools/brave/search` | Brave 搜索 *（延迟加载）* |
+| POST | `/tools/tavily/search` | Tavily 搜索 *（延迟加载）* |
+| POST | `/tools/searxng/search` | SearXNG 搜索 *（延迟加载）* |
+| POST | `/tools/scrapeless/search` | Scrapeless 搜索 *（延迟加载）* |
+| POST | `/tools/brightdata/search` | BrightData 搜索 *（延迟加载）* |
+| POST | `/tools/serper/search` | Serper 搜索 *（延迟加载）* |
 
 !!! note "延迟加载工具"
     标记为 *（延迟加载）* 的端点已注册但默认隐藏。可通过 `discover_tools` 工具发现，或在禁用工具发现功能时可见。

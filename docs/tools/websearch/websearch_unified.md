@@ -162,9 +162,9 @@ ws = WebSearch()
 
 ## 服务端模式
 
-在服务端模式下，`WebSearch` 注册在 `web/websearch` 命名空间。6 个独立引擎工具标记为 deferred —— 可通过 `discover_tools` 发现，但不包含在初始 schema 中。这减少了 schema 大小，同时保持所有引擎可访问。
+在服务端模式下，`WebSearch` 注册在 `web` 命名空间。6 个独立引擎工具标记为 deferred —— 可通过 `discover_tools` 发现，但不包含在初始 schema 中。这减少了 schema 大小，同时保持所有引擎可访问。
 
 ```
-POST /tools/web/websearch/search
-POST /tools/web/websearch/list_engines
+POST /tools/web/search
+POST /tools/web/list_engines
 ```

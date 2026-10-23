@@ -54,7 +54,7 @@ PathInfo 用单次调用返回多个元数据字段（存在性、类型、大�
 ## MCP 服务端点
 
 ```
-POST /tools/fs/path_info/info
+POST /tools/fs/info
 ```
 
 **参数：**
