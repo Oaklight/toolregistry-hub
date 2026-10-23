@@ -14,17 +14,17 @@
   "tools": [
     {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
     {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"},
-    {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web/fetch"},
+    {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web"},
     {"class": "toolregistry_hub.file_ops.FileOps", "namespace": "file_ops"},
     {"class": "toolregistry_hub.think_tool.ThinkTool", "namespace": "think"},
     {"class": "toolregistry_hub.todo_list.TodoList", "namespace": "todolist"},
     {"class": "toolregistry_hub.unit_converter.UnitConverter", "namespace": "unit_converter"},
-    {"class": "toolregistry_hub.websearch.websearch_brave.BraveSearch", "namespace": "web/brave_search"},
-    {"class": "toolregistry_hub.websearch.websearch_tavily.TavilySearch", "namespace": "web/tavily_search"},
-    {"class": "toolregistry_hub.websearch.websearch_searxng.SearXNGSearch", "namespace": "web/searxng_search"},
-    {"class": "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch", "namespace": "web/brightdata_search"},
-    {"class": "toolregistry_hub.websearch.websearch_scrapeless.ScrapelessSearch", "namespace": "web/scrapeless_search"},
-    {"class": "toolregistry_hub.websearch.websearch_serper.SerperSearch", "namespace": "web/serper_search"}
+    {"class": "toolregistry_hub.websearch.websearch_brave.BraveSearch", "namespace": "brave"},
+    {"class": "toolregistry_hub.websearch.websearch_tavily.TavilySearch", "namespace": "tavily"},
+    {"class": "toolregistry_hub.websearch.websearch_searxng.SearXNGSearch", "namespace": "searxng"},
+    {"class": "toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch", "namespace": "brightdata"},
+    {"class": "toolregistry_hub.websearch.websearch_scrapeless.ScrapelessSearch", "namespace": "scrapeless"},
+    {"class": "toolregistry_hub.websearch.websearch_serper.SerperSearch", "namespace": "serper"}
   ],
 
   // Mode: "denylist" (default) or "allowlist"

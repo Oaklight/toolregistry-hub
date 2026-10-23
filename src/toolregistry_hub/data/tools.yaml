@@ -35,7 +35,7 @@ tools:
 
   - type: python
     class: toolregistry_hub.fetch.Fetch
-    namespace: web/fetch
+    namespace: web
     tags: [network, read_only]
 
   - type: python
@@ -50,12 +50,12 @@ tools:
 
   - type: python
     class: toolregistry_hub.file_search.FileSearch
-    namespace: fs/file_search
+    namespace: fs
     tags: [file_system, read_only]
 
   - type: python
     class: toolregistry_hub.path_info.PathInfo
-    namespace: fs/path_info
+    namespace: fs
     tags: [file_system, read_only]
 
   - type: python
@@ -75,35 +75,35 @@ tools:
 
   - type: python
     class: toolregistry_hub.websearch.websearch_unified.WebSearch
-    namespace: web/websearch
+    namespace: web
     tags: [network, read_only]
 
   - type: python
     class: toolregistry_hub.websearch.websearch_brave.BraveSearch
-    namespace: web/brave_search
+    namespace: brave
     tags: [network, read_only]
 
   - type: python
     class: toolregistry_hub.websearch.websearch_tavily.TavilySearch
-    namespace: web/tavily_search
+    namespace: tavily
     tags: [network, read_only]
 
   - type: python
     class: toolregistry_hub.websearch.websearch_searxng.SearXNGSearch
-    namespace: web/searxng_search
+    namespace: searxng
     tags: [network, read_only]
 
   - type: python
     class: toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch
-    namespace: web/brightdata_search
+    namespace: brightdata
     tags: [network, read_only]
 
   - type: python
     class: toolregistry_hub.websearch.websearch_scrapeless.ScrapelessSearch
-    namespace: web/scrapeless_search
+    namespace: scrapeless
     tags: [network, read_only]
 
   - type: python
     class: toolregistry_hub.websearch.websearch_serper.SerperSearch
-    namespace: web/serper_search
+    namespace: serper
     tags: [network, read_only]

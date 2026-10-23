@@ -69,9 +69,9 @@ def test_route_table_publishes_the_declared_schema(route_table, registry):
 def test_array_returning_tools_declare_no_schema(route_table):
     """MCP structuredContent is an object; arrays are deliberately excluded."""
     for name in (
-        "fs/file_search-glob",
-        "fs/file_search-grep",
-        "web/websearch-search",
+        "fs-glob",
+        "fs-grep",
+        "web-search",
         "academics-search",
     ):
         route = route_table.get_route(name)
@@ -88,14 +88,14 @@ def _assert_matches(result, schema):
 def test_path_info_result_matches_schema(tmp_path):
     path = tmp_path / "probe.txt"
     path.write_text("hello")
-    _assert_matches(PathInfo.info(str(path)), OUTPUT_SCHEMAS["fs/path_info"]["info"])
+    _assert_matches(PathInfo.info(str(path)), OUTPUT_SCHEMAS["fs"]["info"])
 
 
 def test_path_info_missing_result_matches_schema(tmp_path):
     """The missing-path shape is a subset, which is why nothing is required."""
     result = PathInfo.info(str(tmp_path / "nope.txt"))
     assert result == {"exists": False}
-    _assert_matches(result, OUTPUT_SCHEMAS["fs/path_info"]["info"])
+    _assert_matches(result, OUTPUT_SCHEMAS["fs"]["info"])
 
 
 def test_file_ops_results_match_schemas(tmp_path):

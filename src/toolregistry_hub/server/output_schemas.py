@@ -6,14 +6,14 @@ adapter then publishes ``outputSchema`` in ``tools/list`` and returns
 ``structuredContent`` alongside the text block for dict/list results.
 
 Only tools whose result is a **dict with stable keys** are declared here.
-Array-returning tools (``fs/file_search-glob``, ``fs/file_search-grep``,
-``web/websearch-search``) are intentionally left out: MCP's
+Array-returning tools (``fs-glob``, ``fs-grep``,
+``web-search``) are intentionally left out: MCP's
 ``structuredContent`` is an object, so an array result has nothing to
 populate it with.
 
 The schemas describe the keys each tool *always* emits.  They deliberately
 declare no ``required`` list and set ``additionalProperties: true`` so a tool
-that omits a field (``fs/path_info-info`` returns only ``{"exists": false}``
+that omits a field (``fs-info`` returns only ``{"exists": false}``
 for a missing path) or grows a new one never contradicts its published
 schema.  Types are only given where the tool guarantees them; fields whose
 type varies with the upstream API are left untyped.
@@ -161,7 +161,7 @@ OUTPUT_SCHEMAS: dict[str, dict[str, dict[str, Any]]] = {
             "additionalProperties": True,
         },
     },
-    "fs/path_info": {
+    "fs": {
         "info": {
             "type": "object",
             "properties": {
@@ -174,7 +174,7 @@ OUTPUT_SCHEMAS: dict[str, dict[str, dict[str, Any]]] = {
             "additionalProperties": True,
         },
     },
-    "web/fetch": {
+    "web": {
         "fetch_content": {
             "type": "object",
             "properties": {
