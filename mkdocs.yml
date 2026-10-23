@@ -78,8 +78,18 @@ plugins:
           - get-started/installation.md
           - get-started/quickstart.md
           - get-started/server.md
-        Tools:
+        Guides:
+          - guides/library.md
+          - guides/server.md
+          - guides/docker.md
           - tools/index.md
+        Examples:
+          - examples/index.md
+        Reference:
+          - reference/cli.md
+          - reference/endpoints.md
+          - reference/environment.md
+          - reference/helper_functions.md
           - tools/calculator.md
           - tools/unit_converter.md
           - tools/datetime.md
@@ -96,22 +106,16 @@ plugins:
           - tools/websearch/serper.md
           - tools/websearch/tavily.md
           - tools/websearch/searxng.md
+          - tools/websearch/reddit.md
+          - tools/websearch/github.md
           - tools/academic_search.md
           - tools/bash_tool.md
           - tools/cron_tool.md
           - tools/think_tool.md
           - tools/todo_list.md
-        Guides:
-          - guides/library.md
-          - guides/server.md
-          - guides/docker.md
-        Reference:
-          - reference/cli.md
-          - reference/endpoints.md
-          - reference/environment.md
-          - reference/helper_functions.md
           - tools/websearch/base_search.md
           - tools/websearch/search_result.md
+          - tools/websearch/bing.md
         Ecosystem:
           - ecosystem.md
           - https://toolregistry.readthedocs.io/
@@ -172,51 +176,53 @@ nav:
       - Installation: get-started/installation.md
       - Quick Start: get-started/quickstart.md
       - Launch a Server: get-started/server.md
-  - Tools:
-      - tools/index.md
-      - Calculation & Conversion:
-          - Calculator Tools: tools/calculator.md
-          - Unit Converter: tools/unit_converter.md
-      - Date & Time:
-          - Date Time Tools: tools/datetime.md
-      - File Management:
-          - File Operations: tools/file_ops.md
-          - File Reader: tools/file_reader.md
-          - File Search: tools/file_search.md
-          - Path Info: tools/path_info.md
-      - Web Tools:
-          - Web Fetch Tool: tools/websearch/web_fetch_tool.md
-          - Web Search Tools:
-              - tools/websearch/index.md
-              - Unified Web Search: tools/websearch/websearch_unified.md
-              - Brave Search: tools/websearch/brave.md
-              - BrightData Search: tools/websearch/brightdata.md
-              - Scrapeless Search: tools/websearch/scrapeless.md
-              - Serper Search: tools/websearch/serper.md
-              - Tavily Search: tools/websearch/tavily.md
-              - SearXNG Search: tools/websearch/searxng.md
-              - Reddit Search: tools/websearch/reddit.md
-              - GitHub Search: tools/websearch/github.md
-      - Academic:
-          - Academic Search: tools/academic_search.md
-      - Shell:
-          - Bash Tool: tools/bash_tool.md
-      - Scheduling:
-          - Cron Tool: tools/cron_tool.md
-      - Other Tools:
-          - Think Tool: tools/think_tool.md
-          - Todo List Tool: tools/todo_list.md
   - Guides:
       - Library Usage: guides/library.md
       - Server Configuration: guides/server.md
       - Docker Deployment: guides/docker.md
+      - Tools Overview: tools/index.md
+  - Examples:
+      - examples/index.md
   - Reference:
       - CLI: reference/cli.md
       - API Endpoints: reference/endpoints.md
       - Environment Variables: reference/environment.md
       - Helper Functions: reference/helper_functions.md
-      - Web Search Base Class: tools/websearch/base_search.md
-      - Search Result Types: tools/websearch/search_result.md
+      - Tool API:
+          - Calculation & Conversion:
+              - Calculator Tools: tools/calculator.md
+              - Unit Converter: tools/unit_converter.md
+          - Date & Time:
+              - Date Time Tools: tools/datetime.md
+          - File Management:
+              - File Operations: tools/file_ops.md
+              - File Reader: tools/file_reader.md
+              - File Search: tools/file_search.md
+              - Path Info: tools/path_info.md
+          - Web Tools:
+              - Web Fetch Tool: tools/websearch/web_fetch_tool.md
+              - Web Search Tools:
+                  - tools/websearch/index.md
+                  - Unified Web Search: tools/websearch/websearch_unified.md
+                  - Brave Search: tools/websearch/brave.md
+                  - BrightData Search: tools/websearch/brightdata.md
+                  - Scrapeless Search: tools/websearch/scrapeless.md
+                  - Serper Search: tools/websearch/serper.md
+                  - Tavily Search: tools/websearch/tavily.md
+                  - SearXNG Search: tools/websearch/searxng.md
+                  - Reddit Search: tools/websearch/reddit.md
+                  - GitHub Search: tools/websearch/github.md
+          - Academic:
+              - Academic Search: tools/academic_search.md
+          - Shell:
+              - Bash Tool: tools/bash_tool.md
+          - Scheduling:
+              - Cron Tool: tools/cron_tool.md
+          - Other Tools:
+              - Think Tool: tools/think_tool.md
+              - Todo List Tool: tools/todo_list.md
+          - Web Search Base Class: tools/websearch/base_search.md
+          - Search Result Types: tools/websearch/search_result.md
       - Deprecated:
           - Bing Search: tools/websearch/bing.md
   - Ecosystem:
