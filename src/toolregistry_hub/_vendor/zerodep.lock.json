@@ -4,11 +4,11 @@
   "modules": {
     "cdp": {
       "files": {
-        "cdp.py": "6518b9c9582ba8fa109f8fd3608853647a0d7b8f1754f2888732183d3271b5cb"
+        "cdp.py": "f2be1c3be7b63a9a4e2e00ff273ea1846257b0d63278f7ca02e4ac5f8f5b6de7"
       },
       "requested": true,
-      "upstream_hash": "a95910894a2ce329debb14aa8cad904e2f7a957ae23b776204397812b71c9796",
-      "version": "0.1.1"
+      "upstream_hash": "c8a22905efe350dbe6d4afe4ab5ceb46cd66d720754b842f8260a2b62ae417bb",
+      "version": "0.2.0"
     },
     "httpclient": {
       "files": {
