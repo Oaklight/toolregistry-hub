@@ -45,6 +45,7 @@ toolregistry-hub openapi [OPTIONS]
 | `--tool-discovery` / `--no-tool-discovery` | 启用 | 通过 `discover_tools` 渐进式工具披露 |
 | `--think-augment` / `--no-think-augment` | 启用 | 向工具 schema 注入 `toolcall_reason` 属性 |
 | `--profile {remote,local}` | 无 | 部署 profile 过滤（见下方） |
+| `--config-reload` / `--no-config-reload` | 关闭 | 配置文件变更时自动重载（轮询检测，按进程生效；#144） |
 | `--reload` | — | 开发环境自动重载 |
 
 ### `mcp`
@@ -67,6 +68,7 @@ toolregistry-hub mcp [OPTIONS]
 | `--tool-discovery` / `--no-tool-discovery` | 启用 | 通过 `discover_tools` 渐进式工具披露 |
 | `--think-augment` / `--no-think-augment` | 启用 | 向工具 schema 注入 `toolcall_reason` 属性 |
 | `--profile {remote,local}` | 无 | 部署 profile 过滤（见下方） |
+| `--config-reload` / `--no-config-reload` | 关闭 | 配置文件变更时自动重载（轮询检测，按进程生效；#144） |
 
 ## 部署 Profile
 

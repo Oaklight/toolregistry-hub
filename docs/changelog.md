@@ -14,6 +14,10 @@ author: Oaklight
 
 ## [未发布]
 
+### 新增
+
+- **`tools.jsonc` 热重载**（#144）：加上 `--config-reload` 后，运行中的服务会监听配置文件（按 mtime/size 轮询，不引入新依赖），并对活动注册表做 source 级 diff：新增的 source 会被注册，删除的 source 会被注销，离开配置范围的 source（`enabled: false`，或被 `mode`/`disabled`/`enabled` 过滤）只禁用而不注销，声明发生变化的 source 会重新注册。仅调整列表顺序不算变更。非法配置只记录警告并被忽略，当前注册表继续服务。watcher 按进程生效且默认关闭；内置默认工具列表没有文件可监听，多服务部署的跨进程协调不在本次范围内。
+
 ## [0.12.0] - 2026-10-23
 
 ### 修复
