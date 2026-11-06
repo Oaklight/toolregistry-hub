@@ -79,6 +79,26 @@ class TestMCPDispatch:
         assert kwargs["tools_list_ttl_ms"] is None
         assert kwargs["tools_list_cache_scope"] is None
 
+    def test_forwards_config_reload(self):
+        """--config-reload reaches serve_mcp so the watcher can start (#144)."""
+        cli = HubCLI()
+        parsed = _mcp_namespace(config_reload=True)
+
+        with patch.object(type(cli.app), "serve_mcp") as mock_serve:
+            cli.dispatch(parsed)
+
+        assert mock_serve.call_args.kwargs["config_reload"] is True
+
+    def test_config_reload_defaults_off(self):
+        """Hot reload stays off unless the flag is passed (#144)."""
+        cli = HubCLI()
+        parsed = _mcp_namespace()
+
+        with patch.object(type(cli.app), "serve_mcp") as mock_serve:
+            cli.dispatch(parsed)
+
+        assert mock_serve.call_args.kwargs["config_reload"] is False
+
     def test_forwards_transport_and_host(self):
         """The kwargs the Hub already passed are unaffected."""
         cli = HubCLI()

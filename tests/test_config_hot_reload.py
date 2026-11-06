@@ -1,0 +1,223 @@
+"""Tests for tools.jsonc hot reload (#144).
+
+The watcher is opt-in and must never corrupt a running registry: a bad edit
+is ignored, a good edit is applied source by source.
+"""
+
+from __future__ import annotations
+
+import time
+
+import pytest
+from toolregistry_server import load_config
+
+from toolregistry_hub.server.hot_reload import (
+    CONFIG_DISABLE_REASON,
+    ConfigWatcher,
+    ReloadState,
+    apply_config_tracked,
+    reload_from_path,
+    reload_registry,
+)
+from toolregistry_hub.server.registry import build_registry
+
+
+def _write_config(path, body: str) -> None:
+    """Write a JSONC config, keeping the syntax obvious in each test."""
+    path.write_text("{\n" + body + "\n}\n", encoding="utf-8")
+
+
+def _sources(*entries: str) -> str:
+    return '"tools": [' + ", ".join(entries) + "]"
+
+
+CALCULATOR = (
+    '{"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"}'
+)
+DATETIME = (
+    '{"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"}'
+)
+UNIT = '{"class": "toolregistry_hub.unit_converter.UnitConverter", "namespace": "unit_converter"}'
+
+
+@pytest.fixture
+def config_path(tmp_path):
+    path = tmp_path / "tools.jsonc"
+    _write_config(path, _sources(CALCULATOR, DATETIME))
+    return path
+
+
+@pytest.fixture
+def tracked(config_path):
+    """A registry built with tracking enabled, plus its reload state."""
+    state = ReloadState()
+    registry = build_registry(
+        tools_config_path=str(config_path),
+        enable_discovery=False,
+        reload_state=state,
+    )
+    return registry, state
+
+
+class TestTrackedBuild:
+    def test_records_one_entry_per_source(self, tracked):
+        registry, state = tracked
+
+        assert len(state.config_path) > 0
+        assert len(state.source_tools) == 2
+        # Every source produced at least one tool, and the names exist.
+        produced = set().union(*state.source_tools.values())
+        assert produced
+        assert produced <= set(registry._tools)
+
+    def test_tracked_build_matches_untracked(self, config_path):
+        tracked_registry = build_registry(
+            tools_config_path=str(config_path),
+            enable_discovery=False,
+            reload_state=ReloadState(),
+        )
+        plain_registry = build_registry(
+            tools_config_path=str(config_path),
+            enable_discovery=False,
+        )
+
+        assert set(tracked_registry._tools) == set(plain_registry._tools)
+
+    def test_apply_config_tracked_returns_name_sets(self, config_path):
+        from toolregistry import ToolRegistry
+
+        registry = ToolRegistry(name="tracked-test")
+        names = apply_config_tracked(registry, load_config(str(config_path)))
+
+        assert len(names) == 2
+        assert (
+            "calculator-evaluate"
+            in names[next(k for k in names if k[1] == "calculator")]
+        )
+
+
+class TestReloadDiff:
+    def test_added_source_is_registered(self, tracked, config_path):
+        registry, state = tracked
+        assert "unit_converter-convert" not in registry._tools
+
+        _write_config(config_path, _sources(CALCULATOR, DATETIME, UNIT))
+        counts = reload_registry(registry, state, load_config(str(config_path)))
+
+        assert "unit_converter-convert" in registry._tools
+        assert counts["registered"] >= 1
+
+    def test_removed_source_is_unregistered(self, tracked, config_path):
+        registry, state = tracked
+        assert "datetime-now" in registry._tools
+
+        _write_config(config_path, _sources(CALCULATOR))
+        reload_registry(registry, state, load_config(str(config_path)))
+
+        assert "datetime-now" not in registry._tools
+        assert "calculator-evaluate" in registry._tools
+
+    def test_scope_change_disables_and_reenables(self, tracked, config_path):
+        registry, state = tracked
+
+        _write_config(
+            config_path,
+            '"mode": "allowlist", "enabled": ["calculator"], '
+            + _sources(CALCULATOR, DATETIME),
+        )
+        counts = reload_registry(registry, state, load_config(str(config_path)))
+
+        # The tool stays registered so callers holding a reference still
+        # resolve a name, but it is not served.
+        assert "datetime-now" in registry._tools
+        assert registry.is_enabled("datetime-now") is False
+        assert registry.get_disable_reason("datetime-now") == CONFIG_DISABLE_REASON
+        assert counts["disabled"] >= 1
+
+        _write_config(config_path, _sources(CALCULATOR, DATETIME))
+        reload_registry(registry, state, load_config(str(config_path)))
+
+        assert registry.is_enabled("datetime-now") is True
+
+    def test_changed_source_is_replaced(self, tracked, config_path):
+        registry, state = tracked
+        old_tool = registry._tools["calculator-evaluate"]
+
+        # A different namespace produces a different name for the same code.
+        _write_config(
+            config_path,
+            _sources(
+                '{"class": "toolregistry_hub.calculator.Calculator", "namespace": "math"}',
+                DATETIME,
+            ),
+        )
+        reload_registry(registry, state, load_config(str(config_path)))
+
+        assert "calculator-evaluate" not in registry._tools
+        assert "math-evaluate" in registry._tools
+        assert registry._tools["math-evaluate"] is not old_tool
+
+    def test_unrelated_edit_does_not_touch_registry(self, tracked, config_path):
+        registry, state = tracked
+        before = dict(registry._tools)
+
+        _write_config(
+            config_path,
+            '"mode": "denylist", "disabled": [], ' + _sources(CALCULATOR, DATETIME),
+        )
+        counts = reload_registry(registry, state, load_config(str(config_path)))
+
+        assert counts == {
+            "registered": 0,
+            "unregistered": 0,
+            "enabled": 0,
+            "disabled": 0,
+        }
+        assert registry._tools == before
+
+
+class TestMalformedConfig:
+    def test_invalid_config_leaves_registry_untouched(self, tracked, config_path):
+        registry, state = tracked
+        before = dict(registry._tools)
+
+        config_path.write_text("{ this is not jsonc", encoding="utf-8")
+        applied = reload_from_path(registry, state)
+
+        assert applied is False
+        assert registry._tools == before
+
+
+class TestWatcher:
+    def test_reloads_when_the_file_changes(self, tracked, config_path):
+        registry, state = tracked
+        watcher = ConfigWatcher(registry, state, interval=0.02)
+        watcher.start()
+        try:
+            time.sleep(0.05)
+            _write_config(config_path, _sources(CALCULATOR, DATETIME, UNIT))
+
+            deadline = time.time() + 5
+            while time.time() < deadline and "unit_converter-convert" not in (
+                registry._tools
+            ):
+                time.sleep(0.02)
+
+            assert "unit_converter-convert" in registry._tools
+        finally:
+            watcher.stop()
+            watcher.join(timeout=2)
+            assert not watcher.is_alive()
+
+    def test_poll_once_is_a_noop_without_a_change(self, tracked):
+        registry, state = tracked
+        watcher = ConfigWatcher(registry, state, interval=0.02)
+
+        assert watcher.poll_once() is False
+
+    def test_missing_file_is_not_an_error(self, tracked, config_path):
+        registry, state = tracked
+        watcher = ConfigWatcher(registry, state, interval=0.02)
+        config_path.unlink()
+
+        assert watcher.poll_once() is False

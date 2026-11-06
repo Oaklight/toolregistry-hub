@@ -26,6 +26,7 @@ from toolregistry.tool import ToolMetadata, ToolTag
 
 from .._vendor.structlog import get_logger
 from ..utils.configurable import Configurable
+from .hot_reload import ReloadState, apply_config_tracked
 from .output_schemas import OUTPUT_SCHEMAS
 
 logger = get_logger()
@@ -412,6 +413,7 @@ def build_registry(
     tools_config_path: str | None = None,
     enable_discovery: bool = True,
     enable_think: bool = True,
+    reload_state: ReloadState | None = None,
 ) -> ToolRegistry:
     """Build the hub tool registry.
 
@@ -426,6 +428,9 @@ def build_registry(
             auto-discovery (``TOOLS_CONFIG`` env var / ``tools.jsonc``).
         enable_discovery: Register ``discover_tools`` and mark deferred tools.
         enable_think: Inject ``toolcall_reason`` into tool schemas.
+        reload_state: When given, registration is tracked source by source
+            and the state is filled in so a :class:`ConfigWatcher` can diff a
+            later version of the file (#144).
 
     Returns:
         A fully configured ``ToolRegistry`` instance.
@@ -437,9 +442,26 @@ def build_registry(
     registry = ToolRegistry(name="hub", think_augment=enable_think)
     registry.add_post_register_hook(configurable_hook)
 
-    # Register tools from config (built-in defaults or user override)
-    apply_config(registry, config)
+    if reload_state is None:
+        # Register tools from config (built-in defaults or user override)
+        apply_config(registry, config)
+    else:
+        # Same registration, but record the names each source produced so a
+        # reload can compare sources instead of rebuilding the registry.
+        reload_state.config_path = config.source or None
+        reload_state.config = config
+        reload_state.source_tools = apply_config_tracked(registry, config)
 
+    _apply_hub_overrides(registry, config)
+
+    if enable_discovery:
+        registry.enable_tool_discovery()
+
+    return registry
+
+
+def _apply_hub_overrides(registry: ToolRegistry, config: ToolConfig) -> None:
+    """Apply Hub metadata defaults, then the user's config overrides."""
     # Hub-specific metadata overrides (tags, defer)
     _apply_tool_metadata(registry)
 
@@ -447,10 +469,16 @@ def build_registry(
     if config.tool_metadata:
         registry.apply_metadata_config(config.tool_metadata)
 
-    if enable_discovery:
-        registry.enable_tool_discovery()
 
-    return registry
+def apply_hub_overrides(registry: ToolRegistry) -> None:
+    """Re-apply Hub metadata to tools added by a hot reload.
+
+    ``tool_metadata`` from the file is applied inside
+    :func:`~toolregistry_hub.server.hot_reload.reload_registry`; this adds
+    the Hub's built-in tag/defer defaults that a newly registered tool has
+    not seen yet.
+    """
+    _apply_tool_metadata(registry)
 
 
 _registry: ToolRegistry | None = None
