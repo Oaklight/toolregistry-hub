@@ -56,6 +56,8 @@ class HubCLI(CLI):
             "enable_think": getattr(parsed, "think_augment", True),
             "profile": getattr(parsed, "profile", None),
             "admin_port": getattr(parsed, "admin_port", None),
+            # tools.jsonc hot reload (#144); off unless --config-reload is given.
+            "config_reload": getattr(parsed, "config_reload", False),
         }
 
         if parsed.command == "openapi":
@@ -110,6 +112,16 @@ def _add_hub_arguments(parser: argparse.ArgumentParser) -> None:
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Enable/disable think-augmented function calling (default: enabled)",
+    )
+    parser.add_argument(
+        "--config-reload",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Reload tools.jsonc when the file changes (default: disabled). "
+            "Requires a config file; the built-in default list has nothing "
+            "to watch."
+        ),
     )
 
 
