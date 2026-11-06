@@ -45,6 +45,7 @@ toolregistry-hub openapi [OPTIONS]
 | `--tool-discovery` / `--no-tool-discovery` | enabled | Progressive tool disclosure via `discover_tools` |
 | `--think-augment` / `--no-think-augment` | enabled | Inject `toolcall_reason` property into tool schemas |
 | `--profile {remote,local}` | none | Deployment profile filter (see below) |
+| `--config-reload` / `--no-config-reload` | disabled | Reload the config file when it changes (poll-based, per process; #144) |
 | `--reload` | — | Auto-reload for development |
 
 ### `mcp`
@@ -67,6 +68,7 @@ toolregistry-hub mcp [OPTIONS]
 | `--tool-discovery` / `--no-tool-discovery` | enabled | Progressive tool disclosure via `discover_tools` |
 | `--think-augment` / `--no-think-augment` | enabled | Inject `toolcall_reason` property into tool schemas |
 | `--profile {remote,local}` | none | Deployment profile filter (see below) |
+| `--config-reload` / `--no-config-reload` | disabled | Reload the config file when it changes (poll-based, per process; #144) |
 
 ## Deployment Profiles
 
