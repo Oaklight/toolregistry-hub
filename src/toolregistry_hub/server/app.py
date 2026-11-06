@@ -26,6 +26,8 @@ logger = get_logger()
 if TYPE_CHECKING:
     from toolregistry import ToolRegistry
 
+    from .hot_reload import ConfigWatcher, ReloadState
+
 HUB_IDENTITY = ServerIdentity(
     name="ToolRegistry Hub",
     version=__version__,
@@ -39,6 +41,7 @@ class HubApp(App):
 
     def __init__(self, identity: ServerIdentity | None = None) -> None:
         super().__init__(identity=identity or HUB_IDENTITY)
+        self.config_watcher: ConfigWatcher | None = None
 
     def prepare_registry(self, **kwargs) -> ToolRegistry:
         """Build the Hub registry.
@@ -49,15 +52,20 @@ class HubApp(App):
             enable_think: Enable think-augmented function calling.
             profile: Deployment profile for tag-based filtering.
             admin_port: Port for the admin panel, or None to disable.
+            config_reload: Watch the config file and apply edits to the live
+                registry (#144).
         """
         from toolregistry_server import apply_profile
 
+        from .hot_reload import ReloadState
         from .registry import build_registry
 
+        reload_state = ReloadState() if kwargs.get("config_reload") else None
         registry = build_registry(
             tools_config_path=kwargs.get("tools_config_path"),
             enable_discovery=kwargs.get("enable_discovery", True),
             enable_think=kwargs.get("enable_think", True),
+            reload_state=reload_state,
         )
 
         profile = kwargs.get("profile")
@@ -71,7 +79,31 @@ class HubApp(App):
             info = registry.enable_admin(host=admin_host, port=admin_port)
             logger.info(f"Admin panel enabled at {info.url}")
 
+        if reload_state is not None:
+            self._start_config_watcher(registry, reload_state)
+
         return registry
+
+    def _start_config_watcher(self, registry: ToolRegistry, state: ReloadState) -> None:
+        """Start the tools.jsonc watcher, or explain why it cannot run."""
+        from .hot_reload import ConfigWatcher
+        from .registry import apply_hub_overrides
+
+        if not state.config_path:
+            logger.warning(
+                "--config-reload was requested, but no config file was found "
+                "(TOOLS_CONFIG / tools.jsonc); the built-in defaults have "
+                "nothing to watch."
+            )
+            return
+
+        self.config_watcher = ConfigWatcher(
+            registry,
+            state,
+            on_reload=apply_hub_overrides,
+        )
+        self.config_watcher.start()
+        logger.info(f"Config hot reload watching {state.config_path}")
 
 
 # Module-level convenience (lazy-init default HubApp)
