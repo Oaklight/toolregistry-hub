@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **`tools.jsonc` hot reload** (#144): with `--config-reload` the running server watches its config file (mtime/size polling, no new dependency) and applies a source-level diff to the live registry: an added source is registered, a removed source is unregistered, a source that leaves the configured scope (`enabled: false`, or filtered by `mode`/`disabled`/`enabled`) is disabled instead of unregistered, and a changed declaration is replaced. Reordering the list is not a change. A malformed file is logged and ignored, and the current registry keeps serving. The first poll after startup always runs, so an edit made between the registry build and the watcher start is not lost. Removing a `tool_metadata` entry keeps the value it set until restart, because the same fields are also writable from the admin panel; the panel can reset it immediately. The watcher is opt-in and per process; the built-in default tool list has no file to watch, and cross-process coordination for a multi-service deployment is not included.
 
+### Fixed
+
+- **Config hot reload bypassed `--profile`** (#234): a source registered by a reload did not pass through the deployment profile filter, so editing its declaration could re-expose a `file_system`, `destructive`, or `privileged` tool under `--profile remote` (or a `network` tool under `--profile local`). A reload now applies the same tag mapping to the tools it registers, without touching tools that were already registered.
+
 ## [0.12.0] - 2026-10-23
 
 ### Fixed
