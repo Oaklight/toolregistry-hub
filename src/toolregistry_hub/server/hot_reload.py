@@ -50,6 +50,7 @@ import re
 import threading
 from collections.abc import Callable, Iterable, Set
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from toolregistry.config import MCPSource, OpenAPISource, PythonSource
@@ -124,6 +125,19 @@ def index_sources(sources: Iterable[ToolSource]) -> dict[SourceKey, ToolSource]:
     return indexed
 
 
+class SourceStatus(str, Enum):
+    """Result of the last apply attempt for one source.
+
+    ``APPLIED`` means registration succeeded, even when it produced no tool
+    names.  ``EXCLUDED`` means the source was out of scope.  ``FAILED`` means
+    registration raised and the source must be retried on the next reload.
+    """
+
+    APPLIED = "applied"
+    EXCLUDED = "excluded"
+    FAILED = "failed"
+
+
 @dataclass
 class ReloadState:
     """What the watcher needs to diff an edited config against the registry.
@@ -133,11 +147,15 @@ class ReloadState:
             running on its built-in defaults (nothing to watch).
         config: The configuration the registry currently reflects.
         source_tools: Registered tool names per source key.  A key is present
-            with an empty set when its source is listed but excluded, or when
-            its registration failed.
+            with an empty set when its source is listed but excluded, when
+            its registration failed, or when it succeeded with no tools.
         applied_sources: The declaration last applied successfully per source
             key.  A failed registration is not recorded here, so the next
             reload sees the declaration as changed and retries it.
+        source_status: Result of the last apply attempt per source key.  It
+            disambiguates an empty ``source_tools`` entry: an applied source
+            that produced no tools must not be registered again on every
+            unrelated config change (#233).
         profile: Deployment profile applied at startup, if any.  Newly
             registered tools are filtered with the same tag rule after a
             reload; tools that were already registered keep their state.
@@ -147,6 +165,7 @@ class ReloadState:
     config: ToolConfig | None = None
     source_tools: dict[SourceKey, frozenset[str]] = field(default_factory=dict)
     applied_sources: dict[SourceKey, ToolSource] = field(default_factory=dict)
+    source_status: dict[SourceKey, SourceStatus] = field(default_factory=dict)
     profile: str | None = None
 
 
@@ -227,6 +246,8 @@ def _apply_source(
 def apply_config_tracked(
     registry: ToolRegistry,
     config: ToolConfig,
+    *,
+    statuses: dict[SourceKey, SourceStatus] | None = None,
 ) -> dict[SourceKey, frozenset[str]]:
     """Apply *config* source by source and record the names each one added.
 
@@ -235,10 +256,24 @@ def apply_config_tracked(
     filtering, same error handling, plus the name map the watcher needs.
     A source that fails to register is logged and recorded with an empty set,
     exactly as ``apply_config`` does at startup; the next reload retries it.
+
+    Args:
+        registry: Registry to populate.
+        config: Configuration to apply.
+        statuses: When given, filled with the result of each source's apply
+            attempt: ``APPLIED``, ``EXCLUDED`` or ``FAILED``.
+
+    Returns:
+        The tool names each source produced.
     """
     sources = index_sources(config.tools)
     produced: dict[SourceKey, frozenset[str]] = {}
     for key, source in sources.items():
+        if not source.enabled or not _should_load_source(source, config):
+            produced[key] = frozenset()
+            if statuses is not None:
+                statuses[key] = SourceStatus.EXCLUDED
+            continue
         try:
             produced[key] = _apply_source(registry, source, config)
         except Exception as exc:  # noqa: BLE001 - one bad source must not abort startup
@@ -246,6 +281,11 @@ def apply_config_tracked(
                 f"Failed to load tools from {_describe_source(source)}: {exc}"
             )
             produced[key] = frozenset()
+            if statuses is not None:
+                statuses[key] = SourceStatus.FAILED
+            continue
+        if statuses is not None:
+            statuses[key] = SourceStatus.APPLIED
     return produced
 
 
@@ -342,28 +382,39 @@ def _reload_source(
         unless the source was registered in this call.
 
     Note:
-        A failed registration records an empty name set and leaves the
-        applied declaration unchanged, so the next reload retries.
+        A failed registration records an empty name set, marks the source
+        ``FAILED`` so the next reload retries it, and leaves the applied
+        declaration unchanged.
     """
     counts = {"registered": 0, "unregistered": 0, "enabled": 0, "disabled": 0}
     # ``apply_config`` skips a per-source ``enabled: false`` and any source
     # outside the configured mode; mirror that decision here.
     included = bool(source.enabled) and _should_load_source(source, config)
+    status = state.source_status.get(key)
+    if status is None:
+        status = _infer_status(included, names)
 
     if previous is not None and previous == source:
-        if included and not names:
-            # The source was skipped at startup because it was out of scope,
-            # or its last registration failed.  Now that it is in scope,
-            # register it instead of only flipping the enable flag on an
-            # empty name set.
+        # An excluded source that still holds tools only needs its tools
+        # re-enabled; one that never registered, and any failed source,
+        # needs a full registration attempt.
+        needs_registration = status is SourceStatus.FAILED or (
+            status is SourceStatus.EXCLUDED and not names
+        )
+        if included and needs_registration:
             added = _register_into(registry, source, config)
             if added is None:
+                state.source_status[key] = SourceStatus.FAILED
                 return frozenset(), frozenset(), counts
+            state.source_status[key] = SourceStatus.APPLIED
             counts["registered"] += len(added)
             return added, added, counts
         # The declaration did not change, so the registered tools are
         # current.  Only a change in scope can still need an action.
         _set_scope(registry, names, included, counts)
+        state.source_status[key] = (
+            SourceStatus.APPLIED if included else SourceStatus.EXCLUDED
+        )
         return names, frozenset(), counts
 
     # Added or changed: drop what the old declaration produced, then
@@ -371,6 +422,7 @@ def _reload_source(
     _remove_names(registry, names, counts)
     if not included:
         state.applied_sources[key] = source
+        state.source_status[key] = SourceStatus.EXCLUDED
         return frozenset(), frozenset(), counts
     added = _register_into(registry, source, config)
     if added is None:
@@ -378,10 +430,25 @@ def _reload_source(
         # one, so the next reload retries.  The old tools were removed
         # above, so the registry reports the source as absent until a retry
         # succeeds.
+        state.source_status[key] = SourceStatus.FAILED
         return frozenset(), frozenset(), counts
     state.applied_sources[key] = source
+    state.source_status[key] = SourceStatus.APPLIED
     counts["registered"] += len(added)
     return added, added, counts
+
+
+def _infer_status(included: bool, names: frozenset[str]) -> SourceStatus:
+    """Infer a status for a state created before ``source_status`` existed.
+
+    An empty name set is ambiguous between an excluded source, a failed one,
+    and one that succeeded without producing tools.  Retrying once is the
+    safe choice: a failed registration is repaired, and a source that really
+    produces no tools is recorded as ``APPLIED`` after that one attempt.
+    """
+    if not included:
+        return SourceStatus.EXCLUDED
+    return SourceStatus.APPLIED if names else SourceStatus.FAILED
 
 
 def reload_registry(
@@ -424,6 +491,7 @@ def reload_registry(
     for key in set(old_sources) - set(new_sources):
         _remove_names(registry, produced.pop(key, frozenset()), counts)
         state.applied_sources.pop(key, None)
+        state.source_status.pop(key, None)
 
     for key, source in new_sources.items():
         names, registered, delta = _reload_source(

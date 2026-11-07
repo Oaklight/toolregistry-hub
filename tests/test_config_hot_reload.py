@@ -17,6 +17,7 @@ from toolregistry_hub.server.hot_reload import (
     CONFIG_DISABLE_REASON,
     ConfigWatcher,
     ReloadState,
+    SourceStatus,
     _describe_source,
     apply_config_tracked,
     reload_from_path,
@@ -523,3 +524,139 @@ class TestWatcher:
         watcher.stop(timeout=2)
 
         assert not watcher.is_alive()
+
+
+class TestSourceStatus:
+    """An empty name set is disambiguated by the per-source status (#233)."""
+
+    def test_zero_tool_source_is_not_registered_again(self, config_path, monkeypatch):
+        from toolregistry import ToolRegistry
+
+        import toolregistry_hub.server.hot_reload as hot_reload
+
+        real = hot_reload.register_python_source
+        calls: list[str] = []
+
+        def registers_nothing(reg, source):
+            if source.namespace == "calculator":
+                calls.append(source.namespace)
+                return None
+            return real(reg, source)
+
+        monkeypatch.setattr(hot_reload, "register_python_source", registers_nothing)
+
+        config = load_config(str(config_path))
+        state = ReloadState(config_path=str(config_path), config=config)
+        registry = ToolRegistry(name="status-test")
+        reload_registry(registry, state, config)
+
+        calculator = next(k for k in state.source_status if k[1] == "calculator")
+        assert state.source_status[calculator] is SourceStatus.APPLIED
+        assert state.source_tools[calculator] == frozenset()
+        assert calls == ["calculator"]
+
+        # An unrelated edit must not reconnect the applied zero-tool source.
+        _write_config(
+            config_path,
+            '"mode": "denylist", "disabled": [], ' + _sources(CALCULATOR, DATETIME),
+        )
+        reload_registry(registry, state, load_config(str(config_path)))
+
+        assert calls == ["calculator"]
+        assert state.source_status[calculator] is SourceStatus.APPLIED
+
+    def test_excluded_source_becomes_applied_when_in_scope(self, tmp_path):
+        path = tmp_path / "tools.jsonc"
+        _write_config(
+            path,
+            '"mode": "allowlist", "enabled": ["calculator"], '
+            + _sources(CALCULATOR, DATETIME),
+        )
+        state = ReloadState()
+        registry = build_registry(
+            tools_config_path=str(path),
+            enable_discovery=False,
+            reload_state=state,
+        )
+        datetime_key = next(k for k in state.source_status if k[1] == "datetime")
+        assert state.source_status[datetime_key] is SourceStatus.EXCLUDED
+        assert state.source_tools[datetime_key] == frozenset()
+
+        _write_config(path, _sources(CALCULATOR, DATETIME))
+        reload_registry(registry, state, load_config(str(path)))
+
+        assert state.source_status[datetime_key] is SourceStatus.APPLIED
+        assert "datetime-now" in registry._tools
+
+    def test_failed_source_retries_until_success(
+        self, tracked, config_path, monkeypatch
+    ):
+        import toolregistry_hub.server.hot_reload as hot_reload
+
+        registry, state = tracked
+        real = hot_reload.register_python_source
+        attempts = 0
+
+        def flaky(reg, source):
+            nonlocal attempts
+            if source.namespace == "unit_converter":
+                attempts += 1
+                if attempts < 3:
+                    raise RuntimeError("transient failure")
+            return real(reg, source)
+
+        monkeypatch.setattr(hot_reload, "register_python_source", flaky)
+
+        _write_config(config_path, _sources(CALCULATOR, DATETIME, UNIT))
+        config = load_config(str(config_path))
+        reload_registry(registry, state, config)
+        key = next(k for k in state.source_status if k[1] == "unit_converter")
+        assert state.source_status[key] is SourceStatus.FAILED
+        assert key not in state.applied_sources
+
+        reload_registry(registry, state, load_config(str(config_path)))
+        assert state.source_status[key] is SourceStatus.FAILED
+
+        reload_registry(registry, state, load_config(str(config_path)))
+        assert state.source_status[key] is SourceStatus.APPLIED
+        assert "unit_converter-convert" in registry._tools
+
+    def test_failed_reinclusion_retries_on_the_next_reload(self, tmp_path, monkeypatch):
+        import toolregistry_hub.server.hot_reload as hot_reload
+
+        path = tmp_path / "tools.jsonc"
+        _write_config(
+            path,
+            '"mode": "allowlist", "enabled": ["calculator"], '
+            + _sources(CALCULATOR, DATETIME),
+        )
+        state = ReloadState()
+        registry = build_registry(
+            tools_config_path=str(path),
+            enable_discovery=False,
+            reload_state=state,
+        )
+        datetime_key = next(k for k in state.source_status if k[1] == "datetime")
+        assert state.source_status[datetime_key] is SourceStatus.EXCLUDED
+
+        real = hot_reload.register_python_source
+        attempts = 0
+
+        def flaky(reg, source):
+            nonlocal attempts
+            if source.namespace == "datetime":
+                attempts += 1
+                if attempts == 1:
+                    raise RuntimeError("transient failure")
+            return real(reg, source)
+
+        monkeypatch.setattr(hot_reload, "register_python_source", flaky)
+
+        _write_config(path, _sources(CALCULATOR, DATETIME))
+        reload_registry(registry, state, load_config(str(path)))
+        assert state.source_status[datetime_key] is SourceStatus.FAILED
+        assert "datetime-now" not in registry._tools
+
+        reload_registry(registry, state, load_config(str(path)))
+        assert state.source_status[datetime_key] is SourceStatus.APPLIED
+        assert "datetime-now" in registry._tools
