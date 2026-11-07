@@ -266,6 +266,39 @@ class TestFailedRegistration:
         assert "unit_converter-convert" in registry._tools
         assert key in state.applied_sources
 
+    def test_partial_registration_is_rolled_back(
+        self, tracked, config_path, monkeypatch
+    ):
+        """Tools registered before a source fails must not outlive the attempt."""
+        import toolregistry_hub.server.hot_reload as hot_reload
+
+        registry, state = tracked
+        real = hot_reload.register_python_source
+
+        def partial_then_raise(reg, source):
+            if source.namespace == "unit_converter":
+                # Simulate a source that registers some tools, then fails.
+                real(reg, source)
+                raise RuntimeError("failed after a partial registration")
+            return real(reg, source)
+
+        monkeypatch.setattr(hot_reload, "register_python_source", partial_then_raise)
+
+        _write_config(config_path, _sources(CALCULATOR, DATETIME, UNIT))
+        reload_registry(registry, state, load_config(str(config_path)))
+
+        # Without the rollback this tool stays registered but is absent from
+        # source_tools, so a later removal or edit would never see it.
+        assert "unit_converter-convert" not in registry._tools
+
+        monkeypatch.setattr(hot_reload, "register_python_source", real)
+        reload_registry(registry, state, load_config(str(config_path)))
+        assert "unit_converter-convert" in registry._tools
+
+        _write_config(config_path, _sources(CALCULATOR, DATETIME))
+        reload_registry(registry, state, load_config(str(config_path)))
+        assert "unit_converter-convert" not in registry._tools
+
 
 class TestMalformedConfig:
     def test_invalid_config_leaves_registry_untouched(self, tracked, config_path):

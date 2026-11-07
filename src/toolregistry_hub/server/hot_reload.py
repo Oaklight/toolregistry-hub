@@ -178,18 +178,28 @@ def _apply_source(
         return frozenset()
 
     before = set(registry._tools)
-    if isinstance(source, PythonSource):
-        register_python_source(registry, source)
-    elif isinstance(source, MCPSource):
-        register_mcp_source(registry, source)
-    elif isinstance(source, OpenAPISource):
-        register_openapi_source(registry, source)
-    else:  # pragma: no cover - the loader only builds the three above
-        raise TypeError(f"Unsupported tool source: {type(source).__name__}")
+    try:
+        if isinstance(source, PythonSource):
+            register_python_source(registry, source)
+        elif isinstance(source, MCPSource):
+            register_mcp_source(registry, source)
+        elif isinstance(source, OpenAPISource):
+            register_openapi_source(registry, source)
+        else:  # pragma: no cover - the loader only builds the three above
+            raise TypeError(f"Unsupported tool source: {type(source).__name__}")
 
-    ns_tags = _build_ns_tags(dataclasses.replace(config, tools=(source,)))
-    if ns_tags:
-        _apply_ns_tags(registry, ns_tags)
+        ns_tags = _build_ns_tags(dataclasses.replace(config, tools=(source,)))
+        if ns_tags:
+            _apply_ns_tags(registry, ns_tags)
+    except Exception:
+        # Registration is per tool, so a failure can leave the tools that
+        # were already registered.  The caller records an empty name set for
+        # a failed source, which would make those tools invisible to the
+        # diff: a later removal or edit would skip them and they would live
+        # until restart.  Roll the partial registration back.
+        for name in set(registry._tools) - before:
+            registry._unregister(name)
+        raise
     return frozenset(set(registry._tools) - before)
 
 
