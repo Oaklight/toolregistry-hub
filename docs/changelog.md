@@ -21,6 +21,7 @@ author: Oaklight
 ### 修复
 
 - **配置热重载绕过 `--profile`**（#234）：reload 注册的 source 没有经过部署 profile 过滤，因此修改其声明后，在 `--profile remote` 下可能重新暴露 `file_system`、`destructive` 或 `privileged` 工具（`--profile local` 下则是 `network` 工具）。现在 reload 会用与启动注册表相同的标签映射过滤本次新注册的工具，不影响已经注册的工具。
+- **Hub 默认元数据会在每次 reload 时重置管理面板编辑**（#232）：`apply_hub_overrides` 每次应用 diff 都会把 `_TOOL_METADATA` 重放到整个注册表，因此从管理面板修改的 `tags`、`defer`、`title`、`search_hint` 或执行提示会被下一次无关的配置变更静默覆盖。现在 `reload_registry` 把它本次注册的工具名传给 `on_reload`，回调只处理这些工具。已存在的工具保持当前值；本次 reload 注册的工具仍会获得 Hub 默认值，文件中的 `tool_metadata` 之后仍然优先。
 
 ## [0.12.0] - 2026-10-23
 
