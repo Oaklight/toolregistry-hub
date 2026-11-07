@@ -456,7 +456,9 @@ def build_registry(
         # reload can compare sources instead of rebuilding the registry.
         reload_state.config_path = config.source or None
         reload_state.config = config
-        reload_state.source_tools = apply_config_tracked(registry, config)
+        reload_state.source_tools = apply_config_tracked(
+            registry, config, statuses=reload_state.source_status
+        )
         reload_state.applied_sources = index_sources(config.tools)
 
     _apply_hub_overrides(registry, config)
