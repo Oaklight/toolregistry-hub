@@ -88,6 +88,11 @@ revert the value it set until the process restarts. The same fields are
 writable from the admin panel, so a reload cannot tell a file-applied value
 from a later panel edit. Reset the field from the panel if needed.
 
+A source that registers successfully but produces no tools is not pulled
+again while its declaration stays unchanged. If an MCP server advertises its
+tools only later, change the source declaration (or restart the process) to
+register them.
+
 ## Deployment Profiles
 
 The `--profile` flag filters which tools are registered:
