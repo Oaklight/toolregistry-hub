@@ -10,6 +10,7 @@ import time
 
 import pytest
 from toolregistry.config import MCPSource
+from toolregistry.tool import ToolTag
 from toolregistry_server import PROFILE_DISABLE_REASON, apply_profile, load_config
 
 from toolregistry_hub.server.hot_reload import (
@@ -215,6 +216,60 @@ class TestMetadataOrder:
         # Hub defaults set defer=True for the calculator namespace; the file
         # overrides it to False and must still win after the reload.
         assert registry._tools["calculator-evaluate"].metadata.defer is False
+
+
+class TestOverrideScope:
+    """Hub defaults apply only to the tools a reload registered."""
+
+    def test_panel_edit_survives_an_unrelated_reload(self, tracked, config_path):
+        registry, state = tracked
+        assert registry._tools["calculator-evaluate"].metadata.defer is True
+
+        # What the admin panel does: change two fields the Hub also defaults.
+        registry.update_tool_metadata(
+            "calculator-evaluate",
+            defer=False,
+            tags={ToolTag.DESTRUCTIVE},
+        )
+
+        _write_config(config_path, _sources(CALCULATOR, DATETIME, UNIT))
+        reload_registry(
+            registry,
+            state,
+            load_config(str(config_path)),
+            on_reload=apply_hub_overrides,
+        )
+
+        edited = registry._tools["calculator-evaluate"].metadata
+        assert edited.defer is False
+        assert edited.tags == {ToolTag.DESTRUCTIVE}
+
+        # A tool registered by this reload still gets the Hub defaults.
+        added = registry._tools["unit_converter-convert"].metadata
+        assert added.defer is True
+        assert added.tags == {ToolTag.READ_ONLY}
+
+    def test_callback_receives_only_the_registered_names(self, tracked, config_path):
+        registry, state = tracked
+        seen: list[set[str]] = []
+
+        def record(_registry, names):
+            seen.append(set(names))
+
+        _write_config(config_path, _sources(CALCULATOR, DATETIME, UNIT))
+        reload_registry(
+            registry,
+            state,
+            load_config(str(config_path)),
+            on_reload=record,
+        )
+
+        new_names = {
+            name for name in registry._tools if name.startswith("unit_converter-")
+        }
+        assert new_names
+        assert seen == [new_names]
+        assert "calculator-evaluate" not in seen[0]
 
 
 class TestScopeTransitions:
