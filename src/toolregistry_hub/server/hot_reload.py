@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import re
 import threading
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
@@ -51,6 +52,8 @@ from typing import TYPE_CHECKING, Any
 
 from toolregistry.config import MCPSource, OpenAPISource, PythonSource
 from toolregistry_server import (
+    PROFILE_DISABLE_REASON,
+    PROFILE_DISABLE_TAGS,
     load_config,
     register_mcp_source,
     register_openapi_source,
@@ -133,25 +136,41 @@ class ReloadState:
         applied_sources: The declaration last applied successfully per source
             key.  A failed registration is not recorded here, so the next
             reload sees the declaration as changed and retries it.
+        profile: Deployment profile applied at startup, if any.  Newly
+            registered tools are filtered with the same tag rule after a
+            reload; tools that were already registered keep their state.
     """
 
     config_path: str | None = None
     config: ToolConfig | None = None
     source_tools: dict[SourceKey, frozenset[str]] = field(default_factory=dict)
     applied_sources: dict[SourceKey, ToolSource] = field(default_factory=dict)
+    profile: str | None = None
+
+
+#: ``scheme://user:password@`` in a URL, inside arbitrary text.
+_URL_USERINFO = re.compile(r"\b([A-Za-z][A-Za-z0-9+.\-]*://)[^/\s]+@")
+
+
+def _redact_url_userinfo(text: str) -> str:
+    """Remove ``user:password@`` userinfo from a URL in *text*."""
+    return _URL_USERINFO.sub(r"\1", text)
 
 
 def _describe_source(source: ToolSource) -> str:
     """Return a log-safe description of *source*.
 
-    ``repr`` is not used because MCP sources keep API keys in ``env`` and
-    ``auth``; only the identifying fields are included.
+    MCP sources keep credentials in ``env``/``auth``, a URL can carry
+    userinfo, and stdio arguments can contain tokens.  Only the identifying,
+    non-secret part is logged.
     """
+    url = getattr(source, "url", None)
+    command = getattr(source, "command", None)
     return (
         getattr(source, "class_path", None)
         or getattr(source, "module_path", None)
-        or getattr(source, "url", None)
-        or " ".join(getattr(source, "command", None) or [])
+        or (_redact_url_userinfo(url) if url else None)
+        or (f"{command[0]} ..." if command else None)
         or type(source).__name__
     )
 
@@ -258,6 +277,111 @@ def _set_scope(
             counts["disabled"] += 1
 
 
+def _apply_profile_to_names(
+    registry: ToolRegistry,
+    names: Iterable[str],
+    profile: str,
+) -> None:
+    """Disable profile-excluded tools among *names*.
+
+    ``apply_profile`` walks the whole registry and can force-enable or
+    force-disable namespaces, so re-running it after a reload would override
+    an administrator's manual disable.  A reload only constrains the tools it
+    just registered, with the same built-in tag mapping startup uses.
+
+    Args:
+        registry: The registry to mutate.
+        names: Names registered by the current reload.
+        profile: Deployment profile name.
+    """
+    tags = PROFILE_DISABLE_TAGS.get(profile)
+    if not tags:
+        return
+    for name in names:
+        tool = registry._tools.get(name)
+        if tool is None or tool.metadata is None:
+            continue
+        if not registry.is_enabled(name):
+            continue
+        if tool.metadata.all_tags & set(tags):
+            registry.disable(name, PROFILE_DISABLE_REASON)
+
+
+def _register_into(
+    registry: ToolRegistry,
+    source: ToolSource,
+    config: ToolConfig,
+) -> frozenset[str] | None:
+    """Register *source*, returning the names it added or ``None`` on failure.
+
+    A failed source is logged and retried on the next reload; the caller
+    records an empty name set and leaves the applied state unchanged.
+    """
+    try:
+        return _apply_source(registry, source, config)
+    except Exception as exc:  # noqa: BLE001 - retried next reload
+        logger.warning(f"Failed to load tools from {_describe_source(source)}: {exc}")
+        return None
+
+
+def _reload_source(
+    registry: ToolRegistry,
+    key: SourceKey,
+    source: ToolSource,
+    previous: ToolSource | None,
+    names: frozenset[str],
+    config: ToolConfig,
+    state: ReloadState,
+) -> tuple[frozenset[str], frozenset[str], dict[str, int]]:
+    """Apply one source from the diff.
+
+    Returns:
+        ``(names_now, registered_now, counts)``.  ``registered_now`` is empty
+        unless the source was registered in this call.
+
+    Note:
+        A failed registration records an empty name set and leaves the
+        applied declaration unchanged, so the next reload retries.
+    """
+    counts = {"registered": 0, "unregistered": 0, "enabled": 0, "disabled": 0}
+    # ``apply_config`` skips a per-source ``enabled: false`` and any source
+    # outside the configured mode; mirror that decision here.
+    included = bool(source.enabled) and _should_load_source(source, config)
+
+    if previous is not None and previous == source:
+        if included and not names:
+            # The source was skipped at startup because it was out of scope,
+            # or its last registration failed.  Now that it is in scope,
+            # register it instead of only flipping the enable flag on an
+            # empty name set.
+            added = _register_into(registry, source, config)
+            if added is None:
+                return frozenset(), frozenset(), counts
+            counts["registered"] += len(added)
+            return added, added, counts
+        # The declaration did not change, so the registered tools are
+        # current.  Only a change in scope can still need an action.
+        _set_scope(registry, names, included, counts)
+        return names, frozenset(), counts
+
+    # Added or changed: drop what the old declaration produced, then
+    # register the new one if it is in scope.
+    _remove_names(registry, names, counts)
+    if not included:
+        state.applied_sources[key] = source
+        return frozenset(), frozenset(), counts
+    added = _register_into(registry, source, config)
+    if added is None:
+        # Do not record the declaration: ``previous`` stays the last applied
+        # one, so the next reload retries.  The old tools were removed
+        # above, so the registry reports the source as absent until a retry
+        # succeeds.
+        return frozenset(), frozenset(), counts
+    state.applied_sources[key] = source
+    counts["registered"] += len(added)
+    return added, added, counts
+
+
 def reload_registry(
     registry: ToolRegistry,
     state: ReloadState,
@@ -288,6 +412,8 @@ def reload_registry(
     old_sources = dict(state.applied_sources)
     new_sources = index_sources(config.tools)
     produced = dict(state.source_tools)
+    # Names registered by this diff; the profile filter touches only these.
+    new_names: set[str] = set()
 
     # Sources no longer declared: their tools leave the registry.
     for key in set(old_sources) - set(new_sources):
@@ -295,59 +421,30 @@ def reload_registry(
         state.applied_sources.pop(key, None)
 
     for key, source in new_sources.items():
-        names = produced.get(key, frozenset())
-        previous = old_sources.get(key)
-        # ``apply_config`` skips a per-source ``enabled: false`` and any
-        # source outside the configured mode; mirror that decision here.
-        included = bool(source.enabled) and _should_load_source(source, config)
-
-        if previous is not None and previous == source:
-            if included and not names:
-                # The source was skipped at startup because it was out of
-                # scope, or its last registration failed.  Now that it is
-                # in scope, register it instead of only flipping the enable
-                # flag on an empty name set.
-                try:
-                    produced[key] = _apply_source(registry, source, config)
-                except Exception as exc:  # noqa: BLE001 - retried next reload
-                    logger.warning(
-                        f"Failed to load tools from {_describe_source(source)}: {exc}"
-                    )
-                    continue
-                counts["registered"] += len(produced[key])
-            else:
-                # The declaration did not change, so the registered tools
-                # are current.  Only a change in scope can still need an
-                # action.
-                _set_scope(registry, names, included, counts)
-            continue
-
-        # Added or changed: drop what the old declaration produced, then
-        # register the new one if it is in scope.
-        _remove_names(registry, names, counts)
-        if not included:
-            produced[key] = frozenset()
-            state.applied_sources[key] = source
-            continue
-        try:
-            produced[key] = _apply_source(registry, source, config)
-        except Exception as exc:  # noqa: BLE001 - retried next reload
-            logger.warning(
-                f"Failed to load tools from {_describe_source(source)}: {exc}"
-            )
-            # Do not record the declaration: ``previous`` stays the last
-            # applied one, so the next reload retries.  The old tools were
-            # removed above, so the registry reports the source as absent
-            # until a retry succeeds.
-            produced[key] = frozenset()
-            continue
-        state.applied_sources[key] = source
-        counts["registered"] += len(produced[key])
+        names, registered, delta = _reload_source(
+            registry,
+            key,
+            source,
+            old_sources.get(key),
+            produced.get(key, frozenset()),
+            config,
+            state,
+        )
+        produced[key] = names
+        new_names.update(registered)
+        for name, value in delta.items():
+            counts[name] += value
 
     # Hub-built-in metadata defaults run first; the file's overrides run
     # afterwards, matching ``build_registry``.
     if on_reload is not None:
         on_reload(registry)
+
+    # Tools registered by this diff must obey the deployment profile that
+    # was applied to the startup registry.  Run this after the metadata
+    # callback, which supplies the Hub's namespace tags.
+    if state.profile and new_names:
+        _apply_profile_to_names(registry, new_names, state.profile)
 
     # Per-tool metadata overrides, matching what ``apply_config`` does at
     # startup.  Removing an entry from the file does not revert the registry:
@@ -477,8 +574,18 @@ class ConfigWatcher(threading.Thread):
 
     def run(self) -> None:
         while not self._stop_event.wait(self.interval):
-            self.poll_once()
+            try:
+                self.poll_once()
+            except Exception as exc:  # noqa: BLE001 - a reload bug must not kill the watcher
+                logger.warning(f"Config reload failed; watcher continues: {exc}")
 
-    def stop(self) -> None:
-        """Ask the thread to exit; returns immediately."""
+    def stop(self, timeout: float | None = None) -> None:
+        """Ask the thread to exit.
+
+        Args:
+            timeout: When given, wait this many seconds for the thread to
+                finish.  ``None`` returns immediately.
+        """
         self._stop_event.set()
+        if timeout is not None and self.is_alive():
+            self.join(timeout)

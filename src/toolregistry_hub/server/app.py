@@ -12,6 +12,7 @@ Example::
 
 from __future__ import annotations
 
+import atexit
 from typing import TYPE_CHECKING
 
 from toolregistry_server import ServerIdentity
@@ -71,6 +72,10 @@ class HubApp(App):
         profile = kwargs.get("profile")
         if profile is not None:
             apply_profile(registry, profile)
+            if reload_state is not None:
+                # New tools registered by a reload must obey the same
+                # profile filter as the startup registry.
+                reload_state.profile = profile
 
         admin_port = kwargs.get("admin_port")
         if admin_port is not None:
@@ -103,7 +108,24 @@ class HubApp(App):
             on_reload=apply_hub_overrides,
         )
         self.config_watcher.start()
+        # Stop the thread cleanly on interpreter exit.  It is a daemon, but
+        # asking it to stop avoids a reload mutating the registry while the
+        # process is tearing down.
+        atexit.register(self.stop_config_watcher)
         logger.info(f"Config hot reload watching {state.config_path}")
+
+    def stop_config_watcher(self, timeout: float | None = 2.0) -> None:
+        """Stop the config watcher, if one is running.
+
+        Args:
+            timeout: Seconds to wait for the thread to finish.  ``None``
+                returns immediately.
+        """
+        watcher = self.config_watcher
+        if watcher is None:
+            return
+        watcher.stop(timeout)
+        self.config_watcher = None
 
 
 # Module-level convenience (lazy-init default HubApp)
