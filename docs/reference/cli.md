@@ -77,8 +77,11 @@ polls the config file (`--config`) and applies a source-level diff to the
 running registry: an added source is registered, a removed source is
 unregistered, a source that leaves the configured scope is disabled, and a
 changed declaration is replaced. A malformed file is logged and ignored, and
-the current registry keeps serving. The watcher is opt-in and per process;
-it does not coordinate between services.
+the current registry keeps serving. Hub default metadata (`tags`, `defer`,
+`title`, `search_hint` and the execution hints) is applied only to the tools a
+reload registers, so an existing tool keeps a value changed from the admin
+panel. The watcher is opt-in and per process; it does not coordinate between
+services.
 
 Known limitation: removing a `tool_metadata` entry from the file does not
 revert the value it set until the process restarts. The same fields are
