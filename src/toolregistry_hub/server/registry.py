@@ -17,6 +17,7 @@ Deployment-context filtering (``--profile``) is handled by
 
 from __future__ import annotations
 
+from collections.abc import Set
 from dataclasses import fields as dataclass_fields
 from typing import Any
 
@@ -320,8 +321,8 @@ def _output_schema_update(namespace: str, tool: Any) -> dict:
     return {"extra": {**(existing or {}), "output_schema": schema}}
 
 
-def _apply_tool_metadata(registry: ToolRegistry) -> None:
-    """Apply tag and defer overrides from ``_TOOL_METADATA`` to all tools.
+def _apply_tool_metadata(registry: ToolRegistry, names: Set[str] | None = None) -> None:
+    """Apply tag and defer overrides from ``_TOOL_METADATA``.
 
     Namespace-level overrides are applied first; method-level overrides
     (nested under the ``methods`` key) are merged on top.  Uses
@@ -338,11 +339,16 @@ def _apply_tool_metadata(registry: ToolRegistry) -> None:
 
     Args:
         registry: The registry whose tools should be annotated.
+        names: When given, annotate only these tools.  A hot reload passes
+            the names it registered, so a tool that already existed keeps a
+            value an operator changed from the admin panel.
     """
     # Collect all updates first — _replace_tool_metadata mutates the
     # _tools dict, so we cannot modify it while iterating.
     updates: list[tuple[str, dict]] = []
     for tool in registry._tools.values():
+        if names is not None and tool.name not in names:
+            continue
         ns = tool.namespace
         if not ns or ns not in _TOOL_METADATA:
             continue
@@ -471,16 +477,24 @@ def _apply_hub_overrides(registry: ToolRegistry, config: ToolConfig) -> None:
         registry.apply_metadata_config(config.tool_metadata)
 
 
-def apply_hub_overrides(registry: ToolRegistry) -> None:
-    """Apply Hub metadata defaults during a hot reload.
+def apply_hub_overrides(registry: ToolRegistry, names: Set[str]) -> None:
+    """Apply Hub metadata defaults to the tools registered by a reload.
 
     ``reload_registry`` calls this before it applies the file's
     ``tool_metadata``, so the order is the same as :func:`build_registry`:
     Hub defaults first, the user's file overrides last.  Newly registered
     tools therefore get the tag/defer defaults and still see any file
     override.
+
+    Only *names* are annotated.  Tools that already existed are skipped, so
+    a ``tags``, ``defer``, ``search_hint`` or execution-hint value changed
+    from the admin panel survives an unrelated config reload.
+
+    Args:
+        registry: Live registry, already updated by the reload.
+        names: Tools registered by the reload that triggered this callback.
     """
-    _apply_tool_metadata(registry)
+    _apply_tool_metadata(registry, names)
 
 
 _registry: ToolRegistry | None = None

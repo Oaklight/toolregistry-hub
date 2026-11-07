@@ -19,7 +19,9 @@ A source whose registration raises is logged and left unapplied.  Its old
 tools are not re-adopted as current and its new declaration is not recorded
 as the applied state, so the next poll that sees a change retries it.  The
 Hub's built-in metadata defaults run before the file's ``tool_metadata`` on
-reload as well as at startup, so a file override keeps winning.
+reload as well as at startup, so a file override keeps winning.  They are
+applied only to the tools that reload registered: an existing tool keeps a
+value an operator changed from the admin panel.
 
 A malformed file never reaches the registry: :func:`load_config` validates
 the whole document before :func:`reload_registry` mutates anything.
@@ -46,7 +48,7 @@ import dataclasses
 import os
 import re
 import threading
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Set
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -387,7 +389,7 @@ def reload_registry(
     state: ReloadState,
     config: ToolConfig,
     *,
-    on_reload: Callable[[ToolRegistry], None] | None = None,
+    on_reload: Callable[[ToolRegistry, Set[str]], None] | None = None,
 ) -> dict[str, int]:
     """Apply the difference between the applied state and *config*.
 
@@ -396,9 +398,11 @@ def reload_registry(
         state: Tracking state from the previous apply.  Updated in place.
         config: The newly loaded configuration.
         on_reload: Optional callback for metadata defaults that must run
-            before the file's ``tool_metadata``.  The Hub passes its
-            built-in overrides here, which keeps the reload order identical
-            to the startup order, so the file still wins.
+            before the file's ``tool_metadata``.  It receives the registry
+            and the names this diff registered, so defaults are not replayed
+            over tools that already existed.  The Hub passes its built-in
+            overrides here, which keeps the reload order identical to the
+            startup order, so the file still wins.
 
     Returns:
         Counts of registered, unregistered, enabled and disabled tools.
@@ -412,7 +416,8 @@ def reload_registry(
     old_sources = dict(state.applied_sources)
     new_sources = index_sources(config.tools)
     produced = dict(state.source_tools)
-    # Names registered by this diff; the profile filter touches only these.
+    # Names registered by this diff; the metadata callback and the profile
+    # filter touch only these.
     new_names: set[str] = set()
 
     # Sources no longer declared: their tools leave the registry.
@@ -436,9 +441,11 @@ def reload_registry(
             counts[name] += value
 
     # Hub-built-in metadata defaults run first; the file's overrides run
-    # afterwards, matching ``build_registry``.
+    # afterwards, matching ``build_registry``.  The callback is scoped to
+    # the tools this diff registered, so a panel edit to an existing tool is
+    # not reset by an unrelated source change.
     if on_reload is not None:
-        on_reload(registry)
+        on_reload(registry, new_names)
 
     # Tools registered by this diff must obey the deployment profile that
     # was applied to the startup registry.  Run this after the metadata
@@ -463,7 +470,7 @@ def reload_from_path(
     state: ReloadState,
     path: str | None = None,
     *,
-    on_reload: Callable[[ToolRegistry], None] | None = None,
+    on_reload: Callable[[ToolRegistry, Set[str]], None] | None = None,
 ) -> bool:
     """Re-read the config file and apply it.
 
@@ -516,7 +523,7 @@ class ConfigWatcher(threading.Thread):
         state: ReloadState,
         *,
         interval: float = 2.0,
-        on_reload: Callable[[ToolRegistry], None] | None = None,
+        on_reload: Callable[[ToolRegistry, Set[str]], None] | None = None,
     ) -> None:
         super().__init__(name="toolregistry-hub-config-reload", daemon=True)
         self.registry = registry
