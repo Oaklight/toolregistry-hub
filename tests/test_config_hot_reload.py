@@ -9,12 +9,14 @@ from __future__ import annotations
 import time
 
 import pytest
-from toolregistry_server import load_config
+from toolregistry.config import MCPSource
+from toolregistry_server import PROFILE_DISABLE_REASON, apply_profile, load_config
 
 from toolregistry_hub.server.hot_reload import (
     CONFIG_DISABLE_REASON,
     ConfigWatcher,
     ReloadState,
+    _describe_source,
     apply_config_tracked,
     reload_from_path,
     reload_registry,
@@ -39,6 +41,16 @@ DATETIME = (
     '{"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"}'
 )
 UNIT = '{"class": "toolregistry_hub.unit_converter.UnitConverter", "namespace": "unit_converter"}'
+# A namespace outside the Hub's built-in metadata map, so a source-declared
+# tag survives `_apply_tool_metadata` and the profile filter can see it.
+DT2 = (
+    '{"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "dt2", '
+    '"tags": ["file_system"]}'
+)
+DT2_V2 = (
+    '{"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "dt2", '
+    '"tags": ["file_system", "read_only"]}'
+)
 
 
 @pytest.fixture
@@ -300,6 +312,74 @@ class TestFailedRegistration:
         assert "unit_converter-convert" not in registry._tools
 
 
+class TestProfileFilter:
+    """A reload must not re-expose a tool the deployment profile excluded."""
+
+    @staticmethod
+    def _build(path):
+        state = ReloadState()
+        registry = build_registry(
+            tools_config_path=str(path),
+            enable_discovery=False,
+            reload_state=state,
+        )
+        state.profile = "remote"
+        apply_profile(registry, "remote")
+        return registry, state
+
+    def test_redeclared_source_stays_profile_disabled(self, tmp_path):
+        path = tmp_path / "tools.jsonc"
+        _write_config(path, _sources(CALCULATOR, DT2))
+        registry, state = self._build(path)
+        assert registry.get_disable_reason("dt2-now") == PROFILE_DISABLE_REASON
+
+        # An administrator's manual disable must survive the reload.
+        registry.disable("calculator-evaluate", "admin edit")
+
+        _write_config(path, _sources(CALCULATOR, DT2_V2))
+        reload_registry(
+            registry,
+            state,
+            load_config(str(path)),
+            on_reload=apply_hub_overrides,
+        )
+
+        # The source was unregistered and registered again; the profile
+        # filter must still apply to the new tools.
+        assert registry.get_disable_reason("dt2-now") == PROFILE_DISABLE_REASON
+        assert registry.get_disable_reason("calculator-evaluate") == "admin edit"
+
+    def test_unrelated_reload_does_not_change_profile_state(self, tmp_path):
+        path = tmp_path / "tools.jsonc"
+        _write_config(path, _sources(CALCULATOR, DT2))
+        registry, state = self._build(path)
+
+        _write_config(path, _sources(CALCULATOR, DT2, UNIT))
+        reload_registry(
+            registry,
+            state,
+            load_config(str(path)),
+            on_reload=apply_hub_overrides,
+        )
+
+        assert "unit_converter-convert" in registry._tools
+        assert registry.get_disable_reason("dt2-now") == PROFILE_DISABLE_REASON
+
+
+class TestDescribeSource:
+    def test_url_userinfo_is_redacted(self):
+        source = MCPSource(
+            transport="streamable-http", url="https://u:secret@example.com/mcp"
+        )
+        assert _describe_source(source) == "https://example.com/mcp"
+
+    def test_stdio_arguments_are_not_logged(self):
+        source = MCPSource(
+            transport="stdio", command=("npx", "srv", "--token", "SECRET")
+        )
+        assert _describe_source(source) == "npx ..."
+
+
 class TestMalformedConfig:
     def test_invalid_config_leaves_registry_untouched(self, tracked, config_path):
         registry, state = tracked
@@ -360,3 +440,31 @@ class TestWatcher:
         config_path.unlink()
 
         assert watcher.poll_once() is False
+
+    def test_run_survives_a_failing_poll(self, tracked, monkeypatch):
+        registry, state = tracked
+        watcher = ConfigWatcher(registry, state, interval=0.01)
+        calls = 0
+
+        def boom():
+            nonlocal calls
+            calls += 1
+            if calls >= 2:
+                watcher.stop()
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(watcher, "poll_once", boom)
+        watcher.start()
+        watcher.join(timeout=3)
+
+        assert calls >= 2
+        assert not watcher.is_alive()
+
+    def test_stop_waits_for_the_thread(self, tracked):
+        registry, state = tracked
+        watcher = ConfigWatcher(registry, state, interval=0.01)
+        watcher.start()
+
+        watcher.stop(timeout=2)
+
+        assert not watcher.is_alive()
