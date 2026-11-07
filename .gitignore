@@ -230,3 +230,7 @@ plans/
 
 # Temporary screenshots
 *.png
+
+# Local agent state and research notes (kept in the working tree)
+.claude/
+BASHTOOL_*.md
