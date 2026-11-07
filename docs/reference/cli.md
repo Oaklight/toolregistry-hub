@@ -76,6 +76,8 @@ toolregistry-hub mcp [OPTIONS]
 
 已知限制：从文件中删除 `tool_metadata` 条目后，该项设置不会回滚，直到进程重启。这些字段同样可由管理面板写入，reload 无法区分文件写入的值与之后的面板编辑；如需恢复，请在面板中重置。
 
+一个成功注册但未产出任何工具的 source，在声明不变时不会被再次拉取。如果 MCP 服务器后来才 advertise 工具，需要显式修改 source 声明（或重启进程）才能注册。
+
 ## 部署 Profile
 
 `--profile` 标志过滤注册的工具：
