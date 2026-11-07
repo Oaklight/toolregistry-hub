@@ -70,6 +70,21 @@ toolregistry-hub mcp [OPTIONS]
 | `--profile {remote,local}` | none | Deployment profile filter (see below) |
 | `--config-reload` / `--no-config-reload` | disabled | Reload the config file when it changes (poll-based, per process; #144) |
 
+### Config hot reload
+
+With `--config-reload`, `openapi` and `mcp` start a background watcher that
+polls the config file (`--config`) and applies a source-level diff to the
+running registry: an added source is registered, a removed source is
+unregistered, a source that leaves the configured scope is disabled, and a
+changed declaration is replaced. A malformed file is logged and ignored, and
+the current registry keeps serving. The watcher is opt-in and per process;
+it does not coordinate between services.
+
+Known limitation: removing a `tool_metadata` entry from the file does not
+revert the value it set until the process restarts. The same fields are
+writable from the admin panel, so a reload cannot tell a file-applied value
+from a later panel edit. Reset the field from the panel if needed.
+
 ## Deployment Profiles
 
 The `--profile` flag filters which tools are registered:
