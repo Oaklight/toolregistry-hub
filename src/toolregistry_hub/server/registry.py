@@ -26,7 +26,7 @@ from toolregistry.tool import ToolMetadata, ToolTag
 
 from .._vendor.structlog import get_logger
 from ..utils.configurable import Configurable
-from .hot_reload import ReloadState, apply_config_tracked
+from .hot_reload import ReloadState, apply_config_tracked, index_sources
 from .output_schemas import OUTPUT_SCHEMAS
 
 logger = get_logger()
@@ -451,6 +451,7 @@ def build_registry(
         reload_state.config_path = config.source or None
         reload_state.config = config
         reload_state.source_tools = apply_config_tracked(registry, config)
+        reload_state.applied_sources = index_sources(config.tools)
 
     _apply_hub_overrides(registry, config)
 
@@ -471,12 +472,13 @@ def _apply_hub_overrides(registry: ToolRegistry, config: ToolConfig) -> None:
 
 
 def apply_hub_overrides(registry: ToolRegistry) -> None:
-    """Re-apply Hub metadata to tools added by a hot reload.
+    """Apply Hub metadata defaults during a hot reload.
 
-    ``tool_metadata`` from the file is applied inside
-    :func:`~toolregistry_hub.server.hot_reload.reload_registry`; this adds
-    the Hub's built-in tag/defer defaults that a newly registered tool has
-    not seen yet.
+    ``reload_registry`` calls this before it applies the file's
+    ``tool_metadata``, so the order is the same as :func:`build_registry`:
+    Hub defaults first, the user's file overrides last.  Newly registered
+    tools therefore get the tag/defer defaults and still see any file
+    override.
     """
     _apply_tool_metadata(registry)
 

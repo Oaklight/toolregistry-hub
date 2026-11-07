@@ -18,8 +18,9 @@ from toolregistry_hub.server.hot_reload import (
     apply_config_tracked,
     reload_from_path,
     reload_registry,
+    source_key,
 )
-from toolregistry_hub.server.registry import build_registry
+from toolregistry_hub.server.registry import apply_hub_overrides, build_registry
 
 
 def _write_config(path, body: str) -> None:
@@ -174,6 +175,96 @@ class TestReloadDiff:
             "disabled": 0,
         }
         assert registry._tools == before
+
+
+class TestMetadataOrder:
+    def test_file_override_survives_a_reload(self, tmp_path):
+        """The file's tool_metadata must win over the Hub defaults, as at startup."""
+        path = tmp_path / "tools.jsonc"
+        metadata = '"tool_metadata": {"calculator-evaluate": {"defer": false}}, '
+        _write_config(path, metadata + _sources(CALCULATOR, DATETIME))
+
+        state = ReloadState()
+        registry = build_registry(
+            tools_config_path=str(path),
+            enable_discovery=False,
+            reload_state=state,
+        )
+        assert registry._tools["calculator-evaluate"].metadata.defer is False
+
+        _write_config(path, metadata + _sources(CALCULATOR, DATETIME, UNIT))
+        reload_registry(
+            registry,
+            state,
+            load_config(str(path)),
+            on_reload=apply_hub_overrides,
+        )
+
+        # Hub defaults set defer=True for the calculator namespace; the file
+        # overrides it to False and must still win after the reload.
+        assert registry._tools["calculator-evaluate"].metadata.defer is False
+
+
+class TestScopeTransitions:
+    def test_source_excluded_at_startup_registers_when_in_scope(self, tmp_path):
+        """A source skipped at startup must register once global rules allow it."""
+        path = tmp_path / "tools.jsonc"
+        _write_config(
+            path,
+            '"mode": "allowlist", "enabled": ["calculator"], '
+            + _sources(CALCULATOR, DATETIME),
+        )
+        state = ReloadState()
+        registry = build_registry(
+            tools_config_path=str(path),
+            enable_discovery=False,
+            reload_state=state,
+        )
+        assert "datetime-now" not in registry._tools
+
+        _write_config(path, _sources(CALCULATOR, DATETIME))
+        counts = reload_registry(registry, state, load_config(str(path)))
+
+        assert "datetime-now" in registry._tools
+        assert counts["registered"] >= 1
+
+
+class TestFailedRegistration:
+    def test_a_failed_source_is_retried_on_the_next_reload(
+        self, tracked, config_path, monkeypatch
+    ):
+        import toolregistry_hub.server.hot_reload as hot_reload
+
+        registry, state = tracked
+        real = hot_reload.register_python_source
+        attempts = 0
+
+        def flaky(reg, source):
+            nonlocal attempts
+            if source.namespace == "unit_converter":
+                attempts += 1
+                if attempts == 1:
+                    raise RuntimeError("transient failure")
+            return real(reg, source)
+
+        monkeypatch.setattr(hot_reload, "register_python_source", flaky)
+
+        _write_config(config_path, _sources(CALCULATOR, DATETIME, UNIT))
+        config = load_config(str(config_path))
+        reload_registry(registry, state, config)
+
+        unit_source = next(s for s in config.tools if s.namespace == "unit_converter")
+        key = source_key(unit_source)
+        assert "unit_converter-convert" not in registry._tools
+        # The failed declaration must not be recorded as applied, or the
+        # unchanged-declaration branch would never retry it.
+        assert key not in state.applied_sources
+        assert state.source_tools[key] == frozenset()
+
+        reload_registry(registry, state, load_config(str(config_path)))
+
+        assert "unit_converter-convert" in registry._tools
+        assert key in state.applied_sources
 
 
 class TestMalformedConfig:
