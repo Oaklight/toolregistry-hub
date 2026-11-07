@@ -209,11 +209,26 @@ class TestWatcher:
             watcher.join(timeout=2)
             assert not watcher.is_alive()
 
-    def test_poll_once_is_a_noop_without_a_change(self, tracked):
+    def test_poll_once_is_a_noop_after_the_first_poll(self, tracked):
         registry, state = tracked
         watcher = ConfigWatcher(registry, state, interval=0.02)
 
+        # The first poll always runs: it reconciles the window between the
+        # registry build and the watcher start.  The diff is idempotent.
+        assert watcher.poll_once() is True
         assert watcher.poll_once() is False
+
+    def test_first_poll_picks_up_an_edit_before_the_watcher_started(
+        self, tracked, config_path
+    ):
+        """An edit made between the registry build and the thread start is not lost."""
+        registry, state = tracked
+
+        _write_config(config_path, _sources(CALCULATOR, DATETIME, UNIT))
+        watcher = ConfigWatcher(registry, state, interval=0.02)
+
+        assert watcher.poll_once() is True
+        assert "unit_converter-convert" in registry._tools
 
     def test_missing_file_is_not_an_error(self, tracked, config_path):
         registry, state = tracked

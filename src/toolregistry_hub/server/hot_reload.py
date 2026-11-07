@@ -23,6 +23,15 @@ each run their own watcher and converge on the same file; there is no
 cross-process coordination, and a reload is not atomic across sources (each
 register/unregister/disable is a single registry operation, the same
 granularity the admin API uses).
+
+Known limitation: a ``tool_metadata`` entry removed from the file keeps the
+value it set until the process restarts.  The same seven fields (``title``,
+``defer``, ``search_hint`` and the execution hints) are also writable from
+the admin panel, so a reload cannot tell a value the file applied from a
+value an operator changed afterwards; restoring the registered value blindly
+would discard the newer panel edit.  Adding or changing an entry takes effect
+on reload, and the panel can reset a field immediately.  A precise rollback
+needs per-field provenance, which is a larger change than this feature.
 """
 
 from __future__ import annotations
@@ -221,9 +230,9 @@ def reload_registry(
         counts["registered"] += len(produced[key])
 
     # Per-tool metadata overrides, matching what ``apply_config`` does at
-    # startup.  Removing an entry from the file does not revert the registry
-    # to the registered value; that would need a stored baseline and is out
-    # of scope for #144.
+    # startup.  Removing an entry from the file does not revert the registry:
+    # the same fields are writable from the admin panel, so a rollback would
+    # need per-field provenance (see the module docstring).
     if config.tool_metadata:
         registry.apply_metadata_config(config.tool_metadata)
 
@@ -289,7 +298,16 @@ class ConfigWatcher(threading.Thread):
         self.interval = interval
         self.on_reload = on_reload
         self._stop_event = threading.Event()
-        self._last_seen = self._stat_key()
+        # A reload mutates the shared registry, so serialise polls: two
+        # callers (the thread plus a test or a manual trigger) must not
+        # interleave two diffs.
+        self._reload_lock = threading.Lock()
+        # Start from a sentinel, not from the stat at construction: the
+        # registry was built before this object existed, so an edit in that
+        # window would otherwise be adopted as the baseline and never
+        # reloaded.  The first poll therefore always runs; the diff is
+        # idempotent, so an unchanged file produces no work.
+        self._last_seen: tuple[int, int] | None = (0, 0)
 
     def _stat_key(self) -> tuple[int, int] | None:
         """Return ``(mtime_ns, size)``, or ``None`` when the file is absent.
@@ -312,15 +330,18 @@ class ConfigWatcher(threading.Thread):
             ``True`` when a reload was applied.
         """
         current = self._stat_key()
-        if current is None or current == self._last_seen:
+        if current is None:
             return False
-        # Remember the observed state before reloading: a parse failure must
-        # not retry until the file changes again.
-        self._last_seen = current
-        applied = reload_from_path(self.registry, self.state)
-        if applied and self.on_reload is not None:
-            self.on_reload(self.registry)
-        return applied
+        with self._reload_lock:
+            if current == self._last_seen:
+                return False
+            # Remember the observed state before reloading: a parse failure
+            # must not retry until the file changes again.
+            self._last_seen = current
+            applied = reload_from_path(self.registry, self.state)
+            if applied and self.on_reload is not None:
+                self.on_reload(self.registry)
+            return applied
 
     def run(self) -> None:
         while not self._stop_event.wait(self.interval):
