@@ -18,6 +18,10 @@ author: Oaklight
 
 - **`tools.jsonc` 热重载**（#144）：加上 `--config-reload` 后，运行中的服务会监听配置文件（按 mtime/size 轮询，不引入新依赖），并对活动注册表做 source 级 diff：新增的 source 会被注册，删除的 source 会被注销，离开配置范围的 source（`enabled: false`，或被 `mode`/`disabled`/`enabled` 过滤）只禁用而不注销，声明发生变化的 source 会重新注册。仅调整列表顺序不算变更。非法配置只记录警告并被忽略，当前注册表继续服务。启动后的第一次轮询总会执行，因此注册表构建完成到 watcher 启动之间的编辑不会丢失。从文件中删除 `tool_metadata` 条目后，该项设置会保留到重启，因为这些字段同样可由管理面板写入；面板可以立即重置。watcher 按进程生效且默认关闭；内置默认工具列表没有文件可监听，多服务部署的跨进程协调不在本次范围内。
 
+### 修复
+
+- **配置热重载绕过 `--profile`**（#234）：reload 注册的 source 没有经过部署 profile 过滤，因此修改其声明后，在 `--profile remote` 下可能重新暴露 `file_system`、`destructive` 或 `privileged` 工具（`--profile local` 下则是 `network` 工具）。现在 reload 会用与启动注册表相同的标签映射过滤本次新注册的工具，不影响已经注册的工具。
+
 ## [0.12.0] - 2026-10-23
 
 ### 修复
