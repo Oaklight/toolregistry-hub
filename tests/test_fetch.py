@@ -2164,7 +2164,7 @@ class TestFetchOutboundPolicy:
         assert "SECRET" not in str(exc.value)
 
     def test_two_hop_redirect_to_private_url_is_refused(self):
-        """The vendored client's ``Response.url`` is the final hop's address."""
+        """A redirect into a private address is refused before it is dialed."""
         requests: list[str] = []
 
         class Handler(BaseHTTPRequestHandler):
@@ -2203,7 +2203,9 @@ class TestFetchOutboundPolicy:
         finally:
             server.shutdown()
             thread.join(timeout=5)
-        assert requests == ["/start", "/middle", "/secret"]
+        # /middle is already on the loopback host, so the first hop is
+        # refused and neither /middle nor /secret is requested.
+        assert requests == ["/start"]
 
     @patch("toolregistry_hub._vendor.cdp.CDPClient")
     def test_cdp_redirect_to_private_target_is_refused(self, mock_client_cls):
