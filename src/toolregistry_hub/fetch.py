@@ -57,6 +57,12 @@ _MAX_RESPONSE_SIZE_ENV = "FETCH_MAX_RESPONSE_SIZE"
 _MAX_REDIRECTS = 10
 _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 
+#: Headers scoped to the origin that received them.  A cross-origin redirect
+#: drops these before the next hop, so a bearer token or session cookie is
+#: not replayed to a different scheme, host or port.  Mirrors the vendored
+#: client's ``_strip_redirect_credentials``; names are compared lower-case.
+_CREDENTIAL_HEADERS = frozenset({"authorization", "proxy-authorization", "cookie"})
+
 StrategyName = Literal[
     "auto",
     "markdown",
@@ -234,11 +240,40 @@ def _url_host(url: str | None) -> str:
         return ""
 
 
+def _origin_of(url: str) -> tuple[str, str, int]:
+    """Return the ``(scheme, host, port)`` origin of *url*.
+
+    Default ports are normalised, so ``https://a`` and ``https://a:443``
+    compare equal.  An unparseable URL yields an empty origin, which never
+    equals a real one: the hop then counts as cross-origin and loses its
+    credentials.
+    """
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return "", "", 0
+    scheme = parts.scheme.lower()
+    host = (parts.hostname or "").lower()
+    if port is None:
+        port = 80 if scheme == "http" else 443 if scheme == "https" else 0
+    if not scheme or not host:
+        return "", "", 0
+    return scheme, host, port
+
+
+def _strip_redirect_credentials(headers: dict[str, str]) -> None:
+    """Drop origin-scoped headers in place after a cross-origin redirect."""
+    for name in [key for key in headers if key.lower() in _CREDENTIAL_HEADERS]:
+        del headers[name]
+
+
 def _request_with_redirects(
     method: str,
     url: str,
-    send: Callable[[str, str], Response],
+    send: Callable[[str, str, dict[str, str]], Response],
     *,
+    headers: dict[str, str],
     allow_private_hosts: bool,
     stage: str,
 ) -> Response:
@@ -248,13 +283,18 @@ def _request_with_redirects(
     response never opens a connection on its own.  Each ``Location`` is
     resolved against the current URL and checked with the same outbound
     policy, which rejects non-http(s) schemes and non-public addresses before
-    the next request is sent.
+    the next request is sent.  A hop that changes origin also loses
+    ``Authorization``, ``Proxy-Authorization`` and ``Cookie``, matching what
+    the vendored client did when it followed redirects itself.
 
     Args:
         method: ``"GET"`` or ``"POST"`` for the first request.
         url: First request URL.
-        send: Callable ``(url, method) -> Response`` that performs exactly one
-            request with the caller's headers, timeout and proxy.
+        send: Callable ``(url, method, headers) -> Response`` that performs
+            exactly one request with the given per-hop headers, timeout and
+            proxy.
+        headers: Headers for the first request.  The loop copies the mapping
+            and mutates the copy as the chain crosses origins.
         allow_private_hosts: Skip the address-class checks for every hop.
         stage: Log category for a refused hop.
 
@@ -272,8 +312,11 @@ def _request_with_redirects(
     """
     current_url = url
     current_method = method
+    current_headers = dict(headers)
     for _ in range(_MAX_REDIRECTS + 1):
-        response = send(current_url, current_method)
+        # Each hop sends a snapshot: later cleanup must not rewrite the
+        # mapping a previous request was handed.
+        response = send(current_url, current_method, dict(current_headers))
         if response.status_code not in _REDIRECT_STATUSES:
             return response
         location = response.headers.get("location")
@@ -285,12 +328,21 @@ def _request_with_redirects(
         except URLPolicyError as exc:
             _log_policy_refusal(exc, stage=f"{stage}-redirect", url=next_url)
             raise FetchPolicyError(f"redirect target refused: {exc}") from exc
+        if _origin_of(current_url) != _origin_of(next_url):
+            _strip_redirect_credentials(current_headers)
         # 303 always switches to GET; 301/302 do so for a POST.  307/308
         # preserve the method, and fetch sends no body on its GET paths.
         if response.status_code == 303 or (
             response.status_code in (301, 302) and current_method == "POST"
         ):
             current_method = "GET"
+            # A GET has no entity; the vendored client dropped these too.
+            for name in [
+                key
+                for key in current_headers
+                if key.lower() in {"content-type", "content-length"}
+            ]:
+                del current_headers[name]
         current_url = next_url
     raise FetchError(
         f"too many redirects for host {_url_host(url)!r} (limit {_MAX_REDIRECTS})"
@@ -1147,7 +1199,7 @@ def _render_with_veilrender(
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
-        def send(target_url: str, method: str) -> Response:
+        def send(target_url: str, method: str, hop_headers: dict[str, str]) -> Response:
             """Send one VeilRender request without following redirects."""
             if method == "POST":
                 return cast(
@@ -1155,7 +1207,7 @@ def _render_with_veilrender(
                     _http_post(
                         target_url,
                         data=payload,
-                        headers=headers,
+                        headers=hop_headers,
                         timeout=timeout,
                         max_response_size=max_response_size,
                         follow_redirects=False,
@@ -1165,7 +1217,7 @@ def _render_with_veilrender(
                 Response,
                 _http_get(
                     target_url,
-                    headers=headers,
+                    headers=hop_headers,
                     timeout=timeout,
                     max_response_size=max_response_size,
                     follow_redirects=False,
@@ -1176,6 +1228,7 @@ def _render_with_veilrender(
             "POST",
             render_url,
             send,
+            headers=headers,
             allow_private_hosts=allow_private_hosts,
             stage="veilrender",
         )
@@ -1922,13 +1975,15 @@ def _try_markdown_negotiation(
         headers = ua.headers.get()
         headers["Accept"] = "text/markdown"
 
-        def send(target_url: str, _method: str) -> Response:
+        def send(
+            target_url: str, _method: str, hop_headers: dict[str, str]
+        ) -> Response:
             """Send one markdown probe without following redirects."""
             return cast(
                 Response,
                 _http_get(
                     target_url,
-                    headers=headers,
+                    headers=hop_headers,
                     timeout=timeout,
                     proxy=proxy,
                     max_response_size=max_response_size,
@@ -1940,6 +1995,7 @@ def _try_markdown_negotiation(
             "GET",
             url,
             send,
+            headers=headers,
             allow_private_hosts=allow_private_hosts,
             stage="markdown",
         )
@@ -2153,7 +2209,7 @@ def _jina_reader_request(
         jina_reader_url = "https://r.jina.ai/"
         logger.debug(f"Jina Reader request for {url} (engine: {engine})")
 
-        def send(target_url: str, method: str) -> Response:
+        def send(target_url: str, method: str, hop_headers: dict[str, str]) -> Response:
             """Send one Jina request without following redirects."""
             if method == "POST":
                 return cast(
@@ -2161,18 +2217,25 @@ def _jina_reader_request(
                     _http_post(
                         target_url,
                         json={"url": url},
-                        headers=headers,
+                        headers=hop_headers,
                         timeout=transport_timeout,
                         proxy=proxy,
                         max_response_size=max_response_size,
                         follow_redirects=False,
                     ),
                 )
+            # A redirected GET has no request body, so Jina's X-* options
+            # no longer describe anything; they were POST-only.
+            get_headers = {
+                key: value
+                for key, value in hop_headers.items()
+                if not key.lower().startswith("x-")
+            }
             return cast(
                 Response,
                 _http_get(
                     target_url,
-                    headers=headers,
+                    headers=get_headers,
                     timeout=transport_timeout,
                     proxy=proxy,
                     max_response_size=max_response_size,
@@ -2184,6 +2247,7 @@ def _jina_reader_request(
             "POST",
             jina_reader_url,
             send,
+            headers=headers,
             allow_private_hosts=allow_private_hosts,
             stage="jina",
         )
@@ -2271,7 +2335,7 @@ def _fetch_raw(
             def send(
                 target_url: str,
                 _method: str,
-                headers: dict[str, str] = request_headers,
+                hop_headers: dict[str, str],
                 timeout: float = attempt_timeout,
             ) -> Response:
                 """Send one raw-fetch request without following redirects."""
@@ -2279,7 +2343,7 @@ def _fetch_raw(
                     Response,
                     _http_get(
                         target_url,
-                        headers=headers,
+                        headers=hop_headers,
                         timeout=timeout,
                         proxy=proxy,
                         max_response_size=max_response_size,
@@ -2291,6 +2355,7 @@ def _fetch_raw(
                 "GET",
                 url,
                 send,
+                headers=request_headers,
                 allow_private_hosts=allow_private_hosts,
                 stage="http",
             )
