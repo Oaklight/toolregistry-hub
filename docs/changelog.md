@@ -18,6 +18,11 @@ author: Oaklight
 
 - **CDP 渲染的 HTML 在传输前检查大小**（#246）：`_render_with_cdp` 原先通过一次带 `returnByValue` 的 `Runtime.evaluate` 读取完整的 `document.documentElement.outerHTML`，因此巨大或恶意的 DOM 会越过 WebSocket 并在 hub 中实体化，任何上限都来不及生效。现在先探测页面长度，超过 10 MiB 的 `_MAX_RESPONSE_SIZE` 时直接抛出 `FetchError`，不再求值 `outerHTML`；探测结果不可读时按未知大小处理并拒绝内容。该探测统计 UTF-16 码元，因此刚好低于上限的页面按 UTF-8 计仍可能占用约三倍上限——限制的是传输量与 Python 侧字符串，而不是精确的字节数。错误消息只包含调用方提供的 host 与上限，绝不含解析后的地址。VeilRender 的 HTML 受其请求的 10 MiB body 上限约束（JSON 字符串不会比它编码的字符更短），因此无需另行检查；docstring 已说明这一点。
 
+### 变更
+
+- **响应大小上限可配置**（#247）：`Fetch(max_response_size=...)` 为每个响应体设置字节上限，并校验为正整数；省略时读取 `FETCH_MAX_RESPONSE_SIZE`，仍未设置则默认 10 MiB。解析后的值通过同一参数传给 markdown 协商、原始抓取、Jina Reader 与 VeilRender，`tools.jsonc` 的 `kwargs` 条目也和其他构造参数一样透传。按策略分别设限仍待测量后再定。
+- **超限错误会标注实际应答的端点**（#245）：当超限响应体来自 Jina Reader（`r.jina.ai`）或配置的 VeilRender 端点而非目标页面时，错误文案为 `response from 'r.jina.ai' for 'example.com' exceeds ...`；读取端点与目标同主机时仍保持单一主机名形式。文案只出现主机名，不出现解析地址，抛出时仍使用 `from None`。
+
 ## [0.12.0] - 2026-11-08
 
 ### 新增
@@ -42,8 +47,9 @@ author: Oaklight
 
 ### 安全
 
-- **Fetch 增加出站地址策略**（#240，引用）：`fetch_content` 现在会在发出任何请求前校验调用方提供的 URL 与代理。仅允许 http/https；主机名解析出的每个地址都必须是全球可路由地址（回环、RFC 1918、链路本地（含 `169.254.169.254`）、CGNAT、组播、NAT64、6to4、Teredo、ORCHID、文档/基准测试网段均拒绝），解析失败同样拒绝。IPv4-mapped 与 NAT64 内嵌地址按 IPv4 判断。重定向采用事后校验：当 `response.url` 指向私有地址时丢弃响应体并抛出 `FetchPolicyError`。CDP 在导航后校验 `document.location.href`；VeilRender 校验 `metadata.url`；两者在无法确认最终地址时拒绝返回内容。运维人员可用 `Fetch(allow_private_hosts=True)`、`FETCH_ALLOW_PRIVATE_HOSTS=1` 或 `tools.jsonc` 中的构造参数显式开启；不提供逐次调用开关。残余风险：产生被拒重定向响应的请求已经发出（盲 SSRF），且连接时会再次解析 DNS（重绑定窗口）。`follow_redirects=False` 现已由 core 0.20.1 / zerodep v2026.11.8 提供，但 hub 的 fetch 尚未采用，逐跳重定向校验仍是后续工作；连接期地址固定仍未提供。
+- **Fetch 增加出站地址策略**（#240，引用）：`fetch_content` 现在会在发出任何请求前校验调用方提供的 URL 与代理。仅允许 http/https；主机名解析出的每个地址都必须是全球可路由地址（回环、RFC 1918、链路本地（含 `169.254.169.254`）、CGNAT、组播、NAT64、6to4、Teredo、ORCHID、文档/基准测试网段均拒绝），解析失败同样拒绝。IPv4-mapped 与 NAT64 内嵌地址按 IPv4 判断。重定向采用事后校验：当 `response.url` 指向私有地址时丢弃响应体并抛出 `FetchPolicyError`。CDP 在导航后校验 `document.location.href`；VeilRender 校验 `metadata.url`；两者在无法确认最终地址时拒绝返回内容。运维人员可用 `Fetch(allow_private_hosts=True)`、`FETCH_ALLOW_PRIVATE_HOSTS=1` 或 `tools.jsonc` 中的构造参数显式开启；不提供逐次调用开关。残余风险：连接时会再次解析 DNS（重绑定窗口）；连接期地址固定仍未提供。上述盲重定向请求已由下方 #250 的逐跳校验处理。
 - **Fetch 限制响应体大小**（#243）：所有请求——markdown 协商、原始抓取、Jina Reader 调用与 VeilRender——现在都会向内置 HTTP 客户端传入 10 MiB 的 `max_response_size`；超大的 `Content-Length` 在读取任何 body 之前即被拒绝，chunked body 一旦越过上限也会立即停止。`ResponseTooLargeError` 会映射为 `FetchError`，消息包含调用方提供的 host 与上限，绝不含解析后的地址。此前整个响应体会先被完整缓冲，然后才做 content-type 检查，因此单个数 GB 的响应即可把共享 hub 打到 OOM。
+- **重定向改为逐跳校验**（#250）：`fetch.py` 现在以 `follow_redirects=False` 调用内置客户端，每一跳的 `Location` 先相对于当前 URL 解析，再用同一出站策略校验，通过后才发下一跳。指向私有地址的重定向链会在连接该地址之前被拒绝，而不是先跟随、再丢弃响应体。内置 `httpclient` 升级到 0.7.2（zerodep `0665306`），新增 `follow_redirects`；markdown 协商、原始抓取、Jina Reader 与 VeilRender 全部使用。连接仍不会固定到已校验的地址，因此校验与连接之间的 DNS 重绑定仍可能存在（zerodep #305）。
 
 ## [0.11.0] - 2026-10-23
 
