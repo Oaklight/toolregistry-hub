@@ -8,7 +8,7 @@ import threading
 import time
 import types
 import unicodedata
-from typing import TYPE_CHECKING, Literal, NamedTuple, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, TypedDict, cast
 from urllib.parse import urlsplit
 
 from ._vendor.httpclient import (
@@ -290,6 +290,24 @@ def _resolve_max_response_size(value: int | None) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise ValueError(f"{name} must be a positive integer, got {value!r}")
     return value
+
+
+def _cdp_too_large_error(url: str, max_response_size: int) -> FetchError:
+    """Refuse a CDP-rendered page larger than the configured fetch limit.
+
+    The browser-side probe counts UTF-16 code units, so the message calls
+    the same numeric cap a character limit.  Like
+    :func:`_response_too_large_error`, it names the caller-supplied host and
+    never the rendered content or a resolved address.
+    """
+    try:
+        host = urlsplit(url).hostname or ""
+    except ValueError:
+        host = ""
+    return FetchError(
+        f"CDP-rendered page from {host!r} exceeds the "
+        f"{max_response_size}-character fetch limit"
+    )
 
 
 def _make_result(
@@ -855,12 +873,39 @@ def _pick_local_content(
     return "", "", 0.0
 
 
+def _validate_cdp_final_url(final_url: object, *, allow_private_hosts: bool) -> None:
+    """Refuse a CDP page whose final address is missing or not public."""
+    if not isinstance(final_url, str) or not final_url:
+        raise FetchPolicyError(
+            "CDP page address could not be confirmed; refusing content"
+        )
+    try:
+        validate_target_url(final_url, allow_private_hosts=allow_private_hosts)
+    except URLPolicyError as exc:
+        _log_policy_refusal(exc, stage="cdp", url=final_url)
+        raise FetchPolicyError(f"CDP redirect target refused: {exc}") from exc
+
+
+def _cdp_page_size(client: Any, target_id: str) -> int | None:
+    """Return the rendered page length in UTF-16 code units, or ``None``.
+
+    A page with a document element answers with a number; a missing element
+    or an unexpected result is reported as ``None`` so the caller refuses
+    the content instead of transferring an unbounded string.
+    """
+    size = client.evaluate(target_id, "document.documentElement.outerHTML.length")
+    if isinstance(size, bool) or not isinstance(size, int):
+        return None
+    return size
+
+
 def _render_with_cdp(
     url: str,
     cdp_endpoint: str,
     timeout: float = 15.0,
     *,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> str:
     """Render a page via CDP and return the rendered HTML.
 
@@ -873,18 +918,34 @@ def _render_with_cdp(
     that address cannot be read, or it violates the outbound policy, the
     content is refused (fail closed).
 
+    The page size is probed before the HTML crosses the wire:
+    ``document.documentElement.outerHTML.length`` is read first, and a
+    value above *max_response_size* raises ``FetchError`` without
+    evaluating ``outerHTML``, so an over-size page is normally never
+    transferred.  The probe counts UTF-16 code units, and the received
+    string is measured again in Python after the read: the DOM can grow
+    between the two calls (timers, ``MutationObserver``, SPA hydration),
+    and that second check is what guarantees an over-cap string is never
+    returned.  Neither measurement is byte-exact; the probe bounds the
+    transfer in the normal case, and the returned string always stays
+    within the cap.  A probe that does not return an integer is treated as
+    an unknown size and the content is refused.
+
     Args:
         url: The URL to render.
         cdp_endpoint: WebSocket URL of the CDP browser
             (e.g. ``ws://localhost:9222``).
         timeout: Maximum time in seconds to wait for page load.
         allow_private_hosts: Allow a private final address.
+        max_response_size: Largest page the probe accepts, in UTF-16 code
+            units.  Defaults to the configured response cap.
 
     Returns:
         Rendered HTML string, or empty string on any failure.
 
     Raises:
         FetchPolicyError: If the final address is missing or refused.
+        FetchError: If the rendered page exceeds the size limit.
     """
     try:
         from ._vendor.cdp import CDPClient
@@ -894,27 +955,27 @@ def _render_with_cdp(
             try:
                 client.navigate(target_id, url, timeout=timeout)
                 final_url = client.evaluate(target_id, "document.location.href")
-                if not isinstance(final_url, str) or not final_url:
-                    raise FetchPolicyError(
-                        "CDP page address could not be confirmed; refusing content"
-                    )
-                try:
-                    validate_target_url(
-                        final_url, allow_private_hosts=allow_private_hosts
-                    )
-                except URLPolicyError as exc:
-                    _log_policy_refusal(exc, stage="cdp", url=final_url)
-                    raise FetchPolicyError(
-                        f"CDP redirect target refused: {exc}"
-                    ) from exc
+                _validate_cdp_final_url(
+                    final_url, allow_private_hosts=allow_private_hosts
+                )
+                size = _cdp_page_size(client, target_id)
+                if size is None:
+                    return ""
+                if size > max_response_size:
+                    raise _cdp_too_large_error(url, max_response_size)
                 html = client.evaluate(target_id, "document.documentElement.outerHTML")
                 if not isinstance(html, str) or not html:
                     return ""
+                if len(html) > max_response_size:
+                    # The DOM can grow between the probe and the read, so the
+                    # received string is measured again: an over-cap page must
+                    # not be returned even though it crossed the wire once.
+                    raise _cdp_too_large_error(url, max_response_size)
                 logger.debug(f"CDP rendered {url}: {len(html)} chars of HTML")
                 return html
             finally:
                 client.close_target(target_id)
-    except FetchPolicyError:
+    except FetchError:
         raise
     except Exception as e:
         logger.debug(f"CDP rendering failed for {url}: {e}")
@@ -927,6 +988,7 @@ def _try_cdp_extraction(
     timeout: float,
     *,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> tuple[str, str]:
     """Render a page with CDP and attempt readability/soup extraction.
 
@@ -935,17 +997,22 @@ def _try_cdp_extraction(
         cdp_endpoint: WebSocket endpoint for the CDP browser.
         timeout: Budget in seconds for the CDP render.
         allow_private_hosts: Allow a private final address.
+        max_response_size: Largest rendered page the probe accepts.
 
     Returns:
         A ``(best_content, local_content)`` tuple.  ``best_content`` is non-empty
         when extraction produced sufficient content; ``local_content`` is the best
         partial result for final-fallback stashing.
+
+    Raises:
+        FetchError: If the rendered page exceeds the size limit.
     """
     rendered_html = _render_with_cdp(
         url,
         cdp_endpoint,
         timeout=timeout,
         allow_private_hosts=allow_private_hosts,
+        max_response_size=max_response_size,
     )
     if not rendered_html:
         return "", ""
@@ -979,6 +1046,12 @@ def _render_with_veilrender(
     checked before the HTML is returned.  A response that omits it is
     refused (fail closed), because the remote browser may have followed a
     redirect the hub cannot otherwise see.
+
+    The HTML arrives inside the capped JSON response body, so it is bounded
+    by *max_response_size* before it is parsed: a JSON string is never
+    shorter than the characters it encodes, and the body cap rejects a
+    larger document.  No separate length check is needed; a response over
+    the cap raises ``FetchError``.
 
     Args:
         url: The URL to render.
@@ -1339,6 +1412,7 @@ def _strategy_browser(
             cdp_endpoint,
             min(remaining, 15.0),
             allow_private_hosts=allow_private_hosts,
+            max_response_size=max_response_size,
         )
     content = _format_text(result or local)
     return _make_result(
@@ -1553,6 +1627,7 @@ def _try_browser_rendering(
             cdp_endpoint,
             min(remaining, 15.0),
             allow_private_hosts=allow_private_hosts,
+            max_response_size=max_response_size,
         )
         if cdp_result:
             content = _format_text(cdp_result)

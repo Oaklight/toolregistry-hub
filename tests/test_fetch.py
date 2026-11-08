@@ -1770,7 +1770,8 @@ class TestRenderWithCDP:
     def _client(html="<html>OK</html>", final_url="https://spa.example.com/"):
         ctx = MagicMock()
         ctx.create_target.return_value = "target-1"
-        ctx.evaluate.side_effect = [final_url, html]
+        size = len(html) if isinstance(html, str) else 0
+        ctx.evaluate.side_effect = [final_url, size, html]
         return ctx
 
     @patch("toolregistry_hub._vendor.cdp.CDPClient")
@@ -1827,6 +1828,98 @@ class TestRenderWithCDP:
         ctx.navigate.assert_called_once_with(
             "target-1", "https://example.com", timeout=5.0
         )
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    def test_oversized_html_is_refused_before_transfer(self, mock_cdp_cls):
+        ctx = self._client()
+        ctx.evaluate.side_effect = [
+            "https://spa.example.com/",
+            _DEFAULT_MAX_RESPONSE_SIZE + 1,
+            "<html>never transferred</html>",
+        ]
+        mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
+        mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        with pytest.raises(FetchError) as exc:
+            _render_with_cdp("https://spa.example.com", "ws://localhost:9222")
+
+        message = str(exc.value)
+        assert "spa.example.com" in message
+        assert str(_DEFAULT_MAX_RESPONSE_SIZE) in message
+        assert exc.value.__cause__ is None
+        expressions = [call.args[1] for call in ctx.evaluate.call_args_list]
+        assert "document.documentElement.outerHTML" not in expressions
+        ctx.close_target.assert_called_once_with("target-1")
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    def test_html_at_the_limit_is_returned(self, mock_cdp_cls):
+        html = "<html>" + "a" * 10 + "</html>"
+        ctx = self._client()
+        ctx.evaluate.side_effect = [
+            "https://spa.example.com/",
+            _DEFAULT_MAX_RESPONSE_SIZE,
+            html,
+        ]
+        mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
+        mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = _render_with_cdp("https://spa.example.com", "ws://localhost:9222")
+        assert result == html
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    def test_configured_limit_is_honoured(self, mock_cdp_cls):
+        ctx = self._client()
+        ctx.evaluate.side_effect = [
+            "https://spa.example.com/",
+            2049,
+            "<html>big</html>",
+        ]
+        mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
+        mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        with pytest.raises(FetchError) as exc:
+            _render_with_cdp(
+                "https://spa.example.com",
+                "ws://localhost:9222",
+                max_response_size=2048,
+            )
+        assert "2048" in str(exc.value)
+        expressions = [call.args[1] for call in ctx.evaluate.call_args_list]
+        assert "document.documentElement.outerHTML" not in expressions
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    def test_growth_after_probe_is_refused(self, mock_cdp_cls):
+        """A page that grows between the probe and the read is still refused."""
+        ctx = self._client()
+        ctx.evaluate.side_effect = [
+            "https://spa.example.com/",
+            10,
+            "<html>" + "a" * 100 + "</html>",
+        ]
+        mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
+        mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        with pytest.raises(FetchError) as exc:
+            _render_with_cdp(
+                "https://spa.example.com",
+                "ws://localhost:9222",
+                max_response_size=10,
+            )
+        assert "10" in str(exc.value)
+        expressions = [call.args[1] for call in ctx.evaluate.call_args_list]
+        assert "document.documentElement.outerHTML" in expressions
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    def test_unknown_length_is_refused_without_transfer(self, mock_cdp_cls):
+        ctx = self._client()
+        ctx.evaluate.side_effect = ["https://spa.example.com/", None]
+        mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
+        mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = _render_with_cdp("https://spa.example.com", "ws://localhost:9222")
+        assert result == ""
+        expressions = [call.args[1] for call in ctx.evaluate.call_args_list]
+        assert "document.documentElement.outerHTML" not in expressions
 
 
 # ============================================================
