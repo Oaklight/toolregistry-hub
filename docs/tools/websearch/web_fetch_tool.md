@@ -92,7 +92,7 @@ content = fetcher.fetch_content(
 - **环境代理**：只有显式传入的 `proxy` 参数会被校验并使用。内置 HTTP 客户端只读取 `SSL_CERT_FILE` 与 `SSL_CERT_DIR`，不读取 `HTTP_PROXY`、`HTTPS_PROXY` 或 `ALL_PROXY`，因此进程环境中的代理变量不会生效，也不存在绕过策略的环境代理路径。
 - **地址**：主机名解析出的每一个地址都必须是全球可路由地址。解析结果中只要有一个非公网地址就拒绝；解析失败同样拒绝（fail closed）。回环、RFC 1918、链路本地（含 `169.254.169.254` 元数据地址）、CGNAT `100.64.0.0/10`、组播、NAT64、6to4、Teredo、ORCHID、文档与基准测试网段均被阻止。IPv4-mapped IPv6 会先解包为 IPv4 再判断；主机名末尾的点会被忽略。
 - **重定向**：`fetch` 自行跟随重定向。每一跳的 `Location` 都会先相对于当前 URL 解析，并在发出下一跳请求前用同一策略校验；指向私有地址的重定向链不会真正连接该地址。最终 URL 还会再校验一次作为兜底。连接不会被固定到已校验的地址，因此校验与连接之间的 DNS 重绑定仍可能存在。适用于 markdown 协商、原始抓取、Jina Reader 与 VeilRender。
-- **CDP**：浏览器自行跟随重定向。返回任何 HTML 之前校验最终的 `document.location.href`；无法读取时拒绝内容。
+- **CDP**：浏览器自行跟随重定向。最终地址与 HTML 由同一次 `Runtime.evaluate` 取回，导航无法在两者之间插入。返回任何 HTML 之前校验快照中的地址；无法读取时拒绝内容。
 - **VeilRender**：远端服务在 `metadata.url` 中报告最终页面地址，返回 HTML 前会校验；缺少该字段时拒绝。
 - **DNS 重绑定**：策略先解析一次，HTTP 客户端连接时会再次解析；每一跳重定向同理。在连接期地址固定可用之前仍存在重绑定窗口。
 
@@ -122,7 +122,7 @@ Fetch 默认对每个 HTTP 响应最多缓冲 10 MiB。markdown 协商、原始�
  "kwargs": {"max_response_size": 20971520}}
 ```
 
-CDP 渲染的页面在传输 HTML 之前会先检查大小：工具先读取 `document.documentElement.outerHTML.length`，超过解析后的 `max_response_size` 时直接抛出 `FetchError`，不再求值 `outerHTML`。探测与读取之间 DOM 可能增长（定时器、`MutationObserver`、SPA 水合），因此收到的字符串会再次测量；超限页面依旧拒绝，尽管此时它已经越过一次网络。该探测统计的是 UTF-16 码元，因此刚好低于上限的页面按 UTF-8 计仍可能占用约三倍上限；两种测量都不是精确的字节数。探测结果不是数字时按未知大小处理，不传输内容。VeilRender 的 HTML 位于受限的 JSON 响应体内，因此适用同一上限，无需另行检查。
+CDP 渲染的页面在传输 HTML 之前会先检查大小：工具先读取 `document.documentElement.outerHTML.length`，超过解析后的 `max_response_size` 时直接抛出 `FetchError`，不再求值 `outerHTML`。探测与快照之间 DOM 可能增长（定时器、`MutationObserver`、SPA 水合），因此收到的字符串会按码点再次测量；超限页面依旧拒绝，尽管此时它已经越过一次网络。该探测统计的是 UTF-16 码元，因此刚好低于上限的页面按 UTF-8 计仍可能占用约三倍上限；两种测量都不是精确的字节数。探测结果不是数字时按未知大小处理，不传输内容。VeilRender 的 HTML 位于受限的 JSON 响应体内，因此适用同一上限，无需另行检查。
 
 ## 工作原理
 

@@ -50,6 +50,7 @@ author: Oaklight
 - **Fetch 增加出站地址策略**（#240，引用）：`fetch_content` 现在会在发出任何请求前校验调用方提供的 URL 与代理。仅允许 http/https；主机名解析出的每个地址都必须是全球可路由地址（回环、RFC 1918、链路本地（含 `169.254.169.254`）、CGNAT、组播、NAT64、6to4、Teredo、ORCHID、文档/基准测试网段均拒绝），解析失败同样拒绝。IPv4-mapped 与 NAT64 内嵌地址按 IPv4 判断。重定向采用事后校验：当 `response.url` 指向私有地址时丢弃响应体并抛出 `FetchPolicyError`。CDP 在导航后校验 `document.location.href`；VeilRender 校验 `metadata.url`；两者在无法确认最终地址时拒绝返回内容。运维人员可用 `Fetch(allow_private_hosts=True)`、`FETCH_ALLOW_PRIVATE_HOSTS=1` 或 `tools.jsonc` 中的构造参数显式开启；不提供逐次调用开关。残余风险：连接时会再次解析 DNS（重绑定窗口）；连接期地址固定仍未提供。上述盲重定向请求已由下方 #250 的逐跳校验处理。
 - **Fetch 限制响应体大小**（#243）：所有请求——markdown 协商、原始抓取、Jina Reader 调用与 VeilRender——现在都会向内置 HTTP 客户端传入 10 MiB 的 `max_response_size`；超大的 `Content-Length` 在读取任何 body 之前即被拒绝，chunked body 一旦越过上限也会立即停止。`ResponseTooLargeError` 会映射为 `FetchError`，消息包含调用方提供的 host 与上限，绝不含解析后的地址。此前整个响应体会先被完整缓冲，然后才做 content-type 检查，因此单个数 GB 的响应即可把共享 hub 打到 OOM。
 - **重定向改为逐跳校验**（#250）：`fetch.py` 现在以 `follow_redirects=False` 调用内置客户端，每一跳的 `Location` 先相对于当前 URL 解析，再用同一出站策略校验，通过后才发下一跳。指向私有地址的重定向链会在连接该地址之前被拒绝，而不是先跟随、再丢弃响应体。内置 `httpclient` 升级到 0.7.2（zerodep `0665306`），新增 `follow_redirects`；markdown 协商、原始抓取、Jina Reader 与 VeilRender 全部使用。跨源重定向会删除 `Authorization`、`Proxy-Authorization` 与 `Cookie`，令牌不会被重放到其他主机。连接仍不会固定到已校验的地址，因此校验与连接之间的 DNS 重绑定仍可能存在（zerodep #305）。
+- **CDP 的地址与 HTML 改为原子读取**（#246 后续）：`_render_with_cdp` 现在用一次 `Runtime.evaluate` 同时取回 `{url, html}`，导航无法在地址校验与 HTML 读取之间插入。快照中的地址在返回 HTML 之前校验；长度探测与 Python 侧二次测量保持不变。超限错误现在写明测量单位——探测为 UTF-16 码元，收到的字符串为码点——host 取自共享的 `_url_host()`。
 
 ## [0.11.0] - 2026-10-23
 
