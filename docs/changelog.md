@@ -16,7 +16,7 @@ author: Oaklight
 
 ### 安全
 
-- **CDP 渲染的 HTML 在传输前检查大小**（#246）：`_render_with_cdp` 原先通过一次带 `returnByValue` 的 `Runtime.evaluate` 读取完整的 `document.documentElement.outerHTML`，因此巨大或恶意的 DOM 会越过 WebSocket 并在 hub 中实体化，任何上限都来不及生效。现在先探测页面长度，超过配置的上限（默认 10 MiB）时直接抛出 `FetchError`，不再求值 `outerHTML`；探测结果不可读时按未知大小处理并拒绝内容。探测与读取之间 DOM 可能增长，因此收到的字符串会再次测量，超限页面依旧拒绝。该探测统计 UTF-16 码元，因此刚好低于上限的页面按 UTF-8 计仍可能占用约三倍上限——限制的是传输量与 Python 侧字符串，而不是精确的字节数。错误消息只包含调用方提供的 host 与上限，绝不含解析后的地址。VeilRender 的 HTML 受其请求的 10 MiB body 上限约束（JSON 字符串不会比它编码的字符更短），因此无需另行检查；docstring 已说明这一点。
+- **CDP 渲染的 HTML 在传输前检查大小**（#246）：`_render_with_cdp` 原先通过一次带 `returnByValue` 的 `Runtime.evaluate` 读取完整的 `document.documentElement.outerHTML`，因此巨大或恶意的 DOM 会越过 WebSocket 并在 hub 中实体化，任何上限都来不及生效。现在先探测页面长度，超过配置的上限（默认 10 MiB）时直接抛出 `FetchError`，不再求值 `outerHTML`；探测结果不可读时按未知大小处理并拒绝内容。探测与读取之间 DOM 可能增长，因此收到的字符串会再次测量，超限页面依旧拒绝。该探测统计 UTF-16 码元，因此刚好低于上限的页面按 UTF-8 计仍可能占用约三倍上限——正常情况下探测限制传输量，返回的字符串则始终不超过上限，但两种测量都不是精确的字节数。错误消息只包含调用方提供的 host 与上限，绝不含解析后的地址。VeilRender 的 HTML 受其请求配置的 body 上限约束（默认 10 MiB；JSON 字符串不会比它编码的字符更短），因此无需另行检查；docstring 已说明这一点。
 
 ### 变更
 
