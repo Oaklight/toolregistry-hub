@@ -28,6 +28,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Vendored `httpclient` 0.6.4 → 0.7.1** (zerodep `48606bf`): a redirect to a different origin no longer forwards `Authorization`, `Proxy-Authorization` or `Cookie`, and Digest authentication is attempted only while the request stays on the credential's origin (#287); every member of a multi-member gzip body is decoded instead of only the first; and `Client`/`AsyncClient` plus the convenience functions accept an optional `max_response_size` that caps a buffered body and raises `ResponseTooLargeError` above it. The parameter defaults to `None`, so every existing call buffers exactly as before, and a `stream=True` response is never capped. No hub code changes.
 
+### Security
+
+- **Fetch applies an outbound address policy** (#240, refs): `fetch_content` now validates the caller-supplied URL and proxy before any request. Only http/https are allowed; every resolved address must be globally routable (loopback, RFC 1918, link-local including `169.254.169.254`, CGNAT, multicast, NAT64, 6to4, Teredo, ORCHID, and documentation/benchmarking ranges are refused), and a resolution failure is refused. IPv4-mapped and NAT64-embedded addresses are checked as IPv4. Redirects are checked after the fact: the body is discarded and `FetchPolicyError` is raised when `response.url` points into a private address. CDP checks `document.location.href` after navigation; VeilRender checks `metadata.url`; both refuse content when the final address is missing. Operators can opt in with `Fetch(allow_private_hosts=True)`, `FETCH_ALLOW_PRIVATE_HOSTS=1`, or the constructor keyword in `tools.jsonc`; there is no per-call switch. Residual risk: the request that produced a refused redirect response has already been sent (blind SSRF), and DNS is resolved again at connect time (rebinding window) until zerodep ships `follow_redirects=False` and connect-time address pinning.
+
 ## [0.12.0] - 2026-10-23
 
 ### Fixed

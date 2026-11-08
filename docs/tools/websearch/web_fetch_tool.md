@@ -51,7 +51,7 @@ content = fetcher.fetch_content(
 
 ## API Reference
 
-### `Fetch(api_keys=None, cdp_endpoint=None, veilrender_endpoint=None, veilrender_token=None)`
+### `Fetch(api_keys=None, cdp_endpoint=None, veilrender_endpoint=None, veilrender_token=None, allow_private_hosts=None)`
 
 Initialize the Fetch content extractor.
 
@@ -61,6 +61,7 @@ Initialize the Fetch content extractor.
 - `cdp_endpoint` (str, optional): WebSocket URL of a CDP-compatible browser (e.g., `ws://localhost:9222`). Falls back to `CDP_ENDPOINT` environment variable. When set, enables the CDP Browser Rendering stage for SPA content extraction.
 - `veilrender_endpoint` (str, optional): Base URL of a VeilRender remote browser service (e.g., `http://localhost:3000`). Falls back to `VEILRENDER_ENDPOINT` environment variable. When set, enables the VeilRender stage, positioned before CDP in the auto fallback chain.
 - `veilrender_token` (str, optional): Bearer token for VeilRender authentication. Falls back to `VEILRENDER_TOKEN` environment variable. Optional — omit if your VeilRender instance requires no auth.
+- `allow_private_hosts` (bool, optional): Allow the target URL and proxy to use private addresses. Defaults to `False`. When omitted or `None`, the `FETCH_ALLOW_PRIVATE_HOSTS` environment variable is read (`1`, `true`, `yes` or `on` enables it). The http/https scheme restriction always applies. There is no per-call switch, so a tool caller cannot enable it.
 
 ### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None, strategy: str = "auto") -> FetchResult`
 
@@ -80,6 +81,33 @@ Extract content from a given URL using available methods.
 **Raises:**
 
 - `FetchError`: If all extraction strategies fail, the URL is invalid, a network error occurs, or the URL points to an unsupported binary content type (images, PDFs, audio/video, etc.)
+- `FetchPolicyError`: If the target URL, the proxy, or a redirect target is refused by the outbound address policy. It subclasses `FetchError`.
+
+## Outbound Address Policy
+
+`fetch_content` treats every caller as untrusted, so it validates the target URL and the caller-supplied `proxy` before any request is made.
+
+- **Schemes:** only `http` and `https` are accepted, for both the target and the proxy. `file://`, `data:`, `ftp://`, `ws://` and similar are refused.
+- **Addresses:** every address a hostname resolves to must be globally routable. A host that resolves to a mix of public and private addresses is refused, and a resolution failure is refused (fail closed). Loopback, RFC 1918, link-local (including the `169.254.169.254` metadata address), CGNAT `100.64.0.0/10`, multicast, NAT64, 6to4, Teredo, ORCHID, documentation and benchmarking ranges are blocked. IPv4-mapped IPv6 addresses are unwrapped and checked as IPv4; a trailing dot in a hostname is ignored.
+- **Redirects:** the vendored HTTP client follows them. Before the body is read, the final `response.url` is validated. A redirect into a private address discards the body and raises `FetchPolicyError`. The HTTP request itself has already been sent, so this removes response exfiltration but not the blind request. Per-hop refusal and connect-time IP pinning depend on upstream zerodep releases (`follow_redirects=False` and address pinning).
+- **CDP:** the browser follows redirects itself. The final `document.location.href` is validated before any HTML is returned; if it cannot be read, the content is refused.
+- **VeilRender:** the remote service reports the final page address in `metadata.url`; it is validated before the HTML is returned. A response that omits it is refused.
+- **DNS rebinding:** the policy resolves the name, then the HTTP client resolves it again when connecting. A rebinding window remains until connect-time pinning is available.
+
+Operators who need private destinations can opt in. There is no per-call switch, so a caller of the tool cannot enable it:
+
+```python
+fetcher = Fetch(allow_private_hosts=True)
+```
+
+Or set `FETCH_ALLOW_PRIVATE_HOSTS=1`, or pass the constructor keyword from `tools.jsonc`:
+
+```jsonc
+{"class": "toolregistry_hub.fetch.Fetch", "namespace": "web",
+ "kwargs": {"allow_private_hosts": true}}
+```
+
+The opt-in skips only the address-class checks. The http/https restriction still applies to both the target and the proxy.
 
 ## How It Works
 
