@@ -109,6 +109,10 @@ Or set `FETCH_ALLOW_PRIVATE_HOSTS=1`, or pass the constructor keyword from `tool
 
 The opt-in skips only the address-class checks. The http/https restriction still applies to both the target and the proxy.
 
+## Response Size Limit
+
+Fetch buffers at most 10 MiB per HTTP response. Markdown negotiation, the raw fetch, the Jina Reader request and VeilRender all pass that limit to the HTTP client, which refuses an oversized `Content-Length` before reading any body and stops a chunked body as soon as it crosses the cap. A refusal raises `FetchError` naming the caller-supplied host and the limit; it never includes a resolved address. A document larger than the limit cannot be extracted; change `_MAX_RESPONSE_SIZE` in `toolregistry_hub.fetch` if a deployment needs larger pages.
+
 ## How It Works
 
 ### Strategy Chain
