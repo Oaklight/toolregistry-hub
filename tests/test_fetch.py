@@ -1,6 +1,7 @@
 """Tests for the fetch module."""
 
 import ipaddress
+import json
 import socket
 import threading
 import time
@@ -19,9 +20,9 @@ from toolregistry_hub._vendor.httpclient import (
 from toolregistry_hub.fetch import (
     _CACHE_MAXSIZE_DEFAULT,
     _CACHE_TTL_DEFAULT,
+    _DEFAULT_MAX_RESPONSE_SIZE,
     _JINA_TIMEOUT_BUFFER,
     _JINA_WAIT_SELECTORS,
-    _MAX_RESPONSE_SIZE,
     _MIN_CONTENT_LENGTH,
     _NON_HTML_CONTENT_TYPES,
     _SOUP_CONTENT_SELECTORS,
@@ -2194,7 +2195,19 @@ class TestFetchResponseSizeLimit:
     """Every request is capped before the body is buffered."""
 
     @patch("toolregistry_hub.fetch._http_get")
-    def test_fetch_raw_passes_the_cap(self, mock_get):
+    def test_fetch_raw_passes_the_configured_cap(self, mock_get):
+        response = MagicMock()
+        response.url = "https://example.com/"
+        response.text = "ok"
+        response.headers = {"content-type": "text/plain"}
+        response.raise_for_status = MagicMock()
+        mock_get.return_value = response
+
+        _fetch_raw("https://example.com/", max_response_size=2048)
+        assert mock_get.call_args.kwargs["max_response_size"] == 2048
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_fetch_raw_falls_back_to_the_module_default(self, mock_get):
         response = MagicMock()
         response.url = "https://example.com/"
         response.text = "ok"
@@ -2203,31 +2216,33 @@ class TestFetchResponseSizeLimit:
         mock_get.return_value = response
 
         _fetch_raw("https://example.com/")
-        assert mock_get.call_args.kwargs["max_response_size"] == _MAX_RESPONSE_SIZE
+        assert (
+            mock_get.call_args.kwargs["max_response_size"] == _DEFAULT_MAX_RESPONSE_SIZE
+        )
 
     @patch("toolregistry_hub.fetch._http_get")
-    def test_markdown_passes_the_cap(self, mock_get):
+    def test_markdown_passes_the_configured_cap(self, mock_get):
         response = MagicMock()
         response.status_code = 200
         response.headers = {"content-type": "text/html"}
         response.text = "<html></html>"
         mock_get.return_value = response
 
-        _try_markdown_negotiation("https://example.com/")
-        assert mock_get.call_args.kwargs["max_response_size"] == _MAX_RESPONSE_SIZE
+        _try_markdown_negotiation("https://example.com/", max_response_size=2048)
+        assert mock_get.call_args.kwargs["max_response_size"] == 2048
 
     @patch("toolregistry_hub.fetch._http_post")
-    def test_jina_passes_the_cap(self, mock_post):
+    def test_jina_passes_the_configured_cap(self, mock_post):
         response = MagicMock()
         response.json.return_value = {"data": {"content": "x"}}
         response.raise_for_status = MagicMock()
         mock_post.return_value = response
 
-        _jina_reader_request("https://example.com/")
-        assert mock_post.call_args.kwargs["max_response_size"] == _MAX_RESPONSE_SIZE
+        _jina_reader_request("https://example.com/", max_response_size=2048)
+        assert mock_post.call_args.kwargs["max_response_size"] == 2048
 
     @patch("toolregistry_hub.fetch._http_post")
-    def test_veilrender_passes_the_cap(self, mock_post):
+    def test_veilrender_passes_the_configured_cap(self, mock_post):
         response = MagicMock()
         response.json.return_value = {
             "content": {"html": "<html>ok</html>"},
@@ -2235,55 +2250,102 @@ class TestFetchResponseSizeLimit:
         }
         mock_post.return_value = response
 
-        _render_with_veilrender("https://example.com/", "https://veilrender.example")
-        assert mock_post.call_args.kwargs["max_response_size"] == _MAX_RESPONSE_SIZE
+        _render_with_veilrender(
+            "https://example.com/",
+            "https://veilrender.example",
+            max_response_size=2048,
+        )
+        assert mock_post.call_args.kwargs["max_response_size"] == 2048
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_constructor_cap_reaches_the_request(self, mock_get):
+        """A constructor value flows through the auto pipeline unchanged."""
+        response = MagicMock()
+        response.url = "https://example.com/"
+        response.status_code = 200
+        response.headers = {"content-type": "text/markdown"}
+        response.text = "# done"
+        mock_get.return_value = response
+
+        result = Fetch(max_response_size=4096).fetch_content("https://example.com/")
+
+        assert result["strategy"] == "markdown"
+        assert mock_get.call_args.kwargs["max_response_size"] == 4096
 
     @patch("toolregistry_hub.fetch._http_get")
     def test_fetch_raw_maps_too_large_to_fetch_error(self, mock_get):
         mock_get.side_effect = ResponseTooLargeError(
-            "https://user:token@example.com/big", _MAX_RESPONSE_SIZE
+            "https://user:token@example.com/big", 2048
         )
 
         with pytest.raises(FetchError) as exc:
-            _fetch_raw("https://user:token@example.com/big")
+            _fetch_raw("https://user:token@example.com/big", max_response_size=2048)
         message = str(exc.value)
         assert "example.com" in message
-        assert str(_MAX_RESPONSE_SIZE) in message
+        assert "2048" in message
         # The policy resolves example.com to this address; it must not leak.
         assert "93.184.216.34" not in message
         assert "token" not in message
+        assert "https://" not in message
         assert exc.value.__cause__ is None
 
     @patch("toolregistry_hub.fetch._http_get")
     def test_markdown_maps_too_large_to_fetch_error(self, mock_get):
-        mock_get.side_effect = ResponseTooLargeError(
-            "https://example.com/big", _MAX_RESPONSE_SIZE
-        )
+        mock_get.side_effect = ResponseTooLargeError("https://example.com/big", 2048)
 
         with pytest.raises(FetchError) as exc:
-            _try_markdown_negotiation("https://example.com/big")
+            _try_markdown_negotiation("https://example.com/big", max_response_size=2048)
         assert exc.value.__cause__ is None
 
     @patch("toolregistry_hub.fetch._http_post")
     def test_jina_maps_too_large_to_fetch_error(self, mock_post):
-        mock_post.side_effect = ResponseTooLargeError(
-            "https://r.jina.ai/", _MAX_RESPONSE_SIZE
-        )
+        mock_post.side_effect = ResponseTooLargeError("https://r.jina.ai/", 2048)
 
         with pytest.raises(FetchError) as exc:
-            _jina_reader_request("https://example.com/")
+            _jina_reader_request("https://example.com/", max_response_size=2048)
+        message = str(exc.value)
+        # The reader answered, not the page: name both hosts.
+        assert "'r.jina.ai'" in message
+        assert "'example.com'" in message
+        assert "2048" in message
+        assert "https://" not in message
+        assert "93.184.216.34" not in message
         assert exc.value.__cause__ is None
 
     @patch("toolregistry_hub.fetch._http_post")
     def test_veilrender_maps_too_large_to_fetch_error(self, mock_post):
         mock_post.side_effect = ResponseTooLargeError(
-            "https://veilrender.example/render", _MAX_RESPONSE_SIZE
+            "https://veilrender.example/render", 2048
         )
 
         with pytest.raises(FetchError) as exc:
             _render_with_veilrender(
-                "https://example.com/", "https://veilrender.example"
+                "https://example.com/",
+                "https://veilrender.example",
+                max_response_size=2048,
             )
+        message = str(exc.value)
+        assert "'veilrender.example'" in message
+        assert "'example.com'" in message
+        assert "2048" in message
+        assert "https://" not in message
+        assert "93.184.216.34" not in message
+        assert exc.value.__cause__ is None
+
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_same_host_endpoint_is_named_once(self, mock_post):
+        """A reader on the target's own host does not repeat the name."""
+        mock_post.side_effect = ResponseTooLargeError("https://example.com/", 2048)
+
+        with pytest.raises(FetchError) as exc:
+            _render_with_veilrender(
+                "https://example.com/",
+                "https://example.com",
+                max_response_size=2048,
+            )
+        message = str(exc.value)
+        assert message.count("example.com") == 1
+        assert " for " not in message
         assert exc.value.__cause__ is None
 
     def test_oversized_chunked_body_stops_at_the_cap(self):
@@ -2308,13 +2370,93 @@ class TestFetchResponseSizeLimit:
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            with (
-                patch("toolregistry_hub.fetch._MAX_RESPONSE_SIZE", 1024),
-                pytest.raises(FetchError) as exc,
-            ):
-                _fetch_raw(f"http://127.0.0.1:{server.server_port}/", timeout=5.0)
+            with pytest.raises(FetchError) as exc:
+                _fetch_raw(
+                    f"http://127.0.0.1:{server.server_port}/",
+                    timeout=5.0,
+                    max_response_size=1024,
+                )
         finally:
             server.shutdown()
             thread.join(timeout=5)
         assert "127.0.0.1" in str(exc.value)
         assert "1024" in str(exc.value)
+
+
+class TestMaxResponseSizeResolution:
+    """The cap comes from the argument, the environment, or the default."""
+
+    def test_constructor_argument_wins(self, monkeypatch):
+        monkeypatch.setenv("FETCH_MAX_RESPONSE_SIZE", "12345")
+        assert Fetch(max_response_size=2048).max_response_size == 2048
+
+    def test_environment_variable_is_used_when_the_argument_is_omitted(
+        self, monkeypatch
+    ):
+        monkeypatch.setenv("FETCH_MAX_RESPONSE_SIZE", "12345")
+        assert Fetch().max_response_size == 12345
+
+    def test_default_applies_without_argument_or_environment(self, monkeypatch):
+        monkeypatch.delenv("FETCH_MAX_RESPONSE_SIZE", raising=False)
+        assert Fetch().max_response_size == _DEFAULT_MAX_RESPONSE_SIZE
+
+    @pytest.mark.parametrize("value", [0, -1, -2048])
+    def test_non_positive_argument_is_refused(self, value):
+        with pytest.raises(ValueError, match="positive integer"):
+            Fetch(max_response_size=value)
+
+    def test_bool_argument_is_refused(self):
+        """``True`` is an ``int`` subclass but not a byte count."""
+        with pytest.raises(ValueError, match="positive integer"):
+            Fetch(max_response_size=True)  # type: ignore[arg-type]
+
+    def test_non_integer_argument_is_refused(self):
+        with pytest.raises(ValueError, match="positive integer"):
+            Fetch(max_response_size="2048")  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("raw", ["abc", "0", "-5", "1.5"])
+    def test_invalid_environment_value_is_refused(self, monkeypatch, raw):
+        monkeypatch.setenv("FETCH_MAX_RESPONSE_SIZE", raw)
+        with pytest.raises(ValueError, match="FETCH_MAX_RESPONSE_SIZE"):
+            Fetch()
+
+
+class _FetchKwargProbe:
+    """Records the constructor kwargs a ``tools.jsonc`` entry forwards."""
+
+    last_kwargs: dict = {}
+
+    def __init__(self, **kwargs):
+        type(self).last_kwargs = dict(kwargs)
+
+    def probe(self) -> str:
+        """Return a marker so the source registers at least one tool."""
+        return "ok"
+
+
+class TestConfigKwargsPassthrough:
+    """``tools.jsonc`` kwargs reach the source class constructor (#247)."""
+
+    def test_kwargs_reach_the_constructor(self, tmp_path):
+        from toolregistry_hub.server.registry import build_registry
+
+        _FetchKwargProbe.last_kwargs = {}
+        path = tmp_path / "tools.jsonc"
+        path.write_text(
+            json.dumps(
+                {
+                    "tools": [
+                        {
+                            "type": "python",
+                            "class": f"{__name__}._FetchKwargProbe",
+                            "namespace": "probe",
+                            "kwargs": {"max_response_size": 32768},
+                        }
+                    ]
+                }
+            )
+        )
+
+        build_registry(tools_config_path=str(path), enable_discovery=False)
+
+        assert _FetchKwargProbe.last_kwargs == {"max_response_size": 32768}
