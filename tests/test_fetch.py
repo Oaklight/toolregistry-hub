@@ -2272,6 +2272,38 @@ class TestFetchResponseSizeLimit:
         assert result["strategy"] == "markdown"
         assert mock_get.call_args.kwargs["max_response_size"] == 4096
 
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_forced_jina_strategy_reaches_the_request(self, mock_post):
+        """The instance value survives the explicit-strategy dispatch too."""
+        response = MagicMock()
+        response.json.return_value = {"data": {"content": "lorem ipsum " * 200}}
+        response.raise_for_status = MagicMock()
+        mock_post.return_value = response
+
+        Fetch(max_response_size=4096).fetch_content(
+            "https://example.com/", strategy="jina"
+        )
+
+        assert mock_post.call_args.kwargs["max_response_size"] == 4096
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_forced_readability_strategy_reaches_the_raw_fetch(self, mock_get):
+        response = MagicMock()
+        response.url = "https://example.com/"
+        response.status_code = 200
+        response.headers = {"content-type": "text/html"}
+        response.text = (
+            "<html><body><article><p>" + "word " * 500 + "</p></article></body></html>"
+        )
+        response.raise_for_status = MagicMock()
+        mock_get.return_value = response
+
+        Fetch(max_response_size=4096).fetch_content(
+            "https://example.com/", strategy="readability"
+        )
+
+        assert mock_get.call_args.kwargs["max_response_size"] == 4096
+
     @patch("toolregistry_hub.fetch._http_get")
     def test_fetch_raw_maps_too_large_to_fetch_error(self, mock_get):
         mock_get.side_effect = ResponseTooLargeError(
@@ -2286,6 +2318,22 @@ class TestFetchResponseSizeLimit:
         # The policy resolves example.com to this address; it must not leak.
         assert "93.184.216.34" not in message
         assert "token" not in message
+        assert "https://" not in message
+        assert exc.value.__cause__ is None
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_redirect_to_another_host_is_named(self, mock_get):
+        """A redirect makes the new host the one that answered."""
+        mock_get.side_effect = ResponseTooLargeError(
+            "https://cdn.example.net/big", 2048
+        )
+
+        with pytest.raises(FetchError) as exc:
+            _fetch_raw("https://example.com/big", max_response_size=2048)
+
+        message = str(exc.value)
+        assert "'cdn.example.net'" in message
+        assert "'example.com'" in message
         assert "https://" not in message
         assert exc.value.__cause__ is None
 
