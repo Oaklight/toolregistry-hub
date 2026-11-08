@@ -89,10 +89,10 @@ Extract content from a given URL using available methods.
 
 - **Schemes:** only `http` and `https` are accepted, for both the target and the proxy. `file://`, `data:`, `ftp://`, `ws://` and similar are refused.
 - **Addresses:** every address a hostname resolves to must be globally routable. A host that resolves to a mix of public and private addresses is refused, and a resolution failure is refused (fail closed). Loopback, RFC 1918, link-local (including the `169.254.169.254` metadata address), CGNAT `100.64.0.0/10`, multicast, NAT64, 6to4, Teredo, ORCHID, documentation and benchmarking ranges are blocked. IPv4-mapped IPv6 addresses are unwrapped and checked as IPv4; a trailing dot in a hostname is ignored.
-- **Redirects:** the vendored HTTP client follows them. Before the body is read, the final `response.url` is validated. A redirect into a private address discards the body and raises `FetchPolicyError`. The HTTP request itself has already been sent, so this removes response exfiltration but not the blind request. Per-hop refusal and connect-time IP pinning depend on upstream zerodep releases (`follow_redirects=False` and address pinning).
+- **Redirects:** `fetch` follows redirects itself. Every `Location` is resolved against the current URL and checked by the same policy before the next request is sent, so a chain that points at a private address never dials it. The final URL is checked once more as a backstop. The connection is not pinned to the validated address, so a DNS rebinding between the check and the connect remains possible. This applies to markdown negotiation, the raw fetch, Jina Reader and VeilRender.
 - **CDP:** the browser follows redirects itself. The final `document.location.href` is validated before any HTML is returned; if it cannot be read, the content is refused.
 - **VeilRender:** the remote service reports the final page address in `metadata.url`; it is validated before the HTML is returned. A response that omits it is refused.
-- **DNS rebinding:** the policy resolves the name, then the HTTP client resolves it again when connecting. A rebinding window remains until connect-time pinning is available.
+- **DNS rebinding:** the policy resolves the name, then the HTTP client resolves it again when connecting; the same applies to every redirect hop. A rebinding window remains until connect-time pinning is available.
 
 Operators who need private destinations can opt in. There is no per-call switch, so a caller of the tool cannot enable it:
 
