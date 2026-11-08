@@ -121,7 +121,7 @@ Fetch 默认对每个 HTTP 响应最多缓冲 10 MiB。markdown 协商、原始�
  "kwargs": {"max_response_size": 20971520}}
 ```
 
-CDP 渲染的页面在传输 HTML 之前会先检查大小：工具先读取 `document.documentElement.outerHTML.length`，超过上限时直接抛出 `FetchError`，不再求值 `outerHTML`。该探测统计的是 UTF-16 码元，因此刚好低于上限的页面按 UTF-8 计仍可能占用约三倍上限；这项检查限制的是传输量与 Python 侧的字符串，而不是精确的字节数。探测结果不是数字时按未知大小处理，不传输内容。VeilRender 的 HTML 位于受限的 JSON 响应体内，因此适用同一上限，无需另行检查。
+CDP 渲染的页面在传输 HTML 之前会先检查大小：工具先读取 `document.documentElement.outerHTML.length`，超过 10 MiB 的 CDP 上限时直接抛出 `FetchError`，不再求值 `outerHTML`。该探测统计的是 UTF-16 码元，因此刚好低于上限的页面按 UTF-8 计仍可能占用约三倍上限；这项检查限制的是传输量与 Python 侧的字符串，而不是精确的字节数。探测结果不是数字时按未知大小处理，不传输内容。该上限与 `max_response_size` 相互独立，且目前不可配置。VeilRender 的 HTML 位于受限的 JSON 响应体内，因此适用 `max_response_size`，无需另行检查。
 
 ## 工作原理
 

@@ -16,12 +16,12 @@ author: Oaklight
 
 ### 安全
 
-- **CDP 渲染的 HTML 在传输前检查大小**（#246）：`_render_with_cdp` 原先通过一次带 `returnByValue` 的 `Runtime.evaluate` 读取完整的 `document.documentElement.outerHTML`，因此巨大或恶意的 DOM 会越过 WebSocket 并在 hub 中实体化，任何上限都来不及生效。现在先探测页面长度，超过 10 MiB 的 `_MAX_RESPONSE_SIZE` 时直接抛出 `FetchError`，不再求值 `outerHTML`；探测结果不可读时按未知大小处理并拒绝内容。该探测统计 UTF-16 码元，因此刚好低于上限的页面按 UTF-8 计仍可能占用约三倍上限——限制的是传输量与 Python 侧字符串，而不是精确的字节数。错误消息只包含调用方提供的 host 与上限，绝不含解析后的地址。VeilRender 的 HTML 受其请求的 10 MiB body 上限约束（JSON 字符串不会比它编码的字符更短），因此无需另行检查；docstring 已说明这一点。
+- **CDP 渲染的 HTML 在传输前检查大小**（#246）：`_render_with_cdp` 原先通过一次带 `returnByValue` 的 `Runtime.evaluate` 读取完整的 `document.documentElement.outerHTML`，因此巨大或恶意的 DOM 会越过 WebSocket 并在 hub 中实体化，任何上限都来不及生效。现在先探测页面长度，超过 10 MiB 默认上限时直接抛出 `FetchError`，不再求值 `outerHTML`；探测结果不可读时按未知大小处理并拒绝内容。该探测统计 UTF-16 码元，因此刚好低于上限的页面按 UTF-8 计仍可能占用约三倍上限——限制的是传输量与 Python 侧字符串，而不是精确的字节数。错误消息只包含调用方提供的 host 与上限，绝不含解析后的地址。VeilRender 的 HTML 受其请求的 10 MiB body 上限约束（JSON 字符串不会比它编码的字符更短），因此无需另行检查；docstring 已说明这一点。
 
 ### 变更
 
 - **响应大小上限可配置**（#247）：`Fetch(max_response_size=...)` 为每个 HTTP 响应体设置字节上限，并校验为正整数；省略时读取 `FETCH_MAX_RESPONSE_SIZE`，仍未设置则默认 10 MiB。解析后的值通过同一参数传给 markdown 协商、原始抓取、Jina Reader 与 VeilRender，`tools.jsonc` 的 `kwargs` 条目也和其他构造参数一样透传。按策略分别设限仍待测量后再定。
-- **超限错误会标注实际应答的端点**（#245）：当超限响应体来自 Jina Reader（`r.jina.ai`）或配置的 VeilRender 端点而非目标页面时，错误文案为 `response from 'r.jina.ai' for 'example.com' exceeds ...`；读取端点与目标同主机时仍保持单一主机名形式。文案只出现主机名，不出现解析地址，抛出时仍使用 `from None`。
+- **超限错误会标注实际应答的端点**（#245）：当超限响应体来自 Jina Reader（`r.jina.ai`）、配置的 VeilRender 端点或重定向到的另一主机而非目标页面时，错误文案为 `response from 'r.jina.ai' for 'example.com' exceeds ...`；读取端点或重定向目标与目标同主机时仍保持单一主机名形式。文案只出现主机名，不出现解析地址，抛出时仍使用 `from None`。
 
 ## [0.12.0] - 2026-11-08
 
