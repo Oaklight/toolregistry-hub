@@ -28,7 +28,7 @@ author: Oaklight
 ### 变更
 
 - **0.12.0 抬升依赖下限**：`toolregistry>=0.20.1`、`toolregistry-server>=0.8.0`（含 `server_core`、`server_openapi`、`server_mcp` extras）。0.12.0 不再支持 core 0.19.x 或 server 0.7.x。
-- **Fetch 出站策略收敛到 core**：`toolregistry_hub.url_policy` 现在只是 `toolregistry.netpolicy.validate_outbound_url` 的薄封装，保留 fetch 专用的 http/https 限制与 `FetchPolicyError` 映射，删除了重复的特殊网段与 DNS 逻辑。允许/拒绝判定不变，包括运维开关与「错误不含解析地址」的约束；拒绝与解析失败的消息改用 core netpolicy 的统一文案，不再由 hub 自行拼接。
+- **Fetch 出站策略收敛到 core**：`toolregistry_hub.url_policy` 现在只是 `toolregistry.netpolicy.validate_outbound_url` 的薄封装，保留 fetch 专用的 http/https 限制与 `FetchPolicyError` 映射，删除了重复的特殊网段与 DNS 逻辑。允许/拒绝判定不变，包括运维开关与「错误不含解析地址」的约束；拒绝与解析失败的消息改用 core netpolicy 的统一文案，不再由 hub 自行拼接。core 会缓存成功的解析结果 60 秒；失败不缓存。
 - **内置 `httpclient` 0.6.4 → 0.7.1**（zerodep `48606bf`）：重定向到其他源时不再转发 `Authorization`、`Proxy-Authorization` 与 `Cookie`，Digest 认证只在请求仍位于凭据所属源时尝试（#287）；多成员 gzip 响应体现在会逐成员解压，而不再只解压第一个；`Client`/`AsyncClient` 与便捷函数新增可选参数 `max_response_size`，用于限制缓冲响应体，超限时抛出 `ResponseTooLargeError`。该参数默认 `None`，现有调用仍按原样缓冲，`stream=True` 的响应也不会被限制。Hub 代码无需改动。
 
 ### 安全
