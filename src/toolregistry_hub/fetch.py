@@ -233,18 +233,13 @@ def _url_host(url: str | None) -> str:
         return ""
 
 
-def _response_too_large_error(
-    url: str,
-    exc: ResponseTooLargeError,
-    *,
-    response_url: str | None = None,
-) -> FetchError:
+def _response_too_large_error(url: str, exc: ResponseTooLargeError) -> FetchError:
     """Map a capped body to ``FetchError`` naming the host and the limit.
 
-    ``response_url`` is the endpoint that produced the body when it is not
-    the page being fetched — Jina Reader answers from ``r.jina.ai`` and
-    VeilRender from its configured endpoint.  The message then names both
-    hosts so the reader does not infer that the target host answered.
+    ``exc.url`` is the address that produced the body, after any redirect
+    and for a reader endpoint as well as the page itself.  When its host is
+    not the host being fetched, the message names both so the reader does
+    not infer that the target host answered.
 
     The vendored exception message contains the full URL; rebuilding it here
     keeps the error text to hostnames and never includes a resolved address.
@@ -252,7 +247,7 @@ def _response_too_large_error(
     reach that message either: a URL may carry userinfo.
     """
     target = _url_host(url)
-    source = _url_host(response_url)
+    source = _url_host(exc.url)
     if source and source != target:
         return FetchError(
             f"response from {source!r} for {target!r} exceeds the "
@@ -1044,7 +1039,7 @@ def _render_with_veilrender(
     except FetchPolicyError:
         raise
     except ResponseTooLargeError as e:
-        raise _response_too_large_error(url, e, response_url=render_url) from None
+        raise _response_too_large_error(url, e) from None
     except Exception as e:
         logger.debug(f"VeilRender rendering failed for {url}: {e}")
         return ""
@@ -1991,7 +1986,7 @@ def _jina_reader_request(
         _record_jina_http_failure(status, api_key, api_key_parser)
         return ""
     except ResponseTooLargeError as e:
-        raise _response_too_large_error(url, e, response_url=jina_reader_url) from None
+        raise _response_too_large_error(url, e) from None
     except Exception as e:
         logger.debug(f"Jina Reader ({engine}) error: {e}")
         return ""
