@@ -8,6 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import MagicMock, patch
 
 import pytest
+from toolregistry.netpolicy import clear_address_cache
 
 from toolregistry_hub._vendor.httpclient import (
     HttpConnectionError,
@@ -58,6 +59,7 @@ def _deterministic_fetch_dns(monkeypatch):
     resolver, which the redirect tests need to reach a loopback server.
     """
     monkeypatch.delenv("FETCH_ALLOW_PRIVATE_HOSTS", raising=False)
+    clear_address_cache()
     real_getaddrinfo = socket.getaddrinfo
 
     def fake_getaddrinfo(host, port, *args, **kwargs):
@@ -75,9 +77,9 @@ def _deterministic_fetch_dns(monkeypatch):
             ]
         return real_getaddrinfo(host, port, *args, **kwargs)
 
-    monkeypatch.setattr(
-        "toolregistry_hub.url_policy.socket.getaddrinfo", fake_getaddrinfo
-    )
+    monkeypatch.setattr("toolregistry._netpolicy.socket.getaddrinfo", fake_getaddrinfo)
+    yield
+    clear_address_cache()
 
 
 def _fetch_result(content: str) -> dict:
