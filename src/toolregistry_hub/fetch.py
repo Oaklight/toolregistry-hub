@@ -41,10 +41,15 @@ logger = get_logger()
 
 TIMEOUT_DEFAULT = 30.0
 
-# Largest response body fetch will buffer, in bytes.  Text extraction never
-# needs more, and the cap stops one request from exhausting process memory
-# before the content-type check can reject it.
-_MAX_RESPONSE_SIZE = 10 * 1024 * 1024
+# Largest response body fetch buffers by default, in bytes.  Text extraction
+# never needs more, and the cap stops one request from exhausting process
+# memory before the content-type check can reject it.  ``Fetch`` accepts an
+# override and reads ``FETCH_MAX_RESPONSE_SIZE`` when the argument is omitted.
+_DEFAULT_MAX_RESPONSE_SIZE = 10 * 1024 * 1024
+
+#: Environment variable that overrides the default cap when ``Fetch`` is
+#: constructed without ``max_response_size``.
+_MAX_RESPONSE_SIZE_ENV = "FETCH_MAX_RESPONSE_SIZE"
 
 StrategyName = Literal[
     "auto",
@@ -218,21 +223,76 @@ def _enforce_final_url_policy(
         raise FetchPolicyError(f"redirect target refused: {exc}") from exc
 
 
-def _response_too_large_error(url: str, exc: ResponseTooLargeError) -> FetchError:
+def _url_host(url: str | None) -> str:
+    """Return the host of *url*, or ``""`` when it is missing or unparsable."""
+    if not url:
+        return ""
+    try:
+        return urlsplit(url).hostname or ""
+    except ValueError:
+        return ""
+
+
+def _response_too_large_error(
+    url: str,
+    exc: ResponseTooLargeError,
+    *,
+    response_url: str | None = None,
+) -> FetchError:
     """Map a capped body to ``FetchError`` naming the host and the limit.
 
+    ``response_url`` is the endpoint that produced the body when it is not
+    the page being fetched — Jina Reader answers from ``r.jina.ai`` and
+    VeilRender from its configured endpoint.  The message then names both
+    hosts so the reader does not infer that the target host answered.
+
     The vendored exception message contains the full URL; rebuilding it here
-    keeps the error text to the caller-supplied host and never includes a
-    resolved address.  Call sites raise the result with ``from None`` so a
-    traceback cannot reach that message either: a URL may carry userinfo.
+    keeps the error text to hostnames and never includes a resolved address.
+    Call sites raise the result with ``from None`` so a traceback cannot
+    reach that message either: a URL may carry userinfo.
     """
-    try:
-        host = urlsplit(url).hostname or ""
-    except ValueError:
-        host = ""
+    target = _url_host(url)
+    source = _url_host(response_url)
+    if source and source != target:
+        return FetchError(
+            f"response from {source!r} for {target!r} exceeds the "
+            f"{exc.max_size}-byte fetch limit"
+        )
     return FetchError(
-        f"response from {host!r} exceeds the {exc.max_size}-byte fetch limit"
+        f"response from {(target or source)!r} exceeds the "
+        f"{exc.max_size}-byte fetch limit"
     )
+
+
+def _resolve_max_response_size(value: int | None) -> int:
+    """Return the response cap from *value*, the environment, or the default.
+
+    Args:
+        value: The constructor argument, or ``None`` to fall back to the
+            ``FETCH_MAX_RESPONSE_SIZE`` environment variable and then
+            :data:`_DEFAULT_MAX_RESPONSE_SIZE`.
+
+    Returns:
+        A positive byte limit.
+
+    Raises:
+        ValueError: If the argument or the environment value is not a
+            positive integer.
+    """
+    if value is None:
+        raw = os.environ.get(_MAX_RESPONSE_SIZE_ENV, "").strip()
+        if not raw:
+            return _DEFAULT_MAX_RESPONSE_SIZE
+        try:
+            value = int(raw)
+        except ValueError:
+            raise ValueError(
+                f"{_MAX_RESPONSE_SIZE_ENV} must be a positive integer, got {raw!r}"
+            ) from None
+    # ``bool`` is an ``int`` subclass, so ``True`` would otherwise count as 1.
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(f"max_response_size must be a positive integer, got {value!r}")
+    return value
 
 
 def _make_result(
@@ -425,6 +485,7 @@ class Fetch:
         cache_ttl: float = _CACHE_TTL_DEFAULT,
         cache_maxsize: int = _CACHE_MAXSIZE_DEFAULT,
         allow_private_hosts: bool | None = None,
+        max_response_size: int | None = None,
     ):
         """Initialize Fetch with optional Jina Reader API keys and CDP endpoint.
 
@@ -453,6 +514,16 @@ class Fetch:
                 the ``FETCH_ALLOW_PRIVATE_HOSTS`` environment variable is
                 read (``1``, ``true``, ``yes`` or ``on`` enables it).  The
                 scheme restriction to http/https always applies.
+            max_response_size: Largest response body, in bytes, that any
+                request buffers.  Must be a positive integer.  When
+                ``None``, the ``FETCH_MAX_RESPONSE_SIZE`` environment
+                variable is read; without that, 10 MiB.  The same value
+                bounds markdown negotiation, the raw fetch, Jina Reader and
+                VeilRender.
+
+        Raises:
+            ValueError: If *max_response_size* (or the environment value
+                behind it) is not a positive integer.
         """
         from .utils.api_key_parser import APIKeyParser
 
@@ -478,6 +549,7 @@ class Fetch:
                     f"({raw_flag!r}); private destinations stay blocked"
                 )
         self._allow_private_hosts: bool = bool(allow_private_hosts)
+        self.max_response_size: int = _resolve_max_response_size(max_response_size)
         self._cache: _URLCache | None = (
             _URLCache(ttl=cache_ttl, maxsize=cache_maxsize) if cache_ttl > 0 else None
         )
@@ -608,6 +680,7 @@ class Fetch:
                 strategy=strategy,
                 started_at=started_at,
                 allow_private_hosts=self._allow_private_hosts,
+                max_response_size=self.max_response_size,
             )
             if self._cache is not None:
                 self._cache.put(cache_key, result)
@@ -901,6 +974,7 @@ def _render_with_veilrender(
     timeout: float = 30.0,
     *,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> str:
     """Render a page via VeilRender REST API and return the HTML.
 
@@ -915,6 +989,7 @@ def _render_with_veilrender(
         token: Optional Bearer token for authentication.
         timeout: Maximum time in seconds for the request.
         allow_private_hosts: Allow a private final address.
+        max_response_size: Largest VeilRender body to buffer, in bytes.
 
     Returns:
         Rendered HTML string, or empty string on any failure.
@@ -943,7 +1018,7 @@ def _render_with_veilrender(
             data=payload,
             headers=headers,
             timeout=timeout,
-            max_response_size=_MAX_RESPONSE_SIZE,
+            max_response_size=max_response_size,
         )
 
         data = resp.json()  # ty: ignore[unresolved-attribute]
@@ -967,7 +1042,7 @@ def _render_with_veilrender(
     except FetchPolicyError:
         raise
     except ResponseTooLargeError as e:
-        raise _response_too_large_error(url, e) from None
+        raise _response_too_large_error(url, e, response_url=render_url) from None
     except Exception as e:
         logger.debug(f"VeilRender rendering failed for {url}: {e}")
         return ""
@@ -980,6 +1055,7 @@ def _try_veilrender_extraction(
     timeout: float,
     *,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> tuple[str, str]:
     """Render a page with VeilRender and attempt readability/soup extraction.
 
@@ -989,6 +1065,7 @@ def _try_veilrender_extraction(
         token: Optional Bearer token for authentication.
         timeout: Budget in seconds for the VeilRender request.
         allow_private_hosts: Allow a private final address.
+        max_response_size: Largest VeilRender body to buffer, in bytes.
 
     Returns:
         A ``(best_content, local_content)`` tuple.
@@ -999,6 +1076,7 @@ def _try_veilrender_extraction(
         token,
         timeout=timeout,
         allow_private_hosts=allow_private_hosts,
+        max_response_size=max_response_size,
     )
     if not rendered_html:
         return "", ""
@@ -1026,6 +1104,7 @@ def _try_jina_extraction(
     proxy: str | None,
     api_key_parser: APIKeyParser | None,
     deadline: float,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> str:
     """Attempt Jina Reader extraction as the final network strategy.
 
@@ -1037,6 +1116,7 @@ def _try_jina_extraction(
         proxy: Proxy to use for the request.
         api_key_parser: Optional API key parser for Jina Reader.
         deadline: Absolute wall-clock deadline.
+        max_response_size: Largest body to buffer from Jina, in bytes.
 
     Returns:
         Sufficient Jina content, or empty string on failure.
@@ -1060,6 +1140,7 @@ def _try_jina_extraction(
         proxy=proxy,
         api_key_parser=api_key_parser,
         deadline=deadline,
+        max_response_size=max_response_size,
     )
 
     if jina_content and _is_content_sufficient(jina_content):
@@ -1078,6 +1159,7 @@ def _fetch_body(
     deadline: float,
     *,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> tuple[str, str]:
     """Fetch the raw body for *url*, trying markdown negotiation first.
 
@@ -1100,6 +1182,7 @@ def _fetch_body(
             timeout=min(timeout, _remaining()),
             proxy=proxy,
             allow_private_hosts=allow_private_hosts,
+            max_response_size=max_response_size,
         )
         if md_content:
             logger.info(
@@ -1118,6 +1201,7 @@ def _fetch_body(
             proxy=proxy,
             deadline=deadline,
             allow_private_hosts=allow_private_hosts,
+            max_response_size=max_response_size,
         )
 
     return body, content_type
@@ -1155,6 +1239,7 @@ def _strategy_markdown(
     remaining: float,
     started_at: float,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
     **_kw: object,
 ) -> FetchResult:
     md_content, _fb, _ct = _try_markdown_negotiation(
@@ -1162,6 +1247,7 @@ def _strategy_markdown(
         timeout=min(timeout, remaining),
         proxy=proxy,
         allow_private_hosts=allow_private_hosts,
+        max_response_size=max_response_size,
     )
     if not md_content:
         raise FetchError(f"Markdown negotiation did not return content for {url}")
@@ -1185,6 +1271,7 @@ def _strategy_local(
     remaining: float,
     started_at: float,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
     **_kw: object,
 ) -> FetchResult:
     body, content_type = _fetch_raw(
@@ -1193,6 +1280,7 @@ def _strategy_local(
         proxy=proxy,
         deadline=deadline,
         allow_private_hosts=allow_private_hosts,
+        max_response_size=max_response_size,
     )
     if content_type and _is_binary_content_type(content_type):
         raise FetchError(f"Unsupported binary content type for {url}: {content_type}")
@@ -1232,6 +1320,7 @@ def _strategy_browser(
     veilrender_endpoint: str | None = None,
     veilrender_token: str | None = None,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
     **_kw: object,
 ) -> FetchResult:
     if strategy == "veilrender":
@@ -1243,6 +1332,7 @@ def _strategy_browser(
             veilrender_token,
             min(remaining, 30.0),
             allow_private_hosts=allow_private_hosts,
+            max_response_size=max_response_size,
         )
     else:
         if not cdp_endpoint:
@@ -1273,6 +1363,7 @@ def _strategy_jina(
     deadline: float,
     remaining: float,
     started_at: float,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
     **_kw: object,
 ) -> FetchResult:
     content = _try_jina_extraction(
@@ -1283,6 +1374,7 @@ def _strategy_jina(
         proxy=proxy,
         api_key_parser=api_key_parser,
         deadline=deadline,
+        max_response_size=max_response_size,
     )
     if not content:
         raise FetchError(f"Jina Reader did not return content for {url}")
@@ -1310,6 +1402,7 @@ def _extract_with_strategy(
     deadline: float,
     started_at: float,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> FetchResult:
     """Run one explicit fetch strategy."""
     remaining = max(0.0, deadline - time.monotonic())
@@ -1326,6 +1419,7 @@ def _extract_with_strategy(
         "remaining": remaining,
         "started_at": started_at,
         "allow_private_hosts": allow_private_hosts,
+        "max_response_size": max_response_size,
     }
     dispatch = {
         "markdown": _strategy_markdown,
@@ -1352,6 +1446,7 @@ def _extract(
     strategy: str = "auto",
     started_at: float | None = None,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> FetchResult:
     """Extract content from a given URL using available methods.
 
@@ -1373,6 +1468,8 @@ def _extract(
         proxy: Proxy to use for the request. Defaults to None.
         api_key_parser: Optional API key parser for Jina Reader authentication.
         allow_private_hosts: Allow private target and proxy addresses.
+        max_response_size: Largest response body any request buffers, in
+            bytes.  Applies to every strategy that performs a request.
 
     Returns:
         Extracted content.
@@ -1400,6 +1497,7 @@ def _extract(
             deadline=deadline,
             started_at=started_at,
             allow_private_hosts=allow_private_hosts,
+            max_response_size=max_response_size,
         )
 
     return _extract_auto(
@@ -1413,6 +1511,7 @@ def _extract(
         deadline=deadline,
         started_at=started_at,
         allow_private_hosts=allow_private_hosts,
+        max_response_size=max_response_size,
     )
 
 
@@ -1426,6 +1525,7 @@ def _try_browser_rendering(
     remaining: float,
     started_at: float,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> tuple[FetchResult | None, str]:
     """Try VeilRender then CDP; return (result, updated_local_content)."""
     if veilrender_endpoint and remaining > _MIN_STRATEGY_BUDGET:
@@ -1435,6 +1535,7 @@ def _try_browser_rendering(
             veilrender_token,
             min(remaining, 30.0),
             allow_private_hosts=allow_private_hosts,
+            max_response_size=max_response_size,
         )
         if vr_result:
             content = _format_text(vr_result)
@@ -1484,6 +1585,7 @@ def _extract_auto(
     deadline: float,
     started_at: float,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> FetchResult:
     """Auto pipeline: try strategies in order."""
 
@@ -1497,6 +1599,7 @@ def _extract_auto(
         proxy,
         deadline,
         allow_private_hosts=allow_private_hosts,
+        max_response_size=max_response_size,
     )
 
     # Markdown negotiation succeeded — return directly.
@@ -1562,6 +1665,7 @@ def _extract_auto(
         remaining=_remaining(),
         started_at=started_at,
         allow_private_hosts=allow_private_hosts,
+        max_response_size=max_response_size,
     )
     if browser_result is not None:
         return browser_result
@@ -1575,6 +1679,7 @@ def _extract_auto(
         proxy=proxy,
         api_key_parser=api_key_parser,
         deadline=deadline,
+        max_response_size=max_response_size,
     )
     if jina_content:
         content = _format_text(jina_content)
@@ -1614,6 +1719,7 @@ def _try_markdown_negotiation(
     proxy: str | None = None,
     *,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> tuple[str, str, str]:
     """Attempt to fetch markdown content via Cloudflare Content Negotiation.
 
@@ -1628,6 +1734,7 @@ def _try_markdown_negotiation(
         timeout: Timeout for the HTTP request.  Defaults to TIMEOUT_DEFAULT.
         proxy: Proxy to use for the HTTP request.  Defaults to None.
         allow_private_hosts: Allow a private redirect target.
+        max_response_size: Largest body to buffer, in bytes.
 
     Returns:
         A ``(md_content, fallback_body, fallback_ct)`` tuple.
@@ -1650,7 +1757,7 @@ def _try_markdown_negotiation(
                 headers=headers,
                 timeout=timeout,
                 proxy=proxy,
-                max_response_size=_MAX_RESPONSE_SIZE,
+                max_response_size=max_response_size,
             ),
         )
         # ``Response.url`` is the address that produced the body after every
@@ -1720,6 +1827,7 @@ def _get_content_with_jina_reader(
     proxy: str | None = None,
     api_key_parser: APIKeyParser | None = None,
     deadline: float | None = None,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> str:
     """Fetch parsed content from Jina AI Reader for a given URL.
 
@@ -1742,6 +1850,7 @@ def _get_content_with_jina_reader(
         proxy: Proxy to use for the HTTP request.  Defaults to ``None``.
         api_key_parser: Optional API key parser for authentication.
         deadline: Optional shared ``time.monotonic()`` deadline.
+        max_response_size: Largest body to buffer from Jina, in bytes.
 
     Returns:
         Parsed content from Jina AI, or empty string on failure.
@@ -1770,6 +1879,7 @@ def _get_content_with_jina_reader(
             api_key=api_key,
             api_key_parser=api_key_parser,
             deadline=deadline,
+            max_response_size=max_response_size,
         )
         if content and _is_content_sufficient(content):
             return content
@@ -1804,6 +1914,7 @@ def _jina_reader_request(
     api_key: str | None = None,
     api_key_parser: APIKeyParser | None = None,
     deadline: float | None = None,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> str:
     """Send a single request to the Jina Reader API.
 
@@ -1819,6 +1930,7 @@ def _jina_reader_request(
         deadline: Optional ``time.monotonic()`` deadline.  When provided,
             both the X-Timeout header and the httpx transport timeout
             are clamped so the request cannot run past the deadline.
+        max_response_size: Largest body to buffer from Jina, in bytes.
 
     Returns:
         Extracted content string, or empty string on failure.
@@ -1857,7 +1969,7 @@ def _jina_reader_request(
                 headers=headers,
                 timeout=transport_timeout,
                 proxy=proxy,
-                max_response_size=_MAX_RESPONSE_SIZE,
+                max_response_size=max_response_size,
             ),
         )
         response.raise_for_status()
@@ -1877,7 +1989,7 @@ def _jina_reader_request(
         _record_jina_http_failure(status, api_key, api_key_parser)
         return ""
     except ResponseTooLargeError as e:
-        raise _response_too_large_error(url, e) from None
+        raise _response_too_large_error(url, e, response_url=jina_reader_url) from None
     except Exception as e:
         logger.debug(f"Jina Reader ({engine}) error: {e}")
         return ""
@@ -1890,6 +2002,7 @@ def _fetch_raw(
     deadline: float | None = None,
     *,
     allow_private_hosts: bool = False,
+    max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
 ) -> tuple[str, str]:
     """Fetch raw content from a URL with retry for transient failures.
 
@@ -1910,6 +2023,7 @@ def _fetch_raw(
             deadline equal to ``time.monotonic() + timeout`` is assumed so
             standalone callers also get bounded behaviour.
         allow_private_hosts: Allow a private redirect target.
+        max_response_size: Largest body to buffer per attempt, in bytes.
 
     Returns:
         A ``(body, content_type)`` tuple.  ``content_type`` is the MIME
@@ -1938,7 +2052,7 @@ def _fetch_raw(
                     headers=ua.headers.get(),
                     timeout=per_attempt_timeout,
                     proxy=proxy,
-                    max_response_size=_MAX_RESPONSE_SIZE,
+                    max_response_size=max_response_size,
                 ),
             )
             # ``Response.url`` is the final address after redirects; refuse
