@@ -27,7 +27,7 @@ toolregistry-hub [OPTIONS] COMMAND [COMMAND-OPTIONS]
 
 ### `openapi`
 
-启动基于 FastAPI 的 OpenAPI (REST) 服务器。
+启动 OpenAPI (REST) 服务器。默认使用 FastAPI 后端；`--backend httpserver` 选择零依赖后端。
 
 ```bash
 toolregistry-hub openapi [OPTIONS]
@@ -37,6 +37,7 @@ toolregistry-hub openapi [OPTIONS]
 |------|--------|------|
 | `--host HOST` | `0.0.0.0` | 绑定地址 |
 | `--port PORT` | `8000` | 绑定端口 |
+| `--backend {fastapi,httpserver}` | `fastapi` | OpenAPI 服务器后端；`httpserver` 为零依赖后端 |
 | `--env PATH` | `.env` | `.env` 文件路径 |
 | `--no-env` | — | 跳过加载 `.env` |
 | `--config PATH` | — | 工具配置文件（JSON、JSONC 或 YAML） |
