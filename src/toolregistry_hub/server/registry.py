@@ -446,6 +446,16 @@ def build_registry(
     config = _resolve_config(tools_config_path)
 
     registry = ToolRegistry(name="hub", think_augment=enable_think)
+    if not enable_discovery:
+        # Core 0.20 runs discovery in "auto" mode by default: the first
+        # deferred tool registered later (for example by a config reload)
+        # starts discovery and adds ``discover_tools`` / ``call_deferred``.
+        # That contradicts this flag, and the registration happens inside a
+        # change callback, which can mutate ``_tools`` while a reload is
+        # iterating it.  Pin the mode off when discovery was not requested.
+        set_discovery_mode = getattr(registry, "set_tool_discovery_mode", None)
+        if callable(set_discovery_mode):
+            set_discovery_mode("off")
     registry.add_post_register_hook(configurable_hook)
 
     if reload_state is None:

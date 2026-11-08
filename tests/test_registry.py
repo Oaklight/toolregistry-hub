@@ -277,6 +277,26 @@ class TestToolMetadataAndDiscovery(unittest.TestCase):
         self.assertNotIn("discover_tools", reg._tools)
         self.assertNotIn("call_deferred", reg._tools)
 
+    def test_discovery_stays_disabled_after_a_deferred_tool_is_registered(self):
+        """A late deferred tool must not auto-start discovery.
+
+        Core 0.20 defaults discovery mode to ``auto`` and starts it from a
+        change callback when the first deferred tool appears.  A reload
+        registers such tools, so the flag must pin the mode off at build.
+        """
+        from toolregistry import Tool
+        from toolregistry.tool import ToolMetadata
+
+        reg = build_registry(enable_discovery=False)
+
+        def late_tool() -> str:
+            """A tool registered after the build."""
+            return "ok"
+
+        reg.register(Tool.from_function(late_tool, metadata=ToolMetadata(defer=True)))
+        self.assertNotIn("discover_tools", reg._tools)
+        self.assertNotIn("call_deferred", reg._tools)
+
     def test_think_augment_enabled(self):
         """Test that enable_think=True activates think-augmented calling."""
         reg = build_registry(enable_discovery=False, enable_think=True)
