@@ -24,6 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Hub metadata defaults reset admin-panel edits on every reload** (#232): `apply_hub_overrides` replayed `_TOOL_METADATA` over the whole registry on every applied diff, so a change to `tags`, `defer`, `title`, `search_hint` or an execution hint made from the admin panel was silently undone by the next unrelated config change. `reload_registry` now passes the names it registered to `on_reload`, and the callback annotates only those tools. Tools that already existed keep their current values; a tool registered by the reload still gets the Hub defaults, and the file's `tool_metadata` still wins afterwards.
 - **A zero-tool source is no longer re-registered on every reload** (#233): an empty name set meant an excluded source, a failed registration, or a successful registration that produced no tools, so the diff treated all three as needing registration and an MCP server that advertises no tools reconnected on every unrelated config change. A per-source status now records `applied`, `excluded` or `failed`: an applied source with no tools is left alone, a failed one retries, and an excluded one registers once it enters scope.
 
+### Changed
+
+- **Vendored `httpclient` 0.6.4 → 0.7.1** (zerodep `48606bf`): a redirect to a different origin no longer forwards `Authorization`, `Proxy-Authorization` or `Cookie`, and Digest authentication is attempted only while the request stays on the credential's origin (#287); every member of a multi-member gzip body is decoded instead of only the first; and `Client`/`AsyncClient` plus the convenience functions accept an optional `max_response_size` that caps a buffered body and raises `ResponseTooLargeError` above it. The parameter defaults to `None`, so every existing call buffers exactly as before, and a `stream=True` response is never capped. No hub code changes.
+
 ## [0.12.0] - 2026-10-23
 
 ### Fixed
