@@ -13,12 +13,14 @@ from toolregistry_hub._vendor.httpclient import (
     HttpConnectionError,
     HTTPError,
     HttpTimeoutError,
+    ResponseTooLargeError,
 )
 from toolregistry_hub.fetch import (
     _CACHE_MAXSIZE_DEFAULT,
     _CACHE_TTL_DEFAULT,
     _JINA_TIMEOUT_BUFFER,
     _JINA_WAIT_SELECTORS,
+    _MAX_RESPONSE_SIZE,
     _MIN_CONTENT_LENGTH,
     _NON_HTML_CONTENT_TYPES,
     _SOUP_CONTENT_SELECTORS,
@@ -2179,3 +2181,138 @@ class TestFetchOutboundPolicy:
     @patch.dict("os.environ", {"FETCH_ALLOW_PRIVATE_HOSTS": "1"})
     def test_explicit_false_overrides_env(self):
         assert Fetch(allow_private_hosts=False)._allow_private_hosts is False
+
+
+# ============================================================
+# Response size limit tests
+# ============================================================
+
+
+class TestFetchResponseSizeLimit:
+    """Every request is capped before the body is buffered."""
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_fetch_raw_passes_the_cap(self, mock_get):
+        response = MagicMock()
+        response.url = "https://example.com/"
+        response.text = "ok"
+        response.headers = {"content-type": "text/plain"}
+        response.raise_for_status = MagicMock()
+        mock_get.return_value = response
+
+        _fetch_raw("https://example.com/")
+        assert mock_get.call_args.kwargs["max_response_size"] == _MAX_RESPONSE_SIZE
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_markdown_passes_the_cap(self, mock_get):
+        response = MagicMock()
+        response.status_code = 200
+        response.headers = {"content-type": "text/html"}
+        response.text = "<html></html>"
+        mock_get.return_value = response
+
+        _try_markdown_negotiation("https://example.com/")
+        assert mock_get.call_args.kwargs["max_response_size"] == _MAX_RESPONSE_SIZE
+
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_jina_passes_the_cap(self, mock_post):
+        response = MagicMock()
+        response.json.return_value = {"data": {"content": "x"}}
+        response.raise_for_status = MagicMock()
+        mock_post.return_value = response
+
+        _jina_reader_request("https://example.com/")
+        assert mock_post.call_args.kwargs["max_response_size"] == _MAX_RESPONSE_SIZE
+
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_veilrender_passes_the_cap(self, mock_post):
+        response = MagicMock()
+        response.json.return_value = {
+            "content": {"html": "<html>ok</html>"},
+            "metadata": {"url": "https://example.com/"},
+        }
+        mock_post.return_value = response
+
+        _render_with_veilrender("https://example.com/", "https://veilrender.example")
+        assert mock_post.call_args.kwargs["max_response_size"] == _MAX_RESPONSE_SIZE
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_fetch_raw_maps_too_large_to_fetch_error(self, mock_get):
+        mock_get.side_effect = ResponseTooLargeError(
+            "https://user:token@example.com/big", _MAX_RESPONSE_SIZE
+        )
+
+        with pytest.raises(FetchError) as exc:
+            _fetch_raw("https://user:token@example.com/big")
+        message = str(exc.value)
+        assert "example.com" in message
+        assert str(_MAX_RESPONSE_SIZE) in message
+        # The policy resolves example.com to this address; it must not leak.
+        assert "93.184.216.34" not in message
+        assert "token" not in message
+        assert exc.value.__cause__ is None
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_markdown_maps_too_large_to_fetch_error(self, mock_get):
+        mock_get.side_effect = ResponseTooLargeError(
+            "https://example.com/big", _MAX_RESPONSE_SIZE
+        )
+
+        with pytest.raises(FetchError) as exc:
+            _try_markdown_negotiation("https://example.com/big")
+        assert exc.value.__cause__ is None
+
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_jina_maps_too_large_to_fetch_error(self, mock_post):
+        mock_post.side_effect = ResponseTooLargeError(
+            "https://r.jina.ai/", _MAX_RESPONSE_SIZE
+        )
+
+        with pytest.raises(FetchError) as exc:
+            _jina_reader_request("https://example.com/")
+        assert exc.value.__cause__ is None
+
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_veilrender_maps_too_large_to_fetch_error(self, mock_post):
+        mock_post.side_effect = ResponseTooLargeError(
+            "https://veilrender.example/render", _MAX_RESPONSE_SIZE
+        )
+
+        with pytest.raises(FetchError) as exc:
+            _render_with_veilrender(
+                "https://example.com/", "https://veilrender.example"
+            )
+        assert exc.value.__cause__ is None
+
+    def test_oversized_chunked_body_stops_at_the_cap(self):
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802 - http.server API
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Transfer-Encoding", "chunked")
+                self.end_headers()
+                chunk = b"a" * 512
+                try:
+                    for _ in range(8):
+                        self.wfile.write(b"200\r\n" + chunk + b"\r\n")
+                    self.wfile.write(b"0\r\n\r\n")
+                except OSError:
+                    pass
+
+            def log_message(self, *args):  # noqa: D102 - silence test output
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with (
+                patch("toolregistry_hub.fetch._MAX_RESPONSE_SIZE", 1024),
+                pytest.raises(FetchError) as exc,
+            ):
+                _fetch_raw(f"http://127.0.0.1:{server.server_port}/", timeout=5.0)
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+        assert "127.0.0.1" in str(exc.value)
+        assert "1024" in str(exc.value)
