@@ -16,6 +16,7 @@ from ._vendor.httpclient import (
     HTTPError,
     HttpTimeoutError,
     Response,
+    ResponseTooLargeError,
 )
 from ._vendor.httpclient import (
     get as _http_get,
@@ -39,6 +40,11 @@ if TYPE_CHECKING:
 logger = get_logger()
 
 TIMEOUT_DEFAULT = 30.0
+
+# Largest response body fetch will buffer, in bytes.  Text extraction never
+# needs more, and the cap stops one request from exhausting process memory
+# before the content-type check can reject it.
+_MAX_RESPONSE_SIZE = 10 * 1024 * 1024
 
 StrategyName = Literal[
     "auto",
@@ -210,6 +216,23 @@ def _enforce_final_url_policy(
     except URLPolicyError as exc:
         _log_policy_refusal(exc, stage=stage, url=final_url)
         raise FetchPolicyError(f"redirect target refused: {exc}") from exc
+
+
+def _response_too_large_error(url: str, exc: ResponseTooLargeError) -> FetchError:
+    """Map a capped body to ``FetchError`` naming the host and the limit.
+
+    The vendored exception message contains the full URL; rebuilding it here
+    keeps the error text to the caller-supplied host and never includes a
+    resolved address.  Call sites raise the result with ``from None`` so a
+    traceback cannot reach that message either: a URL may carry userinfo.
+    """
+    try:
+        host = urlsplit(url).hostname or ""
+    except ValueError:
+        host = ""
+    return FetchError(
+        f"response from {host!r} exceeds the {exc.max_size}-byte fetch limit"
+    )
 
 
 def _make_result(
@@ -920,6 +943,7 @@ def _render_with_veilrender(
             data=payload,
             headers=headers,
             timeout=timeout,
+            max_response_size=_MAX_RESPONSE_SIZE,
         )
 
         data = resp.json()  # ty: ignore[unresolved-attribute]
@@ -942,6 +966,8 @@ def _render_with_veilrender(
         return html
     except FetchPolicyError:
         raise
+    except ResponseTooLargeError as e:
+        raise _response_too_large_error(url, e) from None
     except Exception as e:
         logger.debug(f"VeilRender rendering failed for {url}: {e}")
         return ""
@@ -1624,6 +1650,7 @@ def _try_markdown_negotiation(
                 headers=headers,
                 timeout=timeout,
                 proxy=proxy,
+                max_response_size=_MAX_RESPONSE_SIZE,
             ),
         )
         # ``Response.url`` is the address that produced the body after every
@@ -1661,6 +1688,8 @@ def _try_markdown_negotiation(
         return "", body, ct
     except FetchPolicyError:
         raise
+    except ResponseTooLargeError as e:
+        raise _response_too_large_error(url, e) from None
     except Exception as e:
         logger.debug(f"Markdown negotiation failed for {url}: {e}")
         return "", "", ""
@@ -1752,6 +1781,20 @@ def _get_content_with_jina_reader(
     return content  # may be empty or low-quality; caller decides
 
 
+def _record_jina_http_failure(
+    status: int,
+    api_key: str | None,
+    api_key_parser: APIKeyParser | None,
+) -> None:
+    """Mark a Jina API key failed for the statuses that indicate it."""
+    if not (api_key and api_key_parser):
+        return
+    if status in (401, 403):
+        api_key_parser.mark_key_failed(api_key, f"HTTP {status}", ttl=3600.0)
+    elif status == 429:
+        api_key_parser.mark_key_failed(api_key, "rate limited", ttl=300.0)
+
+
 def _jina_reader_request(
     url: str,
     engine: str = "browser",
@@ -1814,6 +1857,7 @@ def _jina_reader_request(
                 headers=headers,
                 timeout=transport_timeout,
                 proxy=proxy,
+                max_response_size=_MAX_RESPONSE_SIZE,
             ),
         )
         response.raise_for_status()
@@ -1830,12 +1874,10 @@ def _jina_reader_request(
     except HTTPError as e:
         status = e.status_code
         logger.debug(f"Jina Reader ({engine}) HTTP Error [{status}]: {e}")
-        if api_key and api_key_parser:
-            if status in (401, 403):
-                api_key_parser.mark_key_failed(api_key, f"HTTP {status}", ttl=3600.0)
-            elif status == 429:
-                api_key_parser.mark_key_failed(api_key, "rate limited", ttl=300.0)
+        _record_jina_http_failure(status, api_key, api_key_parser)
         return ""
+    except ResponseTooLargeError as e:
+        raise _response_too_large_error(url, e) from None
     except Exception as e:
         logger.debug(f"Jina Reader ({engine}) error: {e}")
         return ""
@@ -1896,6 +1938,7 @@ def _fetch_raw(
                     headers=ua.headers.get(),
                     timeout=per_attempt_timeout,
                     proxy=proxy,
+                    max_response_size=_MAX_RESPONSE_SIZE,
                 ),
             )
             # ``Response.url`` is the final address after redirects; refuse
@@ -1932,6 +1975,9 @@ def _fetch_raw(
             # A refused destination must abort the fetch, not retry or fall
             # through to another strategy.
             raise
+        except ResponseTooLargeError as e:
+            # The cap is not transient; retrying would read the same body.
+            raise _response_too_large_error(url, e) from None
         except Exception as e:
             # Unexpected errors are not retried.
             logger.debug(f"Error fetching {url}: {e}")
