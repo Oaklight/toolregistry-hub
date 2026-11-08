@@ -8,8 +8,9 @@ import threading
 import time
 import types
 import unicodedata
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, TypedDict, cast
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from ._vendor.httpclient import (
     HttpConnectionError,
@@ -50,6 +51,11 @@ _DEFAULT_MAX_RESPONSE_SIZE = 10 * 1024 * 1024
 #: Environment variable that overrides the default cap when ``Fetch`` is
 #: constructed without ``max_response_size``.
 _MAX_RESPONSE_SIZE_ENV = "FETCH_MAX_RESPONSE_SIZE"
+
+# Redirect hops fetch follows itself.  Matches the vendored client's default;
+# each hop is validated before the next request is sent.
+_MAX_REDIRECTS = 10
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 
 StrategyName = Literal[
     "auto",
@@ -174,12 +180,8 @@ class FetchPolicyError(FetchError):
 
 def _log_policy_refusal(exc: URLPolicyError, *, stage: str, url: str) -> None:
     """Log a refused destination without the resolved address."""
-    try:
-        host = urlsplit(url).hostname or ""
-    except ValueError:
-        host = ""
     logger.warning(
-        f"fetch_content blocked ({stage}): reason={exc.reason} host={host!r}"
+        f"fetch_content blocked ({stage}): reason={exc.reason} host={_url_host(url)!r}"
     )
 
 
@@ -205,11 +207,10 @@ def _enforce_final_url_policy(
 ) -> None:
     """Refuse a response whose final URL left the allowed address space.
 
-    The vendored client updates ``Response.url`` on every redirect hop, so
-    this is the address that produced the body.  The request has already
-    been sent by the time this runs; raising here discards the body instead
-    of returning it to the caller.  That removes the response-exfiltration
-    path but not the blind request itself (see issue #240).
+    The manual redirect loop validates every hop before the request is sent.
+    This check is the backstop for the response that actually produced the
+    body: with ``follow_redirects=False`` its URL is the last request URL, so
+    a bug in the loop still cannot return content from a refused address.
     """
     final_url = getattr(response, "url", None)
     if not isinstance(final_url, str) or not final_url:
@@ -231,6 +232,69 @@ def _url_host(url: str | None) -> str:
         return urlsplit(url).hostname or ""
     except ValueError:
         return ""
+
+
+def _request_with_redirects(
+    method: str,
+    url: str,
+    send: Callable[[str, str], Response],
+    *,
+    allow_private_hosts: bool,
+    stage: str,
+) -> Response:
+    """Issue a request, validating every redirect hop before dialing it.
+
+    The vendored client is called with ``follow_redirects=False``, so a 3xx
+    response never opens a connection on its own.  Each ``Location`` is
+    resolved against the current URL and checked with the same outbound
+    policy, which rejects non-http(s) schemes and non-public addresses before
+    the next request is sent.
+
+    Args:
+        method: ``"GET"`` or ``"POST"`` for the first request.
+        url: First request URL.
+        send: Callable ``(url, method) -> Response`` that performs exactly one
+            request with the caller's headers, timeout and proxy.
+        allow_private_hosts: Skip the address-class checks for every hop.
+        stage: Log category for a refused hop.
+
+    Returns:
+        The first non-redirect response, or a redirect without ``Location``.
+
+    Raises:
+        FetchPolicyError: If a hop violates the outbound policy.
+        FetchError: If the chain exceeds ``_MAX_REDIRECTS``.
+
+    Note:
+        The connection is not pinned to the validated address: the vendored
+        client resolves the name again when it dials, so a DNS rebinding
+        between the check and the connect is still possible (zerodep #305).
+    """
+    current_url = url
+    current_method = method
+    for _ in range(_MAX_REDIRECTS + 1):
+        response = send(current_url, current_method)
+        if response.status_code not in _REDIRECT_STATUSES:
+            return response
+        location = response.headers.get("location")
+        if not location:
+            return response
+        next_url = urljoin(current_url, location)
+        try:
+            validate_target_url(next_url, allow_private_hosts=allow_private_hosts)
+        except URLPolicyError as exc:
+            _log_policy_refusal(exc, stage=f"{stage}-redirect", url=next_url)
+            raise FetchPolicyError(f"redirect target refused: {exc}") from exc
+        # 303 always switches to GET; 301/302 do so for a POST.  307/308
+        # preserve the method, and fetch sends no body on its GET paths.
+        if response.status_code == 303 or (
+            response.status_code in (301, 302) and current_method == "POST"
+        ):
+            current_method = "GET"
+        current_url = next_url
+    raise FetchError(
+        f"too many redirects for host {_url_host(url)!r} (limit {_MAX_REDIRECTS})"
+    )
 
 
 def _response_too_large_error(url: str, exc: ResponseTooLargeError) -> FetchError:
@@ -1083,15 +1147,40 @@ def _render_with_veilrender(
         if token:
             headers["Authorization"] = f"Bearer {token}"
 
-        resp = _http_post(
+        def send(target_url: str, method: str) -> Response:
+            """Send one VeilRender request without following redirects."""
+            if method == "POST":
+                return cast(
+                    Response,
+                    _http_post(
+                        target_url,
+                        data=payload,
+                        headers=headers,
+                        timeout=timeout,
+                        max_response_size=max_response_size,
+                        follow_redirects=False,
+                    ),
+                )
+            return cast(
+                Response,
+                _http_get(
+                    target_url,
+                    headers=headers,
+                    timeout=timeout,
+                    max_response_size=max_response_size,
+                    follow_redirects=False,
+                ),
+            )
+
+        resp = _request_with_redirects(
+            "POST",
             render_url,
-            data=payload,
-            headers=headers,
-            timeout=timeout,
-            max_response_size=max_response_size,
+            send,
+            allow_private_hosts=allow_private_hosts,
+            stage="veilrender",
         )
 
-        data = resp.json()  # ty: ignore[unresolved-attribute]
+        data = resp.json()
         html = data.get("content", {}).get("html", "")
         if not html:
             return ""
@@ -1110,6 +1199,10 @@ def _render_with_veilrender(
         logger.debug(f"VeilRender rendered {url}: {len(html)} chars of HTML")
         return html
     except FetchPolicyError:
+        raise
+    except FetchError:
+        # Too many redirects must reach the caller, not become an empty
+        # strategy result.
         raise
     except ResponseTooLargeError as e:
         raise _response_too_large_error(url, e) from None
@@ -1175,6 +1268,7 @@ def _try_jina_extraction(
     api_key_parser: APIKeyParser | None,
     deadline: float,
     max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
+    allow_private_hosts: bool = False,
 ) -> str:
     """Attempt Jina Reader extraction as the final network strategy.
 
@@ -1187,6 +1281,7 @@ def _try_jina_extraction(
         api_key_parser: Optional API key parser for Jina Reader.
         deadline: Absolute wall-clock deadline.
         max_response_size: Largest body to buffer from Jina, in bytes.
+        allow_private_hosts: Allow a private redirect target.
 
     Returns:
         Sufficient Jina content, or empty string on failure.
@@ -1211,6 +1306,7 @@ def _try_jina_extraction(
         api_key_parser=api_key_parser,
         deadline=deadline,
         max_response_size=max_response_size,
+        allow_private_hosts=allow_private_hosts,
     )
 
     if jina_content and _is_content_sufficient(jina_content):
@@ -1435,6 +1531,7 @@ def _strategy_jina(
     remaining: float,
     started_at: float,
     max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
+    allow_private_hosts: bool = False,
     **_kw: object,
 ) -> FetchResult:
     content = _try_jina_extraction(
@@ -1446,6 +1543,7 @@ def _strategy_jina(
         api_key_parser=api_key_parser,
         deadline=deadline,
         max_response_size=max_response_size,
+        allow_private_hosts=allow_private_hosts,
     )
     if not content:
         raise FetchError(f"Jina Reader did not return content for {url}")
@@ -1752,6 +1850,7 @@ def _extract_auto(
         api_key_parser=api_key_parser,
         deadline=deadline,
         max_response_size=max_response_size,
+        allow_private_hosts=allow_private_hosts,
     )
     if jina_content:
         content = _format_text(jina_content)
@@ -1822,18 +1921,29 @@ def _try_markdown_negotiation(
         ua.headers.accept_ch("Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List")
         headers = ua.headers.get()
         headers["Accept"] = "text/markdown"
-        response = cast(
-            Response,
-            _http_get(
-                url,
-                headers=headers,
-                timeout=timeout,
-                proxy=proxy,
-                max_response_size=max_response_size,
-            ),
+
+        def send(target_url: str, _method: str) -> Response:
+            """Send one markdown probe without following redirects."""
+            return cast(
+                Response,
+                _http_get(
+                    target_url,
+                    headers=headers,
+                    timeout=timeout,
+                    proxy=proxy,
+                    max_response_size=max_response_size,
+                    follow_redirects=False,
+                ),
+            )
+
+        response = _request_with_redirects(
+            "GET",
+            url,
+            send,
+            allow_private_hosts=allow_private_hosts,
+            stage="markdown",
         )
-        # ``Response.url`` is the address that produced the body after every
-        # redirect hop.  Refuse the body if that address left the policy.
+        # Final-URL backstop: every hop was already validated above.
         _enforce_final_url_policy(
             response,
             allow_private_hosts=allow_private_hosts,
@@ -1866,6 +1976,8 @@ def _try_markdown_negotiation(
         )
         return "", body, ct
     except FetchPolicyError:
+        raise
+    except FetchError:
         raise
     except ResponseTooLargeError as e:
         raise _response_too_large_error(url, e) from None
@@ -1900,6 +2012,8 @@ def _get_content_with_jina_reader(
     api_key_parser: APIKeyParser | None = None,
     deadline: float | None = None,
     max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
+    *,
+    allow_private_hosts: bool = False,
 ) -> str:
     """Fetch parsed content from Jina AI Reader for a given URL.
 
@@ -1923,6 +2037,7 @@ def _get_content_with_jina_reader(
         api_key_parser: Optional API key parser for authentication.
         deadline: Optional shared ``time.monotonic()`` deadline.
         max_response_size: Largest body to buffer from Jina, in bytes.
+        allow_private_hosts: Allow a private redirect target.
 
     Returns:
         Parsed content from Jina AI, or empty string on failure.
@@ -1952,6 +2067,7 @@ def _get_content_with_jina_reader(
             api_key_parser=api_key_parser,
             deadline=deadline,
             max_response_size=max_response_size,
+            allow_private_hosts=allow_private_hosts,
         )
         if content and _is_content_sufficient(content):
             return content
@@ -1987,6 +2103,8 @@ def _jina_reader_request(
     api_key_parser: APIKeyParser | None = None,
     deadline: float | None = None,
     max_response_size: int = _DEFAULT_MAX_RESPONSE_SIZE,
+    *,
+    allow_private_hosts: bool = False,
 ) -> str:
     """Send a single request to the Jina Reader API.
 
@@ -2003,6 +2121,7 @@ def _jina_reader_request(
             both the X-Timeout header and the httpx transport timeout
             are clamped so the request cannot run past the deadline.
         max_response_size: Largest body to buffer from Jina, in bytes.
+        allow_private_hosts: Allow a private redirect target.
 
     Returns:
         Extracted content string, or empty string on failure.
@@ -2033,16 +2152,40 @@ def _jina_reader_request(
 
         jina_reader_url = "https://r.jina.ai/"
         logger.debug(f"Jina Reader request for {url} (engine: {engine})")
-        response = cast(
-            Response,
-            _http_post(
-                jina_reader_url,
-                json={"url": url},
-                headers=headers,
-                timeout=transport_timeout,
-                proxy=proxy,
-                max_response_size=max_response_size,
-            ),
+
+        def send(target_url: str, method: str) -> Response:
+            """Send one Jina request without following redirects."""
+            if method == "POST":
+                return cast(
+                    Response,
+                    _http_post(
+                        target_url,
+                        json={"url": url},
+                        headers=headers,
+                        timeout=transport_timeout,
+                        proxy=proxy,
+                        max_response_size=max_response_size,
+                        follow_redirects=False,
+                    ),
+                )
+            return cast(
+                Response,
+                _http_get(
+                    target_url,
+                    headers=headers,
+                    timeout=transport_timeout,
+                    proxy=proxy,
+                    max_response_size=max_response_size,
+                    follow_redirects=False,
+                ),
+            )
+
+        response = _request_with_redirects(
+            "POST",
+            jina_reader_url,
+            send,
+            allow_private_hosts=allow_private_hosts,
+            stage="jina",
         )
         response.raise_for_status()
 
@@ -2060,6 +2203,10 @@ def _jina_reader_request(
         logger.debug(f"Jina Reader ({engine}) HTTP Error [{status}]: {e}")
         _record_jina_http_failure(status, api_key, api_key_parser)
         return ""
+    except FetchError:
+        # Too many redirects must reach the caller, not become an empty
+        # strategy result.
+        raise
     except ResponseTooLargeError as e:
         raise _response_too_large_error(url, e) from None
     except Exception as e:
@@ -2117,18 +2264,37 @@ def _fetch_raw(
             ua.headers.accept_ch(
                 "Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List"
             )
-            response = cast(
-                Response,
-                _http_get(
-                    url,
-                    headers=ua.headers.get(),
-                    timeout=per_attempt_timeout,
-                    proxy=proxy,
-                    max_response_size=max_response_size,
-                ),
+
+            request_headers = ua.headers.get()
+            attempt_timeout = per_attempt_timeout
+
+            def send(
+                target_url: str,
+                _method: str,
+                headers: dict[str, str] = request_headers,
+                timeout: float = attempt_timeout,
+            ) -> Response:
+                """Send one raw-fetch request without following redirects."""
+                return cast(
+                    Response,
+                    _http_get(
+                        target_url,
+                        headers=headers,
+                        timeout=timeout,
+                        proxy=proxy,
+                        max_response_size=max_response_size,
+                        follow_redirects=False,
+                    ),
+                )
+
+            response = _request_with_redirects(
+                "GET",
+                url,
+                send,
+                allow_private_hosts=allow_private_hosts,
+                stage="http",
             )
-            # ``Response.url`` is the final address after redirects; refuse
-            # the body when it left the allowed address space.
+            # Final-URL backstop: every hop was already validated above.
             _enforce_final_url_policy(
                 response,
                 allow_private_hosts=allow_private_hosts,
@@ -2160,6 +2326,10 @@ def _fetch_raw(
         except FetchPolicyError:
             # A refused destination must abort the fetch, not retry or fall
             # through to another strategy.
+            raise
+        except FetchError:
+            # Too many redirects is definitive; retrying the chain would
+            # repeat the same hops.
             raise
         except ResponseTooLargeError as e:
             # The cap is not transient; retrying would read the same body.
