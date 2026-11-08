@@ -4,6 +4,7 @@ import socket
 from unittest.mock import patch
 
 import pytest
+from toolregistry.netpolicy import clear_address_cache
 
 from toolregistry_hub.url_policy import (
     URLPolicyError,
@@ -11,6 +12,14 @@ from toolregistry_hub.url_policy import (
     validate_proxy_url,
     validate_target_url,
 )
+
+
+@pytest.fixture(autouse=True)
+def _clear_netpolicy_cache():
+    """Isolate the core policy's resolution cache between tests."""
+    clear_address_cache()
+    yield
+    clear_address_cache()
 
 
 def _addrinfo(*addresses: str) -> list[tuple]:
@@ -126,7 +135,7 @@ def test_malformed_urls_are_refused(url: str) -> None:
 
 def test_trailing_dot_host_is_normalized() -> None:
     with patch(
-        "toolregistry_hub.url_policy.socket.getaddrinfo",
+        "toolregistry._netpolicy.socket.getaddrinfo",
         return_value=_addrinfo("93.184.216.34"),
     ) as resolve:
         assert validate_target_url("http://Example.COM./page") == (
@@ -138,7 +147,7 @@ def test_trailing_dot_host_is_normalized() -> None:
 def test_dns_failure_is_refused() -> None:
     with (
         patch(
-            "toolregistry_hub.url_policy.socket.getaddrinfo",
+            "toolregistry._netpolicy.socket.getaddrinfo",
             side_effect=socket.gaierror("no such host"),
         ),
         pytest.raises(URLPolicyError) as exc,
@@ -150,7 +159,7 @@ def test_dns_failure_is_refused() -> None:
 def test_empty_dns_answer_is_refused() -> None:
     with (
         patch(
-            "toolregistry_hub.url_policy.socket.getaddrinfo",
+            "toolregistry._netpolicy.socket.getaddrinfo",
             return_value=[],
         ),
         pytest.raises(URLPolicyError) as exc,
@@ -162,7 +171,7 @@ def test_empty_dns_answer_is_refused() -> None:
 def test_any_private_answer_refuses_the_host() -> None:
     with (
         patch(
-            "toolregistry_hub.url_policy.socket.getaddrinfo",
+            "toolregistry._netpolicy.socket.getaddrinfo",
             return_value=_addrinfo("93.184.216.34", "10.0.0.7"),
         ),
         pytest.raises(URLPolicyError) as exc,
@@ -174,7 +183,7 @@ def test_any_private_answer_refuses_the_host() -> None:
 def test_error_does_not_leak_the_resolved_address() -> None:
     with (
         patch(
-            "toolregistry_hub.url_policy.socket.getaddrinfo",
+            "toolregistry._netpolicy.socket.getaddrinfo",
             return_value=_addrinfo("10.1.2.3"),
         ),
         pytest.raises(URLPolicyError) as exc,
@@ -192,7 +201,7 @@ def test_error_does_not_leak_the_resolved_address() -> None:
 
 def test_public_proxy_is_allowed() -> None:
     with patch(
-        "toolregistry_hub.url_policy.socket.getaddrinfo",
+        "toolregistry._netpolicy.socket.getaddrinfo",
         return_value=_addrinfo("93.184.216.34"),
     ):
         assert validate_proxy_url("http://proxy.example:3128") == (
@@ -266,7 +275,7 @@ def test_request_checks_target_then_proxy() -> None:
 
     with (
         patch(
-            "toolregistry_hub.url_policy.socket.getaddrinfo",
+            "toolregistry._netpolicy.socket.getaddrinfo",
             return_value=_addrinfo("93.184.216.34"),
         ),
         pytest.raises(URLPolicyError) as exc,
@@ -277,7 +286,7 @@ def test_request_checks_target_then_proxy() -> None:
 
 def test_request_without_proxy_validates_only_the_target() -> None:
     with patch(
-        "toolregistry_hub.url_policy.socket.getaddrinfo",
+        "toolregistry._netpolicy.socket.getaddrinfo",
         return_value=_addrinfo("93.184.216.34"),
     ):
         validate_fetch_request("http://example.com/")

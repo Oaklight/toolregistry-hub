@@ -6,6 +6,7 @@ dropped unless the Hub passes it on (#78).
 """
 
 import argparse
+import importlib.metadata
 from unittest.mock import patch
 
 import pytest
@@ -173,7 +174,11 @@ class TestOpenAPIDispatch:
         parser = HubCLI().create_parser()
         try:
             parsed = parser.parse_args(["openapi", "--backend", "httpserver"])
-        except SystemExit:  # pragma: no cover - depends on the installed server
-            pytest.skip("installed toolregistry-server predates --backend")
+        except SystemExit:  # pragma: no cover - the floor now guarantees it
+            pytest.skip(
+                "installed toolregistry-server "
+                f"{importlib.metadata.version('toolregistry-server')} "
+                "does not define --backend"
+            )
 
         assert parsed.backend == "httpserver"

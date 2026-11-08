@@ -38,7 +38,7 @@ dependencies = [
     # modules import toolregistry.parameter_models, so the core library is a
     # hard runtime dependency of the bare install, not just of the server
     # extras.
-    "toolregistry>=0.19.0,<1.0.0",
+    "toolregistry>=0.20.1,<1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -61,15 +61,15 @@ reader_plus = [
     "pdfplumber>=0.10.0",
 ]
 server_core = [
-    "toolregistry-server>=0.7.0",
+    "toolregistry-server>=0.8.0",
 ]
 server_openapi = [
     "toolregistry-hub[server_core]",
-    "toolregistry-server[openapi]>=0.7.0",
+    "toolregistry-server[openapi]>=0.8.0",
 ]
 server_mcp = [
     "toolregistry-hub[server_core]",
-    "toolregistry-server[mcp]>=0.7.0",
+    "toolregistry-server[mcp]>=0.8.0",
 ]
 server = [
     "toolregistry-hub[server_openapi]",
