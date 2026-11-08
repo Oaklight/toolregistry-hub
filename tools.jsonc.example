@@ -14,6 +14,12 @@
   "tools": [
     {"class": "toolregistry_hub.calculator.Calculator", "namespace": "calculator"},
     {"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"},
+    // Fetch refuses private targets and proxies by default.  To let it reach
+    // an internal site (and use an internal proxy), opt in explicitly:
+    //   {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web",
+    //    "kwargs": {"allow_private_hosts": true}}
+    // The http/https scheme restriction still applies.  The same switch can
+    // be set with FETCH_ALLOW_PRIVATE_HOSTS=1.
     {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web"},
     {"class": "toolregistry_hub.file_ops.FileOps", "namespace": "file_ops"},
     {"class": "toolregistry_hub.think_tool.ThinkTool", "namespace": "think"},
