@@ -14,6 +14,8 @@ author: Oaklight
 
 ## [未发布]
 
+## [0.12.0] - 2026-11-08
+
 ### 新增
 
 - **`tools.jsonc` 热重载**（#144）：加上 `--config-reload` 后，运行中的服务会监听配置文件（按 mtime/size 轮询，不引入新依赖），并对活动注册表做 source 级 diff：新增的 source 会被注册，删除的 source 会被注销，离开配置范围的 source（`enabled: false`，或被 `mode`/`disabled`/`enabled` 过滤）只禁用而不注销，声明发生变化的 source 会重新注册。仅调整列表顺序不算变更。非法配置只记录警告并被忽略，当前注册表继续服务。启动后的第一次轮询总会执行，因此注册表构建完成到 watcher 启动之间的编辑不会丢失。从文件中删除 `tool_metadata` 条目后，该项设置会保留到重启，因为这些字段同样可由管理面板写入；面板可以立即重置。watcher 按进程生效且默认关闭；内置默认工具列表没有文件可监听，多服务部署的跨进程协调不在本次范围内。
@@ -24,27 +26,19 @@ author: Oaklight
 - **配置热重载绕过 `--profile`**（#234）：reload 注册的 source 没有经过部署 profile 过滤，因此修改其声明后，在 `--profile remote` 下可能重新暴露 `file_system`、`destructive` 或 `privileged` 工具（`--profile local` 下则是 `network` 工具）。现在 reload 会用与启动注册表相同的标签映射过滤本次新注册的工具，不影响已经注册的工具。
 - **Hub 默认元数据会在每次 reload 时重置管理面板编辑**（#232）：`apply_hub_overrides` 每次应用 diff 都会把 `_TOOL_METADATA` 重放到整个注册表，因此从管理面板修改的 `tags`、`defer`、`title`、`search_hint` 或执行提示会被下一次无关的配置变更静默覆盖。现在 `reload_registry` 把它本次注册的工具名传给 `on_reload`，回调只处理这些工具。已存在的工具保持当前值；本次 reload 注册的工具仍会获得 Hub 默认值，文件中的 `tool_metadata` 之后仍然优先。
 - **零工具的 source 不再在每次 reload 时重新注册**（#233）：空工具名集合过去同时表示「被排除」「注册失败」「注册成功但没有工具」，diff 因此把三种情况都当成需要重新注册，导致不 advertise 工具的 MCP 服务器在每次无关配置变更时都重连。现在按 source 记录 `applied`、`excluded` 或 `failed`：已应用但零工具的 source 不再重注册，失败的会重试，被排除的进入范围后才注册。
-
-### 变更
-
-- **0.12.0 抬升依赖下限**：`toolregistry>=0.20.1`、`toolregistry-server>=0.8.0`（含 `server_core`、`server_openapi`、`server_mcp` extras）。0.12.0 不再支持 core 0.19.x 或 server 0.7.x。
-- **Fetch 出站策略收敛到 core**：`toolregistry_hub.url_policy` 现在只是 `toolregistry.netpolicy.validate_outbound_url` 的薄封装，保留 fetch 专用的 http/https 限制与 `FetchPolicyError` 映射，删除了重复的特殊网段与 DNS 逻辑。允许/拒绝判定不变，包括运维开关与「错误不含解析地址」的约束；拒绝与解析失败的消息改用 core netpolicy 的统一文案，不再由 hub 自行拼接。core 会缓存成功的解析结果 60 秒；失败不缓存。
-- **内置 `httpclient` 0.6.4 → 0.7.1**（zerodep `48606bf`）：重定向到其他源时不再转发 `Authorization`、`Proxy-Authorization` 与 `Cookie`，Digest 认证只在请求仍位于凭据所属源时尝试（#287）；多成员 gzip 响应体现在会逐成员解压，而不再只解压第一个；`Client`/`AsyncClient` 与便捷函数新增可选参数 `max_response_size`，用于限制缓冲响应体，超限时抛出 `ResponseTooLargeError`。该参数默认 `None`，现有调用仍按原样缓冲，`stream=True` 的响应也不会被限制。Hub 代码无需改动。
-
-### 安全
-
-- **Fetch 增加出站地址策略**（#240，引用）：`fetch_content` 现在会在发出任何请求前校验调用方提供的 URL 与代理。仅允许 http/https；主机名解析出的每个地址都必须是全球可路由地址（回环、RFC 1918、链路本地（含 `169.254.169.254`）、CGNAT、组播、NAT64、6to4、Teredo、ORCHID、文档/基准测试网段均拒绝），解析失败同样拒绝。IPv4-mapped 与 NAT64 内嵌地址按 IPv4 判断。重定向采用事后校验：当 `response.url` 指向私有地址时丢弃响应体并抛出 `FetchPolicyError`。CDP 在导航后校验 `document.location.href`；VeilRender 校验 `metadata.url`；两者在无法确认最终地址时拒绝返回内容。运维人员可用 `Fetch(allow_private_hosts=True)`、`FETCH_ALLOW_PRIVATE_HOSTS=1` 或 `tools.jsonc` 中的构造参数显式开启；不提供逐次调用开关。残余风险：产生被拒重定向响应的请求已经发出（盲 SSRF），且连接时会再次解析 DNS（重绑定窗口），需等待 zerodep 提供 `follow_redirects=False` 与连接期地址固定。
-- **Fetch 限制响应体大小**（#243）：所有请求——markdown 协商、原始抓取、Jina Reader 调用与 VeilRender——现在都会向内置 HTTP 客户端传入 10 MiB 的 `max_response_size`；超大的 `Content-Length` 在读取任何 body 之前即被拒绝，chunked body 一旦越过上限也会立即停止。`ResponseTooLargeError` 会映射为 `FetchError`，消息包含调用方提供的 host 与上限，绝不含解析后的地址。此前整个响应体会先被完整缓冲，然后才做 content-type 检查，因此单个数 GB 的响应即可把共享 hub 打到 OOM。
-
-## [0.12.0] - 2026-10-23
-
-### 修复
-
 - **裸安装现在会一并安装核心库**（#226、#225）：`[project].dependencies` 原本为空，`pip install toolregistry-hub` 不会安装 `toolregistry_hub` 真正 import 的任何东西——所有工具类都继承 `toolregistry.Tool`，`file_search` 还依赖 `toolregistry.parameter_models`。核心库此前只通过 `server` extras 间接到位，所以服务器部署正常，而文档中的库模式快速开始（`pip install toolregistry-hub` 后 `from toolregistry_hub import Calculator`）会报 `ModuleNotFoundError`。现在 `toolregistry>=0.19.0,<1.0.0` 是运行时依赖，与 `toolregistry-server>=0.7.0` 已有的下限一致，并新增打包测试防止回退。该问题影响所有已发布版本，包括 0.11.0。
 
 ### 变更
 
+- **0.12.0 抬升依赖下限**（#249）：`toolregistry>=0.20.1`、`toolregistry-server>=0.8.0`（含 `server_core`、`server_openapi`、`server_mcp` extras）。0.12.0 不再支持 core 0.19.x 或 server 0.7.x。
+- **Fetch 出站策略收敛到 core**（#249）：`toolregistry_hub.url_policy` 现在只是 `toolregistry.netpolicy.validate_outbound_url` 的薄封装，保留 fetch 专用的 http/https 限制与 `FetchPolicyError` 映射，删除了重复的特殊网段与 DNS 逻辑。允许/拒绝判定不变，包括运维开关与「错误不含解析地址」的约束；拒绝与解析失败的消息改用 core netpolicy 的统一文案，不再由 hub 自行拼接。core 会缓存成功的解析结果 60 秒；失败不缓存。
+- **内置 `httpclient` 0.6.4 → 0.7.1**（zerodep `48606bf`）：重定向到其他源时不再转发 `Authorization`、`Proxy-Authorization` 与 `Cookie`，Digest 认证只在请求仍位于凭据所属源时尝试（#287）；多成员 gzip 响应体现在会逐成员解压，而不再只解压第一个；`Client`/`AsyncClient` 与便捷函数新增可选参数 `max_response_size`，用于限制缓冲响应体，超限时抛出 `ResponseTooLargeError`。该参数默认 `None`，现有调用仍按原样缓冲，`stream=True` 的响应也不会被限制。Hub 代码无需改动。
 - **工具名现在对客户端安全且风格统一**（#186，**破坏性变更**）：命名空间不再包含 `/`，冗余前缀也已去除。`web/websearch-search` → `web-search`、`web/websearch-list_engines` → `web-list_engines`、`web/fetch-fetch_content` → `web-fetch_content`、`fs/file_search-*` → `fs-*`、`fs/path_info-info` → `fs-info`；各搜索服务分别注册为 `brave-search`、`tavily-search`、`searxng-search`、`brightdata-search`、`scrapeless-search` 与 `serper-search`。所有名称现在都匹配 `[A-Za-z0-9_.-]{1,64}`，客户端可原样放入各家 API 的函数名字段。HTTP 路径随之调整（`/tools/fs/glob`、`/tools/web/search`）。新增回归测试，断言默认注册表与随包发布的 `data/tools.yaml` 只会注册客户端安全且不重复的名称。请同步更新提示词、已保存的工具名以及按命名空间配置的条目。
+
+### 安全
+
+- **Fetch 增加出站地址策略**（#240，引用）：`fetch_content` 现在会在发出任何请求前校验调用方提供的 URL 与代理。仅允许 http/https；主机名解析出的每个地址都必须是全球可路由地址（回环、RFC 1918、链路本地（含 `169.254.169.254`）、CGNAT、组播、NAT64、6to4、Teredo、ORCHID、文档/基准测试网段均拒绝），解析失败同样拒绝。IPv4-mapped 与 NAT64 内嵌地址按 IPv4 判断。重定向采用事后校验：当 `response.url` 指向私有地址时丢弃响应体并抛出 `FetchPolicyError`。CDP 在导航后校验 `document.location.href`；VeilRender 校验 `metadata.url`；两者在无法确认最终地址时拒绝返回内容。运维人员可用 `Fetch(allow_private_hosts=True)`、`FETCH_ALLOW_PRIVATE_HOSTS=1` 或 `tools.jsonc` 中的构造参数显式开启；不提供逐次调用开关。残余风险：产生被拒重定向响应的请求已经发出（盲 SSRF），且连接时会再次解析 DNS（重绑定窗口）。`follow_redirects=False` 现已由 core 0.20.1 / zerodep v2026.11.8 提供，但 hub 的 fetch 尚未采用，逐跳重定向校验仍是后续工作；连接期地址固定仍未提供。
+- **Fetch 限制响应体大小**（#243）：所有请求——markdown 协商、原始抓取、Jina Reader 调用与 VeilRender——现在都会向内置 HTTP 客户端传入 10 MiB 的 `max_response_size`；超大的 `Content-Length` 在读取任何 body 之前即被拒绝，chunked body 一旦越过上限也会立即停止。`ResponseTooLargeError` 会映射为 `FetchError`，消息包含调用方提供的 host 与上限，绝不含解析后的地址。此前整个响应体会先被完整缓冲，然后才做 content-type 检查，因此单个数 GB 的响应即可把共享 hub 打到 OOM。
 
 ## [0.11.0] - 2026-10-23
 
