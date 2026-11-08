@@ -21,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - **The response size limit is configurable** (#247): `Fetch(max_response_size=...)` sets the byte cap for every HTTP response body, with a positive-integer check; when omitted, `FETCH_MAX_RESPONSE_SIZE` is read and 10 MiB remains the default. The resolved value reaches markdown negotiation, the raw fetch, Jina Reader and VeilRender through the same argument, and a `tools.jsonc` `kwargs` entry forwards it like any other constructor argument. Per-strategy bounds stay open pending measurements.
-- **The size-limit error names the endpoint that answered** (#245): when the oversized body came from Jina Reader (`r.jina.ai`) or the configured VeilRender endpoint rather than from the page, the message reads `response from 'r.jina.ai' for 'example.com' exceeds ...`; a reader on the target's own host keeps the single-host form. Only hostnames appear, never a resolved address, and the raise still uses `from None`.
+- **The size-limit error names the endpoint that answered** (#245): when the oversized body came from Jina Reader (`r.jina.ai`), the configured VeilRender endpoint, or a redirect target on another host rather than from the page, the message reads `response from 'r.jina.ai' for 'example.com' exceeds ...`; a reader or redirect on the target's own host keeps the single-host form. Only hostnames appear, never a resolved address, and the raise still uses `from None`.
 
 ## [0.12.0] - 2026-11-08
 

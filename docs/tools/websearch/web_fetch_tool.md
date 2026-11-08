@@ -121,7 +121,7 @@ Set the limit with `Fetch(max_response_size=...)` (a positive integer), with the
  "kwargs": {"max_response_size": 20971520}}
 ```
 
-A CDP-rendered page is checked before its HTML is transferred: the tool reads `document.documentElement.outerHTML.length` first, and a page above the limit raises `FetchError` without evaluating `outerHTML`. The probe counts UTF-16 code units, so a page just under the limit can still occupy up to about three times the cap as UTF-8; the check bounds the transfer and the Python-side string, not the byte count exactly. A probe that returns no number is refused rather than transferred. VeilRender's HTML arrives inside its capped JSON body, so the same limit applies without a separate check.
+A CDP-rendered page is checked before its HTML is transferred: the tool reads `document.documentElement.outerHTML.length` first, and a page above the 10 MiB CDP cap raises `FetchError` without evaluating `outerHTML`. The probe counts UTF-16 code units, so a page just under the cap can still occupy up to about three times it as UTF-8; the check bounds the transfer and the Python-side string, not the byte count exactly. A probe that returns no number is refused rather than transferred. This cap is separate from `max_response_size` and is not configurable yet. VeilRender's HTML arrives inside its capped JSON body, so `max_response_size` applies to it without a separate check.
 
 ## How It Works
 
