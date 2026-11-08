@@ -9,6 +9,7 @@ import time
 import types
 import unicodedata
 from typing import TYPE_CHECKING, Literal, NamedTuple, TypedDict, cast
+from urllib.parse import urlsplit
 
 from ._vendor.httpclient import (
     HttpConnectionError,
@@ -26,6 +27,11 @@ from ._vendor.readability import extract as readability_extract
 from ._vendor.soup import Soup
 from ._vendor.structlog import get_logger
 from ._vendor.useragent import generate
+from .url_policy import (
+    URLPolicyError,
+    validate_fetch_request,
+    validate_target_url,
+)
 
 if TYPE_CHECKING:
     from .utils.api_key_parser import APIKeyParser
@@ -144,6 +150,66 @@ class FetchError(RuntimeError):
     lets MCP and other tool harnesses set the ``isError`` flag on the
     response automatically.
     """
+
+
+class FetchPolicyError(FetchError):
+    """Raised when a target, proxy or redirect violates the outbound policy.
+
+    A policy refusal aborts the whole fetch: falling back to the next
+    strategy would hide the block and, for a redirect, could still return
+    content from the refused destination.
+    """
+
+
+def _log_policy_refusal(exc: URLPolicyError, *, stage: str, url: str) -> None:
+    """Log a refused destination without the resolved address."""
+    try:
+        host = urlsplit(url).hostname or ""
+    except ValueError:
+        host = ""
+    logger.warning(
+        f"fetch_content blocked ({stage}): reason={exc.reason} host={host!r}"
+    )
+
+
+def _enforce_request_policy(
+    url: str,
+    proxy: str | None,
+    *,
+    allow_private_hosts: bool,
+) -> None:
+    """Validate the caller-supplied target and proxy before any I/O."""
+    try:
+        validate_fetch_request(url, proxy, allow_private_hosts=allow_private_hosts)
+    except URLPolicyError as exc:
+        _log_policy_refusal(exc, stage="request", url=url)
+        raise FetchPolicyError(str(exc)) from exc
+
+
+def _enforce_final_url_policy(
+    response: Response,
+    *,
+    allow_private_hosts: bool,
+    stage: str,
+) -> None:
+    """Refuse a response whose final URL left the allowed address space.
+
+    The vendored client updates ``Response.url`` on every redirect hop, so
+    this is the address that produced the body.  The request has already
+    been sent by the time this runs; raising here discards the body instead
+    of returning it to the caller.  That removes the response-exfiltration
+    path but not the blind request itself (see issue #240).
+    """
+    final_url = getattr(response, "url", None)
+    if not isinstance(final_url, str) or not final_url:
+        # A real Response always carries a string URL; only test doubles
+        # that omit it reach this branch.
+        return
+    try:
+        validate_target_url(final_url, allow_private_hosts=allow_private_hosts)
+    except URLPolicyError as exc:
+        _log_policy_refusal(exc, stage=stage, url=final_url)
+        raise FetchPolicyError(f"redirect target refused: {exc}") from exc
 
 
 def _make_result(
@@ -335,6 +401,7 @@ class Fetch:
         veilrender_token: str | None = None,
         cache_ttl: float = _CACHE_TTL_DEFAULT,
         cache_maxsize: int = _CACHE_MAXSIZE_DEFAULT,
+        allow_private_hosts: bool | None = None,
     ):
         """Initialize Fetch with optional Jina Reader API keys and CDP endpoint.
 
@@ -358,6 +425,11 @@ class Fetch:
                 Set to ``0`` to disable caching.  Defaults to 300 (5 min).
             cache_maxsize: Maximum number of entries in the URL cache.
                 Defaults to 128.
+            allow_private_hosts: Allow the target URL and proxy to use
+                private addresses.  Defaults to ``False``; when ``None``,
+                the ``FETCH_ALLOW_PRIVATE_HOSTS`` environment variable is
+                read (``1``, ``true``, ``yes`` or ``on`` enables it).  The
+                scheme restriction to http/https always applies.
         """
         from .utils.api_key_parser import APIKeyParser
 
@@ -374,6 +446,15 @@ class Fetch:
         self.veilrender_token: str | None = veilrender_token or os.environ.get(
             "VEILRENDER_TOKEN"
         )
+        if allow_private_hosts is None:
+            raw_flag = os.environ.get("FETCH_ALLOW_PRIVATE_HOSTS", "").strip().lower()
+            allow_private_hosts = raw_flag in {"1", "true", "yes", "on"}
+            if raw_flag and not allow_private_hosts:
+                logger.warning(
+                    "FETCH_ALLOW_PRIVATE_HOSTS is set but not recognised "
+                    f"({raw_flag!r}); private destinations stay blocked"
+                )
+        self._allow_private_hosts: bool = bool(allow_private_hosts)
         self._cache: _URLCache | None = (
             _URLCache(ttl=cache_ttl, maxsize=cache_maxsize) if cache_ttl > 0 else None
         )
@@ -463,6 +544,8 @@ class Fetch:
         Raises:
             FetchError: If every extraction strategy fails or the deadline
                 is exceeded before any content can be retrieved.
+            FetchPolicyError: If the URL, the proxy or a redirect target is
+                refused by the outbound address policy.
         """
         started_at = time.monotonic()
         strategy = strategy.lower().strip()  # type: ignore[assignment]
@@ -471,6 +554,14 @@ class Fetch:
                 f"Strategy {strategy!r} is not available. "
                 f"Available: {self._available_strategies()}"
             )
+
+        # The address policy runs before the cache: a URL blocked by the
+        # current policy must not be served from an entry stored earlier.
+        _enforce_request_policy(
+            url,
+            proxy,
+            allow_private_hosts=self._allow_private_hosts,
+        )
 
         cache_key = f"{strategy}:{url}"
         if self._cache is not None:
@@ -493,6 +584,7 @@ class Fetch:
                 veilrender_token=self.veilrender_token,
                 strategy=strategy,
                 started_at=started_at,
+                allow_private_hosts=self._allow_private_hosts,
             )
             if self._cache is not None:
                 self._cache.put(cache_key, result)
@@ -674,6 +766,8 @@ def _render_with_cdp(
     url: str,
     cdp_endpoint: str,
     timeout: float = 15.0,
+    *,
+    allow_private_hosts: bool = False,
 ) -> str:
     """Render a page via CDP and return the rendered HTML.
 
@@ -681,23 +775,54 @@ def _render_with_cdp(
     waits for page load, and extracts the fully-rendered HTML
     (post-JavaScript execution).
 
+    The browser follows redirects itself, so the final page address is
+    read from ``document.location.href`` before any HTML is returned.  If
+    that address cannot be read, or it violates the outbound policy, the
+    content is refused (fail closed).
+
     Args:
         url: The URL to render.
         cdp_endpoint: WebSocket URL of the CDP browser
             (e.g. ``ws://localhost:9222``).
         timeout: Maximum time in seconds to wait for page load.
+        allow_private_hosts: Allow a private final address.
 
     Returns:
         Rendered HTML string, or empty string on any failure.
+
+    Raises:
+        FetchPolicyError: If the final address is missing or refused.
     """
     try:
         from ._vendor.cdp import CDPClient
 
         with CDPClient(cdp_endpoint, timeout=timeout) as client:
-            html = client.get_rendered_html(url, timeout=timeout)
-            if html:
+            target_id = client.create_target()
+            try:
+                client.navigate(target_id, url, timeout=timeout)
+                final_url = client.evaluate(target_id, "document.location.href")
+                if not isinstance(final_url, str) or not final_url:
+                    raise FetchPolicyError(
+                        "CDP page address could not be confirmed; refusing content"
+                    )
+                try:
+                    validate_target_url(
+                        final_url, allow_private_hosts=allow_private_hosts
+                    )
+                except URLPolicyError as exc:
+                    _log_policy_refusal(exc, stage="cdp", url=final_url)
+                    raise FetchPolicyError(
+                        f"CDP redirect target refused: {exc}"
+                    ) from exc
+                html = client.evaluate(target_id, "document.documentElement.outerHTML")
+                if not isinstance(html, str) or not html:
+                    return ""
                 logger.debug(f"CDP rendered {url}: {len(html)} chars of HTML")
-            return html or ""
+                return html
+            finally:
+                client.close_target(target_id)
+    except FetchPolicyError:
+        raise
     except Exception as e:
         logger.debug(f"CDP rendering failed for {url}: {e}")
         return ""
@@ -707,6 +832,8 @@ def _try_cdp_extraction(
     url: str,
     cdp_endpoint: str,
     timeout: float,
+    *,
+    allow_private_hosts: bool = False,
 ) -> tuple[str, str]:
     """Render a page with CDP and attempt readability/soup extraction.
 
@@ -714,13 +841,19 @@ def _try_cdp_extraction(
         url: The URL to render.
         cdp_endpoint: WebSocket endpoint for the CDP browser.
         timeout: Budget in seconds for the CDP render.
+        allow_private_hosts: Allow a private final address.
 
     Returns:
         A ``(best_content, local_content)`` tuple.  ``best_content`` is non-empty
         when extraction produced sufficient content; ``local_content`` is the best
         partial result for final-fallback stashing.
     """
-    rendered_html = _render_with_cdp(url, cdp_endpoint, timeout=timeout)
+    rendered_html = _render_with_cdp(
+        url,
+        cdp_endpoint,
+        timeout=timeout,
+        allow_private_hosts=allow_private_hosts,
+    )
     if not rendered_html:
         return "", ""
 
@@ -743,17 +876,28 @@ def _render_with_veilrender(
     endpoint: str,
     token: str | None = None,
     timeout: float = 30.0,
+    *,
+    allow_private_hosts: bool = False,
 ) -> str:
     """Render a page via VeilRender REST API and return the HTML.
+
+    VeilRender reports the page's final URL in ``metadata.url``; it is
+    checked before the HTML is returned.  A response that omits it is
+    refused (fail closed), because the remote browser may have followed a
+    redirect the hub cannot otherwise see.
 
     Args:
         url: The URL to render.
         endpoint: Base URL of the VeilRender instance.
         token: Optional Bearer token for authentication.
         timeout: Maximum time in seconds for the request.
+        allow_private_hosts: Allow a private final address.
 
     Returns:
         Rendered HTML string, or empty string on any failure.
+
+    Raises:
+        FetchPolicyError: If the final address is missing or refused.
     """
     try:
         import json
@@ -780,9 +924,24 @@ def _render_with_veilrender(
 
         data = resp.json()  # ty: ignore[unresolved-attribute]
         html = data.get("content", {}).get("html", "")
-        if html:
-            logger.debug(f"VeilRender rendered {url}: {len(html)} chars of HTML")
+        if not html:
+            return ""
+        final_url = (data.get("metadata") or {}).get("url")
+        if not isinstance(final_url, str) or not final_url:
+            raise FetchPolicyError(
+                "VeilRender did not report the final page address; refusing content"
+            )
+        try:
+            validate_target_url(final_url, allow_private_hosts=allow_private_hosts)
+        except URLPolicyError as exc:
+            _log_policy_refusal(exc, stage="veilrender", url=final_url)
+            raise FetchPolicyError(
+                f"VeilRender redirect target refused: {exc}"
+            ) from exc
+        logger.debug(f"VeilRender rendered {url}: {len(html)} chars of HTML")
         return html
+    except FetchPolicyError:
+        raise
     except Exception as e:
         logger.debug(f"VeilRender rendering failed for {url}: {e}")
         return ""
@@ -793,6 +952,8 @@ def _try_veilrender_extraction(
     endpoint: str,
     token: str | None,
     timeout: float,
+    *,
+    allow_private_hosts: bool = False,
 ) -> tuple[str, str]:
     """Render a page with VeilRender and attempt readability/soup extraction.
 
@@ -801,11 +962,18 @@ def _try_veilrender_extraction(
         endpoint: Base URL of the VeilRender instance.
         token: Optional Bearer token for authentication.
         timeout: Budget in seconds for the VeilRender request.
+        allow_private_hosts: Allow a private final address.
 
     Returns:
         A ``(best_content, local_content)`` tuple.
     """
-    rendered_html = _render_with_veilrender(url, endpoint, token, timeout=timeout)
+    rendered_html = _render_with_veilrender(
+        url,
+        endpoint,
+        token,
+        timeout=timeout,
+        allow_private_hosts=allow_private_hosts,
+    )
     if not rendered_html:
         return "", ""
 
@@ -882,6 +1050,8 @@ def _fetch_body(
     timeout: float,
     proxy: str | None,
     deadline: float,
+    *,
+    allow_private_hosts: bool = False,
 ) -> tuple[str, str]:
     """Fetch the raw body for *url*, trying markdown negotiation first.
 
@@ -903,6 +1073,7 @@ def _fetch_body(
             url,
             timeout=min(timeout, _remaining()),
             proxy=proxy,
+            allow_private_hosts=allow_private_hosts,
         )
         if md_content:
             logger.info(
@@ -920,6 +1091,7 @@ def _fetch_body(
             timeout=min(timeout, _remaining()),
             proxy=proxy,
             deadline=deadline,
+            allow_private_hosts=allow_private_hosts,
         )
 
     return body, content_type
@@ -956,10 +1128,14 @@ def _strategy_markdown(
     proxy: str | None,
     remaining: float,
     started_at: float,
+    allow_private_hosts: bool = False,
     **_kw: object,
 ) -> FetchResult:
     md_content, _fb, _ct = _try_markdown_negotiation(
-        url, timeout=min(timeout, remaining), proxy=proxy
+        url,
+        timeout=min(timeout, remaining),
+        proxy=proxy,
+        allow_private_hosts=allow_private_hosts,
     )
     if not md_content:
         raise FetchError(f"Markdown negotiation did not return content for {url}")
@@ -982,10 +1158,15 @@ def _strategy_local(
     deadline: float,
     remaining: float,
     started_at: float,
+    allow_private_hosts: bool = False,
     **_kw: object,
 ) -> FetchResult:
     body, content_type = _fetch_raw(
-        url, timeout=min(timeout, remaining), proxy=proxy, deadline=deadline
+        url,
+        timeout=min(timeout, remaining),
+        proxy=proxy,
+        deadline=deadline,
+        allow_private_hosts=allow_private_hosts,
     )
     if content_type and _is_binary_content_type(content_type):
         raise FetchError(f"Unsupported binary content type for {url}: {content_type}")
@@ -1024,18 +1205,28 @@ def _strategy_browser(
     cdp_endpoint: str | None = None,
     veilrender_endpoint: str | None = None,
     veilrender_token: str | None = None,
+    allow_private_hosts: bool = False,
     **_kw: object,
 ) -> FetchResult:
     if strategy == "veilrender":
         if not veilrender_endpoint:
             raise FetchError("VeilRender is not configured")
         result, local = _try_veilrender_extraction(
-            url, veilrender_endpoint, veilrender_token, min(remaining, 30.0)
+            url,
+            veilrender_endpoint,
+            veilrender_token,
+            min(remaining, 30.0),
+            allow_private_hosts=allow_private_hosts,
         )
     else:
         if not cdp_endpoint:
             raise FetchError("CDP is not configured")
-        result, local = _try_cdp_extraction(url, cdp_endpoint, min(remaining, 15.0))
+        result, local = _try_cdp_extraction(
+            url,
+            cdp_endpoint,
+            min(remaining, 15.0),
+            allow_private_hosts=allow_private_hosts,
+        )
     content = _format_text(result or local)
     return _make_result(
         content=content,
@@ -1092,6 +1283,7 @@ def _extract_with_strategy(
     veilrender_token: str | None,
     deadline: float,
     started_at: float,
+    allow_private_hosts: bool = False,
 ) -> FetchResult:
     """Run one explicit fetch strategy."""
     remaining = max(0.0, deadline - time.monotonic())
@@ -1107,6 +1299,7 @@ def _extract_with_strategy(
         "deadline": deadline,
         "remaining": remaining,
         "started_at": started_at,
+        "allow_private_hosts": allow_private_hosts,
     }
     dispatch = {
         "markdown": _strategy_markdown,
@@ -1132,6 +1325,7 @@ def _extract(
     veilrender_token: str | None = None,
     strategy: str = "auto",
     started_at: float | None = None,
+    allow_private_hosts: bool = False,
 ) -> FetchResult:
     """Extract content from a given URL using available methods.
 
@@ -1152,6 +1346,7 @@ def _extract(
         timeout: Total wall-clock timeout in seconds. Defaults to TIMEOUT_DEFAULT.
         proxy: Proxy to use for the request. Defaults to None.
         api_key_parser: Optional API key parser for Jina Reader authentication.
+        allow_private_hosts: Allow private target and proxy addresses.
 
     Returns:
         Extracted content.
@@ -1162,6 +1357,9 @@ def _extract(
     """
     started_at = started_at or time.monotonic()
     deadline = time.monotonic() + max(0.0, timeout)
+    # Private callers (tests, other modules) reach the pipeline here too, so
+    # the policy is enforced again rather than only at ``fetch_content``.
+    _enforce_request_policy(url, proxy, allow_private_hosts=allow_private_hosts)
 
     if strategy != "auto":
         return _extract_with_strategy(
@@ -1175,6 +1373,7 @@ def _extract(
             veilrender_token=veilrender_token,
             deadline=deadline,
             started_at=started_at,
+            allow_private_hosts=allow_private_hosts,
         )
 
     return _extract_auto(
@@ -1187,6 +1386,7 @@ def _extract(
         veilrender_token=veilrender_token,
         deadline=deadline,
         started_at=started_at,
+        allow_private_hosts=allow_private_hosts,
     )
 
 
@@ -1199,11 +1399,16 @@ def _try_browser_rendering(
     cdp_endpoint: str | None,
     remaining: float,
     started_at: float,
+    allow_private_hosts: bool = False,
 ) -> tuple[FetchResult | None, str]:
     """Try VeilRender then CDP; return (result, updated_local_content)."""
     if veilrender_endpoint and remaining > _MIN_STRATEGY_BUDGET:
         vr_result, vr_local = _try_veilrender_extraction(
-            url, veilrender_endpoint, veilrender_token, min(remaining, 30.0)
+            url,
+            veilrender_endpoint,
+            veilrender_token,
+            min(remaining, 30.0),
+            allow_private_hosts=allow_private_hosts,
         )
         if vr_result:
             content = _format_text(vr_result)
@@ -1220,7 +1425,10 @@ def _try_browser_rendering(
 
     if cdp_endpoint and remaining > _MIN_STRATEGY_BUDGET:
         cdp_result, cdp_local = _try_cdp_extraction(
-            url, cdp_endpoint, min(remaining, 15.0)
+            url,
+            cdp_endpoint,
+            min(remaining, 15.0),
+            allow_private_hosts=allow_private_hosts,
         )
         if cdp_result:
             content = _format_text(cdp_result)
@@ -1249,6 +1457,7 @@ def _extract_auto(
     veilrender_token: str | None,
     deadline: float,
     started_at: float,
+    allow_private_hosts: bool = False,
 ) -> FetchResult:
     """Auto pipeline: try strategies in order."""
 
@@ -1256,7 +1465,13 @@ def _extract_auto(
         return max(0.0, deadline - time.monotonic())
 
     # 1. Fetch body (tries markdown negotiation, then raw fetch).
-    body, content_type = _fetch_body(url, timeout, proxy, deadline)
+    body, content_type = _fetch_body(
+        url,
+        timeout,
+        proxy,
+        deadline,
+        allow_private_hosts=allow_private_hosts,
+    )
 
     # Markdown negotiation succeeded — return directly.
     if content_type == "_markdown":
@@ -1320,6 +1535,7 @@ def _extract_auto(
         cdp_endpoint=cdp_endpoint,
         remaining=_remaining(),
         started_at=started_at,
+        allow_private_hosts=allow_private_hosts,
     )
     if browser_result is not None:
         return browser_result
@@ -1370,6 +1586,8 @@ def _try_markdown_negotiation(
     url: str,
     timeout: float = TIMEOUT_DEFAULT,
     proxy: str | None = None,
+    *,
+    allow_private_hosts: bool = False,
 ) -> tuple[str, str, str]:
     """Attempt to fetch markdown content via Cloudflare Content Negotiation.
 
@@ -1383,6 +1601,7 @@ def _try_markdown_negotiation(
         url: The URL to fetch content from.
         timeout: Timeout for the HTTP request.  Defaults to TIMEOUT_DEFAULT.
         proxy: Proxy to use for the HTTP request.  Defaults to None.
+        allow_private_hosts: Allow a private redirect target.
 
     Returns:
         A ``(md_content, fallback_body, fallback_ct)`` tuple.
@@ -1406,6 +1625,13 @@ def _try_markdown_negotiation(
                 timeout=timeout,
                 proxy=proxy,
             ),
+        )
+        # ``Response.url`` is the address that produced the body after every
+        # redirect hop.  Refuse the body if that address left the policy.
+        _enforce_final_url_policy(
+            response,
+            allow_private_hosts=allow_private_hosts,
+            stage="markdown",
         )
 
         # Capture body and content-type before status check so we can
@@ -1433,6 +1659,8 @@ def _try_markdown_negotiation(
             f"Markdown negotiation not supported for {url} (Content-Type: {raw_ct})"
         )
         return "", body, ct
+    except FetchPolicyError:
+        raise
     except Exception as e:
         logger.debug(f"Markdown negotiation failed for {url}: {e}")
         return "", "", ""
@@ -1618,6 +1846,8 @@ def _fetch_raw(
     timeout: float = TIMEOUT_DEFAULT,
     proxy: str | None = None,
     deadline: float | None = None,
+    *,
+    allow_private_hosts: bool = False,
 ) -> tuple[str, str]:
     """Fetch raw content from a URL with retry for transient failures.
 
@@ -1637,6 +1867,7 @@ def _fetch_raw(
             attempts or backoff sleeps should be made.  When ``None``, a
             deadline equal to ``time.monotonic() + timeout`` is assumed so
             standalone callers also get bounded behaviour.
+        allow_private_hosts: Allow a private redirect target.
 
     Returns:
         A ``(body, content_type)`` tuple.  ``content_type`` is the MIME
@@ -1667,6 +1898,13 @@ def _fetch_raw(
                     proxy=proxy,
                 ),
             )
+            # ``Response.url`` is the final address after redirects; refuse
+            # the body when it left the allowed address space.
+            _enforce_final_url_policy(
+                response,
+                allow_private_hosts=allow_private_hosts,
+                stage="http",
+            )
             response.raise_for_status()
             # Extract the MIME type (drop charset and parameters).
             raw_ct = response.headers.get("content-type") or ""
@@ -1690,6 +1928,10 @@ def _fetch_raw(
                 f"Transient error on attempt {attempt + 1}/{_FETCH_MAX_RETRIES} "
                 f"for {url}: {e}"
             )
+        except FetchPolicyError:
+            # A refused destination must abort the fetch, not retry or fall
+            # through to another strategy.
+            raise
         except Exception as e:
             # Unexpected errors are not retried.
             logger.debug(f"Error fetching {url}: {e}")

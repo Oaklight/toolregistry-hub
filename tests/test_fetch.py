@@ -1,6 +1,10 @@
 """Tests for the fetch module."""
 
+import ipaddress
+import socket
+import threading
 import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,6 +27,7 @@ from toolregistry_hub.fetch import (
     _SPA_SHELL_INDICATORS,
     Fetch,
     FetchError,
+    FetchPolicyError,
     _extract,
     _extract_with_readability,
     _extract_with_soup,
@@ -33,11 +38,44 @@ from toolregistry_hub.fetch import (
     _is_content_sufficient,
     _jina_reader_request,
     _render_with_cdp,
+    _render_with_veilrender,
     _should_skip_soup,
     _try_markdown_negotiation,
     _URLCache,
 )
 from toolregistry_hub.utils.api_key_parser import APIKeyParser
+
+
+@pytest.fixture(autouse=True)
+def _deterministic_fetch_dns(monkeypatch):
+    """Resolve hostnames in this module to a fixed public address.
+
+    Existing tests use ``example.com`` with a mocked HTTP client.  The outbound
+    policy resolves hostnames, so without this fixture those tests would hit
+    the network and depend on the CI resolver.  IP literals keep the real
+    resolver, which the redirect tests need to reach a loopback server.
+    """
+    monkeypatch.delenv("FETCH_ALLOW_PRIVATE_HOSTS", raising=False)
+    real_getaddrinfo = socket.getaddrinfo
+
+    def fake_getaddrinfo(host, port, *args, **kwargs):
+        try:
+            ipaddress.ip_address(str(host))
+        except ValueError:
+            return [
+                (
+                    socket.AF_INET,
+                    socket.SOCK_STREAM,
+                    6,
+                    "",
+                    ("93.184.216.34", 0),
+                )
+            ]
+        return real_getaddrinfo(host, port, *args, **kwargs)
+
+    monkeypatch.setattr(
+        "toolregistry_hub.url_policy.socket.getaddrinfo", fake_getaddrinfo
+    )
 
 
 def _fetch_result(content: str) -> dict:
@@ -1723,18 +1761,25 @@ class TestExtractBudget:
 class TestRenderWithCDP:
     """Tests for the _render_with_cdp helper."""
 
+    @staticmethod
+    def _client(html="<html>OK</html>", final_url="https://spa.example.com/"):
+        ctx = MagicMock()
+        ctx.create_target.return_value = "target-1"
+        ctx.evaluate.side_effect = [final_url, html]
+        return ctx
+
     @patch("toolregistry_hub._vendor.cdp.CDPClient")
     def test_success_returns_html(self, mock_cdp_cls):
-        ctx = MagicMock()
-        ctx.get_rendered_html.return_value = "<html><body>Rendered</body></html>"
+        ctx = self._client("<html><body>Rendered</body></html>")
         mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
         mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         result = _render_with_cdp("https://spa.example.com", "ws://localhost:9222")
         assert result == "<html><body>Rendered</body></html>"
-        ctx.get_rendered_html.assert_called_once_with(
-            "https://spa.example.com", timeout=15.0
+        ctx.navigate.assert_called_once_with(
+            "target-1", "https://spa.example.com", timeout=15.0
         )
+        ctx.close_target.assert_called_once_with("target-1")
 
     @patch("toolregistry_hub._vendor.cdp.CDPClient")
     def test_connection_error_returns_empty(self, mock_cdp_cls):
@@ -1748,18 +1793,18 @@ class TestRenderWithCDP:
 
     @patch("toolregistry_hub._vendor.cdp.CDPClient")
     def test_timeout_returns_empty(self, mock_cdp_cls):
-        ctx = MagicMock()
-        ctx.get_rendered_html.side_effect = TimeoutError("page load timed out")
+        ctx = self._client()
+        ctx.navigate.side_effect = TimeoutError("page load timed out")
         mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
         mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         result = _render_with_cdp("https://spa.example.com", "ws://localhost:9222")
         assert result == ""
+        ctx.close_target.assert_called_once_with("target-1")
 
     @patch("toolregistry_hub._vendor.cdp.CDPClient")
     def test_none_html_returns_empty(self, mock_cdp_cls):
-        ctx = MagicMock()
-        ctx.get_rendered_html.return_value = None
+        ctx = self._client(html=None)
         mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
         mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -1768,15 +1813,14 @@ class TestRenderWithCDP:
 
     @patch("toolregistry_hub._vendor.cdp.CDPClient")
     def test_custom_timeout(self, mock_cdp_cls):
-        ctx = MagicMock()
-        ctx.get_rendered_html.return_value = "<html>OK</html>"
+        ctx = self._client()
         mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
         mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         _render_with_cdp("https://example.com", "ws://localhost:9222", timeout=5.0)
         mock_cdp_cls.assert_called_once_with("ws://localhost:9222", timeout=5.0)
-        ctx.get_rendered_html.assert_called_once_with(
-            "https://example.com", timeout=5.0
+        ctx.navigate.assert_called_once_with(
+            "target-1", "https://example.com", timeout=5.0
         )
 
 
@@ -1903,3 +1947,235 @@ class TestExtractWithCDP:
         """CDP endpoint can be configured via CDP_ENDPOINT env var."""
         fetcher = Fetch()
         assert fetcher.cdp_endpoint == "ws://env-browser:9222"
+
+
+# ============================================================
+# Outbound address policy integration tests
+# ============================================================
+
+
+class TestFetchOutboundPolicy:
+    """``fetch_content`` refuses non-public destinations before any I/O."""
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://127.0.0.1:9099/",
+            "http://[::1]/",
+            "http://169.254.169.254/latest/meta-data/",
+            "http://100.64.0.1/",
+            "file:///etc/passwd",
+        ],
+    )
+    @patch("toolregistry_hub.fetch._http_get")
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_blocked_target_makes_no_request(self, mock_post, mock_get, url):
+        fetcher = Fetch()
+        with pytest.raises(FetchPolicyError):
+            fetcher.fetch_content(url)
+        mock_get.assert_not_called()
+        mock_post.assert_not_called()
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_private_proxy_is_refused_before_io(self, mock_get):
+        with pytest.raises(FetchPolicyError):
+            Fetch().fetch_content("https://example.com/", proxy="http://127.0.0.1:3128")
+        mock_get.assert_not_called()
+
+    def test_blocked_url_is_not_served_from_cache(self):
+        fetcher = Fetch()
+        assert fetcher._cache is not None
+        fetcher._cache.put("auto:http://127.0.0.1/", _fetch_result("cached"))
+        with pytest.raises(FetchPolicyError):
+            fetcher.fetch_content("http://127.0.0.1/")
+
+    def test_opt_in_still_refuses_non_http_scheme(self):
+        with pytest.raises(FetchPolicyError):
+            Fetch(allow_private_hosts=True).fetch_content("file:///etc/passwd")
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_opt_in_allows_private_target_and_proxy(self, mock_get):
+        response = MagicMock()
+        response.url = "http://127.0.0.1:8000/page"
+        response.text = (
+            "<html><body><article><p>"
+            + "Useful article content. " * 40
+            + "</p></article></body></html>"
+        )
+        response.headers = {"content-type": "text/html"}
+        response.status_code = 200
+        response.raise_for_status = MagicMock()
+        mock_get.return_value = response
+
+        fetcher = Fetch(allow_private_hosts=True)
+        result = fetcher.fetch_content(
+            "http://127.0.0.1:8000/page",
+            proxy="http://10.0.0.5:3128",
+            strategy="readability",
+        )
+        assert result["strategy"] == "readability"
+        assert "Useful article content" in result["content"]
+        assert mock_get.call_args.kwargs["proxy"] == "http://10.0.0.5:3128"
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_public_url_still_fetches(self, mock_get):
+        response = MagicMock()
+        response.url = "https://example.com/article"
+        response.text = (
+            "<html><body><article><p>"
+            + "A public article body. " * 40
+            + "</p></article></body></html>"
+        )
+        response.headers = {"content-type": "text/html"}
+        response.status_code = 200
+        response.raise_for_status = MagicMock()
+        mock_get.return_value = response
+
+        result = Fetch().fetch_content(
+            "https://example.com/article", strategy="readability"
+        )
+        assert result["strategy"] == "readability"
+        assert "A public article body" in result["content"]
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_redirect_to_private_target_discards_body(self, mock_get):
+        response = MagicMock()
+        response.url = "http://127.0.0.1:8080/secret"
+        response.text = "SECRET"
+        response.headers = {"content-type": "text/html"}
+        response.status_code = 200
+        response.raise_for_status = MagicMock()
+        mock_get.return_value = response
+
+        with pytest.raises(FetchPolicyError) as exc:
+            Fetch().fetch_content("https://example.com/", strategy="readability")
+        assert "SECRET" not in str(exc.value)
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_markdown_redirect_to_private_target_is_refused(self, mock_get):
+        response = MagicMock()
+        response.url = "http://127.0.0.1:8080/secret"
+        response.text = "SECRET"
+        response.headers = {"content-type": "text/markdown"}
+        response.status_code = 200
+        mock_get.return_value = response
+
+        with pytest.raises(FetchPolicyError) as exc:
+            Fetch().fetch_content("https://example.com/", strategy="markdown")
+        assert "SECRET" not in str(exc.value)
+
+    def test_two_hop_redirect_to_private_url_is_refused(self):
+        """The vendored client's ``Response.url`` is the final hop's address."""
+        requests: list[str] = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802 - http.server API
+                requests.append(self.path)
+                if self.path == "/start":
+                    self.send_response(302)
+                    self.send_header("Location", "/middle")
+                    self.end_headers()
+                    return
+                if self.path == "/middle":
+                    self.send_response(302)
+                    self.send_header(
+                        "Location",
+                        f"http://127.0.0.1:{self.server.server_port}/secret",
+                    )
+                    self.end_headers()
+                    return
+                body = b"SECRET"
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):  # noqa: D102 - silence test output
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            start = f"http://127.0.0.1:{server.server_port}/start"
+            with pytest.raises(FetchPolicyError):
+                _fetch_raw(start, timeout=5.0)
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+        assert requests == ["/start", "/middle", "/secret"]
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    def test_cdp_redirect_to_private_target_is_refused(self, mock_client_cls):
+        client = MagicMock()
+        client.create_target.return_value = "target-1"
+        client.evaluate.side_effect = [
+            "http://127.0.0.1:8080/admin",
+            "<html>SECRET</html>",
+        ]
+        mock_client_cls.return_value.__enter__.return_value = client
+
+        with pytest.raises(FetchPolicyError):
+            _render_with_cdp("https://example.com/", "ws://127.0.0.1:9222")
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    def test_cdp_without_final_url_is_refused(self, mock_client_cls):
+        client = MagicMock()
+        client.create_target.return_value = "target-1"
+        client.evaluate.return_value = None
+        mock_client_cls.return_value.__enter__.return_value = client
+
+        with pytest.raises(FetchPolicyError):
+            _render_with_cdp("https://example.com/", "ws://127.0.0.1:9222")
+
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_veilrender_redirect_to_private_target_is_refused(self, mock_post):
+        response = MagicMock()
+        response.json.return_value = {
+            "content": {"html": "<html>SECRET</html>"},
+            "metadata": {"url": "http://127.0.0.1:8080/secret"},
+        }
+        mock_post.return_value = response
+
+        with pytest.raises(FetchPolicyError):
+            _render_with_veilrender(
+                "https://example.com/", "https://veilrender.example"
+            )
+
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_veilrender_without_final_url_is_refused(self, mock_post):
+        response = MagicMock()
+        response.json.return_value = {"content": {"html": "<html>SECRET</html>"}}
+        mock_post.return_value = response
+
+        with pytest.raises(FetchPolicyError):
+            _render_with_veilrender(
+                "https://example.com/", "https://veilrender.example"
+            )
+
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_veilrender_public_final_url_is_returned(self, mock_post):
+        response = MagicMock()
+        response.json.return_value = {
+            "content": {"html": "<html>public body</html>"},
+            "metadata": {"url": "https://example.com/final"},
+        }
+        mock_post.return_value = response
+
+        html = _render_with_veilrender(
+            "https://example.com/", "https://veilrender.example"
+        )
+        assert html == "<html>public body</html>"
+
+    def test_env_var_enables_private_hosts(self, monkeypatch):
+        monkeypatch.setenv("FETCH_ALLOW_PRIVATE_HOSTS", "yes")
+        assert Fetch()._allow_private_hosts is True
+
+    def test_unrecognised_env_var_stays_closed(self, monkeypatch):
+        monkeypatch.setenv("FETCH_ALLOW_PRIVATE_HOSTS", "maybe")
+        assert Fetch()._allow_private_hosts is False
+
+    @patch.dict("os.environ", {"FETCH_ALLOW_PRIVATE_HOSTS": "1"})
+    def test_explicit_false_overrides_env(self):
+        assert Fetch(allow_private_hosts=False)._allow_private_hosts is False
