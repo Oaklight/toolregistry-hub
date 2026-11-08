@@ -51,7 +51,7 @@ content = fetcher.fetch_content(
 
 ## API 参考
 
-### `Fetch(api_keys=None, cdp_endpoint=None, veilrender_endpoint=None, veilrender_token=None, allow_private_hosts=None)`
+### `Fetch(api_keys=None, cdp_endpoint=None, veilrender_endpoint=None, veilrender_token=None, allow_private_hosts=None, max_response_size=None)`
 
 初始化 Fetch 内容提取器。
 
@@ -62,6 +62,7 @@ content = fetcher.fetch_content(
 - `veilrender_endpoint` (str, 可选): VeilRender 远程浏览器服务的基础 URL（例如 `http://localhost:3000`）。回退到 `VEILRENDER_ENDPOINT` 环境变量。设置后，在自动回退链中 CDP 之前启用 VeilRender 阶段。
 - `veilrender_token` (str, 可选): VeilRender 认证的 Bearer 令牌。回退到 `VEILRENDER_TOKEN` 环境变量。**可选** — 若 VeilRender 实例无需认证可省略。
 - `allow_private_hosts` (bool, 可选): 允许目标 URL 与代理使用私有地址。默认 `False`。省略或为 `None` 时读取 `FETCH_ALLOW_PRIVATE_HOSTS` 环境变量（`1`、`true`、`yes` 或 `on` 启用）。http/https 协议限制始终生效。不提供逐次调用开关，工具调用方无法自行开启。
+- `max_response_size` (int, 可选): 任一请求缓冲的 HTTP 响应体上限（字节）。必须为正整数；`0`、负数与非整数会抛出 `ValueError`。省略或为 `None` 时读取 `FETCH_MAX_RESPONSE_SIZE` 环境变量，默认 10 MiB（10485760）。参数优先于环境变量。同一值约束 markdown 协商、原始抓取、Jina Reader 与 VeilRender；没有按策略的覆盖，也没有逐次调用开关。
 
 ### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None, strategy: str = "auto") -> FetchResult`
 
@@ -111,7 +112,14 @@ fetcher = Fetch(allow_private_hosts=True)
 
 ## 响应大小限制
 
-Fetch 每个 HTTP 响应最多缓冲 10 MiB。markdown 协商、原始抓取、Jina Reader 请求与 VeilRender 都会把该上限传给 HTTP 客户端：超大的 `Content-Length` 会在读取任何 body 之前被拒绝，chunked body 一旦越过上限也会立即停止。拒绝时抛出 `FetchError`，消息包含调用方提供的 host 与上限，绝不含解析后的地址。超过上限的文档无法提取；若部署需要更大的页面，请修改 `toolregistry_hub.fetch` 中的 `_MAX_RESPONSE_SIZE`。
+Fetch 默认对每个 HTTP 响应最多缓冲 10 MiB。markdown 协商、原始抓取、Jina Reader 请求与 VeilRender 都使用同一个解析后的值，并由 HTTP 客户端执行：超大的 `Content-Length` 会在读取任何 body 之前被拒绝，chunked body 一旦越过上限也会立即停止。拒绝时抛出 `FetchError`，消息包含实际应答的 host —— 若由重定向目标或读取服务应答，则同时包含目标 host —— 以及上限，绝不含解析后的地址。
+
+可用 `Fetch(max_response_size=...)`（正整数）设置上限；省略参数时读取 `FETCH_MAX_RESPONSE_SIZE` 环境变量；也可通过 `tools.jsonc` 的 `kwargs` 传入。参数优先于环境变量，默认 10 MiB。没有按策略的覆盖，也没有逐次调用开关。
+
+```jsonc
+{"class": "toolregistry_hub.fetch.Fetch", "namespace": "web",
+ "kwargs": {"max_response_size": 20971520}}
+```
 
 CDP 渲染的页面在传输 HTML 之前会先检查大小：工具先读取 `document.documentElement.outerHTML.length`，超过上限时直接抛出 `FetchError`，不再求值 `outerHTML`。该探测统计的是 UTF-16 码元，因此刚好低于上限的页面按 UTF-8 计仍可能占用约三倍上限；这项检查限制的是传输量与 Python 侧的字符串，而不是精确的字节数。探测结果不是数字时按未知大小处理，不传输内容。VeilRender 的 HTML 位于受限的 JSON 响应体内，因此适用同一上限，无需另行检查。
 

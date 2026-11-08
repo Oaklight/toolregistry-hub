@@ -20,7 +20,7 @@ author: Oaklight
 
 ### 变更
 
-- **响应大小上限可配置**（#247）：`Fetch(max_response_size=...)` 为每个响应体设置字节上限，并校验为正整数；省略时读取 `FETCH_MAX_RESPONSE_SIZE`，仍未设置则默认 10 MiB。解析后的值通过同一参数传给 markdown 协商、原始抓取、Jina Reader 与 VeilRender，`tools.jsonc` 的 `kwargs` 条目也和其他构造参数一样透传。按策略分别设限仍待测量后再定。
+- **响应大小上限可配置**（#247）：`Fetch(max_response_size=...)` 为每个 HTTP 响应体设置字节上限，并校验为正整数；省略时读取 `FETCH_MAX_RESPONSE_SIZE`，仍未设置则默认 10 MiB。解析后的值通过同一参数传给 markdown 协商、原始抓取、Jina Reader 与 VeilRender，`tools.jsonc` 的 `kwargs` 条目也和其他构造参数一样透传。按策略分别设限仍待测量后再定。
 - **超限错误会标注实际应答的端点**（#245）：当超限响应体来自 Jina Reader（`r.jina.ai`）或配置的 VeilRender 端点而非目标页面时，错误文案为 `response from 'r.jina.ai' for 'example.com' exceeds ...`；读取端点与目标同主机时仍保持单一主机名形式。文案只出现主机名，不出现解析地址，抛出时仍使用 `from None`。
 
 ## [0.12.0] - 2026-11-08
