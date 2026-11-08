@@ -1085,7 +1085,10 @@ def _render_with_cdp(
     the markup, which two separate calls would allow.  The address from
     that snapshot is validated before the HTML is returned; if it cannot be
     read or violates the outbound policy, the content is refused (fail
-    closed).
+    closed).  The markup therefore crosses the WebSocket before the address
+    check and is discarded, never returned, when the address is refused.
+    That trade is deliberate: it closes the window in which a public URL
+    could be paired with markup from a private page.
 
     The page size is still probed before the snapshot:
     ``document.documentElement.outerHTML.length`` is read first, and a

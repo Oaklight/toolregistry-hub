@@ -1833,6 +1833,31 @@ class TestRenderWithCDP:
         assert result == ""
 
     @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    def test_non_dict_snapshot_returns_empty(self, mock_cdp_cls):
+        """An unusable evaluate result is refused, not raised."""
+        ctx = self._client()
+        ctx.evaluate.side_effect = [10, "not a snapshot"]
+        mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
+        mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        assert _render_with_cdp("https://spa.example.com", "ws://localhost:9222") == ""
+        ctx.close_target.assert_called_once_with("target-1")
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
+    @pytest.mark.parametrize("html_value", [None, 123, ""])
+    def test_invalid_html_in_snapshot_returns_empty(self, mock_cdp_cls, html_value):
+        """A valid address with missing or non-string markup yields no content."""
+        ctx = self._client()
+        ctx.evaluate.side_effect = [
+            10,
+            {"url": "https://spa.example.com/", "html": html_value},
+        ]
+        mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
+        mock_cdp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        assert _render_with_cdp("https://spa.example.com", "ws://localhost:9222") == ""
+
+    @patch("toolregistry_hub._vendor.cdp.CDPClient")
     def test_custom_timeout(self, mock_cdp_cls):
         ctx = self._client()
         mock_cdp_cls.return_value.__enter__ = MagicMock(return_value=ctx)
