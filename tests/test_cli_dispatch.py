@@ -126,3 +126,54 @@ class TestMCPDispatch:
             pytest.skip("installed toolregistry-server predates --server-url")
 
         assert parsed.server_url == "https://hub.example.com/mcp"
+
+
+def _openapi_namespace(**overrides) -> argparse.Namespace:
+    """Return a parsed-namespace stand-in for ``hub openapi``."""
+    values = {
+        "command": "openapi",
+        "host": "0.0.0.0",
+        "port": 8000,
+        "config": "tools.jsonc",
+        "tool_discovery": True,
+        "think_augment": True,
+        "profile": None,
+        "admin_port": None,
+        "config_reload": False,
+    }
+    values.update(overrides)
+    return argparse.Namespace(**values)
+
+
+class TestOpenAPIDispatch:
+    """``hub openapi`` kwargs reach the Hub app intact."""
+
+    def test_forwards_backend(self):
+        """--backend reaches serve_openapi instead of being dropped."""
+        cli = HubCLI()
+        parsed = _openapi_namespace(backend="httpserver")
+
+        with patch.object(type(cli.app), "serve_openapi") as mock_serve:
+            cli.dispatch(parsed)
+
+        assert mock_serve.call_args.kwargs["backend"] == "httpserver"
+
+    def test_backend_defaults_to_fastapi(self):
+        """A namespace without the attribute keeps the server default."""
+        cli = HubCLI()
+        parsed = _openapi_namespace()
+
+        with patch.object(type(cli.app), "serve_openapi") as mock_serve:
+            cli.dispatch(parsed)
+
+        assert mock_serve.call_args.kwargs["backend"] == "fastapi"
+
+    def test_subparser_accepts_backend(self):
+        """The flag is available on the Hub's openapi subcommand."""
+        parser = HubCLI().create_parser()
+        try:
+            parsed = parser.parse_args(["openapi", "--backend", "httpserver"])
+        except SystemExit:  # pragma: no cover - depends on the installed server
+            pytest.skip("installed toolregistry-server predates --backend")
+
+        assert parsed.backend == "httpserver"
