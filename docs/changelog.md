@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Security
+
+- **CDP-rendered HTML is size-checked before transfer** (#246): `_render_with_cdp` read the whole `document.documentElement.outerHTML` through one `Runtime.evaluate` with `returnByValue`, so a large or hostile DOM crossed the WebSocket and was materialized in the hub before any limit applied. The page length is now probed first, and a page above the 10 MiB `_MAX_RESPONSE_SIZE` raises `FetchError` without evaluating `outerHTML`; an unreadable probe is treated as an unknown size and the content is refused. The probe counts UTF-16 code units, so a page just under the cap can still occupy up to about three times it as UTF-8 — the transfer and the Python-side string are bounded, not the byte count exactly. The error names the caller-supplied host and the limit, never a resolved address. VeilRender HTML is bounded by its request's 10 MiB body cap (a JSON string is never shorter than the characters it encodes), so it needs no separate check; the docstring states this.
+
 ## [0.12.0] - 2026-11-08
 
 ### Added

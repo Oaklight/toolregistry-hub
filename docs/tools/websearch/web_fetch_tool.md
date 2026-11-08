@@ -113,6 +113,8 @@ The opt-in skips only the address-class checks. The http/https restriction still
 
 Fetch buffers at most 10 MiB per HTTP response. Markdown negotiation, the raw fetch, the Jina Reader request and VeilRender all pass that limit to the HTTP client, which refuses an oversized `Content-Length` before reading any body and stops a chunked body as soon as it crosses the cap. A refusal raises `FetchError` naming the caller-supplied host and the limit; it never includes a resolved address. A document larger than the limit cannot be extracted; change `_MAX_RESPONSE_SIZE` in `toolregistry_hub.fetch` if a deployment needs larger pages.
 
+A CDP-rendered page is checked before its HTML is transferred: the tool reads `document.documentElement.outerHTML.length` first, and a page above the limit raises `FetchError` without evaluating `outerHTML`. The probe counts UTF-16 code units, so a page just under the limit can still occupy up to about three times the cap as UTF-8; the check bounds the transfer and the Python-side string, not the byte count exactly. A probe that returns no number is refused rather than transferred. VeilRender's HTML arrives inside its capped JSON body, so the same limit applies without a separate check.
+
 ## How It Works
 
 ### Strategy Chain
@@ -260,7 +262,7 @@ When local extraction produces insufficient content (SPA shell or too short) and
 
 - Set `CDP_ENDPOINT` environment variable (e.g., `ws://localhost:9222`) or pass `cdp_endpoint` to the `Fetch()` constructor
 - The CDP stage is **entirely optional** — if unconfigured, the tool skips directly to Jina Reader
-- All CDP errors are caught silently; a failed CDP attempt never breaks the pipeline
+- A CDP page above the size limit raises `FetchError`; every other CDP error is caught silently, so a failed CDP attempt never breaks the pipeline
 
 ### VeilRender Remote Browser
 
