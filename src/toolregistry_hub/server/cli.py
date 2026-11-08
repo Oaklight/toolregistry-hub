@@ -66,6 +66,11 @@ class HubCLI(CLI):
                 port=parsed.port,
                 tokens_path=getattr(parsed, "tokens", None),
                 reload=getattr(parsed, "reload", False),
+                # The Hub builds these kwargs explicitly, so a flag added to
+                # the server subparser is dropped unless forwarded (#78,
+                # #83).  ``backend`` selects fastapi or httpserver; the
+                # default matches the server's own default.
+                backend=getattr(parsed, "backend", "fastapi"),
                 **common,
             )
         elif parsed.command == "mcp":
