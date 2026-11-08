@@ -1,5 +1,5 @@
 # /// zerodep
-# version = "0.6.4"
+# version = "0.7.1"
 # deps = []
 # tier = "subsystem"
 # category = "network"
@@ -31,6 +31,15 @@ Session usage::
 
     async with AsyncClient() as client:
         r = await client.get("https://httpbin.org/get")
+
+Redirects:
+    ``Authorization``, ``Proxy-Authorization`` and ``Cookie`` are bound to
+    the origin that received them.  A redirect to a different scheme, host
+    or port -- including an ``https`` → ``http`` downgrade -- drops them
+    before the next hop.  They stay dropped if a later hop returns to the
+    original origin, because the redirect chain keeps one header set.
+    Digest auth is disabled at the same time, so a 401 challenge from a new
+    origin cannot harvest the configured username and password.
 """
 
 # ── Imports ──
@@ -56,7 +65,7 @@ import weakref
 import zlib
 from collections.abc import AsyncIterator, Callable, Iterator
 from typing import IO, Any
-from urllib.parse import quote, urlencode, urlparse
+from urllib.parse import quote, urlencode, urljoin, urlparse
 
 __all__ = [
     # Constants
@@ -72,6 +81,8 @@ __all__ = [
     "TooManyRedirects",
     "HttpConnectionError",
     "HttpTimeoutError",
+    "ResponseTooLargeError",
+    "DecompressionError",
     "Socks5Error",
     # Data structures
     "CaseInsensitiveDict",
@@ -112,6 +123,19 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 30.0
 DEFAULT_MAX_REDIRECTS = 10
+
+#: Request headers that are scoped to the origin that received them.
+#: A cross-origin redirect drops these before the next hop, so a caller's
+#: bearer token, basic credentials, or session cookie cannot be replayed to
+#: a different scheme, host or port (including an ``https`` → ``http``
+#: downgrade).  The names are lower-case because header lookups are
+#: case-insensitive.
+_REDIRECT_CREDENTIAL_HEADERS = (
+    "authorization",
+    "proxy-authorization",
+    "cookie",
+)
+
 DEFAULT_USER_AGENT = "zerodep-http/0.1"
 DEFAULT_POOL_SIZE = 10
 DEFAULT_POOL_IDLE_TIMEOUT = 60.0
@@ -342,6 +366,46 @@ class HttpTimeoutError(HttpClientError):
 # Backward-compatible aliases (deprecated: prefer HttpConnectionError/HttpTimeoutError)
 ConnectionError = HttpConnectionError  # noqa: A001
 TimeoutError = HttpTimeoutError  # noqa: A001
+
+
+class ResponseTooLargeError(HttpClientError):
+    """Raised when a response body exceeds the configured size limit.
+
+    Attributes:
+        url: The URL whose response exceeded the limit.
+        max_size: The configured limit, in bytes.
+        declared: The ``Content-Length`` the server declared, or ``None``
+            when the body was chunked or EOF-delimited.
+        received: Body bytes charged against the limit when it was enforced:
+            the wire bytes read for an undeclared body, the decompressed
+            bytes when decompression crossed the cap, or -- when the async
+            chunked reader refuses a frame from its size line -- the total
+            that frame would have produced.  ``0`` when a declared length was
+            refused before any body byte was read.
+    """
+
+    def __init__(
+        self,
+        url: str,
+        max_size: int,
+        *,
+        declared: int | None = None,
+        received: int = 0,
+    ) -> None:
+        self.url = url
+        self.max_size = max_size
+        self.declared = declared
+        self.received = received
+        super().__init__(f"Response body from {url} exceeds the {max_size}-byte limit")
+
+
+class DecompressionError(HttpClientError):
+    """Raised when a response body is not a complete compressed stream.
+
+    A truncated gzip or deflate body would otherwise decode to a prefix of
+    the real content, which is worse than failing: the caller cannot tell
+    the result apart from a complete one.
+    """
 
 
 class Socks5Error(HttpConnectionError):
@@ -624,24 +688,132 @@ def _parse_digest_challenge(header_value: str) -> dict[str, str]:
 # ── Compression / Encoding helpers ──
 
 
-def _decompress_body(body: bytes, encoding: str) -> bytes:
+def _decompress_body(
+    body: bytes,
+    encoding: str,
+    *,
+    max_size: int | None = None,
+    url: str = "",
+) -> bytes:
     """Decompress a response body based on Content-Encoding.
+
+    A gzip body may concatenate several members.  They are one stream and
+    every member is decoded; ``max_size`` bounds their combined output.
 
     Args:
         body: The raw response body bytes.
         encoding: The Content-Encoding value.
+        max_size: Optional cap on the decompressed size, in bytes.  The wire
+            bytes may be well under the cap while the expanded body is not,
+            so a compressed bomb is refused here too.
+        url: Response URL, used in the size error.
 
     Returns:
         Decompressed bytes, or original body if encoding is unsupported.
+
+    Raises:
+        ResponseTooLargeError: If the decompressed body exceeds *max_size*.
+        DecompressionError: If the stream is truncated or otherwise does not
+            decode completely.
     """
+    if encoding not in ("gzip", "x-gzip", "deflate"):
+        return body
+
     if encoding in ("gzip", "x-gzip"):
-        return zlib.decompress(body, 16 + zlib.MAX_WBITS)
-    if encoding == "deflate":
+        return _decompress_gzip_members(body, max_size=max_size, url=url)
+
+    # ``max_length=0`` tells zlib to apply no limit.
+    max_length = max_size + 1 if max_size is not None else 0
+    # Some servers send a zlib-wrapped stream under "deflate"; try the
+    # wrapped form when the raw attempt rejects the bytes.
+    decompressors: list[zlib._Decompress] = [
+        zlib.decompressobj(-zlib.MAX_WBITS),
+        zlib.decompressobj(),
+    ]
+
+    last_error: zlib.error | None = None
+    for decompressor in decompressors:
         try:
-            return zlib.decompress(body, -zlib.MAX_WBITS)
-        except zlib.error:
-            return zlib.decompress(body)
-    return body
+            out = decompressor.decompress(body, max_length)
+        except zlib.error as exc:
+            last_error = exc
+            continue
+        if max_size is not None and len(out) > max_size:
+            raise ResponseTooLargeError(url, max_size, received=len(out))
+        try:
+            # A stream that only fails at flush must still try the
+            # zlib-wrapped deflate fallback.
+            out += decompressor.flush()
+        except zlib.error as exc:
+            last_error = exc
+            continue
+        if max_size is not None and len(out) > max_size:
+            raise ResponseTooLargeError(url, max_size, received=len(out))
+        if not decompressor.eof:
+            # The stream ended before its final block: fail rather than
+            # return a prefix of the real body.
+            last_error = zlib.error("incomplete or truncated compressed stream")
+            continue
+        return out
+    raise DecompressionError(
+        f"Incomplete or truncated {encoding} response body from {url}"
+    ) from last_error
+
+
+def _decompress_gzip_members(
+    body: bytes,
+    *,
+    max_size: int | None = None,
+    url: str = "",
+) -> bytes:
+    """Decode every member of a concatenated gzip stream.
+
+    ``zlib.decompressobj`` stops at the end of the first member and keeps
+    the bytes that follow in ``unused_data``.  RFC 1952 allows a gzip stream
+    to carry any number of members, and a response assembled from several
+    compressed parts relies on every one being decoded.
+
+    Args:
+        body: The raw response body bytes.
+        max_size: Optional cap on the total decompressed size.  The budget
+            spans all members, so several small members cannot combine past
+            it.
+        url: Response URL, used in the size error.
+
+    Returns:
+        The concatenation of every member's decompressed content.
+
+    Raises:
+        ResponseTooLargeError: If the total decompressed body exceeds
+            *max_size*.
+        DecompressionError: If a member is truncated or does not decode.
+    """
+    message = f"Incomplete or truncated gzip response body from {url}"
+    out = bytearray()
+    data = body
+    while True:
+        decompressor = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        # Leave room for one byte past the budget, so crossing it is visible.
+        max_length = 0 if max_size is None else max_size - len(out) + 1
+        if max_size is not None and max_length <= 0:
+            raise ResponseTooLargeError(url, max_size, received=len(out) + 1)
+        try:
+            out += decompressor.decompress(data, max_length)
+        except zlib.error as exc:
+            raise DecompressionError(message) from exc
+        if max_size is not None and len(out) > max_size:
+            raise ResponseTooLargeError(url, max_size, received=len(out))
+        try:
+            out += decompressor.flush()
+        except zlib.error as exc:
+            raise DecompressionError(message) from exc
+        if max_size is not None and len(out) > max_size:
+            raise ResponseTooLargeError(url, max_size, received=len(out))
+        if not decompressor.eof:
+            raise DecompressionError(message)
+        data = decompressor.unused_data
+        if not data:
+            return bytes(out)
 
 
 def _make_decompressor(encoding: str) -> zlib._Decompress | None:
@@ -850,6 +1022,33 @@ class StreamingResponse:
 
     # ── Sync iteration ──
 
+    def _decompress_chunk(self, chunk: bytes) -> bytes:
+        """Expand *chunk* and continue past gzip member boundaries.
+
+        A ``decompressobj`` stops at the end of the first member and keeps
+        the following bytes in ``unused_data``.  A gzip stream may carry
+        several members, so each boundary starts a fresh decompressor for
+        the rest of the bytes.  Non-gzip encodings keep one member.
+        """
+        decompressor = self._decompressor
+        if decompressor is None:
+            return chunk
+        out = bytearray()
+        while True:
+            out += decompressor.decompress(chunk)
+            if not decompressor.eof:
+                return bytes(out)
+            chunk = decompressor.unused_data
+            if not chunk:
+                return bytes(out)
+            encoding = self.headers.get("content-encoding", "").lower()
+            if encoding not in ("gzip", "x-gzip"):
+                return bytes(out)
+            decompressor = _make_decompressor(encoding)
+            if decompressor is None:
+                return bytes(out)
+            self._decompressor = decompressor
+
     def iter_bytes(self, chunk_size: int = 4096) -> Iterator[bytes]:
         """Yield response body in chunks as soon as they arrive.
 
@@ -873,9 +1072,7 @@ class StreamingResponse:
                 if not chunk:
                     break
                 self._sync_received = getattr(self, "_sync_received", 0) + len(chunk)
-                if self._decompressor:
-                    chunk = self._decompressor.decompress(chunk)
-                yield chunk
+                yield self._decompress_chunk(chunk)
             if self._decompressor:
                 remaining = self._decompressor.flush()
                 if remaining:
@@ -919,9 +1116,7 @@ class StreamingResponse:
         try:
             raw_iter = self._select_raw_iterator(chunk_size)
             async for chunk in raw_iter:
-                if self._decompressor:
-                    chunk = self._decompressor.decompress(chunk)
-                yield chunk
+                yield self._decompress_chunk(chunk)
             if self._decompressor:
                 remaining = self._decompressor.flush()
                 if remaining:
@@ -1964,11 +2159,50 @@ def _prepare_request(
     return url, body, req_headers, auth_obj
 
 
+def _origin(url: str) -> tuple[str, str, int]:
+    """Return the ``(scheme, host, port)`` origin of *url*.
+
+    A URL without a scheme or host produces an empty origin, which never
+    equals a real one.  An unparseable redirect target therefore counts as
+    cross-origin and loses its credentials instead of forwarding them.
+
+    Args:
+        url: Absolute or relative URL.
+
+    Returns:
+        A comparable origin tuple.  Default ports are normalised by
+        :func:`_parse_url`.
+    """
+    scheme, host, port, _, _ = _parse_url(url)
+    return scheme.lower(), host.lower(), port
+
+
+def _strip_redirect_credentials(
+    req_headers: CaseInsensitiveDict, source_url: str, target_url: str
+) -> None:
+    """Drop credential headers when a redirect changes origin.
+
+    ``Authorization``, ``Proxy-Authorization`` and ``Cookie`` are scoped to
+    the origin that received them.  Sending them to a different scheme,
+    host or port leaks the caller's credentials, so the next hop starts
+    without them.
+
+    Args:
+        req_headers: Headers for the redirect chain; mutated in place.
+        source_url: URL of the request that produced the redirect.
+        target_url: Resolved redirect target.
+    """
+    if _origin(source_url) == _origin(target_url):
+        return
+    for name in _REDIRECT_CREDENTIAL_HEADERS:
+        req_headers.pop(name, None)
+
+
 def _compute_redirect(
     status: int,
     method: str,
     body: bytes | None,
-    req_headers: dict[str, str],
+    req_headers: CaseInsensitiveDict,
     resp_headers: dict[str, str],
     scheme: str,
     host: str,
@@ -1977,22 +2211,31 @@ def _compute_redirect(
     redirects: int,
     max_redirects: int,
 ) -> tuple[str, str, bytes | None]:
-    """Compute redirect target and adjust method/body.
+    """Compute the redirect target and adjust method, body and headers.
+
+    Resolves relative ``Location`` values, converts the method for 303 and
+    POST-on-301/302 redirects, and removes credential headers when the
+    target origin differs from the current one.
 
     Raises:
         TooManyRedirects: If redirect limit exceeded.
 
     Returns:
-        (new_url, new_method, new_body).
+        (new_url, new_method, new_body).  *req_headers* is modified in
+        place.
     """
     redirects_now = redirects + 1
     if redirects_now > max_redirects:
         raise TooManyRedirects(url, max_redirects)
     location = resp_headers["location"]
-    if location.startswith("/"):
+    if location.startswith("//"):
+        # Scheme-relative: keep the current scheme, replace the authority.
+        new_url = f"{scheme}:{location}"
+    elif location.startswith("/"):
         new_url = f"{scheme}://{host}:{port}{location}"
     else:
-        new_url = location
+        # Absolute URL, relative path, or query-only target.
+        new_url = urljoin(url, location)
     new_method = method
     new_body = body
     if status == 303 or (status in (301, 302) and method == "POST"):
@@ -2000,6 +2243,7 @@ def _compute_redirect(
         new_body = None
         req_headers.pop("Content-Type", None)
         req_headers.pop("Content-Length", None)
+    _strip_redirect_credentials(req_headers, url, new_url)
     return new_url, new_method, new_body
 
 
@@ -2013,10 +2257,24 @@ def _should_attempt_digest(
     status: int,
     resp_headers: dict[str, str],
     digest_attempted: bool,
+    same_origin: bool,
 ) -> bool:
-    """Return True if a Digest auth retry should be attempted."""
+    """Return True if a Digest auth retry should be attempted.
+
+    Args:
+        auth_obj: Configured auth object.
+        status: Response status code.
+        resp_headers: Response headers.
+        digest_attempted: Whether this request already answered a Digest
+            challenge.
+        same_origin: Whether the request still targets the origin the
+            credentials were configured for.  A cross-origin redirect clears
+            this for the rest of the chain, so the new origin cannot harvest
+            the credentials with a 401 challenge.
+    """
     return (
-        isinstance(auth_obj, DigestAuth)
+        same_origin
+        and isinstance(auth_obj, DigestAuth)
         and status == 401
         and not digest_attempted
         and resp_headers.get("www-authenticate", "").lower().startswith("digest")
@@ -2299,6 +2557,70 @@ def _sync_release_or_close(
         conn.close()
 
 
+#: Bytes requested per read when a response body has no known length.
+_RESPONSE_READ_CHUNK = 64 * 1024
+
+
+def _validate_max_response_size(max_response_size: int | None) -> None:
+    """Reject an unusable response-size cap before any I/O starts.
+
+    ``None`` means "no limit".  Zero and negative values are refused: a
+    negative cap would make the bounded reads degrade to ``read(0)`` and the
+    decompression probe to zlib's "no limit", so it must never reach them.
+
+    Raises:
+        ValueError: If *max_response_size* is not positive.
+    """
+    if max_response_size is not None and max_response_size <= 0:
+        raise ValueError(
+            "max_response_size must be a positive integer or None, "
+            f"got {max_response_size!r}"
+        )
+
+
+def _sync_read_capped(
+    resp: http.client.HTTPResponse,
+    url: str,
+    max_size: int | None,
+) -> bytes:
+    """Read a sync response body, refusing more than *max_size* bytes.
+
+    A declared ``Content-Length`` above the limit is refused before any body
+    byte is read.  A chunked or EOF-delimited body is read in bounded pieces
+    and refused as soon as the accumulated bytes cross the limit.
+
+    Args:
+        resp: The response to read.
+        url: Response URL, used in the size error.
+        max_size: The limit in bytes, or ``None`` for no limit.
+
+    Returns:
+        The response body.
+
+    Raises:
+        ResponseTooLargeError: If the body exceeds *max_size*.  The caller
+            closes the connection; it cannot be reused with an unread body.
+    """
+    if max_size is None:
+        return resp.read()
+
+    declared = resp.length
+    if declared is not None and declared > max_size:
+        raise ResponseTooLargeError(url, max_size, declared=declared)
+
+    chunks: list[bytes] = []
+    received = 0
+    while True:
+        chunk = resp.read(min(_RESPONSE_READ_CHUNK, max_size - received + 1))
+        if not chunk:
+            break
+        received += len(chunk)
+        if received > max_size:
+            raise ResponseTooLargeError(url, max_size, received=received)
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def _build_sync_response(
     status: int,
     resp_headers: dict[str, str],
@@ -2310,8 +2632,12 @@ def _build_sync_response(
     raw_set_cookies: list[str] | None = None,
     on_timing: TimingHook | None = None,
     timing_start: float = 0.0,
+    max_response_size: int | None = None,
 ) -> tuple[Response | StreamingResponse, bool]:
     """Build a final sync response (streaming or buffered).
+
+    ``max_response_size`` bounds the buffered body; a ``stream=True``
+    response is not buffered and is therefore not limited.
 
     Returns:
         (response, close_conn) -- close_conn is False when streaming.
@@ -2331,10 +2657,18 @@ def _build_sync_response(
             expect_body=_response_has_body(method, status),
         ), False
 
-    resp_body = resp.read()
+    resp_body = _sync_read_capped(resp, url, max_response_size)
     _emit_timing(on_timing, timing_start, "body_complete")
-    if content_encoding:
-        resp_body = _decompress_body(resp_body, content_encoding)
+    # HEAD, 204 and 304 have no body; a Content-Encoding header describes the
+    # representation, not bytes that are present, so decompressing would
+    # report a truncated stream.
+    if content_encoding and _response_has_body(method, status):
+        resp_body = _decompress_body(
+            resp_body,
+            content_encoding,
+            max_size=max_response_size,
+            url=url,
+        )
     return Response(
         status,
         resp_headers,
@@ -2352,7 +2686,15 @@ def _wrap_sync_errors(
     timeout: float,
 ) -> HttpClientError:
     """Translate low-level sync exceptions into httpclient exceptions."""
-    if isinstance(exc, (HttpTimeoutError, HttpConnectionError, TooManyRedirects)):
+    if isinstance(
+        exc,
+        (
+            HttpTimeoutError,
+            HttpConnectionError,
+            TooManyRedirects,
+            ResponseTooLargeError,
+        ),
+    ):
         return exc
     if isinstance(exc, _TRANSPORT_TIMEOUTS):
         return HttpTimeoutError(
@@ -2392,6 +2734,7 @@ def _sync_request(
     proxy: str | None = None,
     cookies: dict[str, str] | None = None,
     on_timing: TimingHook | None = None,
+    max_response_size: int | None = None,
     _pool: _SyncConnectionPool | None = _DEFAULT_SYNC_POOL,
 ) -> Response | StreamingResponse:
     """Perform a synchronous HTTP request.
@@ -2404,6 +2747,7 @@ def _sync_request(
            c. Handle redirects / digest auth / response construction
            d. Connection lifecycle (pool release or close)
     """
+    _validate_max_response_size(max_response_size)
     timing_start = time.perf_counter()
     if on_timing is not None:
         on_timing("request_started", 0.0)
@@ -2411,6 +2755,8 @@ def _sync_request(
         method, url, headers, data, json, files, params, auth, cookies
     )
 
+    credential_origin = _origin(url)
+    same_origin = True
     redirects = 0
     _digest_attempted = False
     retried = False
@@ -2473,7 +2819,7 @@ def _sync_request(
                 status = resp.status
 
                 if _is_redirect(status, resp_headers):
-                    resp.read()
+                    _sync_read_capped(resp, url, max_response_size)
                     completed = True
                     url, method, body = _compute_redirect(
                         status,
@@ -2488,13 +2834,14 @@ def _sync_request(
                         redirects,
                         max_redirects,
                     )
+                    same_origin = same_origin and _origin(url) == credential_origin
                     redirects += 1
                     continue
 
                 if _should_attempt_digest(
-                    auth_obj, status, resp_headers, _digest_attempted
+                    auth_obj, status, resp_headers, _digest_attempted, same_origin
                 ):
-                    resp.read()
+                    _sync_read_capped(resp, url, max_response_size)
                     www_auth = resp_headers["www-authenticate"]
                     req_headers.update(
                         auth_obj.auth_headers_from_challenge(method, path, www_auth)
@@ -2514,6 +2861,7 @@ def _sync_request(
                     raw_set_cookies=accumulated_set_cookies,
                     on_timing=on_timing,
                     timing_start=timing_start,
+                    max_response_size=max_response_size,
                 )
                 completed = True
                 return result
@@ -2522,19 +2870,26 @@ def _sync_request(
                 # is safe to reuse: after a mid-body failure http.client still
                 # believes a response is pending, so the next caller would fail
                 # inside ``request()``.
-                _sync_release_or_close(
-                    close_conn and completed,
-                    _pool,
-                    proxy,
-                    stream,
-                    resp_headers,
-                    host,
-                    port,
-                    is_https,
-                    conn,
-                    verify,
-                    resp_version,
-                )
+                if completed:
+                    _sync_release_or_close(
+                        close_conn and completed,
+                        _pool,
+                        proxy,
+                        stream,
+                        resp_headers,
+                        host,
+                        port,
+                        is_https,
+                        conn,
+                        verify,
+                        resp_version,
+                    )
+                elif close_conn:
+                    # The body was not fully read (an error, or a
+                    # ResponseTooLargeError).  Close now rather than leaving
+                    # the socket to the garbage collector; a caller that
+                    # keeps the exception would keep the fd alive.
+                    conn.close()
         except Exception as exc:
             wrapped = _wrap_sync_errors(exc, host, port, url, timeout)
             if wrapped is exc:
@@ -2589,9 +2944,20 @@ async def _async_read_response_headers(
 async def _async_read_chunked_body(
     reader: asyncio.StreamReader,
     timeout: float,
+    *,
+    url: str = "",
+    max_size: int | None = None,
 ) -> bytes:
-    """Read a chunked transfer-encoded body from an asyncio StreamReader."""
+    """Read a chunked transfer-encoded body from an asyncio StreamReader.
+
+    With *max_size*, a chunk that would push the accumulated body over the
+    limit is refused before its payload is read.
+
+    Raises:
+        ResponseTooLargeError: If the body exceeds *max_size*.
+    """
     parts: list[bytes] = []
+    received = 0
     while True:
         size_line = await asyncio.wait_for(reader.readline(), timeout=timeout)
         size_str = size_line.decode("latin-1").split(";")[0].strip()
@@ -2601,8 +2967,11 @@ async def _async_read_chunked_body(
         if chunk_size == 0:
             await asyncio.wait_for(reader.readline(), timeout=timeout)  # trailing \r\n
             break
+        if max_size is not None and received + chunk_size > max_size:
+            raise ResponseTooLargeError(url, max_size, received=received + chunk_size)
         data = await asyncio.wait_for(reader.readexactly(chunk_size), timeout=timeout)
         await asyncio.wait_for(reader.readline(), timeout=timeout)  # trailing \r\n
+        received += len(data)
         parts.append(data)
     return b"".join(parts)
 
@@ -2611,24 +2980,54 @@ async def _async_read_body(
     reader: asyncio.StreamReader,
     headers: dict[str, str],
     timeout: float,
+    *,
+    url: str = "",
+    max_size: int | None = None,
 ) -> bytes:
     """Read the response body based on Content-Length or Transfer-Encoding.
 
-    Falls back to reading until EOF when neither header is present.
+    Falls back to reading until EOF when neither header is present.  With
+    *max_size*, a declared length above the limit is refused before reading,
+    and an undeclared body is read in bounded pieces until it crosses the
+    limit.
+
+    Raises:
+        ResponseTooLargeError: If the body exceeds *max_size*.
     """
     te = headers.get("transfer-encoding", "")
     if te.lower() == "chunked":
-        return await _async_read_chunked_body(reader, timeout)
+        return await _async_read_chunked_body(
+            reader, timeout, url=url, max_size=max_size
+        )
 
     cl = headers.get("content-length")
     if cl is not None:
         length = int(cl)
+        if max_size is not None and length > max_size:
+            raise ResponseTooLargeError(url, max_size, declared=length)
         if length == 0:
             return b""
         return await asyncio.wait_for(reader.readexactly(length), timeout=timeout)
 
-    # No Content-Length, no chunked -- read until EOF
-    return await asyncio.wait_for(reader.read(), timeout=timeout)
+    if max_size is None:
+        # No Content-Length, no chunked -- read until EOF
+        return await asyncio.wait_for(reader.read(), timeout=timeout)
+
+    # No Content-Length, no chunked -- read until EOF, bounded.
+    chunks: list[bytes] = []
+    received = 0
+    while True:
+        chunk = await asyncio.wait_for(
+            reader.read(min(_RESPONSE_READ_CHUNK, max_size - received + 1)),
+            timeout=timeout,
+        )
+        if not chunk:
+            break
+        received += len(chunk)
+        if received > max_size:
+            raise ResponseTooLargeError(url, max_size, received=received)
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 # -- Async connection helpers --
@@ -2957,6 +3356,7 @@ async def _async_request(
     proxy: str | None = None,
     cookies: dict[str, str] | None = None,
     on_timing: TimingHook | None = None,
+    max_response_size: int | None = None,
     _pool: _AsyncConnectionPool | None = None,
 ) -> Response | StreamingResponse:
     """Perform an asynchronous HTTP request using asyncio streams.
@@ -2969,6 +3369,7 @@ async def _async_request(
            c. Handle redirects / digest auth / response construction
            d. Connection lifecycle (pool release or close)
     """
+    _validate_max_response_size(max_response_size)
     timing_start = time.perf_counter()
     if on_timing is not None:
         on_timing("request_started", 0.0)
@@ -2976,6 +3377,8 @@ async def _async_request(
         method, url, headers, data, json, files, params, auth, cookies
     )
 
+    credential_origin = _origin(url)
+    same_origin = True
     redirects = 0
     _digest_attempted = False
     retried = False
@@ -3041,7 +3444,13 @@ async def _async_request(
             accumulated_set_cookies.extend(iter_set_cookies)
 
             if _is_redirect(status, resp_headers):
-                await _async_read_body(reader, resp_headers, timeout)
+                await _async_read_body(
+                    reader,
+                    resp_headers,
+                    timeout,
+                    url=url,
+                    max_size=max_response_size,
+                )
                 completed = True
                 url, method, body = _compute_redirect(
                     status,
@@ -3056,13 +3465,20 @@ async def _async_request(
                     redirects,
                     max_redirects,
                 )
+                same_origin = same_origin and _origin(url) == credential_origin
                 redirects += 1
                 continue
 
             if _should_attempt_digest(
-                auth_obj, status, resp_headers, _digest_attempted
+                auth_obj, status, resp_headers, _digest_attempted, same_origin
             ):
-                await _async_read_body(reader, resp_headers, timeout)
+                await _async_read_body(
+                    reader,
+                    resp_headers,
+                    timeout,
+                    url=url,
+                    max_size=max_response_size,
+                )
                 www_auth = resp_headers["www-authenticate"]
                 req_headers.update(
                     auth_obj.auth_headers_from_challenge(method, path, www_auth)
@@ -3088,10 +3504,22 @@ async def _async_request(
                 )
 
             content_encoding = resp_headers.get("content-encoding", "")
-            resp_body = await _async_read_body(reader, resp_headers, timeout)
+            has_body = _response_has_body(method, status)
+            resp_body = await _async_read_body(
+                reader,
+                resp_headers,
+                timeout,
+                url=url,
+                max_size=max_response_size if has_body else None,
+            )
             _emit_timing(on_timing, timing_start, "body_complete")
-            if content_encoding:
-                resp_body = _decompress_body(resp_body, content_encoding)
+            if content_encoding and has_body:
+                resp_body = _decompress_body(
+                    resp_body,
+                    content_encoding,
+                    max_size=max_response_size,
+                    url=url,
+                )
             completed = True
             return Response(
                 status,
@@ -3107,20 +3535,25 @@ async def _async_request(
                 timeout=timeout,
             )
         finally:
-            await _async_release_or_close(
-                close_writer and completed,
-                _pool,
-                proxy,
-                stream,
-                resp_headers,
-                host,
-                port,
-                is_https,
-                reader,
-                writer,
-                verify,
-                resp_version,
-            )
+            if completed:
+                await _async_release_or_close(
+                    close_writer and completed,
+                    _pool,
+                    proxy,
+                    stream,
+                    resp_headers,
+                    host,
+                    port,
+                    is_https,
+                    reader,
+                    writer,
+                    verify,
+                    resp_version,
+                )
+            elif close_writer:
+                # The body was not fully read; close the transport now
+                # instead of leaving it to the collector.
+                await _async_close_writer_silent(writer)
 
 
 # ── Request Building helpers (multipart, headers) ──
@@ -3369,6 +3802,12 @@ class Client:
     (e.g. an API client talking to one service).  For multi-origin
     scenarios, manage cookies per-domain yourself.
 
+    ``max_response_size`` caps a buffered response body; a body above the
+    cap raises :class:`ResponseTooLargeError`.  It must be a positive
+    integer or ``None``.  The default ``None`` keeps the historical
+    unbounded behaviour.  A ``stream=True`` response is not buffered and is
+    therefore not limited.
+
     Usage::
 
         with Client(headers={"Authorization": "Bearer token"}) as c:
@@ -3388,6 +3827,7 @@ class Client:
         pool_size: int = DEFAULT_POOL_SIZE,
         max_total_connections: int = DEFAULT_MAX_TOTAL_CONNECTIONS,
         pool_idle_timeout: float = DEFAULT_POOL_IDLE_TIMEOUT,
+        max_response_size: int | None = None,
     ) -> None:
         self._base_headers = headers or {}
         self._cookies: dict[str, str] = dict(cookies) if cookies else {}
@@ -3396,6 +3836,8 @@ class Client:
         self._verify = verify
         self._auth = auth
         self._proxy = proxy
+        _validate_max_response_size(max_response_size)
+        self._max_response_size = max_response_size
         self._pool = _SyncConnectionPool(
             pool_size, max_total_connections, pool_idle_timeout
         )
@@ -3417,6 +3859,7 @@ class Client:
         kwargs.setdefault("verify", self._verify)
         kwargs.setdefault("auth", self._auth)
         kwargs.setdefault("proxy", self._proxy)
+        kwargs.setdefault("max_response_size", self._max_response_size)
         kwargs["_pool"] = self._pool
         kwargs["headers"] = _merge_headers(self._base_headers, kwargs.get("headers"))
         result = _sync_request(method, url, **kwargs)
@@ -3476,6 +3919,12 @@ class AsyncClient:
     (e.g. an API client talking to one service).  For multi-origin
     scenarios, manage cookies per-domain yourself.
 
+    ``max_response_size`` caps a buffered response body; a body above the
+    cap raises :class:`ResponseTooLargeError`.  It must be a positive
+    integer or ``None``.  The default ``None`` keeps the historical
+    unbounded behaviour.  A ``stream=True`` response is not buffered and is
+    therefore not limited.
+
     Usage::
 
         async with AsyncClient(headers={"Authorization": "Bearer token"}) as c:
@@ -3495,6 +3944,7 @@ class AsyncClient:
         pool_size: int = DEFAULT_POOL_SIZE,
         max_total_connections: int = DEFAULT_MAX_TOTAL_CONNECTIONS,
         pool_idle_timeout: float = DEFAULT_POOL_IDLE_TIMEOUT,
+        max_response_size: int | None = None,
     ) -> None:
         self._base_headers = headers or {}
         self._cookies: dict[str, str] = dict(cookies) if cookies else {}
@@ -3503,6 +3953,8 @@ class AsyncClient:
         self._verify = verify
         self._auth = auth
         self._proxy = proxy
+        _validate_max_response_size(max_response_size)
+        self._max_response_size = max_response_size
         self._pool = _AsyncConnectionPool(
             pool_size, max_total_connections, pool_idle_timeout
         )
@@ -3524,6 +3976,7 @@ class AsyncClient:
         kwargs.setdefault("verify", self._verify)
         kwargs.setdefault("auth", self._auth)
         kwargs.setdefault("proxy", self._proxy)
+        kwargs.setdefault("max_response_size", self._max_response_size)
         kwargs["_pool"] = self._pool
         kwargs["headers"] = _merge_headers(self._base_headers, kwargs.get("headers"))
         result = await _async_request(method, url, **kwargs)
