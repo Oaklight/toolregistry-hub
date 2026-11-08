@@ -27,7 +27,7 @@ toolregistry-hub [OPTIONS] COMMAND [COMMAND-OPTIONS]
 
 ### `openapi`
 
-Start an OpenAPI (REST) server powered by FastAPI.
+Start an OpenAPI (REST) server. The default backend is FastAPI; `--backend httpserver` selects the zero-dependency backend.
 
 ```bash
 toolregistry-hub openapi [OPTIONS]
@@ -37,6 +37,7 @@ toolregistry-hub openapi [OPTIONS]
 |--------|---------|-------------|
 | `--host HOST` | `0.0.0.0` | Bind address |
 | `--port PORT` | `8000` | Bind port |
+| `--backend {fastapi,httpserver}` | `fastapi` | OpenAPI server backend; `httpserver` is the zero-dependency backend |
 | `--env PATH` | `.env` | Path to `.env` file |
 | `--no-env` | — | Skip loading `.env` |
 | `--config PATH` | — | Tool configuration file (JSON, JSONC, or YAML) |
