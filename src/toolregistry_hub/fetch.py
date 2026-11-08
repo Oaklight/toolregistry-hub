@@ -279,10 +279,12 @@ def _resolve_max_response_size(value: int | None) -> int:
         ValueError: If the argument or the environment value is not a
             positive integer.
     """
+    name = "max_response_size"
     if value is None:
         raw = os.environ.get(_MAX_RESPONSE_SIZE_ENV, "").strip()
         if not raw:
             return _DEFAULT_MAX_RESPONSE_SIZE
+        name = _MAX_RESPONSE_SIZE_ENV
         try:
             value = int(raw)
         except ValueError:
@@ -291,7 +293,7 @@ def _resolve_max_response_size(value: int | None) -> int:
             ) from None
     # ``bool`` is an ``int`` subclass, so ``True`` would otherwise count as 1.
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-        raise ValueError(f"max_response_size must be a positive integer, got {value!r}")
+        raise ValueError(f"{name} must be a positive integer, got {value!r}")
     return value
 
 
