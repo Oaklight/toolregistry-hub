@@ -24,6 +24,10 @@ author: Oaklight
 - **Hub 默认元数据会在每次 reload 时重置管理面板编辑**（#232）：`apply_hub_overrides` 每次应用 diff 都会把 `_TOOL_METADATA` 重放到整个注册表，因此从管理面板修改的 `tags`、`defer`、`title`、`search_hint` 或执行提示会被下一次无关的配置变更静默覆盖。现在 `reload_registry` 把它本次注册的工具名传给 `on_reload`，回调只处理这些工具。已存在的工具保持当前值；本次 reload 注册的工具仍会获得 Hub 默认值，文件中的 `tool_metadata` 之后仍然优先。
 - **零工具的 source 不再在每次 reload 时重新注册**（#233）：空工具名集合过去同时表示「被排除」「注册失败」「注册成功但没有工具」，diff 因此把三种情况都当成需要重新注册，导致不 advertise 工具的 MCP 服务器在每次无关配置变更时都重连。现在按 source 记录 `applied`、`excluded` 或 `failed`：已应用但零工具的 source 不再重注册，失败的会重试，被排除的进入范围后才注册。
 
+### 变更
+
+- **内置 `httpclient` 0.6.4 → 0.7.1**（zerodep `48606bf`）：重定向到其他源时不再转发 `Authorization`、`Proxy-Authorization` 与 `Cookie`，Digest 认证只在请求仍位于凭据所属源时尝试（#287）；多成员 gzip 响应体现在会逐成员解压，而不再只解压第一个；`Client`/`AsyncClient` 与便捷函数新增可选参数 `max_response_size`，用于限制缓冲响应体，超限时抛出 `ResponseTooLargeError`。该参数默认 `None`，现有调用仍按原样缓冲，`stream=True` 的响应也不会被限制。Hub 代码无需改动。
+
 ## [0.12.0] - 2026-10-23
 
 ### 修复
