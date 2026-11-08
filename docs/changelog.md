@@ -31,6 +31,7 @@ author: Oaklight
 ### 安全
 
 - **Fetch 增加出站地址策略**（#240，引用）：`fetch_content` 现在会在发出任何请求前校验调用方提供的 URL 与代理。仅允许 http/https；主机名解析出的每个地址都必须是全球可路由地址（回环、RFC 1918、链路本地（含 `169.254.169.254`）、CGNAT、组播、NAT64、6to4、Teredo、ORCHID、文档/基准测试网段均拒绝），解析失败同样拒绝。IPv4-mapped 与 NAT64 内嵌地址按 IPv4 判断。重定向采用事后校验：当 `response.url` 指向私有地址时丢弃响应体并抛出 `FetchPolicyError`。CDP 在导航后校验 `document.location.href`；VeilRender 校验 `metadata.url`；两者在无法确认最终地址时拒绝返回内容。运维人员可用 `Fetch(allow_private_hosts=True)`、`FETCH_ALLOW_PRIVATE_HOSTS=1` 或 `tools.jsonc` 中的构造参数显式开启；不提供逐次调用开关。残余风险：产生被拒重定向响应的请求已经发出（盲 SSRF），且连接时会再次解析 DNS（重绑定窗口），需等待 zerodep 提供 `follow_redirects=False` 与连接期地址固定。
+- **Fetch 限制响应体大小**（#243）：所有请求——markdown 协商、原始抓取、Jina Reader 调用与 VeilRender——现在都会向内置 HTTP 客户端传入 10 MiB 的 `max_response_size`；超大的 `Content-Length` 在读取任何 body 之前即被拒绝，chunked body 一旦越过上限也会立即停止。`ResponseTooLargeError` 会映射为 `FetchError`，消息包含调用方提供的 host 与上限，绝不含解析后的地址。此前整个响应体会先被完整缓冲，然后才做 content-type 检查，因此单个数 GB 的响应即可把共享 hub 打到 OOM。
 
 ## [0.12.0] - 2026-10-23
 

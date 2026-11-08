@@ -109,6 +109,10 @@ fetcher = Fetch(allow_private_hosts=True)
 
 开启后只跳过地址类别检查；目标与代理的 http/https 限制仍然生效。
 
+## 响应大小限制
+
+Fetch 每个 HTTP 响应最多缓冲 10 MiB。markdown 协商、原始抓取、Jina Reader 请求与 VeilRender 都会把该上限传给 HTTP 客户端：超大的 `Content-Length` 会在读取任何 body 之前被拒绝，chunked body 一旦越过上限也会立即停止。拒绝时抛出 `FetchError`，消息包含调用方提供的 host 与上限，绝不含解析后的地址。超过上限的文档无法提取；若部署需要更大的页面，请修改 `toolregistry_hub.fetch` 中的 `_MAX_RESPONSE_SIZE`。
+
 ## 工作原理
 
 ### 策略链
