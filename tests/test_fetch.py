@@ -23,6 +23,7 @@ from toolregistry_hub.fetch import (
     _DEFAULT_MAX_RESPONSE_SIZE,
     _JINA_TIMEOUT_BUFFER,
     _JINA_WAIT_SELECTORS,
+    _MAX_REDIRECTS,
     _MIN_CONTENT_LENGTH,
     _NON_HTML_CONTENT_TYPES,
     _SOUP_CONTENT_SELECTORS,
@@ -2601,3 +2602,234 @@ class TestConfigKwargsPassthrough:
         build_registry(tools_config_path=str(path), enable_discovery=False)
 
         assert _FetchKwargProbe.last_kwargs == {"max_response_size": 32768}
+
+
+# ============================================================
+# Redirect policy tests
+# ============================================================
+
+
+def _redirect_response(
+    location: str,
+    *,
+    status: int = 302,
+    url: str = "https://example.com/start",
+) -> MagicMock:
+    """Build a 3xx response that carries a Location header."""
+    response = MagicMock()
+    response.status_code = status
+    response.headers = {"location": location}
+    response.url = url
+    response.text = ""
+    return response
+
+
+def _ok_response(
+    body: str | None = None,
+    *,
+    url: str = "https://example.com/final",
+) -> MagicMock:
+    """Build a 200 HTML response usable by the readability strategy."""
+    if body is None:
+        body = (
+            "<html><body><article><p>"
+            + "Redirected article content. " * 40
+            + "</p></article></body></html>"
+        )
+    response = MagicMock()
+    response.status_code = 200
+    response.url = url
+    response.text = body
+    response.headers = {"content-type": "text/html"}
+    response.raise_for_status = MagicMock()
+    return response
+
+
+class TestFetchRedirectPolicy:
+    """Every redirect hop is validated before the next request is sent."""
+
+    def _counting_server(
+        self, hits: list[str]
+    ) -> tuple[ThreadingHTTPServer, threading.Thread]:
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802 - http.server API
+                hits.append(self.path)
+                body = b"SECRET"
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):  # noqa: D102 - silence test output
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        return server, thread
+
+    @staticmethod
+    def _stop(server: ThreadingHTTPServer, thread: threading.Thread) -> None:
+        server.shutdown()
+        thread.join(timeout=5)
+
+    def test_loopback_redirect_never_dials_destination(self):
+        hits: list[str] = []
+        target, target_thread = self._counting_server(hits)
+        try:
+
+            class Start(BaseHTTPRequestHandler):
+                def do_GET(self):  # noqa: N802 - http.server API
+                    self.send_response(302)
+                    self.send_header(
+                        "Location",
+                        f"http://127.0.0.1:{target.server_port}/secret",
+                    )
+                    self.end_headers()
+
+                def log_message(self, *args):  # noqa: D102 - silence
+                    pass
+
+            start = ThreadingHTTPServer(("127.0.0.1", 0), Start)
+            start_thread = threading.Thread(target=start.serve_forever, daemon=True)
+            start_thread.start()
+            try:
+                with pytest.raises(FetchPolicyError):
+                    _fetch_raw(
+                        f"http://127.0.0.1:{start.server_port}/start", timeout=5.0
+                    )
+            finally:
+                self._stop(start, start_thread)
+        finally:
+            self._stop(target, target_thread)
+        assert hits == []
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_public_redirect_to_private_is_refused_before_request(self, mock_get):
+        hits: list[str] = []
+        target, target_thread = self._counting_server(hits)
+        try:
+            mock_get.return_value = _redirect_response(
+                f"http://127.0.0.1:{target.server_port}/secret"
+            )
+            with pytest.raises(FetchPolicyError):
+                Fetch().fetch_content("https://example.com/", strategy="markdown")
+        finally:
+            self._stop(target, target_thread)
+        assert hits == []
+        assert mock_get.call_count == 1
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_public_redirect_chain_is_followed(self, mock_get):
+        mock_get.side_effect = [
+            _redirect_response("https://example.com/final"),
+            _ok_response(),
+        ]
+
+        result = Fetch().fetch_content(
+            "https://example.com/start", strategy="readability"
+        )
+        assert result["strategy"] == "readability"
+        assert "Redirected article content" in result["content"]
+        assert mock_get.call_count == 2
+        assert mock_get.call_args_list[1].args[0] == "https://example.com/final"
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_too_many_redirects_is_a_fetch_error(self, mock_get):
+        mock_get.side_effect = lambda _url, **_kwargs: _redirect_response(
+            "https://example.com/loop"
+        )
+
+        with pytest.raises(FetchError) as exc:
+            Fetch().fetch_content("https://example.com/start", strategy="readability")
+        message = str(exc.value)
+        assert "too many redirects" in message
+        assert "example.com" in message
+        # The autouse resolver maps example.com to this address.
+        assert "93.184.216.34" not in message
+        assert mock_get.call_count == _MAX_REDIRECTS + 1
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_redirect_refusal_does_not_leak_resolved_address(self, mock_get):
+        mock_get.return_value = _redirect_response("http://internal.example/secret")
+        with (
+            patch(
+                "toolregistry._netpolicy.socket.getaddrinfo",
+                return_value=[
+                    (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.9.8.7", 0))
+                ],
+            ),
+            pytest.raises(FetchPolicyError) as exc,
+        ):
+            _fetch_raw("http://start.example/")
+        message = str(exc.value)
+        assert "internal.example" in message
+        assert "10.9.8.7" not in message
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_raw_fetch_does_not_follow_redirects_itself(self, mock_get):
+        mock_get.return_value = _ok_response()
+        _fetch_raw("https://example.com/")
+        assert mock_get.call_args.kwargs["follow_redirects"] is False
+
+    @patch("toolregistry_hub.fetch._http_get")
+    def test_markdown_does_not_follow_redirects_itself(self, mock_get):
+        response = MagicMock()
+        response.status_code = 200
+        response.headers = {"content-type": "text/html"}
+        response.text = "<html></html>"
+        mock_get.return_value = response
+
+        _try_markdown_negotiation("https://example.com/")
+        assert mock_get.call_args.kwargs["follow_redirects"] is False
+
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_jina_does_not_follow_redirects_itself(self, mock_post):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {"data": {"content": "x"}}
+        response.raise_for_status = MagicMock()
+        mock_post.return_value = response
+
+        _jina_reader_request("https://example.com/")
+        assert mock_post.call_args.kwargs["follow_redirects"] is False
+
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_veilrender_does_not_follow_redirects_itself(self, mock_post):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "content": {"html": "<html>ok</html>"},
+            "metadata": {"url": "https://example.com/"},
+        }
+        mock_post.return_value = response
+
+        _render_with_veilrender("https://example.com/", "https://veilrender.example")
+        assert mock_post.call_args.kwargs["follow_redirects"] is False
+
+    @patch("toolregistry_hub.fetch._http_get")
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_veilrender_redirect_to_private_is_refused(self, mock_post, mock_get):
+        mock_post.return_value = _redirect_response("http://127.0.0.1:8080/")
+
+        with pytest.raises(FetchPolicyError):
+            _render_with_veilrender(
+                "https://example.com/", "https://veilrender.example"
+            )
+        mock_get.assert_not_called()
+
+    @patch("toolregistry_hub.fetch._http_get")
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_jina_303_switches_to_get(self, mock_post, mock_get):
+        mock_post.return_value = _redirect_response(
+            "https://r.jina.ai/next", status=303
+        )
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {"data": {"content": "jina content"}}
+        response.raise_for_status = MagicMock()
+        mock_get.return_value = response
+
+        assert _jina_reader_request("https://example.com/") == "jina content"
+        mock_get.assert_called_once()
+        assert mock_get.call_args.args[0] == "https://r.jina.ai/next"
