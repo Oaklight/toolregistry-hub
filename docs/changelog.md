@@ -27,6 +27,7 @@ author: Oaklight
 - **Hub 默认元数据会在每次 reload 时重置管理面板编辑**（#232）：`apply_hub_overrides` 每次应用 diff 都会把 `_TOOL_METADATA` 重放到整个注册表，因此从管理面板修改的 `tags`、`defer`、`title`、`search_hint` 或执行提示会被下一次无关的配置变更静默覆盖。现在 `reload_registry` 把它本次注册的工具名传给 `on_reload`，回调只处理这些工具。已存在的工具保持当前值；本次 reload 注册的工具仍会获得 Hub 默认值，文件中的 `tool_metadata` 之后仍然优先。
 - **零工具的 source 不再在每次 reload 时重新注册**（#233）：空工具名集合过去同时表示「被排除」「注册失败」「注册成功但没有工具」，diff 因此把三种情况都当成需要重新注册，导致不 advertise 工具的 MCP 服务器在每次无关配置变更时都重连。现在按 source 记录 `applied`、`excluded` 或 `failed`：已应用但零工具的 source 不再重注册，失败的会重试，被排除的进入范围后才注册。
 - **裸安装现在会一并安装核心库**（#226、#225）：`[project].dependencies` 原本为空，`pip install toolregistry-hub` 不会安装 `toolregistry_hub` 真正 import 的任何东西——所有工具类都继承 `toolregistry.Tool`，`file_search` 还依赖 `toolregistry.parameter_models`。核心库此前只通过 `server` extras 间接到位，所以服务器部署正常，而文档中的库模式快速开始（`pip install toolregistry-hub` 后 `from toolregistry_hub import Calculator`）会报 `ModuleNotFoundError`。现在 `toolregistry>=0.19.0,<1.0.0` 是运行时依赖，与 `toolregistry-server>=0.7.0` 已有的下限一致，并新增打包测试防止回退。该问题影响所有已发布版本，包括 0.11.0。
+- **关闭 discovery 的构建不会再被自动拉起**（#241）：`build_registry(enable_discovery=False)` 现在会把注册表的 tool-discovery 模式固定为 `off`。core 0.20 默认为 `auto`，配置热重载注册 deferred 工具时会从 change callback 里启动 discovery，加入 `discover_tools`/`call_deferred`，并在重载迭代工具表时修改它（`RuntimeError: dictionary changed size during iteration`）。
 
 ### 变更
 
