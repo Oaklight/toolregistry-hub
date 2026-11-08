@@ -408,21 +408,20 @@ def _resolve_max_response_size(value: int | None) -> int:
     return value
 
 
-def _cdp_too_large_error(url: str, max_response_size: int) -> FetchError:
+def _cdp_too_large_error(
+    url: str, max_response_size: int, *, measured_in: str
+) -> FetchError:
     """Refuse a CDP-rendered page larger than the configured fetch limit.
 
-    The browser-side probe counts UTF-16 code units, so the message calls
-    the same numeric cap a character limit.  Like
+    The browser-side probe counts UTF-16 code units while the Python-side
+    check counts code points, so *measured_in* names the unit the caller
+    actually measured; neither is a byte count.  Like
     :func:`_response_too_large_error`, it names the caller-supplied host and
     never the rendered content or a resolved address.
     """
-    try:
-        host = urlsplit(url).hostname or ""
-    except ValueError:
-        host = ""
     return FetchError(
-        f"CDP-rendered page from {host!r} exceeds the "
-        f"{max_response_size}-character fetch limit"
+        f"CDP-rendered page from {_url_host(url)!r} exceeds the "
+        f"{max_response_size} {measured_in} fetch limit"
     )
 
 
@@ -1015,6 +1014,56 @@ def _cdp_page_size(client: Any, target_id: str) -> int | None:
     return size
 
 
+def _cdp_snapshot_html(
+    client: Any,
+    target_id: str,
+    url: str,
+    *,
+    allow_private_hosts: bool,
+    max_response_size: int,
+) -> str:
+    """Read ``{url, html}`` in one evaluate and validate both values.
+
+    A single ``Runtime.evaluate`` returns the final address and the markup
+    from the same JavaScript turn, so a navigation cannot land between the
+    address check and the HTML read.  The address is validated before the
+    markup is accepted; an over-cap string is refused after the Python-side
+    measurement.
+
+    Args:
+        client: Connected CDP client.
+        target_id: Target to evaluate in.
+        url: Caller-supplied URL, used only for the error message.
+        allow_private_hosts: Allow a private final address.
+        max_response_size: Largest accepted page, in Python code points.
+
+    Returns:
+        The rendered HTML, or ``""`` when the snapshot is unusable.
+
+    Raises:
+        FetchPolicyError: If the snapshot address is missing or refused.
+        FetchError: If the received HTML exceeds *max_response_size*.
+    """
+    snapshot = client.evaluate(
+        target_id,
+        "({url: document.location.href, html: document.documentElement.outerHTML})",
+    )
+    if not isinstance(snapshot, dict):
+        return ""
+    _validate_cdp_final_url(
+        snapshot.get("url"), allow_private_hosts=allow_private_hosts
+    )
+    html = snapshot.get("html")
+    if not isinstance(html, str) or not html:
+        return ""
+    if len(html) > max_response_size:
+        # The DOM can grow between the probe and the snapshot, so the
+        # received string is measured again: an over-cap page must not be
+        # returned even though it crossed the wire.
+        raise _cdp_too_large_error(url, max_response_size, measured_in="code points")
+    return html
+
+
 def _render_with_cdp(
     url: str,
     cdp_endpoint: str,
@@ -1029,23 +1078,28 @@ def _render_with_cdp(
     waits for page load, and extracts the fully-rendered HTML
     (post-JavaScript execution).
 
-    The browser follows redirects itself, so the final page address is
-    read from ``document.location.href`` before any HTML is returned.  If
-    that address cannot be read, or it violates the outbound policy, the
-    content is refused (fail closed).
+    The browser follows redirects itself, so the final page address and
+    the HTML are read in **one** ``Runtime.evaluate`` call that returns
+    ``{url, html}``.  Both values therefore come from the same JavaScript
+    turn: a navigation cannot land between reading the address and reading
+    the markup, which two separate calls would allow.  The address from
+    that snapshot is validated before the HTML is returned; if it cannot be
+    read or violates the outbound policy, the content is refused (fail
+    closed).
 
-    The page size is probed before the HTML crosses the wire:
+    The page size is still probed before the snapshot:
     ``document.documentElement.outerHTML.length`` is read first, and a
     value above *max_response_size* raises ``FetchError`` without
     evaluating ``outerHTML``, so an over-size page is normally never
     transferred.  The probe counts UTF-16 code units, and the received
-    string is measured again in Python after the read: the DOM can grow
-    between the two calls (timers, ``MutationObserver``, SPA hydration),
-    and that second check is what guarantees an over-cap string is never
-    returned.  Neither measurement is byte-exact; the probe bounds the
-    transfer in the normal case, and the returned string always stays
-    within the cap.  A probe that does not return an integer is treated as
-    an unknown size and the content is refused.
+    string is measured again in Python after the read (code points): the
+    DOM can grow between the probe and the snapshot (timers,
+    ``MutationObserver``, SPA hydration), and that second check is what
+    guarantees an over-cap string is never returned.  Neither measurement
+    is byte-exact; the probe bounds the transfer in the normal case, and
+    the returned string always stays within the cap.  A probe that does
+    not return an integer is treated as an unknown size and the content is
+    refused.
 
     Args:
         url: The URL to render.
@@ -1070,23 +1124,22 @@ def _render_with_cdp(
             target_id = client.create_target()
             try:
                 client.navigate(target_id, url, timeout=timeout)
-                final_url = client.evaluate(target_id, "document.location.href")
-                _validate_cdp_final_url(
-                    final_url, allow_private_hosts=allow_private_hosts
-                )
                 size = _cdp_page_size(client, target_id)
                 if size is None:
                     return ""
                 if size > max_response_size:
-                    raise _cdp_too_large_error(url, max_response_size)
-                html = client.evaluate(target_id, "document.documentElement.outerHTML")
-                if not isinstance(html, str) or not html:
+                    raise _cdp_too_large_error(
+                        url, max_response_size, measured_in="UTF-16 code units"
+                    )
+                html = _cdp_snapshot_html(
+                    client,
+                    target_id,
+                    url,
+                    allow_private_hosts=allow_private_hosts,
+                    max_response_size=max_response_size,
+                )
+                if not html:
                     return ""
-                if len(html) > max_response_size:
-                    # The DOM can grow between the probe and the read, so the
-                    # received string is measured again: an over-cap page must
-                    # not be returned even though it crossed the wire once.
-                    raise _cdp_too_large_error(url, max_response_size)
                 logger.debug(f"CDP rendered {url}: {len(html)} chars of HTML")
                 return html
             finally:
