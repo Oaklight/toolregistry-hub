@@ -2835,3 +2835,96 @@ class TestFetchRedirectPolicy:
         assert _jina_reader_request("https://example.com/") == "jina content"
         mock_get.assert_called_once()
         assert mock_get.call_args.args[0] == "https://r.jina.ai/next"
+
+    @staticmethod
+    def _jina_ok_response() -> MagicMock:
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {"data": {"content": "jina content"}}
+        response.raise_for_status = MagicMock()
+        return response
+
+    @patch("toolregistry_hub.fetch._http_get")
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_jina_cross_origin_redirect_drops_authorization(self, mock_post, mock_get):
+        sent: list[dict[str, str]] = []
+
+        def fake_post(url, **kwargs):
+            sent.append(dict(kwargs["headers"]))
+            return _redirect_response("https://other.example/reader")
+
+        mock_post.side_effect = fake_post
+        mock_get.return_value = self._jina_ok_response()
+
+        assert (
+            _jina_reader_request("https://example.com/", api_key="secret")
+            == "jina content"
+        )
+        assert sent[0]["Authorization"] == "Bearer secret"
+        assert "Authorization" not in mock_get.call_args.kwargs["headers"]
+
+    @patch("toolregistry_hub.fetch._http_get")
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_veilrender_cross_origin_redirect_drops_authorization(
+        self, mock_post, mock_get
+    ):
+        sent: list[dict[str, str]] = []
+
+        def fake_post(url, **kwargs):
+            sent.append(dict(kwargs["headers"]))
+            return _redirect_response("https://other.example/render")
+
+        mock_post.side_effect = fake_post
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "content": {"html": "<html>ok</html>"},
+            "metadata": {"url": "https://example.com/"},
+        }
+        mock_get.return_value = response
+
+        html = _render_with_veilrender(
+            "https://example.com/", "https://veilrender.example", token="tok"
+        )
+        assert html == "<html>ok</html>"
+        assert sent[0]["Authorization"] == "Bearer tok"
+        assert "Authorization" not in mock_get.call_args.kwargs["headers"]
+
+    @patch("toolregistry_hub.fetch._http_get")
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_jina_same_origin_redirect_keeps_authorization(self, mock_post, mock_get):
+        mock_post.return_value = _redirect_response("https://r.jina.ai/next")
+        mock_get.return_value = self._jina_ok_response()
+
+        assert (
+            _jina_reader_request("https://example.com/", api_key="secret")
+            == "jina content"
+        )
+        assert mock_get.call_args.kwargs["headers"]["Authorization"] == "Bearer secret"
+
+    @patch("toolregistry_hub.fetch._http_get")
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_jina_relative_location_is_resolved_and_followed(self, mock_post, mock_get):
+        mock_post.return_value = _redirect_response("/next")
+        mock_get.return_value = self._jina_ok_response()
+
+        assert _jina_reader_request("https://example.com/") == "jina content"
+        mock_get.assert_called_once()
+        assert mock_get.call_args.args[0] == "https://r.jina.ai/next"
+
+    @patch("toolregistry_hub.fetch._http_get")
+    @patch("toolregistry_hub.fetch._http_post")
+    def test_jina_scheme_relative_location_is_resolved_and_followed(
+        self, mock_post, mock_get
+    ):
+        mock_post.return_value = _redirect_response("//r.jina.ai/next")
+        mock_get.return_value = self._jina_ok_response()
+
+        assert (
+            _jina_reader_request("https://example.com/", api_key="secret")
+            == "jina content"
+        )
+        mock_get.assert_called_once()
+        assert mock_get.call_args.args[0] == "https://r.jina.ai/next"
+        # Same origin: the bearer token survives the hop.
+        assert mock_get.call_args.kwargs["headers"]["Authorization"] == "Bearer secret"
