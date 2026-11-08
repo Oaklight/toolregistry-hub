@@ -89,6 +89,7 @@ content = fetcher.fetch_content(
 `fetch_content` 将每个调用方都视为不可信，因此在发出任何请求之前校验目标 URL 与调用方提供的 `proxy`。
 
 - **协议**：目标与代理都只允许 `http` 和 `https`。`file://`、`data:`、`ftp://`、`ws://` 等一律拒绝。
+- **环境代理**：只有显式传入的 `proxy` 参数会被校验并使用。内置 HTTP 客户端只读取 `SSL_CERT_FILE` 与 `SSL_CERT_DIR`，不读取 `HTTP_PROXY`、`HTTPS_PROXY` 或 `ALL_PROXY`，因此进程环境中的代理变量不会生效，也不存在绕过策略的环境代理路径。
 - **地址**：主机名解析出的每一个地址都必须是全球可路由地址。解析结果中只要有一个非公网地址就拒绝；解析失败同样拒绝（fail closed）。回环、RFC 1918、链路本地（含 `169.254.169.254` 元数据地址）、CGNAT `100.64.0.0/10`、组播、NAT64、6to4、Teredo、ORCHID、文档与基准测试网段均被阻止。IPv4-mapped IPv6 会先解包为 IPv4 再判断；主机名末尾的点会被忽略。
 - **重定向**：`fetch` 自行跟随重定向。每一跳的 `Location` 都会先相对于当前 URL 解析，并在发出下一跳请求前用同一策略校验；指向私有地址的重定向链不会真正连接该地址。最终 URL 还会再校验一次作为兜底。连接不会被固定到已校验的地址，因此校验与连接之间的 DNS 重绑定仍可能存在。适用于 markdown 协商、原始抓取、Jina Reader 与 VeilRender。
 - **CDP**：浏览器自行跟随重定向。返回任何 HTML 之前校验最终的 `document.location.href`；无法读取时拒绝内容。
