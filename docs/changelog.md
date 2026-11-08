@@ -28,6 +28,10 @@ author: Oaklight
 
 - **内置 `httpclient` 0.6.4 → 0.7.1**（zerodep `48606bf`）：重定向到其他源时不再转发 `Authorization`、`Proxy-Authorization` 与 `Cookie`，Digest 认证只在请求仍位于凭据所属源时尝试（#287）；多成员 gzip 响应体现在会逐成员解压，而不再只解压第一个；`Client`/`AsyncClient` 与便捷函数新增可选参数 `max_response_size`，用于限制缓冲响应体，超限时抛出 `ResponseTooLargeError`。该参数默认 `None`，现有调用仍按原样缓冲，`stream=True` 的响应也不会被限制。Hub 代码无需改动。
 
+### 安全
+
+- **Fetch 增加出站地址策略**（#240，引用）：`fetch_content` 现在会在发出任何请求前校验调用方提供的 URL 与代理。仅允许 http/https；主机名解析出的每个地址都必须是全球可路由地址（回环、RFC 1918、链路本地（含 `169.254.169.254`）、CGNAT、组播、NAT64、6to4、Teredo、ORCHID、文档/基准测试网段均拒绝），解析失败同样拒绝。IPv4-mapped 与 NAT64 内嵌地址按 IPv4 判断。重定向采用事后校验：当 `response.url` 指向私有地址时丢弃响应体并抛出 `FetchPolicyError`。CDP 在导航后校验 `document.location.href`；VeilRender 校验 `metadata.url`；两者在无法确认最终地址时拒绝返回内容。运维人员可用 `Fetch(allow_private_hosts=True)`、`FETCH_ALLOW_PRIVATE_HOSTS=1` 或 `tools.jsonc` 中的构造参数显式开启；不提供逐次调用开关。残余风险：产生被拒重定向响应的请求已经发出（盲 SSRF），且连接时会再次解析 DNS（重绑定窗口），需等待 zerodep 提供 `follow_redirects=False` 与连接期地址固定。
+
 ## [0.12.0] - 2026-10-23
 
 ### 修复

@@ -51,7 +51,7 @@ content = fetcher.fetch_content(
 
 ## API 参考
 
-### `Fetch(api_keys=None, cdp_endpoint=None, veilrender_endpoint=None, veilrender_token=None)`
+### `Fetch(api_keys=None, cdp_endpoint=None, veilrender_endpoint=None, veilrender_token=None, allow_private_hosts=None)`
 
 初始化 Fetch 内容提取器。
 
@@ -61,6 +61,7 @@ content = fetcher.fetch_content(
 - `cdp_endpoint` (str, 可选): CDP 兼容浏览器的 WebSocket URL（例如 `ws://localhost:9222`）。回退到 `CDP_ENDPOINT` 环境变量。设置后，启用 CDP 浏览器渲染阶段以提取 SPA 内容。
 - `veilrender_endpoint` (str, 可选): VeilRender 远程浏览器服务的基础 URL（例如 `http://localhost:3000`）。回退到 `VEILRENDER_ENDPOINT` 环境变量。设置后，在自动回退链中 CDP 之前启用 VeilRender 阶段。
 - `veilrender_token` (str, 可选): VeilRender 认证的 Bearer 令牌。回退到 `VEILRENDER_TOKEN` 环境变量。**可选** — 若 VeilRender 实例无需认证可省略。
+- `allow_private_hosts` (bool, 可选): 允许目标 URL 与代理使用私有地址。默认 `False`。省略或为 `None` 时读取 `FETCH_ALLOW_PRIVATE_HOSTS` 环境变量（`1`、`true`、`yes` 或 `on` 启用）。http/https 协议限制始终生效。不提供逐次调用开关，工具调用方无法自行开启。
 
 ### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None, strategy: str = "auto") -> FetchResult`
 
@@ -80,6 +81,33 @@ content = fetcher.fetch_content(
 **异常：**
 
 - `FetchError`: 如果所有提取策略均失败、URL 无效、发生网络错误，或 URL 指向不支持的二进制内容类型（如图片、PDF、音视频等）
+- `FetchPolicyError`: 当目标 URL、代理或重定向目标被出站地址策略拒绝时抛出。它是 `FetchError` 的子类。
+
+## 出站地址策略
+
+`fetch_content` 将每个调用方都视为不可信，因此在发出任何请求之前校验目标 URL 与调用方提供的 `proxy`。
+
+- **协议**：目标与代理都只允许 `http` 和 `https`。`file://`、`data:`、`ftp://`、`ws://` 等一律拒绝。
+- **地址**：主机名解析出的每一个地址都必须是全球可路由地址。解析结果中只要有一个非公网地址就拒绝；解析失败同样拒绝（fail closed）。回环、RFC 1918、链路本地（含 `169.254.169.254` 元数据地址）、CGNAT `100.64.0.0/10`、组播、NAT64、6to4、Teredo、ORCHID、文档与基准测试网段均被阻止。IPv4-mapped IPv6 会先解包为 IPv4 再判断；主机名末尾的点会被忽略。
+- **重定向**：内置 HTTP 客户端会跟随重定向。读取响应体之前校验最终的 `response.url`。重定向到私有地址时丢弃响应体并抛出 `FetchPolicyError`。此时请求已经发出，因此这消除了响应外泄，但不能消除盲 SSRF；逐跳拒绝与连接期地址固定依赖上游 zerodep 版本（`follow_redirects=False` 与地址固定）。
+- **CDP**：浏览器自行跟随重定向。返回任何 HTML 之前校验最终的 `document.location.href`；无法读取时拒绝内容。
+- **VeilRender**：远端服务在 `metadata.url` 中报告最终页面地址，返回 HTML 前会校验；缺少该字段时拒绝。
+- **DNS 重绑定**：策略先解析一次，HTTP 客户端连接时会再次解析，因此在连接期地址固定可用之前仍存在重绑定窗口。
+
+需要访问私有目的地的运维人员可以显式开启。不提供逐次调用开关，工具调用方无法自行开启：
+
+```python
+fetcher = Fetch(allow_private_hosts=True)
+```
+
+或设置 `FETCH_ALLOW_PRIVATE_HOSTS=1`，或在 `tools.jsonc` 中传入构造参数：
+
+```jsonc
+{"class": "toolregistry_hub.fetch.Fetch", "namespace": "web",
+ "kwargs": {"allow_private_hosts": true}}
+```
+
+开启后只跳过地址类别检查；目标与代理的 http/https 限制仍然生效。
 
 ## 工作原理
 
