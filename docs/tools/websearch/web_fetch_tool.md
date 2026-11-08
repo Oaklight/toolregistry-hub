@@ -51,7 +51,7 @@ content = fetcher.fetch_content(
 
 ## API Reference
 
-### `Fetch(api_keys=None, cdp_endpoint=None, veilrender_endpoint=None, veilrender_token=None, allow_private_hosts=None)`
+### `Fetch(api_keys=None, cdp_endpoint=None, veilrender_endpoint=None, veilrender_token=None, allow_private_hosts=None, max_response_size=None)`
 
 Initialize the Fetch content extractor.
 
@@ -62,6 +62,7 @@ Initialize the Fetch content extractor.
 - `veilrender_endpoint` (str, optional): Base URL of a VeilRender remote browser service (e.g., `http://localhost:3000`). Falls back to `VEILRENDER_ENDPOINT` environment variable. When set, enables the VeilRender stage, positioned before CDP in the auto fallback chain.
 - `veilrender_token` (str, optional): Bearer token for VeilRender authentication. Falls back to `VEILRENDER_TOKEN` environment variable. Optional — omit if your VeilRender instance requires no auth.
 - `allow_private_hosts` (bool, optional): Allow the target URL and proxy to use private addresses. Defaults to `False`. When omitted or `None`, the `FETCH_ALLOW_PRIVATE_HOSTS` environment variable is read (`1`, `true`, `yes` or `on` enables it). The http/https scheme restriction always applies. There is no per-call switch, so a tool caller cannot enable it.
+- `max_response_size` (int, optional): Largest HTTP response body, in bytes, that any request buffers. Must be a positive integer; `0`, negatives and non-integers raise `ValueError`. When omitted or `None`, the `FETCH_MAX_RESPONSE_SIZE` environment variable is read, and 10 MiB (10485760) is the default. The argument wins over the environment. The same value bounds markdown negotiation, the raw fetch, Jina Reader and VeilRender; there is no per-strategy override and no per-call switch.
 
 ### `fetch_content(url: str, timeout: float = 30.0, proxy: Optional[str] = None, strategy: str = "auto") -> FetchResult`
 
@@ -111,7 +112,14 @@ The opt-in skips only the address-class checks. The http/https restriction still
 
 ## Response Size Limit
 
-Fetch buffers at most 10 MiB per HTTP response. Markdown negotiation, the raw fetch, the Jina Reader request and VeilRender all pass that limit to the HTTP client, which refuses an oversized `Content-Length` before reading any body and stops a chunked body as soon as it crosses the cap. A refusal raises `FetchError` naming the caller-supplied host and the limit; it never includes a resolved address. A document larger than the limit cannot be extracted; change `_MAX_RESPONSE_SIZE` in `toolregistry_hub.fetch` if a deployment needs larger pages.
+Fetch buffers at most 10 MiB per HTTP response by default. Markdown negotiation, the raw fetch, the Jina Reader request and VeilRender all use the same resolved value, and the HTTP client enforces it: an oversized `Content-Length` is refused before any body is read, and a chunked body stops as soon as it crosses the cap. A refusal raises `FetchError` naming the host that answered — plus the target host when a redirect or a reader endpoint answered instead — and the limit; it never includes a resolved address.
+
+Set the limit with `Fetch(max_response_size=...)` (a positive integer), with the `FETCH_MAX_RESPONSE_SIZE` environment variable when the argument is omitted, or with a `tools.jsonc` `kwargs` entry. The argument wins over the environment; the default is 10 MiB. There is no per-strategy override and no per-call switch.
+
+```jsonc
+{"class": "toolregistry_hub.fetch.Fetch", "namespace": "web",
+ "kwargs": {"max_response_size": 20971520}}
+```
 
 A CDP-rendered page is checked before its HTML is transferred: the tool reads `document.documentElement.outerHTML.length` first, and a page above the limit raises `FetchError` without evaluating `outerHTML`. The probe counts UTF-16 code units, so a page just under the limit can still occupy up to about three times the cap as UTF-8; the check bounds the transfer and the Python-side string, not the byte count exactly. A probe that returns no number is refused rather than transferred. VeilRender's HTML arrives inside its capped JSON body, so the same limit applies without a separate check.
 
