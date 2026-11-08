@@ -14,6 +14,10 @@ author: Oaklight
 
 ## [未发布]
 
+### 安全
+
+- **CDP 渲染的 HTML 在传输前检查大小**（#246）：`_render_with_cdp` 原先通过一次带 `returnByValue` 的 `Runtime.evaluate` 读取完整的 `document.documentElement.outerHTML`，因此巨大或恶意的 DOM 会越过 WebSocket 并在 hub 中实体化，任何上限都来不及生效。现在先探测页面长度，超过 10 MiB 的 `_MAX_RESPONSE_SIZE` 时直接抛出 `FetchError`，不再求值 `outerHTML`；探测结果不可读时按未知大小处理并拒绝内容。该探测统计 UTF-16 码元，因此刚好低于上限的页面按 UTF-8 计仍可能占用约三倍上限——限制的是传输量与 Python 侧字符串，而不是精确的字节数。错误消息只包含调用方提供的 host 与上限，绝不含解析后的地址。VeilRender 的 HTML 受其请求的 10 MiB body 上限约束（JSON 字符串不会比它编码的字符更短），因此无需另行检查；docstring 已说明这一点。
+
 ## [0.12.0] - 2026-11-08
 
 ### 新增

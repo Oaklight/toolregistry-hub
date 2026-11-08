@@ -113,6 +113,8 @@ fetcher = Fetch(allow_private_hosts=True)
 
 Fetch 每个 HTTP 响应最多缓冲 10 MiB。markdown 协商、原始抓取、Jina Reader 请求与 VeilRender 都会把该上限传给 HTTP 客户端：超大的 `Content-Length` 会在读取任何 body 之前被拒绝，chunked body 一旦越过上限也会立即停止。拒绝时抛出 `FetchError`，消息包含调用方提供的 host 与上限，绝不含解析后的地址。超过上限的文档无法提取；若部署需要更大的页面，请修改 `toolregistry_hub.fetch` 中的 `_MAX_RESPONSE_SIZE`。
 
+CDP 渲染的页面在传输 HTML 之前会先检查大小：工具先读取 `document.documentElement.outerHTML.length`，超过上限时直接抛出 `FetchError`，不再求值 `outerHTML`。该探测统计的是 UTF-16 码元，因此刚好低于上限的页面按 UTF-8 计仍可能占用约三倍上限；这项检查限制的是传输量与 Python 侧的字符串，而不是精确的字节数。探测结果不是数字时按未知大小处理，不传输内容。VeilRender 的 HTML 位于受限的 JSON 响应体内，因此适用同一上限，无需另行检查。
+
 ## 工作原理
 
 ### 策略链
@@ -260,7 +262,7 @@ Readability 提取完成后，工具会决定是否还需要运行 soup。当 re
 
 - 设置 `CDP_ENDPOINT` 环境变量（例如 `ws://localhost:9222`），或将 `cdp_endpoint` 传递给 `Fetch()` 构造函数
 - CDP 阶段**完全可选** — 如果未配置，工具直接跳到 Jina Reader
-- 所有 CDP 错误都会被静默捕获；CDP 尝试失败不会中断管道
+- 超过大小上限的 CDP 页面会抛出 `FetchError`；其余 CDP 错误都会被静默捕获，CDP 尝试失败不会中断管道
 
 ### VeilRender 远程浏览器
 
