@@ -22,6 +22,7 @@ For detailed documentation, please visit our ReadTheDocs pages:
 
 - **English Documentation**: [https://toolregistry-hub.readthedocs.io/en/latest/](https://toolregistry-hub.readthedocs.io/en/latest/)
 - **中文文档**: [https://toolregistry-hub.readthedocs.io/zh-cn/latest/](https://toolregistry-hub.readthedocs.io/zh-cn/latest/)
+- **Changelog**: [https://toolregistry-hub.readthedocs.io/en/latest/changelog/](https://toolregistry-hub.readthedocs.io/en/latest/changelog/)
 
 ## Tools Overview
 
@@ -64,58 +65,6 @@ print(current_time)
 ## Documentation Structure
 
 This documentation is organized by tool categories, with each tool category having its own page that details all tools, methods, and usage examples under that category.
-
-## Changelog
-
-### Web Fetch Tool — Major Update (PR #140)
-
-**Structured return value**
-
-`fetch_content` now returns a structured `dict` instead of a plain `str`:
-
-```json
-{
-  "content": "...",
-  "url": "https://example.com",
-  "strategy": "readability",
-  "quality": "high",
-  "content_type": "text/html",
-  "cached": false,
-  "elapsed_ms": 123,
-  "metadata": {"readability_score": 174.3, "content_length": 12345}
-}
-```
-
-**`strategy` parameter**
-
-A new optional `strategy` parameter lets you specify the extraction strategy (default: `"auto"`). Available choices:
-
-| Strategy | Description |
-|---|---|
-| `auto` | Recommended — tries each fallback in order |
-| `markdown` | Cloudflare content negotiation |
-| `readability` | Local readability extraction |
-| `soup` | Local BeautifulSoup fallback |
-| `veilrender` | Remote headless browser (requires `VEILRENDER_ENDPOINT`) |
-| `cdp` | Self-hosted Chrome DevTools Protocol (requires `CDP_ENDPOINT`) |
-| `jina` | Jina Reader API (always available; optional `JINA_API_KEY` for higher rate limits) |
-
-Available choices are narrowed at runtime: `veilrender` and `cdp` appear only when their respective endpoints are configured.
-
-**Updated fallback chain**
-
-```
-markdown → readability → soup → veilrender → cdp → jina → local_fallback
-```
-
-**VeilRender fallback**
-
-VeilRender is a new optional remote headless browser fallback for JS-heavy pages and SPAs. Configure via environment variables:
-
-```
-VEILRENDER_ENDPOINT=https://your-veilrender-instance
-VEILRENDER_TOKEN=your_token_here  # optional
-```
 
 ## Contributing
 
