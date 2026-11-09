@@ -8,6 +8,9 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+from toolregistry import ToolTag
+
+from ._metadata import tool_metadata
 from ._vendor.httpclient import HttpConnectionError, HTTPError, HttpTimeoutError
 from ._vendor.httpclient import get as _http_get
 from ._vendor.structlog import get_logger
@@ -190,6 +193,14 @@ class Weather:
     """
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.NETWORK, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=False,
+        open_world_hint=True,
+        title="Current Weather",
+    )
     def get_current(
         location: str,
         units: Literal["metric", "imperial"] = "metric",
@@ -220,6 +231,14 @@ class Weather:
         }
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.NETWORK, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=False,
+        open_world_hint=True,
+        title="Weather Forecast",
+    )
     def get_forecast(
         location: str,
         days: Literal[1, 2, 3] = 3,
@@ -255,6 +274,14 @@ class Weather:
         }
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.NETWORK, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=False,
+        open_world_hint=True,
+        title="Astronomy",
+    )
     def get_astronomy(
         location: str,
     ) -> dict[str, Any]:

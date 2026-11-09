@@ -12,6 +12,9 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, TypedDict, cast
 from urllib.parse import urljoin, urlsplit
 
+from toolregistry import ToolTag
+
+from ._metadata import tool_metadata
 from ._vendor.httpclient import (
     HttpConnectionError,
     HTTPError,
@@ -726,6 +729,13 @@ class Fetch:
         if self._cache is not None:
             self._cache.clear()
 
+    @tool_metadata(
+        tags={ToolTag.NETWORK, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=True,
+        title="Fetch URL Content",
+    )
     def fetch_content(
         self,
         url: str,

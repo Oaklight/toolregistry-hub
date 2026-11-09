@@ -5,6 +5,10 @@ import hashlib
 import os
 from typing import Literal
 
+from toolregistry import ToolTag
+
+from ._metadata import tool_metadata
+
 
 class FileOps:
     """Core file operations with read/edit/write safety semantics."""
@@ -88,6 +92,14 @@ class FileOps:
     # ======================
 
     @staticmethod
+    @tool_metadata(
+        tags={ToolTag.DESTRUCTIVE, ToolTag.FILE_SYSTEM},
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+        title="Read File",
+    )
     def read(path: str, digest_only: bool = False) -> dict[str, str | bool]:
         """Read text file content and return a digest for safe edits/writes.
 
@@ -123,6 +135,14 @@ class FileOps:
         }
 
     @staticmethod
+    @tool_metadata(
+        tags={ToolTag.DESTRUCTIVE, ToolTag.FILE_SYSTEM},
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=False,
+        open_world_hint=False,
+        title="Edit File",
+    )
     def edit(
         path: str,
         old_string: str,
@@ -212,6 +232,14 @@ class FileOps:
         return {"diff": diff_output, "digest": FileOps._digest(encoded)}
 
     @staticmethod
+    @tool_metadata(
+        tags={ToolTag.DESTRUCTIVE, ToolTag.FILE_SYSTEM},
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+        title="Write File",
+    )
     def write(
         path: str,
         content: str,

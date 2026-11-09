@@ -19,6 +19,9 @@ import types
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Literal
 
+from toolregistry import ToolTag
+
+from .._metadata import tool_metadata
 from .._vendor.structlog import get_logger
 from .base import TIMEOUT_DEFAULT, BaseSearch
 from .dedup import deduplicate_results
@@ -264,6 +267,13 @@ class WebSearch:
         self._engine_cache[name] = instance
         return instance
 
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.NETWORK, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def list_engines(self) -> dict[str, bool]:
         """List all known search engines and whether each is currently configured.
 
@@ -276,6 +286,13 @@ class WebSearch:
             result[name] = self._get_engine(name) is not None
         return result
 
+    @tool_metadata(
+        tags={ToolTag.NETWORK, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=False,
+        open_world_hint=True,
+        title="Web Search",
+    )
     def search(
         self,
         query: str,

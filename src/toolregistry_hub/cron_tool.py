@@ -16,6 +16,9 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from toolregistry import ToolTag
+
+from ._metadata import tool_metadata
 from ._vendor.scheduler import (
     CronTrigger,
     InvalidCronExpression,
@@ -70,6 +73,15 @@ class CronTool:
         self._scheduler.start()
         self._load_durable()
 
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.PRIVILEGED},
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+        title="Schedule Job",
+    )
     def create(
         self,
         cron: str,
@@ -148,6 +160,15 @@ class CronTool:
             "next_fire_time": next_fire,
         }
 
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.PRIVILEGED},
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+        title="Delete Scheduled Job",
+    )
     def delete(self, job_id: str) -> dict:
         """Cancel a scheduled job.
 
@@ -179,6 +200,15 @@ class CronTool:
             "deleted": True,
         }
 
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.PRIVILEGED},
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+        title="List Scheduled Jobs",
+    )
     def list(self) -> str:
         """List all scheduled jobs.
 
@@ -214,6 +244,15 @@ class CronTool:
 
         return "\n".join(lines)
 
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.PRIVILEGED},
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+        title="Stop Scheduler",
+    )
     def shutdown(self) -> str:
         """Stop the scheduler and clean up resources.
 

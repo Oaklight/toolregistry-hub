@@ -10,7 +10,23 @@ Usage::
     result = BashTool.execute("ls -la")
 """
 
+from toolregistry import ToolTag
+
+from ._metadata import tool_metadata
 from .bashtool import BashTool
 from .bashtool import validate_command as _validate_command
+
+# ``BashTool`` lives in the bashtool submodule, which Hub does not edit.  The
+# declaration is attached to the function class registration re-uses, so the
+# tool carries it exactly like a decorated Hub method.
+tool_metadata(
+    defer=True,
+    tags={ToolTag.DESTRUCTIVE, ToolTag.PRIVILEGED},
+    read_only_hint=False,
+    destructive_hint=True,
+    idempotent_hint=False,
+    open_world_hint=True,
+    title="Execute Shell Command",
+)(BashTool.execute)
 
 __all__ = ["BashTool", "_validate_command"]

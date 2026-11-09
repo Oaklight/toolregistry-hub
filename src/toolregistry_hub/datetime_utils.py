@@ -9,6 +9,10 @@ import re
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+from toolregistry import ToolTag
+
+from ._metadata import tool_metadata
+
 
 class DateTime:
     """DateTime utilities for LLM tools with timezone support.
@@ -78,6 +82,13 @@ class DateTime:
             raise ValueError(f"Invalid timezone: {tz_str}") from e
 
     @staticmethod
+    @tool_metadata(
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+        title="Current Date and Time",
+    )
     def now(timezone_name: str | None = None) -> str:
         """Get current time in ISO 8601 format.
 
@@ -107,6 +118,14 @@ class DateTime:
         return dt.isoformat()
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+        title="Convert Timezone",
+    )
     def convert_timezone(
         time_str: str, source_timezone: str, target_timezone: str
     ) -> dict[str, str]:

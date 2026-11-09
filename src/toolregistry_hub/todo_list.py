@@ -2,6 +2,10 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from toolregistry import ToolTag
+
+from ._metadata import tool_metadata
+
 
 @dataclass
 class Todo:
@@ -165,6 +169,14 @@ class TodoList:
         return {"id": id_part, "content": content_part, "status": status_part}
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+        title="Update Todo List",
+    )
     def update(
         todos: list[str],
         format: Literal["markdown", "simple", "ascii"] | None = "simple",

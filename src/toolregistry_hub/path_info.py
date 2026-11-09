@@ -8,11 +8,23 @@ import stat
 from datetime import datetime, timezone
 from pathlib import Path
 
+from toolregistry import ToolTag
+
+from ._metadata import tool_metadata
+
 
 class PathInfo:
     """File and directory metadata query."""
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+        title="Path Info",
+    )
     def info(path: str) -> dict:
         """Get metadata for a file or directory in a single call.
 

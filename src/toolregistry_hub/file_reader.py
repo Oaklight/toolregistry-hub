@@ -13,6 +13,10 @@ import json
 import logging
 from pathlib import Path
 
+from toolregistry import ToolTag
+
+from ._metadata import tool_metadata
+
 logger = logging.getLogger(__name__)
 
 # Safety caps
@@ -36,6 +40,13 @@ class FileReader:
     """Multi-format file reader with line numbers and pagination."""
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def read(
         path: str,
         offset: int = 1,
@@ -100,6 +111,13 @@ class FileReader:
         return header + "\n" + "\n".join(numbered)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def read_pdf(
         path: str,
         pages: str | None = None,
@@ -143,6 +161,13 @@ class FileReader:
             ) from None
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def read_notebook(path: str) -> str:
         """Read a Jupyter notebook and return formatted cell contents.
 
@@ -201,6 +226,13 @@ class FileReader:
         return "\n".join(lines)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def read_image(
         path: str,
         max_size: int = _MAX_IMAGE_SIZE_BYTES,
