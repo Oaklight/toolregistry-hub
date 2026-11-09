@@ -1,6 +1,7 @@
 # ToolRegistry Hub 文档
 
 [![PyPI version](https://img.shields.io/pypi/v/toolregistry-hub?color=green)](https://pypi.org/project/toolregistry-hub/)
+[![TestPyPI version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Ftest.pypi.org%2Fpypi%2Ftoolregistry-hub%2Fjson&query=%24.info.version&label=TestPyPI&color=orange)](https://test.pypi.org/project/toolregistry-hub/)
 [![Docker Image](https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=docker&color=green)](https://hub.docker.com/r/oaklight/toolregistry-hub-server)
 [![CI](https://github.com/Oaklight/toolregistry-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/Oaklight/toolregistry-hub/actions/workflows/ci.yml)
 
@@ -10,11 +11,11 @@
 
 ## 生态系统
 
-| 包 | 描述 | PyPI | 文档 |
-|---|------|------|------|
-| [**toolregistry**](https://github.com/Oaklight/ToolRegistry) | 核心库 — 工具注册、Schema 生成、执行 | [![PyPI](https://img.shields.io/pypi/v/toolregistry?color=green)](https://pypi.org/project/toolregistry/) | [文档](https://toolregistry.readthedocs.io/) |
-| [**toolregistry-server**](https://github.com/Oaklight/toolregistry-server) | 服务端适配器 — 通过 OpenAPI 和 MCP 暴露工具 | [![PyPI](https://img.shields.io/pypi/v/toolregistry-server?color=green)](https://pypi.org/project/toolregistry-server/) | [文档](https://toolregistry-server.readthedocs.io/) |
-| [**toolregistry-hub**](https://github.com/Oaklight/toolregistry-hub) | 即用工具集 — 计算器、网页搜索、文件操作等 | [![PyPI](https://img.shields.io/pypi/v/toolregistry-hub?color=green)](https://pypi.org/project/toolregistry-hub/) | [文档](https://toolregistry-hub.readthedocs.io/) |
+| 包 | 描述 | PyPI | TestPyPI | 文档 |
+|---|------|------|----------|------|
+| [**toolregistry**](https://github.com/Oaklight/ToolRegistry) | 核心库 — 工具注册、Schema 生成、执行 | [![PyPI](https://img.shields.io/pypi/v/toolregistry?color=green)](https://pypi.org/project/toolregistry/) | [![TestPyPI](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Ftest.pypi.org%2Fpypi%2Ftoolregistry%2Fjson&query=%24.info.version&label=TestPyPI&color=orange)](https://test.pypi.org/project/toolregistry/) | [文档](https://toolregistry.readthedocs.io/) |
+| [**toolregistry-server**](https://github.com/Oaklight/toolregistry-server) | 服务端适配器 — 通过 OpenAPI 和 MCP 暴露工具 | [![PyPI](https://img.shields.io/pypi/v/toolregistry-server?color=green)](https://pypi.org/project/toolregistry-server/) | [![TestPyPI](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Ftest.pypi.org%2Fpypi%2Ftoolregistry-server%2Fjson&query=%24.info.version&label=TestPyPI&color=orange)](https://test.pypi.org/project/toolregistry-server/) | [文档](https://toolregistry-server.readthedocs.io/) |
+| [**toolregistry-hub**](https://github.com/Oaklight/toolregistry-hub) | 即用工具集 — 计算器、网页搜索、文件操作等 | [![PyPI](https://img.shields.io/pypi/v/toolregistry-hub?color=green)](https://pypi.org/project/toolregistry-hub/) | [![TestPyPI](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Ftest.pypi.org%2Fpypi%2Ftoolregistry-hub%2Fjson&query=%24.info.version&label=TestPyPI&color=orange)](https://test.pypi.org/project/toolregistry-hub/) | [文档](https://toolregistry-hub.readthedocs.io/) |
 
 ## 📚 文档
 
