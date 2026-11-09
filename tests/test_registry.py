@@ -1,5 +1,6 @@
 """Test central registry functionality."""
 
+import dataclasses
 import os
 import re
 import sys
@@ -10,10 +11,13 @@ from unittest.mock import patch
 # Add the src directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from toolregistry.tool import ToolTag
+from toolregistry.tool import ToolMetadata, ToolTag
 
 from toolregistry_hub.server import registry as registry_module
 from toolregistry_hub.server.registry import build_registry, get_registry
+
+#: Whether the installed core has the execution-hint fields.
+_HAS_HINTS = any(f.name == "read_only_hint" for f in dataclasses.fields(ToolMetadata))
 
 
 class TestBuildRegistry(unittest.TestCase):
@@ -381,7 +385,7 @@ class TestGetRegistry(unittest.TestCase):
 
 
 @unittest.skipUnless(
-    "read_only_hint" in registry_module._METADATA_FIELDS,
+    _HAS_HINTS,
     "installed toolregistry predates execution hints",
 )
 class TestToolAnnotations(unittest.TestCase):
