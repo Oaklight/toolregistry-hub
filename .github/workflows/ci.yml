@@ -51,3 +51,33 @@ jobs:
 
       - name: Run tests
         run: python -m pytest tests/ -v --tb=short
+
+  # The default matrix stays on the released core floor.  ``@tool_metadata``
+  # is on core master ahead of the next release, so this job installs core
+  # master and exercises the decorator path; the same tests run against the
+  # released floor in ``test`` (where the Hub fallback applies the
+  # declarations).  A failure here means Hub is not ready for the floor bump.
+  test-core-master:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # bashtool is a git submodule; without it, the Hub package cannot be
+          # imported and every test module fails at collection.
+          submodules: recursive
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies with core master
+        run: |
+          python -m pip install --upgrade pip
+          pip install --extra-index-url https://test.pypi.org/simple/ --prefer-binary -e ".[dev,server_core]"
+          pip install --force-reinstall --no-deps "toolregistry @ git+https://github.com/Oaklight/ToolRegistry@master"
+          python -c "import importlib.metadata as m; print('toolregistry', m.version('toolregistry'))"
+
+      - name: Run registry and metadata tests
+        run: python -m pytest tests/test_registry.py tests/test_config_hot_reload.py -q
