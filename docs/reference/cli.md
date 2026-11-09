@@ -29,6 +29,8 @@ toolregistry-hub [OPTIONS] COMMAND [COMMAND-OPTIONS]
 
 Start an OpenAPI (REST) server. The default backend is FastAPI; `--backend httpserver` selects the zero-dependency backend.
 
+On a `toolregistry-server` build that provides the gateway (beyond the current released floor), this command is served through the gateway with only the OpenAPI frontend enabled. The flags below are unchanged.
+
 ```bash
 toolregistry-hub openapi [OPTIONS]
 ```
@@ -53,6 +55,8 @@ toolregistry-hub openapi [OPTIONS]
 
 Start an MCP (Model Context Protocol) server.
 
+`--transport stdio` is served directly by the MCP server: the gateway has no stdio frontend. The HTTP transports (`streamable-http`, `http` and `sse`) are served through the server gateway on a build that provides it.
+
 ```bash
 toolregistry-hub mcp [OPTIONS]
 ```
@@ -75,7 +79,9 @@ toolregistry-hub mcp [OPTIONS]
 
 With `--config-reload`, `openapi` and `mcp` start a background watcher that
 polls the config file (`--config`) and applies a source-level diff to the
-running registry: an added source is registered, a removed source is
+running registry. On a server build with the runtime source manager, that
+watcher and the add/remove/replace operations belong to the server; on the
+released floor the Hub's own poller runs. Both behave as described here: an added source is registered, a removed source is
 unregistered, a source that leaves the configured scope is disabled, and a
 changed declaration is replaced. A malformed file is logged and ignored, and
 the current registry keeps serving. Hub default metadata (`tags`, `defer`,
