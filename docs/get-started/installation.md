@@ -34,6 +34,10 @@ pip install toolregistry-hub[server_openapi]
 pip install toolregistry-hub[server_mcp]
 ```
 
+`server_openapi` 会自行安装 FastAPI 与 uvicorn，因为从 server 0.9.0 起
+`toolregistry-server[openapi]` 是空别名，而 Hub 的 `openapi` 命令通过 gateway
+的 ASGI 后端提供服务。这样该 extra 在 0.8.x 与 0.9.x 两个服务器下限上都能工作。
+
 ## Docker
 
 Docker Hub 上提供预构建镜像：
