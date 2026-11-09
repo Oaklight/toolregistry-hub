@@ -108,6 +108,41 @@ class TestServerWatcher:
             app.stop_config_watcher()
 
 
+class TestProfile:
+    def test_profile_filters_startup_tools(self, tmp_path) -> None:
+        """The manager does not filter startup sources; the launcher must."""
+        from toolregistry_server import PROFILE_DISABLE_REASON
+
+        path = tmp_path / "tools.jsonc"
+        path.write_text(
+            json.dumps(
+                {
+                    "tools": [
+                        {
+                            "class": "toolregistry_hub.file_ops.FileOps",
+                            "namespace": "file_ops",
+                        },
+                        {
+                            "class": "toolregistry_hub.calculator.Calculator",
+                            "namespace": "calculator",
+                        },
+                    ]
+                }
+            )
+        )
+        app = HubApp()
+        registry = app.prepare_registry(
+            tools_config_path=str(path),
+            enable_discovery=False,
+            profile="remote",
+        )
+
+        assert registry.get_disable_reason("file_ops-read") == PROFILE_DISABLE_REASON
+        assert registry.is_enabled("calculator-evaluate")
+        # Later diffs are filtered by the manager itself.
+        assert app.source_manager.profile == "remote"
+
+
 class TestDispatch:
     def _cli(self, monkeypatch: pytest.MonkeyPatch) -> tuple[HubCLI, dict]:
         cli = HubCLI()

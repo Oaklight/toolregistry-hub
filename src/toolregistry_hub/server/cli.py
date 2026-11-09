@@ -68,7 +68,7 @@ class HubCLI(CLI):
         path.  ``mcp --transport stdio`` stays on the direct MCP server: the
         gateway has no stdio frontend.
         """
-        common = {
+        common: dict[str, Any] = {
             "tools_config_path": getattr(parsed, "config", None),
             "enable_discovery": getattr(parsed, "tool_discovery", True),
             "enable_think": getattr(parsed, "think_augment", True),
@@ -76,11 +76,11 @@ class HubCLI(CLI):
             "admin_port": getattr(parsed, "admin_port", None),
             # tools.jsonc hot reload (#144); off unless --config-reload is given.
             "config_reload": getattr(parsed, "config_reload", False),
-            # The server adds --no-config-write next to --config-reload on a
-            # server that has the source manager; the released floor has
-            # neither flag and always keeps changes in memory.
-            "write_config": getattr(parsed, "config_write", True),
         }
+        if SERVER_HAS_SOURCE_MANAGER:
+            # --no-config-write exists only on a server that has the source
+            # manager; do not pass the kwarg to an older server.
+            common["write_config"] = getattr(parsed, "config_write", True)
         transport = getattr(parsed, "transport", None)
         # The gateway takes the union of the frontend options: host/port,
         # credentials, backend, the OAuth origin and the tools/list cache

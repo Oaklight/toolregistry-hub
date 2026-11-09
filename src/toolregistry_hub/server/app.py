@@ -121,6 +121,15 @@ class HubApp(App):
         self.source_manager = manager
         if kwargs.get("enable_discovery", True):
             registry.enable_tool_discovery()
+        # The manager applies the profile only to names a later diff
+        # registers; the startup sources are filtered here, as the released
+        # path does.  Keep passing ``profile`` to the manager so a reload
+        # obeys the same filter.
+        profile = kwargs.get("profile")
+        if profile is not None:
+            from toolregistry_server import apply_profile
+
+            apply_profile(registry, profile)
         _enable_admin(registry, **kwargs)
         return registry
 
