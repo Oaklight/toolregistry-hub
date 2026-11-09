@@ -17,6 +17,7 @@ author: Oaklight
 ### 变更
 
 - **工具元数据改为在定义处声明**（#257）：标签、`defer`、执行提示与标题现在以 `@tool_metadata(...)` 声明在工具方法上，不再使用注册后重放的命名空间表，因此类注册无需后处理即可携带这些值。提供装饰器的核心会在 `Tool.from_function` 中应用声明；在受支持的版本下限上，`toolregistry_hub._metadata` 的回退按同一规则（仅填充仍为数据类默认值的字段）应用，因此内置工具在各受支持版本上的取值与优先级保持不变。`BashTool.execute` 的声明来自 `bashtool` 子模块的再导出。命名空间级默认值现在只存在于声明它们的工具上：注册到 Hub 命名空间的第三方工具不会再获得隐式的标签、`defer` 或提示，必须自行声明。重载流程现在只重新发布输出 schema。
+- **可用时启动器改用服务器的 source manager 与 gateway**（#257）：在提供二者的 `toolregistry-server` 构建上，`HubApp` 通过 `SourceManager` 构建注册表——Hub 预设（或配置文件）即管理器应用的配置，Hub 元数据与输出 schema 处理作为其 `on_registered` 钩子运行——因此运行期 add/remove/retry 与配置 watcher 都由服务器负责。`openapi` 与 HTTP MCP 传输通过 gateway 提供且只启用一个前端，而 `mcp --transport stdio` 仍由 MCP 服务器直接提供。`--profile`、`--config-reload`、`--no-config-write`、`--tokens`、`--backend`、`--server-url` 与 tools/list 缓存参数保持可用。在已发布下限上仍走原有的 `build_registry` 路径与 Hub 轮询器；二者在下限提升提交中删除。
 
 ## [0.12.0] - 2026-11-08
 

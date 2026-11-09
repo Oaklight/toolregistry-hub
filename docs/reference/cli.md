@@ -29,6 +29,8 @@ toolregistry-hub [OPTIONS] COMMAND [COMMAND-OPTIONS]
 
 启动 OpenAPI (REST) 服务器。默认使用 FastAPI 后端；`--backend httpserver` 选择零依赖后端。
 
+在提供 gateway 的 `toolregistry-server` 构建上（超出当前已发布下限），该命令通过 gateway 提供，且只启用 OpenAPI 前端；下面的选项不变。
+
 ```bash
 toolregistry-hub openapi [OPTIONS]
 ```
@@ -53,6 +55,8 @@ toolregistry-hub openapi [OPTIONS]
 
 启动 MCP (Model Context Protocol) 服务器。
 
+`--transport stdio` 由 MCP 服务器直接提供：gateway 没有 stdio 前端。HTTP 传输（`streamable-http`、`http` 与 `sse`）在提供 gateway 的构建上通过服务器 gateway 提供。
+
 ```bash
 toolregistry-hub mcp [OPTIONS]
 ```
@@ -73,7 +77,7 @@ toolregistry-hub mcp [OPTIONS]
 
 ### 配置热重载
 
-使用 `--config-reload` 时，`openapi` 和 `mcp` 会启动后台 watcher，轮询配置文件（`--config`）并对运行中的注册表做 source 级 diff：新增 source 会被注册，删除 source 会被注销，离开配置范围的 source 会被禁用，声明变化会被重新注册。非法配置只记录日志并被忽略，当前注册表继续服务。Hub 默认元数据（`tags`、`defer`、`title`、`search_hint` 与执行提示）只应用于本次 reload 注册的工具，已存在的工具保持管理面板修改后的值。reload 注册的新 source 会重新套用 `--profile` 过滤，被排除的工具保持禁用。watcher 按进程生效且默认关闭，多个服务之间不做协调。
+使用 `--config-reload` 时，`openapi` 和 `mcp` 会启动后台 watcher，轮询配置文件（`--config`）并对运行中的注册表做 source 级 diff。在提供运行期 source manager 的服务器构建上，该 watcher 与 add/remove/replace 操作都由服务器负责；在已发布下限上运行 Hub 自带的轮询器。两者行为如下：新增 source 会被注册，删除 source 会被注销，离开配置范围的 source 会被禁用，声明变化会被重新注册。非法配置只记录日志并被忽略，当前注册表继续服务。Hub 默认元数据（`tags`、`defer`、`title`、`search_hint` 与执行提示）只应用于本次 reload 注册的工具，已存在的工具保持管理面板修改后的值。reload 注册的新 source 会重新套用 `--profile` 过滤，被排除的工具保持禁用。watcher 按进程生效且默认关闭，多个服务之间不做协调。
 
 已知限制：从文件中删除 `tool_metadata` 条目后，该项设置不会回滚，直到进程重启。这些字段同样可由管理面板写入，reload 无法区分文件写入的值与之后的面板编辑；如需恢复，请在面板中重置。
 
