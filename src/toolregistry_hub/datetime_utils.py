@@ -7,11 +7,22 @@ UTC/GMT offset formats (e.g., "UTC+5", "GMT-3", "UTC+5:30").
 
 import re
 from datetime import datetime, timedelta, timezone
+from typing import TypedDict
 from zoneinfo import ZoneInfo
 
 from toolregistry import ToolTag
 
 from ._metadata import tool_metadata
+
+
+class TimezoneConversion(TypedDict, total=False):
+    """Result of ``DateTime.convert_timezone``."""
+
+    source_time: str
+    target_time: str
+    time_difference: str
+    source_timezone: str
+    target_timezone: str
 
 
 class DateTime:
@@ -141,7 +152,7 @@ class DateTime:
     )
     def convert_timezone(
         time_str: str, source_timezone: str, target_timezone: str
-    ) -> dict[str, str]:
+    ) -> TimezoneConversion:
         """Convert time between timezones.
 
         As an LLM, you may need to convert times across timezones for scheduling,
@@ -203,10 +214,10 @@ class DateTime:
             # For fractional hours like Nepal's UTC+5:45
             time_diff_str = f"{hours_difference:+.2f}".rstrip("0").rstrip(".") + "h"
 
-        return {
-            "source_time": source_time.isoformat(),
-            "target_time": target_time.isoformat(),
-            "time_difference": time_diff_str,
-            "source_timezone": source_timezone,
-            "target_timezone": target_timezone,
-        }
+        return TimezoneConversion(
+            source_time=source_time.isoformat(),
+            target_time=target_time.isoformat(),
+            time_difference=time_diff_str,
+            source_timezone=source_timezone,
+            target_timezone=target_timezone,
+        )

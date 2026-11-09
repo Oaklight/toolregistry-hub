@@ -7,10 +7,21 @@ size, modification time, permissions).
 import stat
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TypedDict
 
 from toolregistry import ToolTag
 
 from ._metadata import tool_metadata
+
+
+class PathInfoResult(TypedDict, total=False):
+    """Result of ``PathInfo.info``."""
+
+    exists: bool
+    type: str
+    size: int
+    last_modified: str
+    permissions: str
 
 
 class PathInfo:
@@ -38,7 +49,7 @@ class PathInfo:
             }
         },
     )
-    def info(path: str) -> dict:
+    def info(path: str) -> PathInfoResult:
         """Get metadata for a file or directory in a single call.
 
         Args:
@@ -57,7 +68,7 @@ class PathInfo:
         p = Path(path)
 
         if not p.exists():
-            return {"exists": False}
+            return PathInfoResult(exists=False)
 
         st = p.stat()
 
@@ -83,10 +94,10 @@ class PathInfo:
         # Human-readable permissions string (e.g. "rwxr-xr-x")
         permissions = stat.filemode(st.st_mode)[1:]  # strip leading type char
 
-        return {
-            "exists": True,
-            "type": path_type,
-            "size": size,
-            "last_modified": last_modified,
-            "permissions": permissions,
-        }
+        return PathInfoResult(
+            exists=True,
+            type=path_type,
+            size=size,
+            last_modified=last_modified,
+            permissions=permissions,
+        )
