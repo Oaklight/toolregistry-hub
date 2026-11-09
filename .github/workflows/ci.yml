@@ -83,8 +83,9 @@ jobs:
 
   # The floor is server 0.9.0 (published as a prerelease on TestPyPI).  This
   # job installs that exact wheel so the launcher path is exercised the way a
-  # user gets it.  TestPyPI does not host the dependencies, so the PyPI extra
-  # index is mandatory.
+  # user gets it, and pins it again on the extras install so a later TestPyPI
+  # prerelease cannot replace the wheel under test.  TestPyPI does not host
+  # the dependencies, so the PyPI extra index is mandatory.
   test-server-dev:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -105,7 +106,7 @@ jobs:
 
       - name: Install the Hub and test dependencies
         run: |
-          pip install --extra-index-url https://test.pypi.org/simple/ --prefer-binary -e ".[dev,server]"
+          pip install --extra-index-url https://test.pypi.org/simple/ --prefer-binary -e ".[dev,server]" "toolregistry-server==0.9.0.dev1"
           python -c "import importlib.metadata as m; print('toolregistry', m.version('toolregistry')); print('toolregistry-server', m.version('toolregistry-server'))"
 
       - name: Run launcher and metadata tests
