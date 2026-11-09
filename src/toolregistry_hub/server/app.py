@@ -118,6 +118,12 @@ class HubApp(App):
             on_registered=apply_hub_overrides,
         )
         manager.apply_initial()
+        # ``apply_initial`` registers startup sources without calling
+        # ``on_registered``; the server callback only covers later diffs. Run
+        # the Hub pass once over the startup tools so their output schemas and
+        # declarations are applied immediately. This becomes redundant (not
+        # wrong) when the server callback covers startup too.
+        apply_hub_overrides(registry, set(registry._tools))
         self.source_manager = manager
         if kwargs.get("enable_discovery", True):
             registry.enable_tool_discovery()

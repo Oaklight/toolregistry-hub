@@ -64,9 +64,15 @@ class TestSourceManagerOwnsRegistration:
         assert "datetime-now" in names
 
         # The Hub's declarations and output schemas still reach the tools the
-        # manager registered.
+        # manager registered. ``apply_initial`` does not call
+        # ``on_registered``, so the launcher runs the pass itself; the output
+        # schema is the part that only that pass adds.
         assert registry.get_tool("calculator-evaluate").metadata.defer is True
         assert registry.get_tool("datetime-now").metadata.title
+        schema = registry.get_tool("datetime-convert_timezone").metadata.extra.get(
+            "output_schema"
+        )
+        assert schema and schema["type"] == "object"
 
     def test_mutations_go_through_the_manager(self, config_path) -> None:
         from toolregistry.config import PythonSource
