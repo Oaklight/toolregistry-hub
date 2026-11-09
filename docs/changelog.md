@@ -16,8 +16,13 @@ author: Oaklight
 
 ### 变更
 
-- **工具元数据改为在定义处声明**（#257）：标签、`defer`、执行提示与标题现在以 `@tool_metadata(...)` 声明在工具方法上，不再使用注册后重放的命名空间表，因此类注册无需后处理即可携带这些值。提供装饰器的核心会在 `Tool.from_function` 中应用声明；在受支持的版本下限上，`toolregistry_hub._metadata` 的回退按同一规则（仅填充仍为数据类默认值的字段）应用，因此内置工具在各受支持版本上的取值与优先级保持不变。`BashTool.execute` 的声明来自 `bashtool` 子模块的再导出。命名空间级默认值现在只存在于声明它们的工具上：注册到 Hub 命名空间的第三方工具不会再获得隐式的标签、`defer` 或提示，必须自行声明。重载流程现在只重新发布输出 schema。
-- **可用时启动器改用服务器的 source manager 与 gateway**（#257）：在提供二者的 `toolregistry-server` 构建上，`HubApp` 通过 `SourceManager` 构建注册表——Hub 预设（或配置文件）即管理器应用的配置，Hub 元数据与输出 schema 处理作为其 `on_registered` 钩子运行——因此运行期 add/remove/retry 与配置 watcher 都由服务器负责。`openapi` 与 HTTP MCP 传输通过 gateway 提供且只启用一个前端，而 `mcp --transport stdio` 仍由 MCP 服务器直接提供。`--profile`、`--config-reload`、`--no-config-write`、`--tokens`、`--backend`、`--server-url` 与 tools/list 缓存参数保持可用。在已发布下限上仍走原有的 `build_registry` 路径与 Hub 轮询器；二者在下限提升提交中删除。
+- **Hub 现在是预设 + 启动器**（#257）：注册由服务器的 `SourceManager` 负责，运行期 add/remove/retry 与 `--config-reload` 都归 `toolregistry-server`，Hub 不再保留 watcher 或来源 diff。`openapi` 与 HTTP MCP 传输由服务器 gateway 提供且只启用一个前端；`mcp --transport stdio` 仍由 MCP 服务器直接提供，因为 gateway 没有 stdio 前端。`--profile`、`--config-reload`、`--no-config-write`、`--tokens`、`--backend`、`--server-url` 与 tools/list 缓存参数行为不变。依赖下限为 `toolregistry>=0.21.0` 与 `toolregistry-server>=0.9.0`；在本版本线准备期间，两者分别使用 TestPyPI 预发布 `0.21.0.dev1` 与 `0.9.0.dev1`。
+- **默认工具集就是随包预设**（#257）：`data/tools.yaml` 是内置列表的唯一来源——默认加载它，运行期来源变更只留在内存，不再改写包内文件。预设现在与实际提供的工具一致：新增 `weather` 与 `academics`，移除各个独立搜索后端（改由统一的 `web` 搜索在调用时选择后端）。测试把实际服务集与预设绑定，二者不会再漂移。
+- **工具元数据改为在定义处声明**（#257）：标签、`defer`、执行提示、标题与输出 schema 以 `@tool_metadata(...)` 声明在工具方法上，由 core 的 `Tool.from_function` 应用；注册后的回放处理已完全移除。命名空间级默认值只存在于声明它们的工具上：注册到 Hub 命名空间的第三方工具不会再获得隐式的标签、`defer` 或提示，必须自行声明。
+
+### 移除
+
+- **Hub 自己的热重载、引擎探测与输出 schema 表**（#257）：`server/hot_reload.py` 及其 watcher、`server/_compat.py` 中的 `SERVER_HAS_*` 探测、`server/output_schemas.py` 均已删除；它们发布的声明现在与工具定义放在一起。
 
 ## [0.12.1] - 2026-11-09
 
