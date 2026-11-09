@@ -16,6 +16,9 @@ import os
 import types
 from typing import Literal
 
+from toolregistry import ToolTag
+
+from .._metadata import tool_metadata
 from .._vendor.structlog import get_logger
 from .base import TIMEOUT_DEFAULT, BaseAcademicSearch
 from .paper_result import PaperResult
@@ -130,6 +133,13 @@ class AcademicSearch:
         self._engine_cache[name] = instance
         return instance
 
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.NETWORK, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def list_engines(self) -> dict[str, bool]:
         """List all known academic search engines and whether each is configured.
 
@@ -138,6 +148,13 @@ class AcademicSearch:
         """
         return {name: self._get_engine(name) is not None for name in _ENGINE_REGISTRY}
 
+    @tool_metadata(
+        tags={ToolTag.NETWORK, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=False,
+        open_world_hint=True,
+        title="Academic Search",
+    )
     def search(
         self,
         query: str,

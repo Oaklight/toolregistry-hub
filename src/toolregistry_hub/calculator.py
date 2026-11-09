@@ -4,6 +4,9 @@ import math
 import textwrap
 from typing import Literal
 
+from toolregistry import ToolTag
+
+from ._metadata import tool_metadata
 from .utils import get_all_static_methods
 
 
@@ -12,21 +15,49 @@ class BaseCalculator:
 
     # ====== Basic arithmetic 基本算术运算 ======
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def add(a: float, b: float) -> float:
         """Adds two numbers."""
         return a + b
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def subtract(a: float, b: float) -> float:
         """Subtracts b from a."""
         return a - b
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def multiply(a: float, b: float) -> float:
         """Multiplies two numbers."""
         return a * b
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def divide(a: float, b: float) -> float:
         """Divides a by b. b != 0"""
         if b == 0:
@@ -34,6 +65,13 @@ class BaseCalculator:
         return a / b
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def floor_divide(a: float, b: float) -> float:
         """Floor divides a by b. b != 0"""
         if b == 0:
@@ -41,6 +79,13 @@ class BaseCalculator:
         return a // b
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def mod(a: float, b: float) -> float:
         """Modulo a by b. b != 0"""
         if b == 0:
@@ -49,24 +94,52 @@ class BaseCalculator:
 
     # ====== Numerical processing 数值处理 ======
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def abs(x: float) -> float:
         """absolute value of x."""
         # No range check needed for abs
         return abs(x)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def round(x: float, n: int = 0) -> float:
         """Rounds x to n decimal places."""
         return round(x, n)
 
     # ====== Power and roots 幂和根 ======
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def pow(base: float, exponent: float) -> float:
         """Raises base to exponent power."""
         # No range check needed for power
         return math.pow(base, exponent)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def sqrt(x: float) -> float:
         """square root of a number."""
         if x < 0:
@@ -74,12 +147,26 @@ class BaseCalculator:
         return math.sqrt(x)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def cbrt(x: float) -> float:
         """cube root of a number."""
         return math.copysign(abs(x) ** (1 / 3), x)
 
     # ====== Logarithmic and exponential functions 对数/指数函数 ======
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def log(x: float, base: float = 10) -> float:
         """logarithm of x with given base, default base is 10."""
         if x <= 0:
@@ -89,6 +176,13 @@ class BaseCalculator:
         return math.log(x, base)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def ln(x: float) -> float:
         """natural (base-e) logarithm of x."""
         if x <= 0:
@@ -96,6 +190,13 @@ class BaseCalculator:
         return math.log(x)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def exp(x: float) -> float:
         """the exponential of x (e^x)."""
         # No range check needed for exp
@@ -103,6 +204,13 @@ class BaseCalculator:
 
     # ====== Statistical functions 统计函数 ======
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def min(numbers: list[float]) -> float:
         """Finds the minimum value in a list of numbers."""
         if not numbers:
@@ -110,6 +218,13 @@ class BaseCalculator:
         return min(numbers)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def max(numbers: list[float]) -> float:
         """Finds the maximum value in a list of numbers."""
         if not numbers:
@@ -117,12 +232,26 @@ class BaseCalculator:
         return max(numbers)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def sum(numbers: list[float]) -> float:
         """Calculates the sum of a list of numbers."""
         # No range check needed for sum
         return sum(numbers)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def average(numbers: list[float]) -> float:
         """Calculates arithmetic mean of numbers."""
         if not numbers:
@@ -130,6 +259,13 @@ class BaseCalculator:
         return sum(numbers) / len(numbers)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def median(numbers: list[float]) -> float:
         """Calculates median of numbers."""
         if not numbers:
@@ -142,6 +278,13 @@ class BaseCalculator:
         return (sorted_numbers[mid - 1] + sorted_numbers[mid]) / 2
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def mode(numbers: list[float]) -> list[float]:
         """Finds mode(s) of numbers."""
         if not numbers:
@@ -154,6 +297,13 @@ class BaseCalculator:
         return [num for num, count in freq.items() if count == max_count]
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def standard_deviation(numbers: list[float]) -> float:
         """Calculates population standard deviation of numbers."""
         if not numbers:
@@ -164,6 +314,13 @@ class BaseCalculator:
 
     # ====== Combinatorics 组合数学 ======
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def factorial(n: int) -> int:
         """Calculates factorial of n."""
         if n < 0:
@@ -171,12 +328,26 @@ class BaseCalculator:
         return math.factorial(n)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def gcd(a: int, b: int) -> int:
         """Calculates greatest common divisor of a and b."""
         # No range check needed for gcd
         return math.gcd(a, b)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def lcm(a: int, b: int) -> int:
         """Calculates least common multiple of a and b."""
         # No range check needed for lcm
@@ -184,6 +355,13 @@ class BaseCalculator:
 
     # ====== Distance and norm 距离/范数 ======
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def dist(
         p: list[float],
         q: list[float],
@@ -198,17 +376,38 @@ class BaseCalculator:
             return sum(abs(x - y) for x, y in zip(p, q, strict=False))
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def norm_euclidean(p: list[float]) -> float:
         """Calculates Euclidean norm of a point."""
         return math.hypot(*p)  # Using math.hypot for Euclidean norm
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def hypot(*args: float) -> float:
         """Calculates Euclidean norm (hypotenuse) of input values."""
         return math.hypot(*args)
 
     # ====== Financial calculations 金融计算 ======
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def simple_interest(principal: float, rate: float, time: float) -> float:
         """Calculates simple interest.
 
@@ -224,6 +423,13 @@ class BaseCalculator:
         return principal * rate * time
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def compound_interest(
         principal: float, rate: float, time: float, periods: int = 1
     ) -> float:
@@ -277,6 +483,13 @@ class Calculator:
         return _ALLOWED_FUNCTIONS + _MATH_LIB_FUNCTIONS
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def list_allowed_fns(with_help: bool = False) -> str:
         """Returns a JSON string of allowed functions for the evaluate method with their descriptions.
 
@@ -302,6 +515,13 @@ class Calculator:
         return json.dumps(function_help)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def help(fn_name: str | None = None) -> str:
         """Returns help documentation for functions used in the evaluate method.
 
@@ -394,6 +614,13 @@ class Calculator:
         return "\n".join(lines)
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def evaluate(expression: str) -> float | int | bool:
         """Evaluates a mathematical expression.
 

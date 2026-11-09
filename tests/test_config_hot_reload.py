@@ -43,8 +43,8 @@ DATETIME = (
     '{"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "datetime"}'
 )
 UNIT = '{"class": "toolregistry_hub.unit_converter.UnitConverter", "namespace": "unit_converter"}'
-# A namespace outside the Hub's built-in metadata map, so a source-declared
-# tag survives `_apply_tool_metadata` and the profile filter can see it.
+# A namespace outside the Hub's built-in namespaces, so a source-declared
+# tag survives the tool declarations and the profile filter can see it.
 DT2 = (
     '{"class": "toolregistry_hub.datetime_utils.DateTime", "namespace": "dt2", '
     '"tags": ["file_system"]}'

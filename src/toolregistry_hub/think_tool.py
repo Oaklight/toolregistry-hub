@@ -8,6 +8,10 @@ Inspired by "Eliciting Reasoning in Language Models with Cognitive Tools"
 
 from typing import Literal
 
+from toolregistry import ToolTag
+
+from ._metadata import tool_metadata
+
 
 class ThinkTool:
     """Unified cognitive tool for all thinking operations.
@@ -17,6 +21,13 @@ class ThinkTool:
     """
 
     @staticmethod
+    @tool_metadata(
+        tags={ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+        title="Think",
+    )
     def think(
         thinking_mode: Literal[
             # Core modes (most commonly used)

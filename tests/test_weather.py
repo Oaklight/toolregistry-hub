@@ -326,9 +326,10 @@ class TestRegistration:
         pytest.importorskip("toolregistry")
         from toolregistry.tool import ToolTag
 
-        from toolregistry_hub.server.registry import _TOOL_METADATA
+        from toolregistry_hub._metadata import declared_metadata
+        from toolregistry_hub.weather import Weather
 
-        meta = _TOOL_METADATA.get("weather", {})
+        meta = declared_metadata(Weather.get_current)
         assert ToolTag.NETWORK in meta.get("tags", set())
         assert ToolTag.READ_ONLY in meta.get("tags", set())
 

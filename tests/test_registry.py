@@ -13,11 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from toolregistry.tool import ToolTag
 
 from toolregistry_hub.server import registry as registry_module
-from toolregistry_hub.server.registry import (
-    _TOOL_METADATA,
-    build_registry,
-    get_registry,
-)
+from toolregistry_hub.server.registry import build_registry, get_registry
 
 
 class TestBuildRegistry(unittest.TestCase):
@@ -223,11 +219,18 @@ class TestToolMetadataAndDiscovery(unittest.TestCase):
             self.assertIn(ToolTag.DESTRUCTIVE, tool.metadata.tags)
 
     def test_deferred_tools_marked(self):
-        """Test that tools in _TOOL_METADATA with defer=True are deferred."""
+        """A namespace whose declarations set defer is deferred as a whole."""
         reg = build_registry(enable_discovery=False)
 
         deferred_namespaces = {
-            ns for ns, meta in _TOOL_METADATA.items() if meta.get("defer")
+            "calculator",
+            "reader",
+            "fs",
+            "bash",
+            "cron",
+            "todolist",
+            "unit_converter",
+            "weather",
         }
         for tool in reg._tools.values():
             if tool.namespace in deferred_namespaces:

@@ -6,7 +6,8 @@ and automatically disables tools whose configuration is incomplete.
 Hub-specific concerns (content, not infrastructure):
 
 - ``_DEFAULT_TOOLS``: built-in tool list as ``PythonSource`` entries
-- ``_TOOL_METADATA``: namespace → tag/defer overrides applied post-registration
+- ``@tool_metadata``: tag/defer/hint declarations on the tool methods;
+  applied by the core, with a released-floor fallback in ``_metadata``
 - ``output_schemas.OUTPUT_SCHEMAS``: declared result shapes, published as
   MCP ``outputSchema`` / ``structuredContent``
 - ``configurable_hook``: post-register hook that auto-disables unconfigured tools
@@ -23,8 +24,9 @@ from typing import Any
 
 from toolregistry import ToolRegistry
 from toolregistry.config import PythonSource, ToolConfig
-from toolregistry.tool import ToolMetadata, ToolTag
+from toolregistry.tool import ToolMetadata
 
+from .._metadata import apply_declared_metadata
 from .._vendor.structlog import get_logger
 from ..utils.configurable import Configurable
 from .hot_reload import ReloadState, apply_config_tracked, index_sources
@@ -81,165 +83,6 @@ _DEFAULT_TOOLS: list[PythonSource] = [
     ),
 ]
 
-# Metadata overrides for registered tools, keyed by namespace.
-#
-# Execution hints are what MCP hosts use to decide whether a call needs
-# human approval (MCP 2025-06-18 annotations).  They are set explicitly
-# here rather than left to the tag-derived defaults so that every tool in
-# the hub makes a claim: a host that treats a missing ``readOnlyHint`` as
-# write-capable would otherwise prompt for ``datetime-now``.
-# ``idempotent_hint`` / ``open_world_hint`` are never derived from tags,
-# so they are declared alongside.  See #280.
-_TOOL_METADATA: dict[str, dict] = {
-    "calculator": {
-        "defer": True,
-        "tags": {ToolTag.READ_ONLY},
-        "read_only_hint": True,
-        "idempotent_hint": True,
-        "open_world_hint": False,
-    },
-    "datetime": {
-        "tags": {ToolTag.READ_ONLY},
-        "read_only_hint": True,
-        "idempotent_hint": True,
-        "open_world_hint": False,
-        "methods": {
-            "convert_timezone": {"defer": True, "title": "Convert Timezone"},
-            "now": {"title": "Current Date and Time"},
-        },
-    },
-    "think": {
-        "tags": {ToolTag.READ_ONLY},
-        "read_only_hint": True,
-        "idempotent_hint": True,
-        "open_world_hint": False,
-        "methods": {"think": {"title": "Think"}},
-    },
-    "file_ops": {
-        "tags": {ToolTag.FILE_SYSTEM, ToolTag.DESTRUCTIVE},
-        "read_only_hint": False,
-        "destructive_hint": True,
-        "open_world_hint": False,
-        "methods": {
-            "read": {
-                "read_only_hint": True,
-                "destructive_hint": False,
-                "idempotent_hint": True,
-                "title": "Read File",
-            },
-            "edit": {"idempotent_hint": False, "title": "Edit File"},
-            "write": {"idempotent_hint": True, "title": "Write File"},
-        },
-    },
-    "web": {
-        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
-        "read_only_hint": True,
-        "idempotent_hint": False,
-        "open_world_hint": True,
-        "methods": {
-            "fetch_content": {"idempotent_hint": True, "title": "Fetch URL Content"},
-            "list_engines": {
-                "defer": True,
-                "idempotent_hint": True,
-                # Enumerates configured engines locally; no network call.
-                "open_world_hint": False,
-            },
-            "search": {"title": "Web Search"},
-        },
-    },
-    "reader": {
-        "defer": True,
-        "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
-        "read_only_hint": True,
-        "idempotent_hint": True,
-        "open_world_hint": False,
-    },
-    "fs": {
-        "defer": True,
-        "tags": {ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
-        "read_only_hint": True,
-        "idempotent_hint": True,
-        "open_world_hint": False,
-        "methods": {"info": {"title": "Path Info"}},
-    },
-    "bash": {
-        "defer": True,
-        "tags": {ToolTag.DESTRUCTIVE, ToolTag.PRIVILEGED},
-        "read_only_hint": False,
-        "destructive_hint": True,
-        "idempotent_hint": False,
-        "open_world_hint": True,
-        "methods": {"execute": {"title": "Execute Shell Command"}},
-    },
-    "cron": {
-        "defer": True,
-        "tags": {ToolTag.PRIVILEGED},
-        "read_only_hint": False,
-        "destructive_hint": True,
-        "open_world_hint": False,
-        "methods": {
-            "create": {
-                "destructive_hint": False,
-                "idempotent_hint": False,
-                "title": "Schedule Job",
-            },
-            "delete": {"idempotent_hint": True, "title": "Delete Scheduled Job"},
-            "list": {
-                "read_only_hint": True,
-                "destructive_hint": False,
-                "idempotent_hint": True,
-                "title": "List Scheduled Jobs",
-            },
-            "shutdown": {"idempotent_hint": True, "title": "Stop Scheduler"},
-        },
-    },
-    "todolist": {
-        "defer": True,
-        # ``update`` renders the list the caller passes and stores nothing;
-        # the host keeps the state. Read-only, matching the existing tag, so
-        # permission behaviour does not change.
-        "tags": {ToolTag.READ_ONLY},
-        "read_only_hint": True,
-        "idempotent_hint": True,
-        "open_world_hint": False,
-        "methods": {"update": {"title": "Update Todo List"}},
-    },
-    "unit_converter": {
-        "defer": True,
-        "tags": {ToolTag.READ_ONLY},
-        "read_only_hint": True,
-        "idempotent_hint": True,
-        "open_world_hint": False,
-    },
-    "weather": {
-        "defer": True,
-        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
-        "read_only_hint": True,
-        "idempotent_hint": False,
-        "open_world_hint": True,
-        "methods": {
-            "get_current": {"title": "Current Weather"},
-            "get_forecast": {"title": "Weather Forecast"},
-            "get_astronomy": {"title": "Astronomy"},
-        },
-    },
-    "academics": {
-        "tags": {ToolTag.NETWORK, ToolTag.READ_ONLY},
-        "read_only_hint": True,
-        "idempotent_hint": False,
-        "open_world_hint": True,
-        "methods": {
-            "list_engines": {
-                "defer": True,
-                "idempotent_hint": True,
-                # Enumerates configured engines locally; no network call.
-                "open_world_hint": False,
-            },
-            "search": {"title": "Academic Search"},
-        },
-    },
-}
-
 
 def configurable_hook(name: str, tool: object, registry: ToolRegistry) -> str | None:
     """Post-registration hook: auto-disable tools that fail ``_is_configured()``.
@@ -266,37 +109,6 @@ def configurable_hook(name: str, tool: object, registry: ToolRegistry) -> str | 
     return None
 
 
-def _collect_overrides(overrides: dict) -> dict[str, Any]:
-    """Extract metadata update fields from an overrides dict.
-
-    Returns a dict suitable for passing as kwargs to
-    ``registry._replace_tool_metadata()``.
-
-    Args:
-        overrides: Dict with optional ``defer``, ``tags``, ``search_hint``,
-            ``title`` and execution-hint keys (``read_only_hint``,
-            ``destructive_hint``, ``idempotent_hint``, ``open_world_hint``).
-
-    Returns:
-        A dict of metadata field updates (may be empty).  Keys the installed
-        :class:`ToolMetadata` does not define are dropped.
-    """
-    updates: dict = {}
-    for key in (
-        "defer",
-        "tags",
-        "search_hint",
-        "title",
-        "read_only_hint",
-        "destructive_hint",
-        "idempotent_hint",
-        "open_world_hint",
-    ):
-        if key in overrides and key in _METADATA_FIELDS:
-            updates[key] = overrides[key]
-    return updates
-
-
 def _output_schema_update(namespace: str, tool: Any) -> dict:
     """Return the ``extra`` metadata update carrying a declared result schema.
 
@@ -321,52 +133,31 @@ def _output_schema_update(namespace: str, tool: Any) -> dict:
     return {"extra": {**(existing or {}), "output_schema": schema}}
 
 
-def _apply_tool_metadata(registry: ToolRegistry, names: Set[str] | None = None) -> None:
-    """Apply tag and defer overrides from ``_TOOL_METADATA``.
+def _apply_output_schemas(
+    registry: ToolRegistry, names: Set[str] | None = None
+) -> None:
+    """Publish the declared result schemas of the registered tools.
 
-    Namespace-level overrides are applied first; method-level overrides
-    (nested under the ``methods`` key) are merged on top.  Uses
-    ``_replace_tool_metadata()`` since Tool and ToolMetadata are frozen.
-
-    Example ``_TOOL_METADATA`` entry with method-level override::
-
-        "calculator": {
-            "tags": {ToolTag.READ_ONLY},
-            "methods": {
-                "evaluate": {"defer": True},
-            },
-        }
+    A declared schema lives in ``ToolMetadata.extra["output_schema"]``
+    because that is where ``toolregistry-server`` reads it.  Metadata
+    declarations themselves are applied at definition time; this pass only
+    attaches the schemas keyed by namespace and method in
+    ``OUTPUT_SCHEMAS``.
 
     Args:
         registry: The registry whose tools should be annotated.
         names: When given, annotate only these tools.  A hot reload passes
-            the names it registered, so a tool that already existed keeps a
-            value an operator changed from the admin panel.
+            the names it registered.
     """
-    # Collect all updates first — _replace_tool_metadata mutates the
-    # _tools dict, so we cannot modify it while iterating.
     updates: list[tuple[str, dict]] = []
     for tool in registry._tools.values():
         if names is not None and tool.name not in names:
             continue
-        ns = tool.namespace
-        if not ns or ns not in _TOOL_METADATA:
-            continue
-        ns_meta = _TOOL_METADATA[ns]
-        merged = _collect_overrides(ns_meta)
-        method_overrides: dict[str, dict] = ns_meta.get("methods", {})
-        if (
-            method_overrides
-            and tool.method_name
-            and tool.method_name in method_overrides
-        ):
-            merged.update(_collect_overrides(method_overrides[tool.method_name]))
-        merged.update(_output_schema_update(ns, tool))
-        if merged:
-            updates.append((tool.name, merged))
-
-    for name, meta_updates in updates:
-        registry._replace_tool_metadata(name, **meta_updates)
+        update = _output_schema_update(tool.namespace, tool)
+        if update:
+            updates.append((tool.name, update))
+    for name, update in updates:
+        registry._replace_tool_metadata(name, **update)
 
 
 def _discover_config_path() -> str | None:
@@ -480,9 +271,14 @@ def build_registry(
 
 
 def _apply_hub_overrides(registry: ToolRegistry, config: ToolConfig) -> None:
-    """Apply Hub metadata defaults, then the user's config overrides."""
-    # Hub-specific metadata overrides (tags, defer)
-    _apply_tool_metadata(registry)
+    """Apply Hub output schemas and declarations, then the user's overrides.
+
+    ``@tool_metadata`` declarations are applied by ``Tool.from_function`` on
+    a core that provides the decorator; ``apply_declared_metadata`` is the
+    released-floor fallback and is a no-op elsewhere.
+    """
+    _apply_output_schemas(registry)
+    apply_declared_metadata(registry)
 
     # Re-apply user config overrides so they take precedence over hub defaults
     if config.tool_metadata:
@@ -490,23 +286,23 @@ def _apply_hub_overrides(registry: ToolRegistry, config: ToolConfig) -> None:
 
 
 def apply_hub_overrides(registry: ToolRegistry, names: Set[str]) -> None:
-    """Apply Hub metadata defaults to the tools registered by a reload.
+    """Apply Hub defaults to the tools registered by a reload.
 
     ``reload_registry`` calls this before it applies the file's
     ``tool_metadata``, so the order is the same as :func:`build_registry`:
-    Hub defaults first, the user's file overrides last.  Newly registered
-    tools therefore get the tag/defer defaults and still see any file
-    override.
+    Hub defaults first, the user's file overrides last.
 
     Only *names* are annotated.  Tools that already existed are skipped, so
-    a ``tags``, ``defer``, ``search_hint`` or execution-hint value changed
-    from the admin panel survives an unrelated config reload.
+    a value changed from the admin panel survives an unrelated config
+    reload.  On a core that applies declarations itself, only the output
+    schemas need this pass.
 
     Args:
         registry: Live registry, already updated by the reload.
         names: Tools registered by the reload that triggered this callback.
     """
-    _apply_tool_metadata(registry, names)
+    _apply_output_schemas(registry, names)
+    apply_declared_metadata(registry, names)
 
 
 _registry: ToolRegistry | None = None

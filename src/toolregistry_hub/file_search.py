@@ -12,8 +12,10 @@ import re
 from pathlib import Path
 from typing import Annotated
 
+from toolregistry import ToolTag
 from toolregistry.parameter_models import Doc
 
+from ._metadata import tool_metadata
 from .gitignore import GitIgnoreFilter
 
 #: Shown in each tool's ``inputSchema`` so a model knows the filter is a
@@ -35,6 +37,13 @@ class FileSearch:
     """File and content search tools."""
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def glob(
         pattern: str,
         root: str = ".",
@@ -84,6 +93,13 @@ class FileSearch:
         return [str(p.relative_to(root_path)) for p in matches]
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def grep(
         pattern: str,
         path: str = ".",
@@ -182,6 +198,13 @@ class FileSearch:
                 )
 
     @staticmethod
+    @tool_metadata(
+        defer=True,
+        tags={ToolTag.FILE_SYSTEM, ToolTag.READ_ONLY},
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
     def tree(
         path: str = ".",
         max_depth: int = 3,
