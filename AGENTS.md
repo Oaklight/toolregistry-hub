@@ -18,17 +18,23 @@ Entry point: `toolregistry-hub` CLI (defined in `pyproject.toml`).
 
 ## Architecture
 
-All tools are registered dynamically in `build_registry()` (`server/registry.py`):
+All tools are registered through the server's runtime source manager, the
+same path `toolregistry-server` uses:
 
-1. Load tool config from `tools.jsonc` (if present)
-2. Import each tool class via `_DEFAULT_TOOLS` (or config-specified list)
-3. Register classes/instances into `ToolRegistry`
-4. Auto-disable tools that fail `Configurable._is_configured()` (missing API keys)
-5. Apply `tools.jsonc` enable/disable rules (highest priority)
-6. Apply metadata (tags, defer flags) from `_TOOL_METADATA`
-7. Enable progressive tool discovery if `enable_discovery=True`
+1. Load the tool config: an explicit `--config` path, or an auto-discovered
+   `tools.jsonc`/`tools.yaml` in the working directory, or the packaged
+   preset `data/tools.yaml` when neither exists
+2. Import each tool class listed under `tools:`
+3. Auto-disable tools that fail `Configurable._is_configured()` (missing API keys)
+4. Apply per-tool metadata overrides from the config file
+5. Apply `--profile` tag filtering
+6. Enable progressive tool discovery if `enable_discovery=True`
 
-Registered tools and namespaces (from `_DEFAULT_TOOLS` in `server/registry.py`):
+Tags, `defer`, execution hints and output schemas are declared on the tool
+methods with the core `@tool_metadata` decorator; the core applies them when
+it builds each `Tool`.
+
+Registered tools and namespaces (from `src/toolregistry_hub/data/tools.yaml`):
 
 | Namespace | Class | Tags | Visibility |
 |-----------|-------|------|------------|
@@ -54,8 +60,9 @@ unified `WebSearch` — they are **not** registered as separate tools.
 Remote profile LIVE tools: `datetime-now`, `discover_tools`, `think-think`,
 `web-fetch_content`, `web-search` (5 tools).
 
-Configuration priority: `tools.jsonc > Configurable auto-disable > Default (all enabled)`.
-`tools.jsonc` is optional; the default tool list from code is the primary config.
+Configuration priority: `--config` > discovered `tools.jsonc`/`tools.yaml` >
+packaged `data/tools.yaml` preset. The packaged preset is memory-only: a
+runtime source change never rewrites it.
 
 ## Repository layout
 
@@ -166,8 +173,9 @@ ssh cloud.usa1 "cd /dockervol/dockge/stacks/toolregistry-server && docker compos
 1. Create `src/toolregistry_hub/your_tool.py`
    - Static methods for stateless tools, instance methods for stateful ones
    - If API keys needed: implement `Configurable._is_configured()` and set `_required_envs`
-2. Add entry to `_DEFAULT_TOOLS` in `server/registry.py`
-3. Add metadata to `_TOOL_METADATA` in `server/registry.py` (tags, defer flag)
+2. Add an entry to `src/toolregistry_hub/data/tools.yaml`
+3. Declare tags, `defer`, hints and any output schema on the methods with
+   `@tool_metadata` from `toolregistry_hub._metadata`
 4. Export from `__init__.py`
 5. Write tests in `tests/test_your_tool.py`
 

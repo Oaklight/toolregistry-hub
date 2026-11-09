@@ -313,25 +313,27 @@ class TestFetchJson:
 # Registration sanity check
 # ---------------------------------------------------------------------------
 class TestRegistration:
-    def test_weather_in_default_tools(self):
-        """Weather should be listed in the hub's default tool list."""
+    def test_weather_in_the_default_preset(self):
+        """Weather should be listed in the hub's default tool preset."""
         pytest.importorskip("toolregistry")
-        from toolregistry_hub.server.registry import _DEFAULT_TOOLS
+        from toolregistry_hub.server.registry import default_preset_path
 
-        namespaces = [s.namespace for s in _DEFAULT_TOOLS]
-        assert "weather" in namespaces
+        preset = default_preset_path().read_text(encoding="utf-8")
+        assert "class: toolregistry_hub.weather.Weather" in preset
 
     def test_weather_metadata(self):
         """Weather should have NETWORK + READ_ONLY tags."""
         pytest.importorskip("toolregistry")
+        from toolregistry import ToolRegistry
         from toolregistry.tool import ToolTag
 
-        from toolregistry_hub._metadata import declared_metadata
         from toolregistry_hub.weather import Weather
 
-        meta = declared_metadata(Weather.get_current)
-        assert ToolTag.NETWORK in meta.get("tags", set())
-        assert ToolTag.READ_ONLY in meta.get("tags", set())
+        registry = ToolRegistry()
+        registry.register(Weather, source="class", namespace="weather")
+        tags = registry.get_tool("weather-get_current").metadata.tags
+        assert ToolTag.NETWORK in tags
+        assert ToolTag.READ_ONLY in tags
 
 
 # ---------------------------------------------------------------------------

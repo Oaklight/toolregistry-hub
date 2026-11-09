@@ -2,18 +2,18 @@
 
 This module holds the Hub preset and the single registration path:
 
-- ``_DEFAULT_TOOLS``: the built-in tool list, as ``PythonSource`` entries
-- ``data/tools.yaml``: the shipped preset users can copy and edit
-- ``@tool_metadata``: tags, ``defer``, hints and output schemas declared on
-  the tool methods themselves; ``_metadata.apply_declared_metadata`` applies
-  them on a core that predates the decorator
+- ``data/tools.yaml``: the default tool list, shipped inside the package
+  and loaded unless an explicit or discovered config file replaces it
+- ``@tool_metadata`` (core): tags, ``defer``, hints and output schemas
+  declared on the tool methods themselves
 - ``configurable_hook``: post-register hook that auto-disables unconfigured
   tools
 
 Registration is owned by the server's runtime source manager, the same path
-``toolregistry-server`` uses: it applies the preset (or the config file),
-records each source's tools, and runs the Hub pass over what it registered.
-The Hub keeps no watcher and no source diff of its own.
+``toolregistry-server`` uses: it applies the preset (or the config file) and
+records each source's tools.  The Hub keeps no watcher and no source diff of
+its own, and no override pass: the core applies each method's declaration
+when it builds the tool.
 
 Deployment-context filtering (``--profile``) is handled by
 ``toolregistry-server`` and is not reimplemented here.
@@ -21,55 +21,17 @@ Deployment-context filtering (``--profile``) is handled by
 
 from __future__ import annotations
 
+import dataclasses
+from pathlib import Path
 from typing import Any
 
 from toolregistry import ToolRegistry
-from toolregistry.config import PythonSource, ToolConfig
+from toolregistry.config import ToolConfig
 
-from .._metadata import apply_declared_metadata
 from .._vendor.structlog import get_logger
 from ..utils.configurable import Configurable
 
 logger = get_logger()
-
-# Hub's built-in tool list expressed as PythonSource entries.
-_DEFAULT_TOOLS: list[PythonSource] = [
-    PythonSource(class_path="toolregistry_hub.bash_tool.BashTool", namespace="bash"),
-    PythonSource(class_path="toolregistry_hub.cron_tool.CronTool", namespace="cron"),
-    PythonSource(
-        class_path="toolregistry_hub.calculator.Calculator", namespace="calculator"
-    ),
-    PythonSource(
-        class_path="toolregistry_hub.datetime_utils.DateTime", namespace="datetime"
-    ),
-    PythonSource(class_path="toolregistry_hub.fetch.Fetch", namespace="web"),
-    PythonSource(class_path="toolregistry_hub.file_ops.FileOps", namespace="file_ops"),
-    PythonSource(
-        class_path="toolregistry_hub.file_reader.FileReader", namespace="reader"
-    ),
-    PythonSource(
-        class_path="toolregistry_hub.file_search.FileSearch",
-        namespace="fs",
-    ),
-    PythonSource(class_path="toolregistry_hub.path_info.PathInfo", namespace="fs"),
-    PythonSource(class_path="toolregistry_hub.think_tool.ThinkTool", namespace="think"),
-    PythonSource(
-        class_path="toolregistry_hub.todo_list.TodoList", namespace="todolist"
-    ),
-    PythonSource(
-        class_path="toolregistry_hub.unit_converter.UnitConverter",
-        namespace="unit_converter",
-    ),
-    PythonSource(class_path="toolregistry_hub.weather.Weather", namespace="weather"),
-    PythonSource(
-        class_path="toolregistry_hub.websearch.websearch_unified.WebSearch",
-        namespace="web",
-    ),
-    PythonSource(
-        class_path="toolregistry_hub.academics.academic_search.AcademicSearch",
-        namespace="academics",
-    ),
-]
 
 
 def configurable_hook(name: str, tool: object, registry: ToolRegistry) -> str | None:
@@ -107,7 +69,6 @@ def _discover_config_path() -> str | None:
         A file path string if a config file is found, else ``None``.
     """
     import os
-    from pathlib import Path
 
     env_path = os.environ.get("TOOLS_CONFIG")
     if env_path and Path(env_path).is_file():
@@ -118,13 +79,41 @@ def _discover_config_path() -> str | None:
     return None
 
 
+def default_preset_path() -> Path:
+    """Return the path of the packaged default tool preset.
+
+    Returns:
+        ``toolregistry_hub/data/tools.yaml`` inside the installed package.
+    """
+    return Path(__file__).resolve().parent.parent / "data" / "tools.yaml"
+
+
+def load_default_preset() -> ToolConfig:
+    """Load the packaged preset as the default tool list.
+
+    ``source`` is cleared before returning: the runtime write-back path keys
+    off it, and a runtime source change must stay in memory rather than
+    rewrite a file inside the installed package.
+
+    Returns:
+        The packaged ``ToolConfig``.
+    """
+    from toolregistry_server import load_config
+
+    config = load_config(str(default_preset_path()))
+    # ``ToolConfig`` is frozen; the replacement keeps every parsed field and
+    # clears only the diagnostic source path.
+    return dataclasses.replace(config, source="")
+
+
 def _resolve_config(
     tools_config_path: str | None = None,
 ) -> ToolConfig:
     """Load or build the tool config to register from.
 
     Priority: explicit path > auto-discovery
-    (``TOOLS_CONFIG`` env var / ``tools.jsonc``) > hub ``_DEFAULT_TOOLS``.
+    (``TOOLS_CONFIG`` env var / ``tools.jsonc`` / ``tools.yaml``) > the
+    packaged ``data/tools.yaml`` preset.
 
     Args:
         tools_config_path: Explicit config file path, or ``None``.
@@ -135,12 +124,12 @@ def _resolve_config(
     from toolregistry_server import load_config
 
     path = tools_config_path or _discover_config_path()
-    config = load_config(path) if path is not None else None
+    if path is not None:
+        config = load_config(path)
+        if config.tools:
+            return config
 
-    if config is None or not config.tools:
-        return ToolConfig(tools=tuple(_DEFAULT_TOOLS))
-
-    return config
+    return load_default_preset()
 
 
 def _pin_discovery(registry: ToolRegistry, enabled: bool) -> None:
@@ -159,25 +148,6 @@ def _pin_discovery(registry: ToolRegistry, enabled: bool) -> None:
         set_discovery_mode("off")
 
 
-def apply_hub_overrides(registry: ToolRegistry, names: set[str]) -> None:
-    """Apply the Hub's definition-time declarations to registered tools.
-
-    ``@tool_metadata`` stores a declaration on the function at definition
-    time.  A core that ships the decorator applies it in
-    ``Tool.from_function``; on an older core this pass fills the fields that
-    are still at their defaults.  Values supplied explicitly by the config
-    file or the admin panel always win.
-
-    Only *names* are visited, so a diff or reload never rewrites a tool an
-    operator changed.
-
-    Args:
-        registry: Live registry.
-        names: Tools registered by the pass that triggered this callback.
-    """
-    apply_declared_metadata(registry, names)
-
-
 def build_hub_registry(
     tools_config_path: str | None = None,
     enable_discovery: bool = True,
@@ -188,8 +158,9 @@ def build_hub_registry(
     """Build the Hub registry and its runtime source manager.
 
     The server's :class:`SourceManager` owns registration: it applies the
-    preset (or the config file), records each source's tools, and runs the
-    Hub pass over the names it registered.
+    preset (or the config file) and records each source's tools.  Method
+    declarations reach the tools through the core decorator, so no Hub
+    callback is needed.
 
     Args:
         tools_config_path: Path to a JSONC/YAML config file, or ``None`` for
@@ -219,7 +190,6 @@ def build_hub_registry(
         config_path=config.source or None,
         profile=profile,
         write_config=write_config,
-        on_registered=apply_hub_overrides,
     )
     manager.apply_initial()
 
