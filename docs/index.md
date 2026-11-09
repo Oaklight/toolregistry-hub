@@ -17,6 +17,7 @@ hide:
 
 <p class="tr-badges">
   <a href="https://pypi.org/project/toolregistry-hub/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/toolregistry-hub?labelColor=475569&color=4d7c0f"></a>
+  <a href="https://test.pypi.org/project/toolregistry-hub/"><img alt="TestPyPI version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Ftest.pypi.org%2Fpypi%2Ftoolregistry-hub%2Fjson&query=%24.info.version&label=TestPyPI&labelColor=475569&color=c2410c"></a>
   <a href="https://hub.docker.com/r/oaklight/toolregistry-hub-server"><img alt="Docker Image" src="https://img.shields.io/docker/v/oaklight/toolregistry-hub-server?label=docker&labelColor=475569&color=365314"></a>
   <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-365314?labelColor=475569"></a>
 </p>
@@ -87,11 +88,11 @@ Every tool is a plain Python class — no instantiation, no state, no server nee
 
 ToolRegistry Hub is part of a three-package ecosystem. See the [Ecosystem](ecosystem.md) page for details.
 
-| Package | Role |
-|---------|------|
-| [toolregistry](https://toolregistry.readthedocs.io/) | Core tool management library |
-| [toolregistry-server](https://toolregistry-server.readthedocs.io/) | OpenAPI & MCP server adapters |
-| **toolregistry-hub** | Ready-to-use utility tools |
+| Package | Role | TestPyPI |
+|---------|------|----------|
+| [toolregistry](https://toolregistry.readthedocs.io/) | Core tool management library | [![TestPyPI](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Ftest.pypi.org%2Fpypi%2Ftoolregistry%2Fjson&query=%24.info.version&label=TestPyPI&color=orange)](https://test.pypi.org/project/toolregistry/) |
+| [toolregistry-server](https://toolregistry-server.readthedocs.io/) | OpenAPI & MCP server adapters | [![TestPyPI](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Ftest.pypi.org%2Fpypi%2Ftoolregistry-server%2Fjson&query=%24.info.version&label=TestPyPI&color=orange)](https://test.pypi.org/project/toolregistry-server/) |
+| **toolregistry-hub** | Ready-to-use utility tools | [![TestPyPI](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Ftest.pypi.org%2Fpypi%2Ftoolregistry-hub%2Fjson&query=%24.info.version&label=TestPyPI&color=orange)](https://test.pypi.org/project/toolregistry-hub/) |
 
 ## Get Involved
 
