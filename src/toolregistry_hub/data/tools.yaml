@@ -1,6 +1,9 @@
 # ToolRegistry Hub — default tool list
 #
-# This file is the built-in tool manifest shipped with the package.
+# This file is the tool preset the Hub serves when no other config is given.
+# It ships inside the package and is loaded by default; a runtime source
+# change stays in memory and never rewrites this file.
+#
 # Users can override it entirely by passing --config / TOOLS_CONFIG env var
 # or placing their own tools.yaml in the current directory.
 #
@@ -11,6 +14,9 @@
 #   tags:      semantic labels (read_only, network, file_system, destructive, privileged, slow)
 #   kwargs:    constructor keyword arguments (e.g. api_keys, base_url)
 #   enabled:   false to disable this entry
+#
+# The individual search backends are not listed: the unified ``web`` search
+# selects a backend at call time from the configured API keys.
 
 tools:
   - type: python
@@ -74,36 +80,16 @@ tools:
     tags: [read_only]
 
   - type: python
+    class: toolregistry_hub.weather.Weather
+    namespace: weather
+    tags: [network, read_only]
+
+  - type: python
     class: toolregistry_hub.websearch.websearch_unified.WebSearch
     namespace: web
     tags: [network, read_only]
 
   - type: python
-    class: toolregistry_hub.websearch.websearch_brave.BraveSearch
-    namespace: brave
-    tags: [network, read_only]
-
-  - type: python
-    class: toolregistry_hub.websearch.websearch_tavily.TavilySearch
-    namespace: tavily
-    tags: [network, read_only]
-
-  - type: python
-    class: toolregistry_hub.websearch.websearch_searxng.SearXNGSearch
-    namespace: searxng
-    tags: [network, read_only]
-
-  - type: python
-    class: toolregistry_hub.websearch.websearch_brightdata.BrightDataSearch
-    namespace: brightdata
-    tags: [network, read_only]
-
-  - type: python
-    class: toolregistry_hub.websearch.websearch_scrapeless.ScrapelessSearch
-    namespace: scrapeless
-    tags: [network, read_only]
-
-  - type: python
-    class: toolregistry_hub.websearch.websearch_serper.SerperSearch
-    namespace: serper
+    class: toolregistry_hub.academics.academic_search.AcademicSearch
+    namespace: academics
     tags: [network, read_only]

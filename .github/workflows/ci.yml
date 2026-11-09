@@ -52,11 +52,10 @@ jobs:
       - name: Run tests
         run: python -m pytest tests/ -v --tb=short
 
-  # The default matrix stays on the released core floor.  ``@tool_metadata``
-  # is on core master ahead of the next release, so this job installs core
-  # master and exercises the decorator path; the same tests run against the
-  # released floor in ``test`` (where the Hub fallback applies the
-  # declarations).  A failure here means Hub is not ready for the floor bump.
+  # The dependency floor is core 0.21.0, the first release with
+  # ``@tool_metadata``.  This job installs core master, which is ahead of that
+  # floor, and runs the registry tests against it.  A failure here means the
+  # next core release would break the Hub preset or its declarations.
   test-core-master:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -79,8 +78,8 @@ jobs:
           pip install --force-reinstall --no-deps "toolregistry @ git+https://github.com/Oaklight/ToolRegistry@master"
           python -c "import importlib.metadata as m; print('toolregistry', m.version('toolregistry'))"
 
-      - name: Run registry and metadata tests
-        run: python -m pytest tests/test_registry.py tests/test_tool_metadata_parity.py -q
+      - name: Run registry tests
+        run: python -m pytest tests/test_registry.py -q
 
   # The floor is server 0.9.0 (published as a prerelease on TestPyPI).  This
   # job installs that exact wheel so the launcher path is exercised the way a

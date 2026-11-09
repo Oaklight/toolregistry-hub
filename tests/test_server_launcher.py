@@ -10,6 +10,8 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import time
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -40,6 +42,16 @@ def config_path(tmp_path):
     return path
 
 
+def _wait_for(predicate: Callable[[], bool], timeout: float = 20.0) -> None:
+    """Poll *predicate* until it is true, or fail the test."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        time.sleep(0.1)
+    pytest.fail("condition was not met before the timeout")
+
+
 class TestSourceManagerOwnsRegistration:
     def test_prepare_registry_uses_the_server_manager(self, config_path) -> None:
         app = HubApp()
@@ -56,9 +68,8 @@ class TestSourceManagerOwnsRegistration:
         assert "calculator-evaluate" in names
         assert "datetime-now" in names
 
-        # The Hub's definition-time declarations reach the tools the manager
-        # registered: ``apply_initial`` runs the ``on_registered`` callback
-        # for startup sources.
+        # Each method's ``@tool_metadata`` declaration reaches the tool the
+        # manager registered; the core applies it in ``Tool.from_function``.
         assert registry.get_tool("calculator-evaluate").metadata.defer is True
         assert registry.get_tool("datetime-now").metadata.title
         schema = registry.get_tool("datetime-convert_timezone").metadata.extra.get(
@@ -87,6 +98,41 @@ class TestSourceManagerOwnsRegistration:
         assert manager.registry.get_tool("think-think") is None
 
 
+class TestAdminPort:
+    def test_admin_port_serves_a_panel(self, config_path) -> None:
+        """--admin-port reaches ``enable_admin`` and serves a real panel."""
+        import http.client
+
+        app = HubApp()
+        payload: dict[str, Any] = {}
+        registry = app.prepare_registry(
+            tools_config_path=str(config_path),
+            enable_discovery=False,
+            admin_port=0,  # ephemeral: no fixed port to collide on CI
+            host="127.0.0.1",
+        )
+        try:
+            info = registry.get_admin_info()
+            assert info is not None
+            # 0 selects an ephemeral port; the panel reports the bound one.
+            assert info.port != 0
+            assert info.host == "127.0.0.1"
+
+            connection = http.client.HTTPConnection("127.0.0.1", info.port, timeout=10)
+            try:
+                connection.request("GET", "/api/tools")
+                response = connection.getresponse()
+                assert response.status == 200
+                payload = json.loads(response.read().decode("utf-8"))
+            finally:
+                connection.close()
+        finally:
+            registry.disable_admin()
+
+        names = {tool["name"] for tool in payload["tools"]}
+        assert {"calculator-evaluate", "datetime-now"} <= names
+
+
 class TestServerWatcher:
     def test_the_server_watcher_runs(self, config_path) -> None:
         app = HubApp()
@@ -99,6 +145,39 @@ class TestServerWatcher:
             watcher = app.config_watcher
             assert isinstance(watcher, ServerConfigWatcher)
             assert watcher.manager is app.source_manager
+        finally:
+            app.stop_config_watcher()
+
+    def test_a_config_edit_reaches_the_live_registry(self, config_path) -> None:
+        """--config-reload is the server watcher: an edit must reach the
+        registry the gateway serves, with no restart."""
+        app = HubApp()
+        app.create_gateway(
+            tools_config_path=str(config_path),
+            enable_discovery=False,
+            config_reload=True,
+        )
+        try:
+            registry = app.source_manager.registry
+            assert registry.get_tool("calculator-evaluate") is not None
+            assert registry.get_tool("think-think") is None
+
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "tools": TOOLS
+                        + [
+                            {
+                                "class": "toolregistry_hub.think_tool.ThinkTool",
+                                "namespace": "think",
+                            }
+                        ]
+                    }
+                )
+            )
+
+            _wait_for(lambda: registry.get_tool("think-think") is not None)
+            assert registry.is_enabled("think-think")
         finally:
             app.stop_config_watcher()
 

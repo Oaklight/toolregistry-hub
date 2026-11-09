@@ -330,7 +330,7 @@ class TestClientSafeNames(unittest.TestCase):
         self.assertEqual(unsafe, [])
 
     def test_no_namespace_contains_a_slash(self):
-        for source in registry_module._DEFAULT_TOOLS:
+        for source in registry_module.load_default_preset().tools:
             self.assertNotIn("/", source.namespace or "")
 
     def test_renamed_tools_keep_their_meaning(self):
@@ -359,6 +359,33 @@ class TestClientSafeNames(unittest.TestCase):
             text = handle.read()
         self.assertNotIn("namespace: web/", text)
         self.assertNotIn("namespace: fs/", text)
+
+
+class TestDefaultPreset(unittest.TestCase):
+    """``data/tools.yaml`` is the only source of the default tool set."""
+
+    def test_the_default_registry_serves_exactly_the_preset(self):
+        """Register no tool the preset does not declare, and drop none it has."""
+        from toolregistry import ToolRegistry
+        from toolregistry_server.registry_builder import register_python_source
+
+        default = build_registry(enable_discovery=False)
+
+        declared = ToolRegistry()
+        # Core's default "auto" mode adds discover_tools/call_deferred as soon
+        # as a deferred tool registers; pin it off so only preset tools are
+        # compared.
+        declared.set_tool_discovery_mode("off")
+        for source in registry_module.load_default_preset().tools:
+            register_python_source(declared, source)
+
+        self.assertEqual(set(declared._tools), set(default._tools))
+
+    def test_the_preset_is_memory_only(self):
+        """A runtime source change must not rewrite the packaged file."""
+        config = registry_module.load_default_preset()
+        self.assertEqual(config.source, "")
+        self.assertTrue(config.tools)
 
 
 class TestGetRegistry(unittest.TestCase):
