@@ -20,6 +20,7 @@ from toolregistry_server.app import App
 
 from .. import __version__
 from .._vendor.structlog import get_logger
+from ._compat import SERVER_HAS_SOURCE_MANAGER
 from .banner import BANNER_ART
 
 logger = get_logger()
@@ -37,6 +38,33 @@ HUB_IDENTITY = ServerIdentity(
 )
 
 
+def _pin_discovery(registry: ToolRegistry, enabled: bool) -> None:
+    """Keep discovery off when it was not requested.
+
+    Core 0.20 runs discovery in "auto" mode by default: the first deferred
+    tool registered later (for example by a config reload) starts discovery
+    and adds ``discover_tools`` / ``call_deferred``.  That contradicts the
+    flag, and the registration happens inside a change callback, which can
+    mutate ``_tools`` while a reload is iterating it.
+    """
+    if enabled:
+        return
+    set_discovery_mode = getattr(registry, "set_tool_discovery_mode", None)
+    if callable(set_discovery_mode):
+        set_discovery_mode("off")
+
+
+def _enable_admin(registry: ToolRegistry, **kwargs) -> None:
+    """Enable the admin panel when a port was requested."""
+    admin_port = kwargs.get("admin_port")
+    if admin_port is None:
+        return
+    registry.enable_logging()
+    admin_host = kwargs.get("host", "127.0.0.1")
+    info = registry.enable_admin(host=admin_host, port=admin_port)
+    logger.info(f"Admin panel enabled at {info.url}")
+
+
 class HubApp(App):
     """Hub-specific server application."""
 
@@ -47,6 +75,12 @@ class HubApp(App):
     def prepare_registry(self, **kwargs) -> ToolRegistry:
         """Build the Hub registry.
 
+        On a server that provides the runtime source manager, the manager
+        owns registration: it applies the preset (or the config file),
+        records each source's tools, and hands them to the Hub's metadata and
+        output-schema pass.  On the released floor the previous
+        ``build_registry`` path runs instead.
+
         Keyword Args:
             tools_config_path: Path to a JSONC/YAML config file override.
             enable_discovery: Enable BM25 tool discovery.
@@ -55,7 +89,43 @@ class HubApp(App):
             admin_port: Port for the admin panel, or None to disable.
             config_reload: Watch the config file and apply edits to the live
                 registry (#144).
+            write_config: Persist runtime source changes back to the config
+                file.  Only read on a server that has the source manager.
         """
+        if SERVER_HAS_SOURCE_MANAGER:
+            return self._prepare_registry_with_manager(**kwargs)
+        return self._prepare_registry_on_released_server(**kwargs)
+
+    def _prepare_registry_with_manager(self, **kwargs) -> ToolRegistry:
+        """Build the registry through the server's runtime source manager."""
+        from toolregistry import ToolRegistry
+        from toolregistry_server.source_manager import SourceManager
+
+        from .registry import _resolve_config, apply_hub_overrides, configurable_hook
+
+        config = _resolve_config(kwargs.get("tools_config_path"))
+        registry = ToolRegistry(
+            name="hub", think_augment=kwargs.get("enable_think", True)
+        )
+        _pin_discovery(registry, kwargs.get("enable_discovery", True))
+        registry.add_post_register_hook(configurable_hook)
+        manager = SourceManager(
+            registry,
+            config,
+            config_path=config.source or None,
+            profile=kwargs.get("profile"),
+            write_config=kwargs.get("write_config", True),
+            on_registered=apply_hub_overrides,
+        )
+        manager.apply_initial()
+        self.source_manager = manager
+        if kwargs.get("enable_discovery", True):
+            registry.enable_tool_discovery()
+        _enable_admin(registry, **kwargs)
+        return registry
+
+    def _prepare_registry_on_released_server(self, **kwargs) -> ToolRegistry:
+        """Build the registry with the released-floor registration path."""
         from toolregistry_server import apply_profile
 
         from .hot_reload import ReloadState
@@ -77,20 +147,22 @@ class HubApp(App):
                 # profile filter as the startup registry.
                 reload_state.profile = profile
 
-        admin_port = kwargs.get("admin_port")
-        if admin_port is not None:
-            registry.enable_logging()
-            admin_host = kwargs.get("host", "127.0.0.1")
-            info = registry.enable_admin(host=admin_host, port=admin_port)
-            logger.info(f"Admin panel enabled at {info.url}")
+        _enable_admin(registry, **kwargs)
 
         if reload_state is not None:
-            self._start_config_watcher(registry, reload_state)
+            self._start_hub_config_watcher(registry, reload_state)
 
         return registry
 
-    def _start_config_watcher(self, registry: ToolRegistry, state: ReloadState) -> None:
-        """Start the tools.jsonc watcher, or explain why it cannot run."""
+    def _start_hub_config_watcher(
+        self, registry: ToolRegistry, state: ReloadState
+    ) -> None:
+        """Start the Hub's tools.jsonc watcher (released-floor fallback).
+
+        A server with the runtime source manager starts its own watcher from
+        :meth:`toolregistry_server.app.App._attach_source_manager`; this
+        method is only used when that manager is absent.
+        """
         from .hot_reload import ConfigWatcher
         from .registry import apply_hub_overrides
 
@@ -121,6 +193,13 @@ class HubApp(App):
             timeout: Seconds to wait for the thread to finish.  ``None``
                 returns immediately.
         """
+        if SERVER_HAS_SOURCE_MANAGER:
+            # The watcher belongs to the server and is stopped by its own
+            # implementation; this override exists for the released floor.
+            stop = getattr(super(), "stop_config_watcher", None)
+            if stop is not None:
+                stop(timeout=timeout)
+            return
         watcher = self.config_watcher
         if watcher is None:
             return
