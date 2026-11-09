@@ -11,7 +11,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from toolregistry_server.cli import CLI
 
@@ -100,7 +100,8 @@ class HubCLI(CLI):
 
         if parsed.command == "openapi":
             if SERVER_HAS_GATEWAY:
-                self.app.serve_gateway(
+                _serve_gateway(
+                    self.app,
                     openapi_enabled=True,
                     mcp_enabled=False,
                     sse_enabled=False,
@@ -122,7 +123,8 @@ class HubCLI(CLI):
                 )
         elif parsed.command == "mcp":
             if SERVER_HAS_GATEWAY and transport != "stdio":
-                self.app.serve_gateway(
+                _serve_gateway(
+                    self.app,
                     openapi_enabled=False,
                     mcp_enabled=transport in ("streamable-http", "http"),
                     sse_enabled=transport == "sse",
@@ -164,7 +166,8 @@ class HubCLI(CLI):
                 )
                 if (value := getattr(parsed, key, None)) is not None
             }
-            self.app.serve_gateway(
+            _serve_gateway(
+                self.app,
                 openapi_enabled=getattr(parsed, "openapi", None),
                 mcp_enabled=getattr(parsed, "mcp", None),
                 sse_enabled=getattr(parsed, "sse", None),
@@ -177,6 +180,16 @@ class HubCLI(CLI):
 # ---------------------------------------------------------------------------
 # Hub-specific helpers
 # ---------------------------------------------------------------------------
+
+
+def _serve_gateway(app: HubApp, **kwargs: Any) -> None:
+    """Serve through the gateway on a server that provides it.
+
+    ``App.serve_gateway`` does not exist on the released floor; the call is
+    guarded by :data:`SERVER_HAS_GATEWAY`, and the attribute lookup keeps the
+    type checker on the released floor happy.
+    """
+    app.serve_gateway(**kwargs)
 
 
 def _add_hub_arguments(parser: argparse.ArgumentParser) -> None:

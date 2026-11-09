@@ -102,7 +102,9 @@ jobs:
       - name: Install dependencies with server master
         run: |
           python -m pip install --upgrade pip
-          pip install --extra-index-url https://test.pypi.org/simple/ --prefer-binary -e ".[dev,server_core]"
+          # The launcher tests build a gateway, so the OpenAPI/MCP extras are
+          # installed; the server package itself comes from master below.
+          pip install --extra-index-url https://test.pypi.org/simple/ --prefer-binary -e ".[dev,server]"
           pip install --force-reinstall --no-deps "toolregistry @ git+https://github.com/Oaklight/ToolRegistry@master"
           pip install --force-reinstall --no-deps "toolregistry-server @ git+https://github.com/Oaklight/toolregistry-server@master"
           python -c "import importlib.metadata as m; print('toolregistry', m.version('toolregistry')); print('toolregistry-server', m.version('toolregistry-server'))"
