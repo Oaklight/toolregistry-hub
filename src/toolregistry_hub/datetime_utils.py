@@ -125,6 +125,19 @@ class DateTime:
         idempotent_hint=True,
         open_world_hint=False,
         title="Convert Timezone",
+        extra={
+            "output_schema": {
+                "type": "object",
+                "properties": {
+                    "source_time": {"type": "string"},
+                    "target_time": {"type": "string"},
+                    "time_difference": {"type": "string"},
+                    "source_timezone": {"type": "string"},
+                    "target_timezone": {"type": "string"},
+                },
+                "additionalProperties": True,
+            }
+        },
     )
     def convert_timezone(
         time_str: str, source_timezone: str, target_timezone: str

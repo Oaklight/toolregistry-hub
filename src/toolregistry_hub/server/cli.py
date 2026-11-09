@@ -1,7 +1,10 @@
 """Command-line interface for ToolRegistry Hub Server.
 
-Subclasses :class:`toolregistry_server.cli.CLI` with Hub-specific
-banner (version check), extra arguments, and dispatch.
+Subclasses :class:`toolregistry_server.cli.CLI` with the Hub banner (version
+check), Hub-specific arguments, and dispatch.  All serving goes through the
+server: ``openapi`` and the HTTP MCP transports use the gateway, while ``mcp
+--transport stdio`` uses the direct MCP server because the gateway has no
+stdio frontend.
 
 Usage:
     toolregistry-hub openapi [OPTIONS]
@@ -17,7 +20,6 @@ from toolregistry_server.cli import CLI
 
 from .. import __version__
 from .._vendor.structlog import get_logger
-from ._compat import SERVER_HAS_GATEWAY, SERVER_HAS_SOURCE_MANAGER
 from .app import HubApp
 
 logger = get_logger()
@@ -33,19 +35,25 @@ class HubCLI(CLI):
         self, subparsers: dict[str, argparse.ArgumentParser]
     ) -> None:
         """Add Hub-specific arguments to each subparser."""
-        for sub_parser in subparsers.values():
+        for name, sub_parser in subparsers.items():
             _add_hub_arguments(sub_parser)
-        if SERVER_HAS_GATEWAY:
-            # Say which serving path each command takes: on a server with the
-            # gateway, the openapi command and the HTTP MCP transports are
-            # served through it, while stdio stays a direct MCP server.
-            subparsers[
-                "openapi"
-            ].description = "Start the OpenAPI frontend through the server gateway."
-            subparsers["mcp"].description = (
-                "Start the MCP server. stdio is served directly; "
-                "streamable-http and sse use the server gateway."
-            )
+            # The server keeps ``--backend`` on the gateway command only; the
+            # Hub serves openapi and the HTTP MCP transports through the
+            # gateway, so the flag stays available on those commands too.
+            if name in ("openapi", "mcp"):
+                sub_parser.add_argument(
+                    "--backend",
+                    choices=("fastapi", "httpserver"),
+                    default="fastapi",
+                    help="HTTP backend for the gateway (default: fastapi)",
+                )
+        subparsers[
+            "openapi"
+        ].description = "Start the OpenAPI frontend through the server gateway."
+        subparsers["mcp"].description = (
+            "Start the MCP server. stdio is served directly; "
+            "streamable-http and sse use the server gateway."
+        )
 
     def get_version_string(self) -> str:
         """Hub version with update check."""
@@ -63,10 +71,10 @@ class HubCLI(CLI):
     def dispatch(self, parsed: argparse.Namespace) -> None:
         """Route to HubApp with Hub-specific kwargs.
 
-        On a server that provides the gateway, ``openapi`` and the HTTP MCP
-        transports are served through it so both frontends share one code
-        path.  ``mcp --transport stdio`` stays on the direct MCP server: the
-        gateway has no stdio frontend.
+        ``openapi`` and the HTTP MCP transports are served through the
+        gateway so both frontends share one code path.  ``mcp --transport
+        stdio`` stays on the direct MCP server: the gateway has no stdio
+        frontend.
         """
         common: dict[str, Any] = {
             "tools_config_path": getattr(parsed, "config", None),
@@ -74,18 +82,15 @@ class HubCLI(CLI):
             "enable_think": getattr(parsed, "think_augment", True),
             "profile": getattr(parsed, "profile", None),
             "admin_port": getattr(parsed, "admin_port", None),
-            # tools.jsonc hot reload (#144); off unless --config-reload is given.
+            # The server's watcher starts from App.create_gateway/serve; the
+            # Hub keeps no watcher of its own.
             "config_reload": getattr(parsed, "config_reload", False),
+            "write_config": getattr(parsed, "config_write", True),
         }
-        if SERVER_HAS_SOURCE_MANAGER:
-            # --no-config-write exists only on a server that has the source
-            # manager; do not pass the kwarg to an older server.
-            common["write_config"] = getattr(parsed, "config_write", True)
         transport = getattr(parsed, "transport", None)
         # The gateway takes the union of the frontend options: host/port,
         # credentials, backend, the OAuth origin and the tools/list cache
-        # hints.  The released-floor calls below keep their original, narrower
-        # kwarg sets.
+        # hints.
         gateway_options = {
             "host": parsed.host,
             "port": parsed.port,
@@ -99,39 +104,15 @@ class HubCLI(CLI):
         }
 
         if parsed.command == "openapi":
-            if SERVER_HAS_GATEWAY:
-                _serve_gateway(
-                    self.app,
-                    openapi_enabled=True,
-                    mcp_enabled=False,
-                    sse_enabled=False,
-                    **gateway_options,
-                    **common,
-                )
-            else:
-                self.app.serve_openapi(
-                    host=parsed.host,
-                    port=parsed.port,
-                    tokens_path=getattr(parsed, "tokens", None),
-                    reload=getattr(parsed, "reload", False),
-                    # The Hub builds these kwargs explicitly, so a flag added
-                    # to the server subparser is dropped unless forwarded
-                    # (#78, #83).  ``backend`` selects fastapi or httpserver;
-                    # the default matches the server's own default.
-                    backend=getattr(parsed, "backend", "fastapi"),
-                    **common,
-                )
+            self.app.serve_gateway(
+                openapi_enabled=True,
+                mcp_enabled=False,
+                sse_enabled=False,
+                **gateway_options,
+                **common,
+            )
         elif parsed.command == "mcp":
-            if SERVER_HAS_GATEWAY and transport != "stdio":
-                _serve_gateway(
-                    self.app,
-                    openapi_enabled=False,
-                    mcp_enabled=transport in ("streamable-http", "http"),
-                    sse_enabled=transport == "sse",
-                    **gateway_options,
-                    **common,
-                )
-            else:
+            if transport == "stdio":
                 self.app.serve_mcp(
                     transport=transport,
                     host=parsed.host,
@@ -150,10 +131,15 @@ class HubCLI(CLI):
                     ),
                     **common,
                 )
+            else:
+                self.app.serve_gateway(
+                    openapi_enabled=False,
+                    mcp_enabled=transport in ("streamable-http", "http"),
+                    sse_enabled=transport == "sse",
+                    **gateway_options,
+                    **common,
+                )
         elif parsed.command == "gateway":
-            # The server adds this subcommand on a build with the gateway; it
-            # is not present on the released floor, so this branch cannot run
-            # there.
             extras = {
                 key: value
                 for key in (
@@ -166,8 +152,7 @@ class HubCLI(CLI):
                 )
                 if (value := getattr(parsed, key, None)) is not None
             }
-            _serve_gateway(
-                self.app,
+            self.app.serve_gateway(
                 openapi_enabled=getattr(parsed, "openapi", None),
                 mcp_enabled=getattr(parsed, "mcp", None),
                 sse_enabled=getattr(parsed, "sse", None),
@@ -180,16 +165,6 @@ class HubCLI(CLI):
 # ---------------------------------------------------------------------------
 # Hub-specific helpers
 # ---------------------------------------------------------------------------
-
-
-def _serve_gateway(app: Any, **kwargs: Any) -> None:
-    """Serve through the gateway on a server that provides it.
-
-    ``App.serve_gateway`` does not exist on the released floor; the call is
-    guarded by :data:`SERVER_HAS_GATEWAY`, and the attribute lookup keeps the
-    type checker on the released floor happy.
-    """
-    app.serve_gateway(**kwargs)
 
 
 def _add_hub_arguments(parser: argparse.ArgumentParser) -> None:
@@ -213,20 +188,6 @@ def _add_hub_arguments(parser: argparse.ArgumentParser) -> None:
         default=True,
         help="Enable/disable think-augmented function calling (default: enabled)",
     )
-    # A server with the runtime source manager adds --config-reload (and
-    # --no-config-write) to these subparsers itself, so defining it again
-    # would make argparse reject the duplicate option.
-    if not SERVER_HAS_SOURCE_MANAGER:
-        parser.add_argument(
-            "--config-reload",
-            action=argparse.BooleanOptionalAction,
-            default=False,
-            help=(
-                "Reload tools.jsonc when the file changes (default: disabled). "
-                "Requires a config file; the built-in default list has nothing "
-                "to watch."
-            ),
-        )
 
 
 def _run_update_check() -> dict | None:

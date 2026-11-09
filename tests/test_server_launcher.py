@@ -1,22 +1,18 @@
 """Launcher tests for the server-owned source manager and gateway.
 
-The runtime source manager and the gateway are on server master ahead of
-0.9.0, so these tests skip on the released server floor.  The
-``test-server-master`` CI job runs them; the default matrix runs the
-released-floor path in ``test_config_hot_reload.py``.
+Server 0.9.0 is the floor, so the runtime source manager and the gateway are
+always present.  These tests run in the default matrix and against server
+master; the Hub keeps no watcher and no source diff of its own.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 from typing import Any
 
 import pytest
-
-pytest.importorskip("toolregistry_server.source_manager")
-pytest.importorskip("toolregistry_server.gateway")
-
 from toolregistry_server.source_manager import (  # noqa: E402
     ConfigWatcher as ServerConfigWatcher,
 )
@@ -24,9 +20,6 @@ from toolregistry_server.source_manager import SourceManager  # noqa: E402
 
 from toolregistry_hub.server.app import HubApp  # noqa: E402
 from toolregistry_hub.server.cli import HubCLI  # noqa: E402
-from toolregistry_hub.server.hot_reload import (
-    ConfigWatcher as HubConfigWatcher,  # noqa: E402
-)
 
 TOOLS = [
     {
@@ -63,10 +56,9 @@ class TestSourceManagerOwnsRegistration:
         assert "calculator-evaluate" in names
         assert "datetime-now" in names
 
-        # The Hub's declarations and output schemas still reach the tools the
-        # manager registered. ``apply_initial`` does not call
-        # ``on_registered``, so the launcher runs the pass itself; the output
-        # schema is the part that only that pass adds.
+        # The Hub's definition-time declarations reach the tools the manager
+        # registered: ``apply_initial`` runs the ``on_registered`` callback
+        # for startup sources.
         assert registry.get_tool("calculator-evaluate").metadata.defer is True
         assert registry.get_tool("datetime-now").metadata.title
         schema = registry.get_tool("datetime-convert_timezone").metadata.extra.get(
@@ -96,9 +88,7 @@ class TestSourceManagerOwnsRegistration:
 
 
 class TestServerWatcher:
-    def test_the_server_watcher_runs_and_hub_watcher_does_not(
-        self, config_path
-    ) -> None:
+    def test_the_server_watcher_runs(self, config_path) -> None:
         app = HubApp()
         app.create_gateway(
             tools_config_path=str(config_path),
@@ -108,10 +98,13 @@ class TestServerWatcher:
         try:
             watcher = app.config_watcher
             assert isinstance(watcher, ServerConfigWatcher)
-            assert not isinstance(watcher, HubConfigWatcher)
             assert watcher.manager is app.source_manager
         finally:
             app.stop_config_watcher()
+
+    def test_the_hub_ships_no_watcher_or_diff(self) -> None:
+        """--config-reload delegates to the server; the Hub keeps no copy."""
+        assert importlib.util.find_spec("toolregistry_hub.server.hot_reload") is None
 
 
 class TestProfile:

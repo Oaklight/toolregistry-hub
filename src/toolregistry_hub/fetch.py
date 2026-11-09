@@ -736,6 +736,22 @@ class Fetch:
         idempotent_hint=True,
         open_world_hint=True,
         title="Fetch URL Content",
+        extra={
+            "output_schema": {
+                "type": "object",
+                "properties": {
+                    "content": {"type": "string"},
+                    "url": {"type": "string"},
+                    "strategy": {"type": "string"},
+                    "quality": {"type": "string"},
+                    "content_type": {"type": "string"},
+                    "cached": {"type": "boolean"},
+                    "elapsed_ms": {"type": "integer"},
+                    "metadata": {"type": "object", "additionalProperties": True},
+                },
+                "additionalProperties": True,
+            }
+        },
     )
     def fetch_content(
         self,
