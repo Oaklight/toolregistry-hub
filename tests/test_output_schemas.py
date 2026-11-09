@@ -9,6 +9,7 @@ from the definition.
 from __future__ import annotations
 
 import json
+from typing import get_type_hints, is_typeddict
 
 import pytest
 from toolregistry_server import RouteTable
@@ -69,6 +70,27 @@ def test_every_expected_schema_is_declared_and_registered(registry):
     }
     assert declared == EXPECTED
     assert declared <= registered
+
+
+def test_every_output_schema_tool_has_a_typed_return_annotation(registry):
+    """A declared schema must be backed by a TypedDict return annotation.
+
+    The annotation is documentation and tooling input; it does not feed the
+    published ``outputSchema``.  It is what a new tool is easiest to forget,
+    so it is asserted for every schema-carrying tool rather than spot-checked.
+    """
+    schema_tools = [
+        tool
+        for tool in registry._tools.values()
+        if (tool.metadata.extra or {}).get("output_schema") is not None
+    ]
+    assert len(schema_tools) == len(EXPECTED)
+    untyped = [
+        f"{tool.namespace}.{tool.method_name}"
+        for tool in schema_tools
+        if not is_typeddict(get_type_hints(tool.fn).get("return"))
+    ]
+    assert untyped == []
 
 
 def test_schemas_are_object_typed_with_typed_properties(registry):

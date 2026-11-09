@@ -77,8 +77,12 @@ StrategyName = Literal[
 ]
 
 
-class FetchResult(TypedDict):
-    """Structured result returned by Fetch.fetch_content."""
+class FetchResult(TypedDict, total=False):
+    """Structured result returned by Fetch.fetch_content.
+
+    The declared schema has no ``required`` list, so the keys describe the
+    values a result always emits, not values a caller may assume are present.
+    """
 
     content: str
     url: str

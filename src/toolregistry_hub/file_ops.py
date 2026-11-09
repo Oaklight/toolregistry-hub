@@ -3,11 +3,33 @@
 import difflib
 import hashlib
 import os
-from typing import Literal
+from typing import Literal, TypedDict
 
 from toolregistry import ToolTag
 
 from ._metadata import tool_metadata
+
+
+class ReadResult(TypedDict, total=False):
+    """Result of ``FileOps.read``."""
+
+    digest: str
+    is_symlink: bool
+    real_path: str
+    content: str
+
+
+class EditResult(TypedDict, total=False):
+    """Result of ``FileOps.edit``."""
+
+    diff: str
+    digest: str
+
+
+class WriteResult(TypedDict, total=False):
+    """Result of ``FileOps.write``."""
+
+    digest: str
 
 
 class FileOps:
@@ -112,7 +134,7 @@ class FileOps:
             }
         },
     )
-    def read(path: str, digest_only: bool = False) -> dict[str, str | bool]:
+    def read(path: str, digest_only: bool = False) -> ReadResult:
         """Read text file content and return a digest for safe edits/writes.
 
         Symlinks are allowed for reading. Writes through symlinks are rejected,
@@ -132,19 +154,19 @@ class FileOps:
         # Keys ordered so metadata serializes before content — if MCP
         # transport truncates large responses, digest/symlink info survives.
         if digest_only:
-            return {
-                "digest": FileOps._digest_file(path),
-                "is_symlink": os.path.islink(path),
-                "real_path": FileOps._real_path(path),
-            }
+            return ReadResult(
+                digest=FileOps._digest_file(path),
+                is_symlink=os.path.islink(path),
+                real_path=FileOps._real_path(path),
+            )
         raw = FileOps._read_raw(path)
         text, _encoding, _bom = FileOps._decode(raw)
-        return {
-            "digest": FileOps._digest(raw),
-            "is_symlink": os.path.islink(path),
-            "real_path": FileOps._real_path(path),
-            "content": text,
-        }
+        return ReadResult(
+            digest=FileOps._digest(raw),
+            is_symlink=os.path.islink(path),
+            real_path=FileOps._real_path(path),
+            content=text,
+        )
 
     @staticmethod
     @tool_metadata(
@@ -172,7 +194,7 @@ class FileOps:
         digest: str,
         replace_all: bool = False,
         start_line: int | None = None,
-    ) -> dict[str, str]:
+    ) -> EditResult:
         """Replace exact string in file.
 
         Args:
@@ -251,7 +273,7 @@ class FileOps:
             f.write(encoded)
         os.replace(tmp_path, path)
 
-        return {"diff": diff_output, "digest": FileOps._digest(encoded)}
+        return EditResult(diff=diff_output, digest=FileOps._digest(encoded))
 
     @staticmethod
     @tool_metadata(
@@ -274,7 +296,7 @@ class FileOps:
         content: str,
         digest: str | None = None,
         mode: Literal["overwrite", "append"] = "overwrite",
-    ) -> dict[str, str]:
+    ) -> WriteResult:
         """Write content to a file.
 
         Existing files require a digest from ``read(path)``.  New files can be
@@ -311,7 +333,7 @@ class FileOps:
             f.write(raw)
         os.replace(tmp_path, path)
 
-        return {"digest": FileOps._digest(raw)}
+        return WriteResult(digest=FileOps._digest(raw))
 
     # ======================
     #  Internal Utilities
