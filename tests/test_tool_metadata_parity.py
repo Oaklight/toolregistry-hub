@@ -101,16 +101,20 @@ def _fallback_metadata(
 ) -> ToolMetadata:
     """Return the metadata the released-floor fallback produces.
 
-    When the core applies declarations itself, the declaration is stripped
-    from a copy first, so the fallback alone has to reproduce it.  On a
-    released core the original function is used: the declaration lives only
-    in its attribute.
+    When the core applies declarations itself, the tool is built from a
+    copy without one and the declaration is attached afterwards, so only
+    the fallback can apply it.  On a released core the original function is
+    used: the declaration lives only in its attribute.
     """
+    declaration = getattr(func, md.DECLARED_ATTR, {})
     monkeypatch.setattr(md, "CORE_APPLIES_DECLARATIONS", False)
     target = _without_declaration(func) if CORE_APPLIES else func
     registry = _registered(target, metadata)
+    name = next(iter(registry._tools))
+    if CORE_APPLIES and declaration:
+        setattr(registry._tools[name].fn, md.DECLARED_ATTR, dict(declaration))
     md.apply_declared_metadata(registry)
-    return registry._tools[next(iter(registry._tools))].metadata
+    return registry._tools[name].metadata
 
 
 def _core_metadata(func: Any, metadata: ToolMetadata | None = None) -> ToolMetadata:
