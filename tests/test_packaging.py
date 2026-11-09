@@ -58,13 +58,14 @@ def test_core_library_is_a_runtime_dependency() -> None:
 
 
 def test_server_openapi_extra_installs_the_gateway_backend() -> None:
-    """``server_openapi`` must pull FastAPI and uvicorn on its own.
+    """``server_openapi`` must pull the server's gateway extra.
 
-    ``toolregistry-server[openapi]`` is an empty alias from server 0.9.0,
-    while the hub's ``openapi`` command uses the gateway ASGI backend.  Hub
-    CI installs ``.[dev,server_core]``, so nothing else notices if these two
-    requirements disappear from the extra.
+    The Hub's ``openapi`` command is served through the gateway, so the
+    extra names ``toolregistry-server[gateway]`` (which carries FastAPI and
+    uvicorn) instead of duplicating the backend packages.
     """
     requirements = _extra_requirements("server_openapi")
-    assert "fastapi>=0.119.0" in requirements
-    assert "uvicorn[standard]>=0.24.0" in requirements
+    assert any(
+        requirement.startswith("toolregistry-server[gateway]")
+        for requirement in requirements
+    ), requirements
