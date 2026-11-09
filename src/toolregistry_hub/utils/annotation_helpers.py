@@ -16,6 +16,8 @@ import types
 from collections.abc import Callable, Iterable
 from typing import Any, Literal
 
+from .._metadata import copy_declaration
+
 
 def bind_literal(
     func: types.FunctionType | Callable[..., Any],
@@ -94,6 +96,7 @@ def bind_literal(
     # tuple, so dispatch through ``__getitem__`` directly to accept the
     # runtime-built tuple.
     new_func.__annotations__[param] = Literal.__getitem__(choice_tuple)
+    copy_declaration(func, new_func)
 
     if instance is not None:
         return types.MethodType(new_func, instance)

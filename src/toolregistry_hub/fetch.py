@@ -14,7 +14,7 @@ from urllib.parse import urljoin, urlsplit
 
 from toolregistry import ToolTag
 
-from ._metadata import tool_metadata
+from ._metadata import copy_declaration, tool_metadata
 from ._vendor.httpclient import (
     HttpConnectionError,
     HTTPError,
@@ -714,6 +714,7 @@ class Fetch:
         new_func.__annotations__["strategy"] = Literal.__getitem__(
             self._available_strategies()
         )
+        copy_declaration(original, new_func)
         self.fetch_content = types.MethodType(new_func, self)  # type: ignore[method-assign]
 
     def _is_configured(self) -> bool:

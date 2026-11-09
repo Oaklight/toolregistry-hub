@@ -100,6 +100,22 @@ def declared_metadata(func: Any) -> dict[str, Any]:
     return {name: value for name, value in declared.items() if name in _DECLARABLE}
 
 
+def copy_declaration(source: Any, target: Any) -> None:
+    """Copy the declaration on *source* to a function derived from it.
+
+    An annotation-narrowing or ``Literal``-binding helper rebuilds the
+    function object; without this copy the tool silently loses its tags,
+    deferral and hints, because the clone is what class registration sees.
+
+    Args:
+        source: The function that carries the declaration.
+        target: The replacement function.
+    """
+    declared = getattr(source, DECLARED_ATTR, None)
+    if isinstance(declared, dict):
+        setattr(target, DECLARED_ATTR, dict(declared))
+
+
 def apply_declared_metadata(
     registry: ToolRegistry, names: Set[str] | None = None
 ) -> None:
@@ -141,6 +157,7 @@ __all__ = [
     "CORE_APPLIES_DECLARATIONS",
     "DECLARED_ATTR",
     "apply_declared_metadata",
+    "copy_declaration",
     "declared_metadata",
     "tool_metadata",
 ]
