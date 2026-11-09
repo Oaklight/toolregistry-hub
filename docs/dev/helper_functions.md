@@ -19,6 +19,34 @@ ToolRegistry Hub 提供了一些辅助函数，用于支持工具的开发和使
 - 确定适当的命名空间
 - 验证工具实现
 
+## 声明工具元数据
+
+标签、延迟加载、执行提示与标题应写在工具方法本身上：
+
+```python
+from toolregistry_hub._metadata import tool_metadata
+
+@staticmethod
+@tool_metadata(defer=True, tags={"network"}, read_only_hint=True)
+def search(query: str) -> list[str]:
+    ...
+```
+
+`@tool_metadata` 必须位于 `@staticmethod` 之下。在受支持的版本下限上，声明在注册后应用；在提供装饰器的核心上，声明由 `Tool.from_function` 应用，因此不要依赖其中任一时机。
+
+返回**新函数对象**的辅助函数不会继承该属性。注解收窄、`Literal` 绑定以及任何手写的 `types.FunctionType` 重建都会产生副本，而类注册看到的是副本，工具会因此静默丢失标签与提示。请显式复制声明：
+
+```python
+from toolregistry_hub._metadata import copy_declaration
+
+def narrowed(func):
+    clone = types.FunctionType(...)
+    copy_declaration(func, clone)
+    return clone
+```
+
+`functools.wraps` 会更新 `__dict__`，因此已经复制了声明；手写重建则不会。
+
 ## 函数参考
 
 ### `_is_all_static_methods(cls: Type) -> bool`
