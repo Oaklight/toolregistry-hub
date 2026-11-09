@@ -109,7 +109,7 @@ def configurable_hook(name: str, tool: object, registry: ToolRegistry) -> str | 
     return None
 
 
-def _output_schema_update(namespace: str, tool: Any) -> dict:
+def _output_schema_update(namespace: str | None, tool: Any) -> dict:
     """Return the ``extra`` metadata update carrying a declared result schema.
 
     A declared schema lives in ``ToolMetadata.extra["output_schema"]`` because

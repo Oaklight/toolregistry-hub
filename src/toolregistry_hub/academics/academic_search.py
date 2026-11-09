@@ -18,7 +18,7 @@ from typing import Literal
 
 from toolregistry import ToolTag
 
-from .._metadata import tool_metadata
+from .._metadata import copy_declaration, tool_metadata
 from .._vendor.structlog import get_logger
 from .base import TIMEOUT_DEFAULT, BaseAcademicSearch
 from .paper_result import PaperResult
@@ -107,6 +107,7 @@ class AcademicSearch:
         new_func.__annotations__ = dict(original.__annotations__)
         narrowed_literal = Literal.__getitem__(("auto", *configured))  # type: ignore[arg-type]
         new_func.__annotations__["engine"] = narrowed_literal
+        copy_declaration(original, new_func)
         self.search = types.MethodType(new_func, self)  # type: ignore[method-assign]
 
     def _configured_engine_names(self) -> list[str]:
