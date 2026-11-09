@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- **Tool metadata is declared at definition time** (#257): tags, `defer`, execution hints and titles now sit on the tool methods as `@tool_metadata(...)` declarations instead of a namespace table replayed after registration, so class registration carries them with no post-registration pass. A core that provides the decorator applies the declaration in `Tool.from_function`; on the supported floor a fallback in `toolregistry_hub._metadata` applies the same rule (fill only fields still at their dataclass default), so values and precedence are unchanged on every supported release. `BashTool.execute` is declared from the `bashtool` submodule re-export. The reload pass now only republishes output schemas.
+- **Tool metadata is declared at definition time** (#257): tags, `defer`, execution hints and titles now sit on the tool methods as `@tool_metadata(...)` declarations instead of a namespace table replayed after registration, so class registration carries them with no post-registration pass. A core that provides the decorator applies the declaration in `Tool.from_function`; on the supported floor a fallback in `toolregistry_hub._metadata` applies the same rule (fill only fields still at their dataclass default), so the built-in tools keep the same values and precedence on every supported release. `BashTool.execute` is declared from the `bashtool` submodule re-export. Namespace-wide defaults now exist only on the tools that declare them: a third-party tool registered into a Hub namespace gets no implicit tags, `defer` or hints and must declare its own. The reload pass now only republishes output schemas.
 
 ## [0.12.0] - 2026-11-08
 
