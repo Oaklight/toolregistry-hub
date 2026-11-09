@@ -27,6 +27,18 @@ tool_metadata(
     idempotent_hint=False,
     open_world_hint=True,
     title="Execute Shell Command",
+    extra={
+        "output_schema": {
+            "type": "object",
+            "properties": {
+                "stdout": {"type": "string"},
+                "stderr": {"type": "string"},
+                "exit_code": {"type": "integer"},
+                "timed_out": {"type": "boolean"},
+            },
+            "additionalProperties": True,
+        }
+    },
 )(BashTool.execute)
 
 __all__ = ["BashTool", "_validate_command"]

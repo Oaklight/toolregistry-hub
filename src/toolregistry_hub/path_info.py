@@ -24,6 +24,19 @@ class PathInfo:
         idempotent_hint=True,
         open_world_hint=False,
         title="Path Info",
+        extra={
+            "output_schema": {
+                "type": "object",
+                "properties": {
+                    "exists": {"type": "boolean"},
+                    "type": {"type": "string"},
+                    "size": {"type": "integer"},
+                    "last_modified": {"type": "string"},
+                    "permissions": {"type": "string"},
+                },
+                "additionalProperties": True,
+            }
+        },
     )
     def info(path: str) -> dict:
         """Get metadata for a file or directory in a single call.

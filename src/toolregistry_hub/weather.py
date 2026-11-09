@@ -20,6 +20,75 @@ logger = get_logger()
 _WTTR_BASE = "https://wttr.in"
 _TIMEOUT = 10.0
 
+# Declared result shapes, published as MCP outputSchema/structuredContent.
+# Only tools whose result is a dict with stable keys declare one; the
+# schemas name the keys a tool always emits, so no field is required and
+# another key may appear.
+_AREA_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "region": {"type": "string"},
+        "country": {"type": "string"},
+        "latitude": {"type": "string"},
+        "longitude": {"type": "string"},
+    },
+    "additionalProperties": True,
+}
+
+#: One hour inside a forecast day (only present with ``include_hourly``).
+_HOURLY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "time": {"type": "string"},
+        "temperature": {"type": "string"},
+        "feels_like": {"type": "string"},
+        "description": {"type": "string"},
+        "humidity": {"type": "string"},
+        "wind": {"type": "string"},
+        "precipitation": {"type": "string"},
+        "chance_of_rain": {"type": "string"},
+        "chance_of_snow": {"type": "string"},
+    },
+    "additionalProperties": True,
+}
+
+#: One day inside a forecast.
+_DAY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "date": {"type": "string"},
+        "max_temp": {"type": "string"},
+        "min_temp": {"type": "string"},
+        "avg_temp": {"type": "string"},
+        "uv_index": {"type": ["string", "integer"]},
+        "total_snow_cm": {"type": ["string", "number"]},
+        "sun_hours": {"type": ["string", "number"]},
+        "sunrise": {"type": "string"},
+        "sunset": {"type": "string"},
+        "moon_phase": {"type": "string"},
+        "hourly": {"type": "array", "items": _HOURLY_SCHEMA},
+    },
+    "additionalProperties": True,
+}
+
+_CURRENT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "temperature": {"type": "string"},
+        "feels_like": {"type": "string"},
+        "description": {"type": "string"},
+        "humidity": {"type": "string"},
+        "wind": {"type": "string"},
+        "precipitation": {"type": "string"},
+        "cloud_cover": {"type": "string"},
+        "uv_index": {"type": ["string", "integer"]},
+        "visibility": {"type": "string"},
+        "pressure": {"type": "string"},
+    },
+    "additionalProperties": True,
+}
+
 
 class WeatherError(RuntimeError):
     """Raised when a weather request fails."""
@@ -200,6 +269,16 @@ class Weather:
         idempotent_hint=False,
         open_world_hint=True,
         title="Current Weather",
+        extra={
+            "output_schema": {
+                "type": "object",
+                "properties": {
+                    "location": _AREA_SCHEMA,
+                    "current": _CURRENT_SCHEMA,
+                },
+                "additionalProperties": True,
+            }
+        },
     )
     def get_current(
         location: str,
@@ -238,6 +317,16 @@ class Weather:
         idempotent_hint=False,
         open_world_hint=True,
         title="Weather Forecast",
+        extra={
+            "output_schema": {
+                "type": "object",
+                "properties": {
+                    "location": _AREA_SCHEMA,
+                    "forecast": {"type": "array", "items": _DAY_SCHEMA},
+                },
+                "additionalProperties": True,
+            }
+        },
     )
     def get_forecast(
         location: str,
@@ -281,6 +370,22 @@ class Weather:
         idempotent_hint=False,
         open_world_hint=True,
         title="Astronomy",
+        extra={
+            "output_schema": {
+                "type": "object",
+                "properties": {
+                    "location": _AREA_SCHEMA,
+                    "date": {"type": "string"},
+                    "sunrise": {"type": "string"},
+                    "sunset": {"type": "string"},
+                    "moonrise": {"type": "string"},
+                    "moonset": {"type": "string"},
+                    "moon_phase": {"type": "string"},
+                    "moon_illumination": {"type": "string"},
+                },
+                "additionalProperties": True,
+            }
+        },
     )
     def get_astronomy(
         location: str,

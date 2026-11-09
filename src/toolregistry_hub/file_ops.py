@@ -99,6 +99,18 @@ class FileOps:
         idempotent_hint=True,
         open_world_hint=False,
         title="Read File",
+        extra={
+            "output_schema": {
+                "type": "object",
+                "properties": {
+                    "digest": {"type": "string"},
+                    "is_symlink": {"type": "boolean"},
+                    "real_path": {"type": "string"},
+                    "content": {"type": "string"},
+                },
+                "additionalProperties": True,
+            }
+        },
     )
     def read(path: str, digest_only: bool = False) -> dict[str, str | bool]:
         """Read text file content and return a digest for safe edits/writes.
@@ -142,6 +154,16 @@ class FileOps:
         idempotent_hint=False,
         open_world_hint=False,
         title="Edit File",
+        extra={
+            "output_schema": {
+                "type": "object",
+                "properties": {
+                    "diff": {"type": "string"},
+                    "digest": {"type": "string"},
+                },
+                "additionalProperties": True,
+            }
+        },
     )
     def edit(
         path: str,
@@ -239,6 +261,13 @@ class FileOps:
         idempotent_hint=True,
         open_world_hint=False,
         title="Write File",
+        extra={
+            "output_schema": {
+                "type": "object",
+                "properties": {"digest": {"type": "string"}},
+                "additionalProperties": True,
+            }
+        },
     )
     def write(
         path: str,

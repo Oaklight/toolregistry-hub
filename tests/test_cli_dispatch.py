@@ -1,12 +1,12 @@
 """Tests for HubCLI argument routing.
 
-The Hub builds ``serve_mcp``/``serve_openapi`` kwargs explicitly instead of
-forwarding the parsed namespace, so a flag added to the server subparser is
-dropped unless the Hub passes it on (#78).
+The Hub builds its serving kwargs explicitly instead of forwarding the
+parsed namespace, so a flag added to a server subparser is dropped unless
+the Hub passes it on (#78).  ``openapi`` and the HTTP MCP transports go
+through the gateway; ``mcp --transport stdio`` uses the direct MCP server.
 """
 
 import argparse
-import importlib.metadata
 from unittest.mock import patch
 
 import pytest
@@ -15,10 +15,10 @@ from toolregistry_hub.server.cli import HubCLI
 
 
 def _mcp_namespace(**overrides) -> argparse.Namespace:
-    """Return a parsed-namespace stand-in for ``hub mcp``."""
+    """Return a parsed-namespace stand-in for ``hub mcp --transport stdio``."""
     values = {
         "command": "mcp",
-        "transport": "http",
+        "transport": "stdio",
         "host": "0.0.0.0",
         "port": 8000,
         "config": "tools.jsonc",
@@ -26,13 +26,14 @@ def _mcp_namespace(**overrides) -> argparse.Namespace:
         "think_augment": True,
         "profile": None,
         "admin_port": None,
+        "config_reload": False,
     }
     values.update(overrides)
     return argparse.Namespace(**values)
 
 
 class TestMCPDispatch:
-    """``hub mcp`` kwargs reach the Hub app intact."""
+    """``hub mcp --transport stdio`` kwargs reach the Hub app intact."""
 
     def test_forwards_server_url(self):
         """--server-url reaches serve_mcp so metadata names the public origin."""
@@ -47,7 +48,7 @@ class TestMCPDispatch:
         )
 
     def test_defaults_server_url_to_none(self):
-        """A namespace without the attribute still dispatches (older server)."""
+        """A namespace without the attribute still dispatches."""
         cli = HubCLI()
         parsed = _mcp_namespace()
 
@@ -69,7 +70,7 @@ class TestMCPDispatch:
         assert kwargs["tools_list_cache_scope"] == "public"
 
     def test_cache_hints_default_to_none(self):
-        """A namespace without the attributes still dispatches (older server)."""
+        """A namespace without the attributes still dispatches."""
         cli = HubCLI()
         parsed = _mcp_namespace()
 
@@ -81,7 +82,7 @@ class TestMCPDispatch:
         assert kwargs["tools_list_cache_scope"] is None
 
     def test_forwards_config_reload(self):
-        """--config-reload reaches serve_mcp so the watcher can start (#144)."""
+        """--config-reload reaches the server so its watcher can start."""
         cli = HubCLI()
         parsed = _mcp_namespace(config_reload=True)
 
@@ -103,28 +104,33 @@ class TestMCPDispatch:
     def test_forwards_transport_and_host(self):
         """The kwargs the Hub already passed are unaffected."""
         cli = HubCLI()
-        parsed = _mcp_namespace(
-            transport="streamable-http", host="127.0.0.1", port=9100
-        )
+        parsed = _mcp_namespace(host="127.0.0.1", port=9100)
 
         with patch.object(type(cli.app), "serve_mcp") as mock_serve:
             cli.dispatch(parsed)
 
         kwargs = mock_serve.call_args.kwargs
-        assert kwargs["transport"] == "streamable-http"
+        assert kwargs["transport"] == "stdio"
         assert kwargs["host"] == "127.0.0.1"
         assert kwargs["port"] == 9100
         assert kwargs["profile"] is None
 
+    @pytest.mark.parametrize("transport", ["streamable-http", "http", "sse"])
+    def test_http_transports_use_the_gateway(self, transport):
+        cli = HubCLI()
+        parsed = _mcp_namespace(transport=transport)
+
+        with patch.object(type(cli.app), "serve_gateway") as mock_serve:
+            cli.dispatch(parsed)
+
+        assert mock_serve.call_args.kwargs["openapi_enabled"] is False
+
     def test_subparser_accepts_server_url(self):
         """The flag is available on the Hub's mcp subcommand."""
         parser = HubCLI().create_parser()
-        try:
-            parsed = parser.parse_args(
-                ["mcp", "--server-url", "https://hub.example.com/mcp"]
-            )
-        except SystemExit:  # pragma: no cover - depends on the installed server
-            pytest.skip("installed toolregistry-server predates --server-url")
+        parsed = parser.parse_args(
+            ["mcp", "--server-url", "https://hub.example.com/mcp"]
+        )
 
         assert parsed.server_url == "https://hub.example.com/mcp"
 
@@ -147,24 +153,25 @@ def _openapi_namespace(**overrides) -> argparse.Namespace:
 
 
 class TestOpenAPIDispatch:
-    """``hub openapi`` kwargs reach the Hub app intact."""
+    """``hub openapi`` kwargs reach the gateway intact."""
 
     def test_forwards_backend(self):
-        """--backend reaches serve_openapi instead of being dropped."""
+        """--backend reaches serve_gateway instead of being dropped."""
         cli = HubCLI()
         parsed = _openapi_namespace(backend="httpserver")
 
-        with patch.object(type(cli.app), "serve_openapi") as mock_serve:
+        with patch.object(type(cli.app), "serve_gateway") as mock_serve:
             cli.dispatch(parsed)
 
         assert mock_serve.call_args.kwargs["backend"] == "httpserver"
+        assert mock_serve.call_args.kwargs["openapi_enabled"] is True
 
     def test_backend_defaults_to_fastapi(self):
         """A namespace without the attribute keeps the server default."""
         cli = HubCLI()
         parsed = _openapi_namespace()
 
-        with patch.object(type(cli.app), "serve_openapi") as mock_serve:
+        with patch.object(type(cli.app), "serve_gateway") as mock_serve:
             cli.dispatch(parsed)
 
         assert mock_serve.call_args.kwargs["backend"] == "fastapi"
@@ -172,13 +179,6 @@ class TestOpenAPIDispatch:
     def test_subparser_accepts_backend(self):
         """The flag is available on the Hub's openapi subcommand."""
         parser = HubCLI().create_parser()
-        try:
-            parsed = parser.parse_args(["openapi", "--backend", "httpserver"])
-        except SystemExit:  # pragma: no cover - the floor now guarantees it
-            pytest.skip(
-                "installed toolregistry-server "
-                f"{importlib.metadata.version('toolregistry-server')} "
-                "does not define --backend"
-            )
+        parsed = parser.parse_args(["openapi", "--backend", "httpserver"])
 
         assert parsed.backend == "httpserver"

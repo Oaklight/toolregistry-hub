@@ -1,48 +1,36 @@
 """Central tool registry for ToolRegistry Hub.
 
-This module provides a centralized registry that registers all available tools
-and automatically disables tools whose configuration is incomplete.
+This module holds the Hub preset and the single registration path:
 
-Hub-specific concerns (content, not infrastructure):
+- ``_DEFAULT_TOOLS``: the built-in tool list, as ``PythonSource`` entries
+- ``data/tools.yaml``: the shipped preset users can copy and edit
+- ``@tool_metadata``: tags, ``defer``, hints and output schemas declared on
+  the tool methods themselves; ``_metadata.apply_declared_metadata`` applies
+  them on a core that predates the decorator
+- ``configurable_hook``: post-register hook that auto-disables unconfigured
+  tools
 
-- ``_DEFAULT_TOOLS``: built-in tool list as ``PythonSource`` entries
-- ``@tool_metadata``: tag/defer/hint declarations on the tool methods;
-  applied by the core, with a released-floor fallback in ``_metadata``
-- ``output_schemas.OUTPUT_SCHEMAS``: declared result shapes, published as
-  MCP ``outputSchema`` / ``structuredContent``
-- ``configurable_hook``: post-register hook that auto-disables unconfigured tools
+Registration is owned by the server's runtime source manager, the same path
+``toolregistry-server`` uses: it applies the preset (or the config file),
+records each source's tools, and runs the Hub pass over what it registered.
+The Hub keeps no watcher and no source diff of its own.
 
 Deployment-context filtering (``--profile``) is handled by
-``toolregistry-server >= 0.3.0`` and is not reimplemented here.
+``toolregistry-server`` and is not reimplemented here.
 """
 
 from __future__ import annotations
 
-from collections.abc import Set
-from dataclasses import fields as dataclass_fields
 from typing import Any
 
 from toolregistry import ToolRegistry
 from toolregistry.config import PythonSource, ToolConfig
-from toolregistry.tool import ToolMetadata
 
 from .._metadata import apply_declared_metadata
 from .._vendor.structlog import get_logger
 from ..utils.configurable import Configurable
-from .hot_reload import ReloadState, apply_config_tracked, index_sources
-from .output_schemas import OUTPUT_SCHEMAS
 
 logger = get_logger()
-
-# Fields the installed toolregistry accepts on ToolMetadata.  Execution
-# hints and ``title`` were added after some supported releases, and Hub can
-# be installed against an older core (it is pulled in through
-# toolregistry-server).  Overrides for unknown fields are skipped instead
-# of raising in ``dataclasses.replace``; annotations then simply stay
-# absent until the core is upgraded.
-_METADATA_FIELDS: frozenset[str] = frozenset(
-    f.name for f in dataclass_fields(ToolMetadata)
-)
 
 # Hub's built-in tool list expressed as PythonSource entries.
 _DEFAULT_TOOLS: list[PythonSource] = [
@@ -109,57 +97,6 @@ def configurable_hook(name: str, tool: object, registry: ToolRegistry) -> str | 
     return None
 
 
-def _output_schema_update(namespace: str | None, tool: Any) -> dict:
-    """Return the ``extra`` metadata update carrying a declared result schema.
-
-    A declared schema lives in ``ToolMetadata.extra["output_schema"]`` because
-    that is where ``toolregistry-server`` reads it.  Merge rather than replace:
-    another integration may already have written keys there.
-
-    Args:
-        namespace: The tool's namespace.
-        tool: The registered tool.
-
-    Returns:
-        A dict with an ``extra`` key, or an empty dict when this tool declares
-        no schema or the installed core has no ``extra`` field.
-    """
-    if "extra" not in _METADATA_FIELDS:
-        return {}
-    schema = OUTPUT_SCHEMAS.get(namespace, {}).get(tool.method_name or "")
-    if schema is None:
-        return {}
-    existing = tool.metadata.extra if tool.metadata else {}
-    return {"extra": {**(existing or {}), "output_schema": schema}}
-
-
-def _apply_output_schemas(
-    registry: ToolRegistry, names: Set[str] | None = None
-) -> None:
-    """Publish the declared result schemas of the registered tools.
-
-    A declared schema lives in ``ToolMetadata.extra["output_schema"]``
-    because that is where ``toolregistry-server`` reads it.  Metadata
-    declarations themselves are applied at definition time; this pass only
-    attaches the schemas keyed by namespace and method in
-    ``OUTPUT_SCHEMAS``.
-
-    Args:
-        registry: The registry whose tools should be annotated.
-        names: When given, annotate only these tools.  A hot reload passes
-            the names it registered.
-    """
-    updates: list[tuple[str, dict]] = []
-    for tool in registry._tools.values():
-        if names is not None and tool.name not in names:
-            continue
-        update = _output_schema_update(tool.namespace, tool)
-        if update:
-            updates.append((tool.name, update))
-    for name, update in updates:
-        registry._replace_tool_metadata(name, **update)
-
-
 def _discover_config_path() -> str | None:
     """Auto-discover a tool config file path.
 
@@ -206,103 +143,127 @@ def _resolve_config(
     return config
 
 
-def build_registry(
+def _pin_discovery(registry: ToolRegistry, enabled: bool) -> None:
+    """Keep discovery off when it was not requested.
+
+    Core 0.20 runs discovery in "auto" mode by default: the first deferred
+    tool registered later (for example by a source-manager diff) starts
+    discovery and adds ``discover_tools`` / ``call_deferred``.  That
+    contradicts the flag, and the registration happens inside a change
+    callback, which can mutate ``_tools`` while a mutation is iterating it.
+    """
+    if enabled:
+        return
+    set_discovery_mode = getattr(registry, "set_tool_discovery_mode", None)
+    if callable(set_discovery_mode):
+        set_discovery_mode("off")
+
+
+def apply_hub_overrides(registry: ToolRegistry, names: set[str]) -> None:
+    """Apply the Hub's definition-time declarations to registered tools.
+
+    ``@tool_metadata`` stores a declaration on the function at definition
+    time.  A core that ships the decorator applies it in
+    ``Tool.from_function``; on an older core this pass fills the fields that
+    are still at their defaults.  Values supplied explicitly by the config
+    file or the admin panel always win.
+
+    Only *names* are visited, so a diff or reload never rewrites a tool an
+    operator changed.
+
+    Args:
+        registry: Live registry.
+        names: Tools registered by the pass that triggered this callback.
+    """
+    apply_declared_metadata(registry, names)
+
+
+def build_hub_registry(
     tools_config_path: str | None = None,
     enable_discovery: bool = True,
     enable_think: bool = True,
-    reload_state: ReloadState | None = None,
-) -> ToolRegistry:
-    """Build the hub tool registry.
+    profile: str | None = None,
+    write_config: bool = True,
+) -> tuple[ToolRegistry, Any]:
+    """Build the Hub registry and its runtime source manager.
 
-    Two-phase construction:
-
-    1. Register built-in tools from ``_DEFAULT_TOOLS`` (or a user config
-       file if provided) via ``toolregistry_server.apply_config``.
-    2. Apply Hub-specific metadata overrides (tags, defer).
+    The server's :class:`SourceManager` owns registration: it applies the
+    preset (or the config file), records each source's tools, and runs the
+    Hub pass over the names it registered.
 
     Args:
         tools_config_path: Path to a JSONC/YAML config file, or ``None`` for
             auto-discovery (``TOOLS_CONFIG`` env var / ``tools.jsonc``).
         enable_discovery: Register ``discover_tools`` and mark deferred tools.
         enable_think: Inject ``toolcall_reason`` into tool schemas.
-        reload_state: When given, registration is tracked source by source
-            and the state is filled in so a :class:`ConfigWatcher` can diff a
-            later version of the file (#144).
+        profile: Deployment profile for tag-based filtering.
+        write_config: Persist runtime source changes back to the config file.
 
     Returns:
-        A fully configured ``ToolRegistry`` instance.
+        ``(registry, manager)``.  The launcher stores the manager on the app
+        so runtime source changes and the config watcher reach the live
+        registry; callers that only need the tools ignore it.
     """
-    from toolregistry_server import apply_config
+    from toolregistry_server import apply_profile
+    from toolregistry_server.source_manager import SourceManager
 
     config = _resolve_config(tools_config_path)
 
     registry = ToolRegistry(name="hub", think_augment=enable_think)
-    if not enable_discovery:
-        # Core 0.20 runs discovery in "auto" mode by default: the first
-        # deferred tool registered later (for example by a config reload)
-        # starts discovery and adds ``discover_tools`` / ``call_deferred``.
-        # That contradicts this flag, and the registration happens inside a
-        # change callback, which can mutate ``_tools`` while a reload is
-        # iterating it.  Pin the mode off when discovery was not requested.
-        set_discovery_mode = getattr(registry, "set_tool_discovery_mode", None)
-        if callable(set_discovery_mode):
-            set_discovery_mode("off")
+    _pin_discovery(registry, enable_discovery)
     registry.add_post_register_hook(configurable_hook)
 
-    if reload_state is None:
-        # Register tools from config (built-in defaults or user override)
-        apply_config(registry, config)
-    else:
-        # Same registration, but record the names each source produced so a
-        # reload can compare sources instead of rebuilding the registry.
-        reload_state.config_path = config.source or None
-        reload_state.config = config
-        reload_state.source_tools = apply_config_tracked(
-            registry, config, statuses=reload_state.source_status
-        )
-        reload_state.applied_sources = index_sources(config.tools)
+    manager = SourceManager(
+        registry,
+        config,
+        config_path=config.source or None,
+        profile=profile,
+        write_config=write_config,
+        on_registered=apply_hub_overrides,
+    )
+    manager.apply_initial()
 
-    _apply_hub_overrides(registry, config)
+    if profile is not None:
+        # ``apply_initial`` registers startup sources without the profile
+        # filter; later diffs are filtered by the manager itself.
+        apply_profile(registry, profile)
 
     if enable_discovery:
         registry.enable_tool_discovery()
 
-    return registry
+    return registry, manager
 
 
-def _apply_hub_overrides(registry: ToolRegistry, config: ToolConfig) -> None:
-    """Apply Hub output schemas and declarations, then the user's overrides.
+def build_registry(
+    tools_config_path: str | None = None,
+    enable_discovery: bool = True,
+    enable_think: bool = True,
+    profile: str | None = None,
+    write_config: bool = True,
+) -> ToolRegistry:
+    """Build the Hub registry through the launcher's registration path.
 
-    ``@tool_metadata`` declarations are applied by ``Tool.from_function`` on
-    a core that provides the decorator; ``apply_declared_metadata`` is the
-    released-floor fallback and is a no-op elsewhere.
-    """
-    _apply_output_schemas(registry)
-    apply_declared_metadata(registry)
-
-    # Re-apply user config overrides so they take precedence over hub defaults
-    if config.tool_metadata:
-        registry.apply_metadata_config(config.tool_metadata)
-
-
-def apply_hub_overrides(registry: ToolRegistry, names: Set[str]) -> None:
-    """Apply Hub defaults to the tools registered by a reload.
-
-    ``reload_registry`` calls this before it applies the file's
-    ``tool_metadata``, so the order is the same as :func:`build_registry`:
-    Hub defaults first, the user's file overrides last.
-
-    Only *names* are annotated.  Tools that already existed are skipped, so
-    a value changed from the admin panel survives an unrelated config
-    reload.  On a core that applies declarations itself, only the output
-    schemas need this pass.
+    Convenience wrapper over :func:`build_hub_registry` for callers that only
+    need the registry.
 
     Args:
-        registry: Live registry, already updated by the reload.
-        names: Tools registered by the reload that triggered this callback.
+        tools_config_path: Path to a JSONC/YAML config file, or ``None``.
+        enable_discovery: Register ``discover_tools`` and mark deferred tools.
+        enable_think: Inject ``toolcall_reason`` into tool schemas.
+        profile: Deployment profile for tag-based filtering.
+        write_config: Persist runtime source changes back to the config file.
+
+    Returns:
+        A fully configured ``ToolRegistry`` instance.
     """
-    _apply_output_schemas(registry, names)
-    apply_declared_metadata(registry, names)
+    registry, _ = build_hub_registry(
+        tools_config_path=tools_config_path,
+        enable_discovery=enable_discovery,
+        enable_think=enable_think,
+        profile=profile,
+        write_config=write_config,
+    )
+    return registry
 
 
 _registry: ToolRegistry | None = None
