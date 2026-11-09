@@ -19,6 +19,34 @@ These utility functions are designed to help developers:
 - Determine proper namespaces
 - Validate tool implementations
 
+## Declaring Tool Metadata
+
+Tags, deferral, execution hints and titles belong on the tool method itself:
+
+```python
+from toolregistry_hub._metadata import tool_metadata
+
+@staticmethod
+@tool_metadata(defer=True, tags={"network"}, read_only_hint=True)
+def search(query: str) -> list[str]:
+    ...
+```
+
+`@tool_metadata` must sit below `@staticmethod`. On the supported core floor the declaration is applied after registration; on a core that provides the decorator it is applied in `Tool.from_function`, so do not rely on either timing.
+
+A helper that returns a **new** function object does not inherit the attribute. Annotation narrowing, `Literal` binding and any manual `types.FunctionType` rebuild all produce a clone, and class registration sees the clone, so the tool silently loses its tags and hints. Copy the declaration explicitly:
+
+```python
+from toolregistry_hub._metadata import copy_declaration
+
+def narrowed(func):
+    clone = types.FunctionType(...)
+    copy_declaration(func, clone)
+    return clone
+```
+
+`functools.wraps` already copies the declaration because it updates `__dict__`; a manual rebuild does not.
+
 ## Function Reference
 
 ### `_is_all_static_methods(cls: Type) -> bool`
