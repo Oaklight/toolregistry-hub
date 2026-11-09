@@ -80,4 +80,4 @@ jobs:
           python -c "import importlib.metadata as m; print('toolregistry', m.version('toolregistry'))"
 
       - name: Run registry and metadata tests
-        run: python -m pytest tests/test_registry.py tests/test_config_hot_reload.py -q
+        run: python -m pytest tests/test_registry.py tests/test_config_hot_reload.py tests/test_tool_metadata_parity.py -q
