@@ -182,7 +182,7 @@ class HubCLI(CLI):
 # ---------------------------------------------------------------------------
 
 
-def _serve_gateway(app: HubApp, **kwargs: Any) -> None:
+def _serve_gateway(app: Any, **kwargs: Any) -> None:
     """Serve through the gateway on a server that provides it.
 
     ``App.serve_gateway`` does not exist on the released floor; the call is
