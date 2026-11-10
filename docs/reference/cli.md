@@ -159,8 +159,9 @@ toolregistry-hub hub-shim [OPTIONS]
 
 ### `keys`
 
-Manage inbound API keys (`create`, `list`, `get`, `revoke`, `concurrency`,
-`limit`). The command passes through to the server unchanged.
+Manage inbound API keys (`create`, `list`, `get`, `revoke`,
+`set-concurrency`). `keys` requires `--db PATH`; `set-concurrency` takes
+`--value N` or `--clear`. The command passes through to the server unchanged.
 
 ```bash
 toolregistry-hub keys <subcommand> [OPTIONS]
