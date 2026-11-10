@@ -7,7 +7,6 @@ master; the Hub keeps no watcher and no source diff of its own.
 
 from __future__ import annotations
 
-import argparse
 import importlib.util
 import json
 import time
@@ -21,7 +20,6 @@ from toolregistry_server.source_manager import (  # noqa: E402
 from toolregistry_server.source_manager import SourceManager  # noqa: E402
 
 from toolregistry_hub.server.app import HubApp  # noqa: E402
-from toolregistry_hub.server.cli import HubCLI  # noqa: E402
 
 TOOLS = [
     {
@@ -221,89 +219,54 @@ class TestProfile:
         assert app.source_manager.profile == "remote"
 
 
-class TestDispatch:
-    def _cli(self, monkeypatch: pytest.MonkeyPatch) -> tuple[HubCLI, dict]:
-        cli = HubCLI()
-        calls: dict[str, Any] = {}
+class TestServerConfigKey:
+    """The server dispatch names the config ``config_path``."""
 
-        def record(name):
-            def capture(**kwargs: Any) -> None:
-                calls.setdefault("name", name)
-                calls.update(kwargs)
+    def test_prepare_registry_accepts_config_path(self, config_path) -> None:
+        app = HubApp(enable_discovery=False)
+        registry = app.prepare_registry(config_path=str(config_path))
 
-            return capture
+        assert registry.get_tool("calculator-evaluate") is not None
+        assert app.source_manager.config_path == str(config_path)
 
-        monkeypatch.setattr(cli.app, "serve_gateway", record("gateway"))
-        monkeypatch.setattr(cli.app, "serve_openapi", record("openapi"))
-        monkeypatch.setattr(cli.app, "serve_mcp", record("mcp"))
-        return cli, calls
-
-    @staticmethod
-    def _parsed(command: str, **overrides: Any) -> argparse.Namespace:
-        values: dict[str, Any] = {
-            "command": command,
-            "host": "127.0.0.1",
-            "port": 8000,
-            "tokens": None,
-            "reload": False,
-            "backend": "httpserver",
-            "config": None,
-            "tool_discovery": False,
-            "think_augment": False,
-            "profile": None,
-            "admin_port": None,
-            "config_reload": False,
-            "config_write": False,
-        }
-        values.update(overrides)
-        return argparse.Namespace(**values)
-
-    def test_parser_builds_with_the_server_flags(self) -> None:
-        # The server adds --config-reload/--no-config-write itself; defining
-        # them again would make argparse reject the duplicate option.
-        HubCLI().create_parser()
-
-    def test_openapi_uses_the_gateway(self, monkeypatch) -> None:
-        cli, calls = self._cli(monkeypatch)
-        cli.dispatch(self._parsed("openapi"))
-
-        assert calls["name"] == "gateway"
-        assert calls["openapi_enabled"] is True
-        assert calls["mcp_enabled"] is False
-        assert calls["sse_enabled"] is False
-        assert calls["backend"] == "httpserver"
-
-    def test_gateway_command_serves_every_frontend(self, monkeypatch) -> None:
-        cli, calls = self._cli(monkeypatch)
-        cli.dispatch(self._parsed("gateway"))
-
-        assert calls["name"] == "gateway"
-        assert calls["openapi_enabled"] is None
-        assert calls["mcp_enabled"] is None
-        assert calls["sse_enabled"] is None
-
-    @pytest.mark.parametrize(
-        ("transport", "mcp_enabled", "sse_enabled"),
-        [
-            ("streamable-http", True, False),
-            ("http", True, False),
-            ("sse", False, True),
-        ],
-    )
-    def test_http_mcp_transports_use_the_gateway(
-        self, monkeypatch, transport, mcp_enabled, sse_enabled
+    def test_tools_config_path_wins_over_config_path(
+        self, config_path, tmp_path
     ) -> None:
-        cli, calls = self._cli(monkeypatch)
-        cli.dispatch(self._parsed("mcp", transport=transport))
+        other = tmp_path / "other.jsonc"
+        other.write_text(json.dumps({"tools": []}))
 
-        assert calls["name"] == "gateway"
-        assert calls["openapi_enabled"] is False
-        assert calls["mcp_enabled"] is mcp_enabled
-        assert calls["sse_enabled"] is sse_enabled
+        app = HubApp(enable_discovery=False)
+        registry = app.prepare_registry(
+            config_path=str(other), tools_config_path=str(config_path)
+        )
 
-    def test_stdio_stays_on_the_mcp_server(self, monkeypatch) -> None:
-        cli, calls = self._cli(monkeypatch)
-        cli.dispatch(self._parsed("mcp", transport="stdio"))
+        assert registry.get_tool("calculator-evaluate") is not None
 
-        assert calls["name"] == "mcp"
-        assert calls["transport"] == "stdio"
+    def test_constructor_flags_apply_when_kwargs_omit_them(self, config_path) -> None:
+        app = HubApp(enable_discovery=False, enable_think=False)
+        registry = app.prepare_registry(config_path=str(config_path))
+
+        assert registry.get_tool("calculator-evaluate") is not None
+        assert registry._think_augment is False
+        assert "discover_tools" not in registry.list_tools(include_disabled=True)
+
+    def test_constructor_admin_port_starts_the_panel(self, config_path) -> None:
+        app = HubApp(enable_discovery=False, admin_port=0)
+        registry = app.prepare_registry(config_path=str(config_path), host="127.0.0.1")
+        try:
+            info = registry.get_admin_info()
+            assert info is not None
+            assert info.port != 0
+        finally:
+            registry.disable_admin()
+
+    def test_the_injected_preset_stays_memory_only(self) -> None:
+        from toolregistry_hub.server.registry import default_preset_path
+
+        app = HubApp(enable_discovery=False)
+        registry = app.prepare_registry(config_path=str(default_preset_path()))
+
+        assert registry.get_tool("calculator-evaluate") is not None
+        # The launcher injects the packaged preset as --config; it must not
+        # become a writable user config inside the installed package.
+        assert app.source_manager.config_path is None

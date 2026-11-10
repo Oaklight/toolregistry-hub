@@ -4,10 +4,14 @@ Overrides :meth:`prepare_registry` to build the Hub registry from the preset
 through the server's runtime source manager.  Everything else — serving the
 gateway, the config watcher, runtime source changes — is the server's.
 
+The Hub-only policy flags (``--admin-port``, ``--tool-discovery`` and
+``--think-augment``) are parsed by the launcher and carried on the app, so
+the server command line never sees them.
+
 Example::
 
     from toolregistry_hub.server.app import HubApp
-    app = HubApp()
+    app = HubApp(admin_port=8081)
     app.serve_gateway(host="0.0.0.0", port=8000)
 """
 
@@ -48,13 +52,35 @@ def _enable_admin(registry: ToolRegistry, **kwargs) -> None:
 
 
 class HubApp(App):
-    """Hub-specific server application."""
+    """Hub-specific server application.
 
-    def __init__(self, identity: ServerIdentity | None = None) -> None:
+    Args:
+        identity: Server identity to use instead of the Hub default.
+        enable_discovery: Register the tool-discovery helpers.
+        enable_think: Inject ``toolcall_reason`` into tool schemas.
+        admin_port: Port for the core admin panel, or ``None`` to disable it.
+    """
+
+    def __init__(
+        self,
+        identity: ServerIdentity | None = None,
+        *,
+        enable_discovery: bool = True,
+        enable_think: bool = True,
+        admin_port: int | None = None,
+    ) -> None:
         super().__init__(identity=identity or HUB_IDENTITY)
+        self.enable_discovery = enable_discovery
+        self.enable_think = enable_think
+        self.admin_port = admin_port
 
     def prepare_registry(self, **kwargs) -> ToolRegistry:
         """Build the Hub registry through the server's source manager.
+
+        The server dispatch passes ``config_path``; the Hub keeps accepting
+        ``tools_config_path`` for callers that predate that name.  With
+        neither, :func:`build_hub_registry` falls back to discovery and then
+        to the packaged preset.
 
         ``--config-reload`` is not read here: :meth:`App.create_gateway`
         passes the same kwargs to :meth:`App._attach_source_manager`, which
@@ -63,25 +89,33 @@ class HubApp(App):
         watcher or diff code.
 
         Keyword Args:
-            tools_config_path: Path to a JSONC/YAML config file override.
-            enable_discovery: Enable BM25 tool discovery.
-            enable_think: Enable think-augmented function calling.
+            config_path: Path to the tool config, as the server dispatch
+                names it.
+            tools_config_path: Alias for *config_path*.
+            enable_discovery: Enable BM25 tool discovery.  Defaults to the
+                app's constructor value.
+            enable_think: Enable think-augmented function calling.  Defaults
+                to the app's constructor value.
             profile: Deployment profile for tag-based filtering.
-            admin_port: Port for the core admin panel, or None to disable.
+            admin_port: Port for the core admin panel, or ``None`` to
+                disable.  Defaults to the app's constructor value.
             config_reload: Watch the config file and apply edits to the live
                 registry.  Read by the server, not here.
             write_config: Persist runtime source changes back to the config
                 file.
         """
+        tools_config_path = kwargs.get("tools_config_path") or kwargs.get("config_path")
         registry, manager = build_hub_registry(
-            tools_config_path=kwargs.get("tools_config_path"),
-            enable_discovery=kwargs.get("enable_discovery", True),
-            enable_think=kwargs.get("enable_think", True),
+            tools_config_path=tools_config_path,
+            enable_discovery=kwargs.get("enable_discovery", self.enable_discovery),
+            enable_think=kwargs.get("enable_think", self.enable_think),
             profile=kwargs.get("profile"),
             write_config=kwargs.get("write_config", True),
         )
         self.source_manager = manager
-        _enable_admin(registry, **kwargs)
+        admin_kwargs = dict(kwargs)
+        admin_kwargs.setdefault("admin_port", self.admin_port)
+        _enable_admin(registry, **admin_kwargs)
         return registry
 
 

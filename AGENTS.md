@@ -14,7 +14,10 @@ execution, etc.) exposed via OpenAPI or MCP servers.
 | `toolregistry-server` | Server infrastructure: `RouteTable`, OpenAPI/MCP adapters, auth, CLI | `toolregistry` |
 | `toolregistry-hub` (this) | Tool implementations + default server configuration | `toolregistry-server` |
 
-Entry point: `toolregistry-hub` CLI (defined in `pyproject.toml`).
+Entry point: `toolregistry-hub` launcher (defined in `pyproject.toml`).  It
+resolves the tool preset, strips the Hub-only flags, translates the command
+to its `toolregistry-server` equivalent, and runs the server CLI with
+`HubApp`.
 
 ## Architecture
 
@@ -70,7 +73,7 @@ runtime source change never rewrites it.
 src/toolregistry_hub/
 ├── __init__.py              # Package exports, __version__
 ├── server/
-│   ├── cli.py               # CLI entry point (openapi/mcp subcommands)
+│   ├── cli.py               # Launcher: Hub argv -> toolregistry-server CLI
 │   ├── registry.py          # build_registry() — registration + auto-disable
 │   ├── tool_config.py       # JSONC config loading (tools.jsonc)
 │   ├── auth.py              # Token auth helpers
