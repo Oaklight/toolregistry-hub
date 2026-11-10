@@ -43,7 +43,7 @@ If neither is set, the server runs without authentication.
 | `WEBSEARCH_PRIORITY` | Comma-separated engine priority for auto mode (e.g., `searxng,brave,tavily`) |
 | `WEBSEARCH_PARALLEL_ENGINES` | Comma-separated engines to query when `engine="parallel"` (default: `brightdata,brave`) |
 | `TOOLS_CONFIG` | Path to a `tools.jsonc` configuration file (alternative to `--config` CLI flag) |
-| `TOOLREGISTRY_LOCAL_HUB_COMMAND` | Command the launcher sets (`toolregistry-hub`) so a spawned resident hub re-runs the Hub command line |
+| `TOOLREGISTRY_LOCAL_HUB_COMMAND` | Command the launcher sets (`toolregistry-hub`) so a server that reads it starts a detached hub through the Hub launcher. toolregistry-server 0.9.0 ignores it: the detached hub is the server CLI with the preset, without the Hub-only helpers. The foreground `local-hub run` is unaffected |
 | `TOOLREGISTRY_HUB_KEY` | Client key a `hub-shim` presents when no `--key-file` is given |
 | `ACADEMIC_SEARCH_PRIORITY` | Comma-separated academic engine priority (default: `openalex,arxiv`) |
 

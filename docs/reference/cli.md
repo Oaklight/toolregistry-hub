@@ -41,7 +41,14 @@ Hub-only options are accepted before or after the command.
   transports, and dropped for stdio, where it has no meaning.
 - The launcher prints the Hub banner and update check itself (the server
   banner is suppressed) and sets `TOOLREGISTRY_LOCAL_HUB_COMMAND=toolregistry-hub`
-  before starting the server, so a resident hub re-runs the Hub command line.
+  before starting the server. The foreground process always runs the Hub app,
+  so `local-hub run` is unaffected. toolregistry-server 0.9.0 does not read the
+  variable, so a hub it starts as a detached process (`local-hub ensure`, or
+  `hub-shim` without `--no-spawn`) is `toolregistry-server local-hub run
+  --config <preset>`: the preset tools are served because the server loads the
+  Python sources, but the Hub-only helpers (discovery helpers,
+  `toolcall_reason` injection, admin panel) are not applied to that process.
+  The launcher prints a warning on stderr in that case.
 - `toolregistry-hub <command> --help` shows the server options for the
   translated command; `toolregistry-hub --help` lists the Hub commands and
   flags.
@@ -136,8 +143,15 @@ toolregistry-hub local-hub [run|ensure|stop|status] [OPTIONS]
 | `--keys-db PATH` | — | Inbound key store; mandatory for a hub started this way |
 
 The launcher sets `TOOLREGISTRY_LOCAL_HUB_COMMAND=toolregistry-hub` before
-running the server, so the detached hub re-runs the Hub command line with the
-resolved preset.
+running the server, so a server that reads the variable starts a detached hub
+through the Hub launcher with the resolved preset. toolregistry-server 0.9.0
+ignores it: the detached hub is then `toolregistry-server local-hub run
+--config <preset>`, which serves the preset tools (the server loads the Python
+sources) but does not apply the Hub-only helpers (discovery helpers,
+`toolcall_reason` injection, admin panel). The launcher warns on stderr when it
+expects a detached hub and the installed server does not read the variable.
+The `run` action is unaffected: it serves in the launcher process with the Hub
+app.
 
 ### `hub-shim`
 
