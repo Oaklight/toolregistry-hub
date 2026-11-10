@@ -28,6 +28,7 @@ import os
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import NoReturn
 
 from toolregistry_server.cli import CLI
@@ -176,9 +177,15 @@ def _take_option(argv: Sequence[str], name: str) -> tuple[str | None, list[str]]
 
 
 def _translate(command: str, rest: Sequence[str]) -> list[str]:
-    """Translate one Hub command and its options into a server command."""
+    """Translate one Hub command and its options into a server command.
+
+    The gateway enables every frontend by default (and stored settings can
+    re-enable one), so each translated command passes the explicit disables
+    for the frontends the Hub command did not ask for.  ``gateway`` keeps the
+    server behaviour of serving all three.
+    """
     if command == "openapi":
-        return ["gateway", "--openapi", *rest]
+        return ["gateway", "--openapi", "--no-mcp", "--no-sse", *rest]
     if command == "mcp":
         transport, rest = _take_option(rest, "--transport")
         if transport in (None, "stdio"):
@@ -187,9 +194,9 @@ def _translate(command: str, rest: Sequence[str]) -> list[str]:
             _backend, rest = _take_option(rest, "--backend")
             return ["mcp", "--transport", "stdio", *rest]
         if transport in ("streamable-http", "http"):
-            return ["gateway", "--mcp", *rest]
+            return ["gateway", "--mcp", "--no-openapi", "--no-sse", *rest]
         if transport == "sse":
-            return ["gateway", "--sse", *rest]
+            return ["gateway", "--sse", "--no-openapi", "--no-mcp", *rest]
         return ["mcp", "--transport", transport, *rest]
     return [command, *rest]
 
@@ -206,8 +213,13 @@ def resolve_config_path() -> str:
     discovery order the registry uses applies (``TOOLS_CONFIG``, then a
     ``tools.jsonc``/``tools.yaml``/``tools.yml`` in the working directory),
     falling back to the packaged ``data/tools.yaml`` preset.
+
+    The result is absolute: a discovered candidate is relative to the
+    client's working directory, and a detached ``local-hub`` child can
+    outlive that directory.
     """
-    return _discover_config_path() or str(default_preset_path())
+    path = _discover_config_path() or str(default_preset_path())
+    return str(Path(path).resolve())
 
 
 def _inject_config(argv: list[str]) -> list[str]:

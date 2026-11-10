@@ -15,7 +15,7 @@ import pytest
 from toolregistry_hub.server import cli
 from toolregistry_hub.server.registry import default_preset_path
 
-PRESET = str(default_preset_path())
+PRESET = str(default_preset_path().resolve())
 
 
 @pytest.fixture(autouse=True)
@@ -31,6 +31,8 @@ class TestTranslate:
         assert cli._translate("openapi", ["--port", "9000"]) == [
             "gateway",
             "--openapi",
+            "--no-mcp",
+            "--no-sse",
             "--port",
             "9000",
         ]
@@ -40,12 +42,19 @@ class TestTranslate:
         assert cli._translate("mcp", ["--transport", transport, "--port", "9"]) == [
             "gateway",
             "--mcp",
+            "--no-openapi",
+            "--no-sse",
             "--port",
             "9",
         ]
 
     def test_sse_uses_the_gateway(self):
-        assert cli._translate("mcp", ["--transport=sse"]) == ["gateway", "--sse"]
+        assert cli._translate("mcp", ["--transport=sse"]) == [
+            "gateway",
+            "--sse",
+            "--no-openapi",
+            "--no-mcp",
+        ]
 
     def test_stdio_is_the_direct_mcp_server(self):
         assert cli._translate("mcp", ["--transport", "stdio"]) == [
@@ -75,6 +84,8 @@ class TestTranslate:
         assert cli._translate("openapi", ["--backend", "httpserver"]) == [
             "gateway",
             "--openapi",
+            "--no-mcp",
+            "--no-sse",
             "--backend",
             "httpserver",
         ]
@@ -115,14 +126,13 @@ class TestConfigInjection:
         path.write_text("tools: []\n")
         monkeypatch.setenv("TOOLS_CONFIG", str(path))
 
-        assert cli._inject_config(["gateway"])[-1] == str(path)
+        assert cli._inject_config(["gateway"])[-1] == str(path.resolve())
 
     def test_working_directory_config_is_discovered(self, tmp_path):
         path = tmp_path / "tools.yaml"
         path.write_text("tools: []\n")
 
-        # Discovery returns the cwd-relative candidate, not an absolute path.
-        assert cli._inject_config(["gateway"])[-1] == "tools.yaml"
+        assert cli._inject_config(["gateway"])[-1] == str(path.resolve())
 
     def test_keys_gets_no_config(self):
         assert cli._inject_config(["keys", "list"]) == ["keys", "list"]
@@ -205,7 +215,12 @@ class TestMain:
         cli.main(["openapi", "--port", "9000"])
 
         assert calls["args"][0] == "--no-banner"
-        assert calls["args"][1:3] == ["gateway", "--openapi"]
+        assert calls["args"][1:5] == [
+            "gateway",
+            "--openapi",
+            "--no-mcp",
+            "--no-sse",
+        ]
         assert calls["args"][-2:] == ["--config", PRESET]
         assert calls["banner"] is True
         assert os.environ[cli.COMMAND_ENV] == cli.COMMAND_ENV_VALUE
@@ -249,7 +264,13 @@ class TestMain:
         cli.main(["openapi", "--help"])
 
         assert "banner" not in calls
-        assert calls["args"][1:4] == ["gateway", "--openapi", "--help"]
+        assert calls["args"][1:6] == [
+            "gateway",
+            "--openapi",
+            "--no-mcp",
+            "--no-sse",
+            "--help",
+        ]
 
     def test_version_prints_and_does_not_start_the_server(self, monkeypatch, capsys):
         monkeypatch.setattr(
