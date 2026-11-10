@@ -19,7 +19,7 @@ author: Oaklight
 - **Hub 现在是预设 + 启动器**（#257）：注册由服务器的 `SourceManager` 负责，运行期 add/remove/retry 与 `--config-reload` 都归 `toolregistry-server`，Hub 不再保留 watcher 或来源 diff。`openapi` 与 HTTP MCP 传输由服务器 gateway 提供且只启用一个前端；`mcp --transport stdio` 仍由 MCP 服务器直接提供，因为 gateway 没有 stdio 前端。`--profile`、`--config-reload`、`--no-config-write`、`--tokens`、`--backend`、`--server-url` 与 tools/list 缓存参数行为不变。依赖下限为 `toolregistry>=0.21.0` 与 `toolregistry-server>=0.9.0`。
 - **默认工具集就是随包预设**（#257）：`data/tools.yaml` 是内置列表的唯一来源——默认加载它，运行期来源变更只留在内存，不再改写包内文件。预设现在与实际提供的工具一致：新增 `weather` 与 `academics`，移除各个独立搜索后端（改由统一的 `web` 搜索在调用时选择后端）。测试把实际服务集与预设绑定，二者不会再漂移。
 - **工具元数据改为在定义处声明**（#257）：标签、`defer`、执行提示、标题与输出 schema 以 `@tool_metadata(...)` 声明在工具方法上，由 core 的 `Tool.from_function` 应用；注册后的回放处理已完全移除。命名空间级默认值只存在于声明它们的工具上：注册到 Hub 命名空间的第三方工具不会再获得隐式的标签、`defer` 或提示，必须自行声明。
-- **工具结果带有类型化返回注解**（#267）：每个声明了 `output_schema` 的工具现在返回一个 `TypedDict`，精确对应这些键，嵌套结构同样带类型，静态检查器因此能看到工具实际产出的结果。测试要求任何带声明 schema 的工具都必须有这个注解。对外发布的 `outputSchema` 不变；这些注解目前是文档用途，也是未来 core 推导的输入。
+- **工具结果带有类型化返回注解**（#267、#268）：每个声明了 `output_schema` 的工具都返回一个 `TypedDict`，精确对应这些键，嵌套结构同样带类型；测试要求任何带声明 schema 的工具都必须有这个注解。其余结构化结果也已补上类型：`CronTool.create`/`delete` 返回 `CronJob`，`FileSearch.grep` 返回 `list[GrepMatch]`，`FileReader.read_image` 返回由 core 内容块类型构造的 `list[ContentBlock]`。静态检查器因此能看到各工具实际产出的结果。对外发布的 `outputSchema` 不变；这些注解目前是文档用途，也是未来 core 推导的输入。
 
 ### 移除
 
