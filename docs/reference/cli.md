@@ -138,7 +138,7 @@ toolregistry-hub local-hub [run|ensure|stop|status] [OPTIONS]
 
 启动器在运行服务器前设置 `TOOLREGISTRY_LOCAL_HUB_COMMAND=toolregistry-hub`，
 读取该变量的服务器会通过 Hub 启动器以解析后的预设启动分离的 hub。
-toolregistry-server 0.9.0 忽略该变量：此时分离的 hub 是
+toolregistry-server 0.9.0 忽略该变量：此时它启动的分离 hub 是
 `toolregistry-server local-hub run --config <预设>`，它会提供预设工具（服务器
 加载 Python 源码），但不应用 Hub 专属辅助功能（discovery 辅助工具、
 `toolcall_reason` 注入、管理面板）。当启动器预期启动分离的 hub 而当前安装的
