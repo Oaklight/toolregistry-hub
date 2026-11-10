@@ -10,7 +10,7 @@ from __future__ import annotations
 import fnmatch
 import re
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, TypedDict
 
 from toolregistry import ToolTag
 from toolregistry.parameter_models import Doc
@@ -31,6 +31,14 @@ _RESPECT_GITIGNORE_DOC = Doc(
 _MAX_GLOB_RESULTS = 1000
 _MAX_GREP_RESULTS = 200
 _MAX_TREE_ENTRIES = 2000
+
+
+class GrepMatch(TypedDict):
+    """One line matched by ``FileSearch.grep``."""
+
+    file: str
+    line_number: int
+    content: str
 
 
 class FileSearch:
@@ -107,7 +115,7 @@ class FileSearch:
         file_pattern: str | None = None,
         max_results: int = 50,
         respect_gitignore: Annotated[bool | None, _RESPECT_GITIGNORE_DOC] = None,
-    ) -> list[dict]:
+    ) -> list[GrepMatch]:
         """Search file contents using regex.
 
         Args:
@@ -140,7 +148,7 @@ class FileSearch:
 
         regex = re.compile(pattern)
         effective_max = min(max_results, _MAX_GREP_RESULTS)
-        results: list[dict] = []
+        results: list[GrepMatch] = []
 
         if target.is_file():
             FileSearch._grep_file(target, regex, target.parent, results, effective_max)
@@ -168,7 +176,7 @@ class FileSearch:
         filepath: Path,
         regex: re.Pattern,
         base: Path,
-        results: list[dict],
+        results: list[GrepMatch],
         max_results: int,
     ) -> None:
         """Search a single file for regex matches.
@@ -190,11 +198,11 @@ class FileSearch:
                 return
             if regex.search(line):
                 results.append(
-                    {
-                        "file": str(filepath.relative_to(base)),
-                        "line_number": line_num,
-                        "content": line.strip(),
-                    }
+                    GrepMatch(
+                        file=str(filepath.relative_to(base)),
+                        line_number=line_num,
+                        content=line.strip(),
+                    )
                 )
 
     @staticmethod

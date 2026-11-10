@@ -14,6 +14,7 @@ import logging
 from pathlib import Path
 
 from toolregistry import ToolTag
+from toolregistry.llm import Base64ImageSource, ContentBlock, ImageBlock, TextBlock
 
 from ._metadata import tool_metadata
 
@@ -236,7 +237,7 @@ class FileReader:
     def read_image(
         path: str,
         max_size: int = _MAX_IMAGE_SIZE_BYTES,
-    ) -> list:
+    ) -> list[ContentBlock]:
         """Read an image file and return as multimodal content blocks.
 
         Returns a list of content blocks (TextBlock + ImageBlock) that the
@@ -291,18 +292,17 @@ class FileReader:
             b64_data = base64.b64encode(img_data).decode("ascii")
 
         return [
-            {
-                "type": "text",
-                "text": f"[Image: {p.name} ({media_type}, {raw_size} bytes)]",
-            },
-            {
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": media_type,
-                    "data": b64_data,
-                },
-            },
+            TextBlock(
+                type="text", text=f"[Image: {p.name} ({media_type}, {raw_size} bytes)]"
+            ),
+            ImageBlock(
+                type="image",
+                source=Base64ImageSource(
+                    type="base64",
+                    media_type=media_type,
+                    data=b64_data,
+                ),
+            ),
         ]
 
     @staticmethod
