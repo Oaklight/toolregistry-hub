@@ -43,6 +43,13 @@ COMMAND_ENV = "TOOLREGISTRY_LOCAL_HUB_COMMAND"
 #: Value this launcher reports through :data:`COMMAND_ENV`.
 COMMAND_ENV_VALUE = "toolregistry-hub"
 
+#: Warning shown when a detached hub will not be started by this launcher.
+DETACHED_HUB_WARNING = (
+    "toolregistry-server does not honor TOOLREGISTRY_LOCAL_HUB_COMMAND, so the "
+    "resident hub runs the server CLI directly and Hub-only helpers are not "
+    "applied; upgrade toolregistry-server for full support."
+)
+
 #: Commands the launcher knows how to translate or pass through.
 COMMANDS = ("openapi", "mcp", "gateway", "local-hub", "hub-shim", "keys")
 
@@ -231,6 +238,42 @@ def _inject_config(argv: list[str]) -> list[str]:
     return [*argv, "--config", resolve_config_path()]
 
 
+def _detached_hub_requested(command: str, rest: Sequence[str]) -> bool:
+    """Return whether *command* may start a hub as a separate process.
+
+    ``local-hub run`` serves in this process with the Hub app, and ``stop``
+    and ``status`` never start anything.  ``ensure`` and a ``hub-shim``
+    without ``--no-spawn`` delegate the start to the server's ``local_hub``
+    module, which spawns the child with the server CLI.
+    """
+    if command == "local-hub":
+        action = next(
+            (token for token in rest if token in ("run", "ensure", "stop", "status")),
+            "run",
+        )
+        return action == "ensure"
+    if command == "hub-shim":
+        return not _has_option(rest, "--no-spawn")
+    return False
+
+
+def _server_reads_command_env() -> bool:
+    """Return whether the installed server reads :data:`COMMAND_ENV`."""
+    import importlib
+
+    module = importlib.import_module("toolregistry_server.gateway.local_hub")
+    return getattr(module, "HUB_COMMAND_ENV", None) is not None
+
+
+def _warn_about_detached_hub(command: str, rest: Sequence[str]) -> None:
+    """Warn when a detached hub will not be started by this launcher."""
+    if not _detached_hub_requested(command, rest):
+        return
+    if _server_reads_command_env():
+        return
+    print(f"toolregistry-hub: warning: {DETACHED_HUB_WARNING}", file=sys.stderr)
+
+
 def _hub_help() -> str:
     """Return the top-level Hub usage text."""
     return """\
@@ -362,6 +405,8 @@ def main(args: list[str] | None = None) -> NoReturn | None:
 
     if not options.no_banner and not _help_requested(argv):
         _print_hub_banner()
+
+    _warn_about_detached_hub(command, rest)
 
     app = HubApp(
         enable_discovery=options.enable_discovery,

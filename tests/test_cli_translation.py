@@ -9,6 +9,8 @@ without starting a server.
 from __future__ import annotations
 
 import os
+import sys
+import types
 
 import pytest
 
@@ -24,6 +26,25 @@ def _isolated_discovery(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("TOOLS_CONFIG", raising=False)
     monkeypatch.delenv(cli.COMMAND_ENV, raising=False)
+
+
+def _patch_cli(monkeypatch) -> dict:
+    """Replace the server CLI and the banner with recorders."""
+    calls: dict = {}
+
+    class FakeCLI:
+        def __init__(self, app=None):
+            calls["app"] = app
+
+        def main(self, args=None):
+            calls["args"] = list(args)
+            return 0
+
+    monkeypatch.setattr(cli, "CLI", FakeCLI)
+    monkeypatch.setattr(
+        cli, "_print_hub_banner", lambda: calls.__setitem__("banner", True)
+    )
+    return calls
 
 
 class TestTranslate:
@@ -193,21 +214,7 @@ class TestHubFlags:
 class TestMain:
     @staticmethod
     def _fake_cli(monkeypatch):
-        calls: dict = {}
-
-        class FakeCLI:
-            def __init__(self, app=None):
-                calls["app"] = app
-
-            def main(self, args=None):
-                calls["args"] = list(args)
-                return 0
-
-        monkeypatch.setattr(cli, "CLI", FakeCLI)
-        monkeypatch.setattr(
-            cli, "_print_hub_banner", lambda: calls.__setitem__("banner", True)
-        )
-        return calls
+        return _patch_cli(monkeypatch)
 
     def test_openapi_is_forwarded_as_the_gateway(self, monkeypatch):
         calls = self._fake_cli(monkeypatch)
@@ -316,3 +323,56 @@ class TestMain:
 
         assert "usage: toolregistry-hub" in capsys.readouterr().out
         assert "args" not in calls
+
+
+class TestDetachedHubWarning:
+    """The launcher warns when a detached hub will bypass the Hub app."""
+
+    @staticmethod
+    def _fake_server(monkeypatch, *, reads_command_env: bool) -> None:
+        """Install a stand-in for the server's ``local_hub`` module."""
+        name = "toolregistry_server.gateway.local_hub"
+        module = types.ModuleType(name)
+        if reads_command_env:
+            module.HUB_COMMAND_ENV = cli.COMMAND_ENV
+        monkeypatch.setitem(sys.modules, name, module)
+
+    @pytest.mark.parametrize(
+        ("argv", "warns"),
+        [
+            (["local-hub", "ensure"], True),
+            (["local-hub", "--name", "h", "ensure"], True),
+            (["local-hub"], False),
+            (["local-hub", "run"], False),
+            (["local-hub", "stop"], False),
+            (["local-hub", "status"], False),
+            (["hub-shim"], True),
+            (["hub-shim", "--no-spawn"], False),
+            (["openapi"], False),
+        ],
+    )
+    def test_warning_follows_the_spawn_path(self, monkeypatch, capsys, argv, warns):
+        _patch_cli(monkeypatch)
+        self._fake_server(monkeypatch, reads_command_env=False)
+
+        cli.main(argv)
+
+        assert (cli.DETACHED_HUB_WARNING in capsys.readouterr().err) is warns
+
+    def test_no_warning_when_the_server_reads_the_variable(self, monkeypatch, capsys):
+        _patch_cli(monkeypatch)
+        self._fake_server(monkeypatch, reads_command_env=True)
+
+        cli.main(["local-hub", "ensure"])
+
+        assert capsys.readouterr().err == ""
+
+    def test_the_warning_is_one_line_on_stderr(self, monkeypatch, capsys):
+        _patch_cli(monkeypatch)
+        self._fake_server(monkeypatch, reads_command_env=False)
+
+        cli.main(["local-hub", "ensure"])
+
+        lines = [line for line in capsys.readouterr().err.splitlines() if line]
+        assert len(lines) == 1
+        assert lines[0] == f"toolregistry-hub: warning: {cli.DETACHED_HUB_WARNING}"
