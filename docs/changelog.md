@@ -16,6 +16,9 @@ author: Oaklight
 
 ### 变更
 
+- **CLI 改为启动器**（#269）：`HubCLI` 及其 dispatch 已删除。`main()` 解析预设、翻译命令（`openapi` → `gateway --openapi`，`mcp --transport streamable-http|http` → `gateway --mcp`，`sse` → `gateway --sse`，stdio 保持直连），把 Hub 专属标志交给 `HubApp`，注入 `--config`，打印 Hub 横幅，并运行 `toolregistry_server.cli.CLI`。`gateway`、`local-hub`、`hub-shim` 与 `keys` 原样透传。
+- **本地客户端共享一个常驻 hub**（#269）：`toolregistry-hub local-hub run|ensure` 提供一个共享后端，stdio 客户端通过 `toolregistry-hub hub-shim --name ...` 接入。启动器设置 `TOOLREGISTRY_LOCAL_HUB_COMMAND=toolregistry-hub`，使派生出的 hub 以 Hub 命令行重新启动自身。仅支持 POSIX；以此方式启动的 hub 必须提供 `--keys-db`。
+
 - **Hub 现在是预设 + 启动器**（#257）：注册由服务器的 `SourceManager` 负责，运行期 add/remove/retry 与 `--config-reload` 都归 `toolregistry-server`，Hub 不再保留 watcher 或来源 diff。`openapi` 与 HTTP MCP 传输由服务器 gateway 提供且只启用一个前端；`mcp --transport stdio` 仍由 MCP 服务器直接提供，因为 gateway 没有 stdio 前端。`--profile`、`--config-reload`、`--no-config-write`、`--tokens`、`--backend`、`--server-url` 与 tools/list 缓存参数行为不变。依赖下限为 `toolregistry>=0.21.0` 与 `toolregistry-server>=0.9.0`。
 - **默认工具集就是随包预设**（#257）：`data/tools.yaml` 是内置列表的唯一来源——默认加载它，运行期来源变更只留在内存，不再改写包内文件。预设现在与实际提供的工具一致：新增 `weather` 与 `academics`，移除各个独立搜索后端（改由统一的 `web` 搜索在调用时选择后端）。测试把实际服务集与预设绑定，二者不会再漂移。
 - **工具元数据改为在定义处声明**（#257）：标签、`defer`、执行提示、标题与输出 schema 以 `@tool_metadata(...)` 声明在工具方法上，由 core 的 `Tool.from_function` 应用；注册后的回放处理已完全移除。命名空间级默认值只存在于声明它们的工具上：注册到 Hub 命名空间的第三方工具不会再获得隐式的标签、`defer` 或提示，必须自行声明。
