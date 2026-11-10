@@ -74,5 +74,5 @@ __all__ = [
     "CronTool",
 ]
 
-__version__ = "0.12.1"  # version convention
+__version__ = "0.13.0.dev1"  # version convention
 version = __version__  # I made mistake. But here kept for backward compatibility
