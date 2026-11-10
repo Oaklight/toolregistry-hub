@@ -154,8 +154,9 @@ toolregistry-hub hub-shim [OPTIONS]
 
 ### `keys`
 
-管理入站 API 密钥（`create`、`list`、`get`、`revoke`、`concurrency`、
-`limit`）。该命令原样透传给服务器。
+管理入站 API 密钥（`create`、`list`、`get`、`revoke`、`set-concurrency`）。
+`keys` 需要 `--db PATH`；`set-concurrency` 使用 `--value N` 或 `--clear`。
+该命令原样透传给服务器。
 
 ```bash
 toolregistry-hub keys <subcommand> [OPTIONS]
