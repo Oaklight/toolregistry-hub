@@ -114,7 +114,7 @@ jobs:
           tests/test_server_launcher.py
           tests/test_registry.py
           tests/test_output_schemas.py
-          tests/test_cli_dispatch.py
+          tests/test_cli_translation.py
           -q
 
   # Canary against server master, which is ahead of the released floor.  A
