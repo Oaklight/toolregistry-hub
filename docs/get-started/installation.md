@@ -34,10 +34,9 @@ pip install toolregistry-hub[server_openapi]
 pip install toolregistry-hub[server_mcp]
 ```
 
-`server_openapi` installs FastAPI and uvicorn itself, because
-`toolregistry-server[openapi]` is an empty alias from server 0.9.0 while the
-Hub's `openapi` command serves through the gateway's ASGI backend. This keeps
-the extra working against both the 0.8.x and 0.9.x server floors.
+`server_openapi` installs `toolregistry-server[gateway]`, which carries
+FastAPI and uvicorn, because the Hub's `openapi` command is served through
+the gateway's ASGI backend.
 
 ## Docker
 

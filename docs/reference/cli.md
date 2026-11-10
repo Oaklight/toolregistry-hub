@@ -1,14 +1,16 @@
 ---
 title: CLI Reference
 summary: Complete command-line interface reference for toolregistry-hub
-description: All CLI commands, flags, and options for the toolregistry-hub server.
-keywords: cli, command line, options, flags, openapi, mcp
+description: All CLI commands, flags, and options for the toolregistry-hub launcher.
+keywords: cli, command line, options, flags, openapi, mcp, local-hub, hub-shim, keys
 author: Oaklight
 ---
 
 # CLI Reference
 
-The `toolregistry-hub` command launches the hub server in OpenAPI or MCP mode.
+`toolregistry-hub` is a launcher for `toolregistry-server`. It resolves the
+tool preset, translates the Hub command into the equivalent server command,
+and runs the server CLI with the Hub application object.
 
 ## Synopsis
 
@@ -16,20 +18,56 @@ The `toolregistry-hub` command launches the hub server in OpenAPI or MCP mode.
 toolregistry-hub [OPTIONS] COMMAND [COMMAND-OPTIONS]
 ```
 
+Hub-only options are accepted before or after the command.
+
+## Launcher behaviour
+
+- **Preset.** An explicit `--config PATH` (or `--config=PATH`) wins; otherwise
+  `TOOLS_CONFIG`, then `tools.jsonc` / `tools.yaml` / `tools.yml` in the
+  working directory, then the packaged `data/tools.yaml`. The resolved file is
+  passed to the server as `--config` when the command needs one. The packaged
+  preset stays memory-only: a runtime source change never rewrites it.
+- **Translation.** The Hub command is rewritten before the server parses it:
+
+| Hub command | Server command |
+|-------------|----------------|
+| `openapi` | `gateway --openapi` |
+| `mcp --transport streamable-http` or `http` | `gateway --mcp` |
+| `mcp --transport sse` | `gateway --sse` |
+| `mcp` (stdio or no transport) | `mcp --transport stdio` |
+| `gateway`, `local-hub`, `hub-shim`, `keys` | unchanged |
+
+- `--backend` is forwarded to the gateway for `openapi` and the HTTP MCP
+  transports, and dropped for stdio, where it has no meaning.
+- The launcher prints the Hub banner and update check itself (the server
+  banner is suppressed) and sets `TOOLREGISTRY_LOCAL_HUB_COMMAND=toolregistry-hub`
+  before starting the server, so a resident hub re-runs the Hub command line.
+- `toolregistry-hub <command> --help` shows the server options for the
+  translated command; `toolregistry-hub --help` lists the Hub commands and
+  flags.
+
 ## Global Options
 
 | Flag | Description |
 |------|-------------|
-| `--version` / `-V` | Show version and exit |
+| `--version` / `-V` | Show the Hub version (with update check) and exit |
 | `--no-banner` | Disable the startup banner |
+
+## Hub Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--admin-port PORT` | — | Enable the core admin panel on this port |
+| `--tool-discovery` / `--no-tool-discovery` | enabled | Progressive tool disclosure via `discover_tools` |
+| `--think-augment` / `--no-think-augment` | enabled | Inject `toolcall_reason` property into tool schemas |
 
 ## Commands
 
 ### `openapi`
 
-Start an OpenAPI (REST) server. The default backend is FastAPI; `--backend httpserver` selects the zero-dependency backend.
-
-On a `toolregistry-server` build that provides the gateway (beyond the current released floor), this command is served through the gateway with only the OpenAPI frontend enabled. The flags below are unchanged.
+Start an OpenAPI (REST) server through the gateway, with only the OpenAPI
+frontend enabled. The default backend is FastAPI; `--backend httpserver`
+selects the zero-dependency backend.
 
 ```bash
 toolregistry-hub openapi [OPTIONS]
@@ -42,20 +80,19 @@ toolregistry-hub openapi [OPTIONS]
 | `--backend {fastapi,httpserver}` | `fastapi` | OpenAPI server backend; `httpserver` is the zero-dependency backend |
 | `--env PATH` | `.env` | Path to `.env` file |
 | `--no-env` | — | Skip loading `.env` |
-| `--config PATH` | — | Tool configuration file (JSON, JSONC, or YAML) |
+| `--config PATH` | resolved preset | Tool configuration file (JSON, JSONC, or YAML) |
 | `--tokens PATH` | — | Bearer token file (one per line) |
-| `--admin-port PORT` | — | Enable admin panel on this port |
-| `--tool-discovery` / `--no-tool-discovery` | enabled | Progressive tool disclosure via `discover_tools` |
-| `--think-augment` / `--no-think-augment` | enabled | Inject `toolcall_reason` property into tool schemas |
 | `--profile {remote,local}` | none | Deployment profile filter (see below) |
-| `--config-reload` / `--no-config-reload` | disabled | Reload the config file when it changes (poll-based, per process; #144) |
+| `--config-reload` / `--no-config-reload` | disabled | Reload the config file when it changes |
 | `--reload` | — | Auto-reload for development |
 
 ### `mcp`
 
 Start an MCP (Model Context Protocol) server.
 
-`--transport stdio` is served directly by the MCP server: the gateway has no stdio frontend. The HTTP transports (`streamable-http`, `http` and `sse`) are served through the server gateway on a build that provides it.
+`--transport stdio` (the default) is served directly by the MCP server: the
+gateway has no stdio frontend. The HTTP transports (`streamable-http`, `http`
+and `sse`) are served through the gateway.
 
 ```bash
 toolregistry-hub mcp [OPTIONS]
@@ -68,25 +105,76 @@ toolregistry-hub mcp [OPTIONS]
 | `--port PORT` | `8000` | Bind port (SSE / streamable-http only) |
 | `--env PATH` | `.env` | Path to `.env` file |
 | `--no-env` | — | Skip loading `.env` |
-| `--config PATH` | — | Tool configuration file (JSON, JSONC, or YAML) |
-| `--admin-port PORT` | — | Enable admin panel on this port |
-| `--tool-discovery` / `--no-tool-discovery` | enabled | Progressive tool disclosure via `discover_tools` |
-| `--think-augment` / `--no-think-augment` | enabled | Inject `toolcall_reason` property into tool schemas |
+| `--config PATH` | resolved preset | Tool configuration file (JSON, JSONC, or YAML) |
 | `--profile {remote,local}` | none | Deployment profile filter (see below) |
-| `--config-reload` / `--no-config-reload` | disabled | Reload the config file when it changes (poll-based, per process; #144) |
+| `--config-reload` / `--no-config-reload` | disabled | Reload the config file when it changes |
+
+### `gateway`
+
+Serve OpenAPI and MCP from one process. This is the server command; use
+`toolregistry-hub gateway --help` for its full option set.
+
+```bash
+toolregistry-hub gateway [OPTIONS]
+```
+
+### `local-hub`
+
+Run one resident gateway shared by local clients. POSIX only.
+
+```bash
+toolregistry-hub local-hub [run|ensure|stop|status] [OPTIONS]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `action` | `run` | `run` serves in the foreground; `ensure` starts a detached hub and prints its endpoint; `stop` signals the hub; `status` reports it |
+| `--name NAME` | `default` | Hub name |
+| `--idle-timeout SECONDS` | `0` | Exit after this many seconds without a request or an open MCP session; `0` stays resident |
+| `--timeout SECONDS` | — | Wait limit for `ensure` and `stop` |
+| `--json` | — | Print status as JSON |
+| `--keys-db PATH` | — | Inbound key store; mandatory for a hub started this way |
+
+The launcher sets `TOOLREGISTRY_LOCAL_HUB_COMMAND=toolregistry-hub` before
+running the server, so the detached hub re-runs the Hub command line with the
+resolved preset.
+
+### `hub-shim`
+
+Expose one local hub to a stdio MCP client. POSIX only.
+
+```bash
+toolregistry-hub hub-shim [OPTIONS]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--name NAME` | `default` | Hub to attach to |
+| `--key-file PATH` | — | File holding the client key; falls back to `TOOLREGISTRY_HUB_KEY` |
+| `--connect-timeout SECONDS` | `5` | Limit for one connection attempt |
+| `--no-spawn` | — | Never start a hub; report it as unavailable instead |
+| `--config PATH` | resolved preset | Config used when the shim has to start the hub |
+| `--socket PATH` | — | Unix socket for a hub the shim starts |
+| `--keys-db PATH` | — | Key store a hub the shim starts must use |
+
+### `keys`
+
+Manage inbound API keys (`create`, `list`, `get`, `revoke`, `concurrency`,
+`limit`). The command passes through to the server unchanged.
+
+```bash
+toolregistry-hub keys <subcommand> [OPTIONS]
+```
 
 ### Config hot reload
 
-With `--config-reload`, `openapi` and `mcp` start a background watcher that
-polls the config file (`--config`) and applies a source-level diff to the
-running registry. On a server build with the runtime source manager, that
-watcher and the add/remove/replace operations belong to the server; on the
-released floor the Hub's own poller runs. Both behave as described here: an added source is registered, a removed source is
-unregistered, a source that leaves the configured scope is disabled, and a
-changed declaration is replaced. A malformed file is logged and ignored, and
-the current registry keeps serving. Hub default metadata (`tags`, `defer`,
-`title`, `search_hint` and the execution hints) is applied only to the tools a
-reload registers, so an existing tool keeps a value changed from the admin
+With `--config-reload`, the server starts a background watcher that polls the
+config file (`--config`) and applies a source-level diff to the running
+registry: an added source is registered, a removed source is unregistered, a
+source that leaves the configured scope is disabled, and a changed
+declaration is replaced. A malformed file is logged and ignored, and the
+current registry keeps serving. Default metadata is applied only to the tools
+a reload registers, so an existing tool keeps a value changed from the admin
 panel. The deployment profile is applied again to each source a reload
 registers, so tools it excludes stay disabled. The watcher is opt-in and per
 process; it does not coordinate between services.
