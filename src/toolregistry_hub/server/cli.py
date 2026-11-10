@@ -45,10 +45,38 @@ COMMAND_ENV_VALUE = "toolregistry-hub"
 
 #: Warning shown when a detached hub will not be started by this launcher.
 DETACHED_HUB_WARNING = (
-    "toolregistry-server does not honor TOOLREGISTRY_LOCAL_HUB_COMMAND, so the "
-    "resident hub runs the server CLI directly and Hub-only helpers are not "
-    "applied; upgrade toolregistry-server for full support."
+    "toolregistry-server does not honor TOOLREGISTRY_LOCAL_HUB_COMMAND; if a "
+    "detached hub is started, it will run the server CLI with the preset "
+    "instead of the Hub launcher, so Hub-only helpers (discovery, "
+    "toolcall_reason, admin) will not be applied. Upgrade toolregistry-server "
+    "for full support."
 )
+
+#: ``local-hub`` options that consume the token that follows them (server 0.9.0).
+_LOCAL_HUB_VALUE_OPTIONS = frozenset(
+    {
+        "--backend",
+        "--client-concurrency",
+        "--concurrency-timeout",
+        "--config",
+        "--env",
+        "--host",
+        "--idle-timeout",
+        "--keys-db",
+        "--max-body-size",
+        "--name",
+        "--port",
+        "--profile",
+        "--regex-timeout",
+        "--server-url",
+        "--socket",
+        "--timeout",
+        "--tokens",
+    }
+)
+
+#: Actions ``local-hub`` accepts; the first one wins as the positional.
+_LOCAL_HUB_ACTIONS = ("run", "ensure", "stop", "status")
 
 #: Commands the launcher knows how to translate or pass through.
 COMMANDS = ("openapi", "mcp", "gateway", "local-hub", "hub-shim", "keys")
@@ -238,6 +266,25 @@ def _inject_config(argv: list[str]) -> list[str]:
     return [*argv, "--config", resolve_config_path()]
 
 
+def _local_hub_action(rest: Sequence[str]) -> str:
+    """Return the ``local-hub`` action, skipping option values.
+
+    argparse reads the first positional as the action, so a value such as
+    ``--name ensure`` is not the action.  An unknown positional makes
+    argparse fail before anything starts, so it maps to the default.
+    """
+    index = 0
+    while index < len(rest):
+        token = rest[index]
+        if token in _LOCAL_HUB_VALUE_OPTIONS:
+            index += 2
+        elif token.startswith("-"):
+            index += 1
+        else:
+            return token if token in _LOCAL_HUB_ACTIONS else "run"
+    return "run"
+
+
 def _detached_hub_requested(command: str, rest: Sequence[str]) -> bool:
     """Return whether *command* may start a hub as a separate process.
 
@@ -247,11 +294,7 @@ def _detached_hub_requested(command: str, rest: Sequence[str]) -> bool:
     module, which spawns the child with the server CLI.
     """
     if command == "local-hub":
-        action = next(
-            (token for token in rest if token in ("run", "ensure", "stop", "status")),
-            "run",
-        )
-        return action == "ensure"
+        return _local_hub_action(rest) == "ensure"
     if command == "hub-shim":
         return not _has_option(rest, "--no-spawn")
     return False
