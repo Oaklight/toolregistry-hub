@@ -121,7 +121,8 @@ class TestConfigInjection:
         path = tmp_path / "tools.yaml"
         path.write_text("tools: []\n")
 
-        assert cli._inject_config(["gateway"])[-1] == str(path)
+        # Discovery returns the cwd-relative candidate, not an absolute path.
+        assert cli._inject_config(["gateway"])[-1] == "tools.yaml"
 
     def test_keys_gets_no_config(self):
         assert cli._inject_config(["keys", "list"]) == ["keys", "list"]
