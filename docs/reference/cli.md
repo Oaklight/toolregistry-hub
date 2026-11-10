@@ -145,7 +145,7 @@ toolregistry-hub local-hub [run|ensure|stop|status] [OPTIONS]
 The launcher sets `TOOLREGISTRY_LOCAL_HUB_COMMAND=toolregistry-hub` before
 running the server, so a server that reads the variable starts a detached hub
 through the Hub launcher with the resolved preset. toolregistry-server 0.9.0
-ignores it: the detached hub is then `toolregistry-server local-hub run
+ignores it: a hub it starts detached is then `toolregistry-server local-hub run
 --config <preset>`, which serves the preset tools (the server loads the Python
 sources) but does not apply the Hub-only helpers (discovery helpers,
 `toolcall_reason` injection, admin panel). The launcher warns on stderr when it
