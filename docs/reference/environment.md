@@ -43,7 +43,7 @@ author: Oaklight
 | `WEBSEARCH_PRIORITY` | auto 模式下引擎优先级，逗号分隔（如 `searxng,brave,tavily`） |
 | `WEBSEARCH_PARALLEL_ENGINES` | `engine="parallel"` 时并发查询的引擎，逗号分隔（默认：`brightdata,brave`） |
 | `TOOLS_CONFIG` | `tools.jsonc` 配置文件路径（替代 `--config` CLI 标志） |
-| `TOOLREGISTRY_LOCAL_HUB_COMMAND` | 启动器设置的命令名（`toolregistry-hub`），使派生出的常驻 hub 以 Hub 命令行重新启动自身 |
+| `TOOLREGISTRY_LOCAL_HUB_COMMAND` | 启动器设置的命令名（`toolregistry-hub`），读取该变量的服务器会通过 Hub 启动器启动分离的 hub。toolregistry-server 0.9.0 忽略该变量：分离的 hub 是带预设的服务器 CLI，不应用 Hub 专属辅助功能。前台 `local-hub run` 不受影响 |
 | `TOOLREGISTRY_HUB_KEY` | 未提供 `--key-file` 时 `hub-shim` 使用的客户端密钥 |
 | `ACADEMIC_SEARCH_PRIORITY` | 学术搜索引擎优先级，逗号分隔（默认：`openalex,arxiv`） |
 

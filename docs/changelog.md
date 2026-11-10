@@ -12,12 +12,12 @@ author: Oaklight
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并在需要时保留项目自身的分类方式。
 
-## [未发布]
+## [0.13.0] - 2026-11-10
 
 ### 变更
 
 - **CLI 改为启动器**（#269）：`HubCLI` 及其 dispatch 已删除。`main()` 解析预设、翻译命令（`openapi` → `gateway --openapi`，`mcp --transport streamable-http|http` → `gateway --mcp`，`sse` → `gateway --sse`，stdio 保持直连），把 Hub 专属标志交给 `HubApp`，注入 `--config`，打印 Hub 横幅，并运行 `toolregistry_server.cli.CLI`。`gateway`、`local-hub`、`hub-shim` 与 `keys` 原样透传。
-- **本地客户端共享一个常驻 hub**（#269）：`toolregistry-hub local-hub run|ensure` 提供一个共享后端，stdio 客户端通过 `toolregistry-hub hub-shim --name ...` 接入。启动器设置 `TOOLREGISTRY_LOCAL_HUB_COMMAND=toolregistry-hub`，使派生出的 hub 以 Hub 命令行重新启动自身。仅支持 POSIX；以此方式启动的 hub 必须提供 `--keys-db`。
+- **本地客户端共享一个常驻 hub**（#269）：`toolregistry-hub local-hub run|ensure` 提供一个共享后端，stdio 客户端通过 `toolregistry-hub hub-shim --name ...` 接入。启动器设置 `TOOLREGISTRY_LOCAL_HUB_COMMAND=toolregistry-hub`，读取该变量的服务器会通过 Hub 启动器启动分离的 hub。toolregistry-server 0.9.0 不读取该变量：它分离启动的 hub（`local-hub ensure`，或未加 `--no-spawn` 的 `hub-shim`）是 `toolregistry-server local-hub run --config <预设>`，会提供预设工具，但不应用 Hub 专属辅助功能（discovery 辅助工具、`toolcall_reason` 注入、管理面板），此时启动器会在 stderr 打印警告。前台 `run` 动作仍使用 Hub app。仅支持 POSIX；以此方式启动的 hub 必须提供 `--keys-db`。
 
 - **Hub 现在是预设 + 启动器**（#257）：注册由服务器的 `SourceManager` 负责，运行期 add/remove/retry 与 `--config-reload` 都归 `toolregistry-server`，Hub 不再保留 watcher 或来源 diff。`openapi` 与 HTTP MCP 传输由服务器 gateway 提供且只启用一个前端；`mcp --transport stdio` 仍由 MCP 服务器直接提供，因为 gateway 没有 stdio 前端。`--profile`、`--config-reload`、`--no-config-write`、`--tokens`、`--backend`、`--server-url` 与 tools/list 缓存参数行为不变。依赖下限为 `toolregistry>=0.21.0` 与 `toolregistry-server>=0.9.0`。
 - **默认工具集就是随包预设**（#257）：`data/tools.yaml` 是内置列表的唯一来源——默认加载它，运行期来源变更只留在内存，不再改写包内文件。预设现在与实际提供的工具一致：新增 `weather` 与 `academics`，移除各个独立搜索后端（改由统一的 `web` 搜索在调用时选择后端）。测试把实际服务集与预设绑定，二者不会再漂移。

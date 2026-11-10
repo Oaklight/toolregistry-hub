@@ -39,8 +39,13 @@ Hub 专属选项可以放在命令之前或之后。
 - `openapi` 与 HTTP MCP 传输会把 `--backend` 转发给 gateway；stdio 下该标志
   没有意义，会被移除。
 - 启动器自己打印 Hub 横幅与更新检查（服务器横幅被抑制），并在启动服务器前
-  设置 `TOOLREGISTRY_LOCAL_HUB_COMMAND=toolregistry-hub`，使常驻 hub 能以
-  Hub 命令行重新启动自身。
+  设置 `TOOLREGISTRY_LOCAL_HUB_COMMAND=toolregistry-hub`。前台进程始终运行
+  Hub app，因此 `local-hub run` 不受影响。toolregistry-server 0.9.0 不读取
+  该变量：它分离启动的 hub（`local-hub ensure`，或未加 `--no-spawn` 的
+  `hub-shim`）实际执行 `toolregistry-server local-hub run --config <预设>`，
+  由于服务器会加载 Python 源码，预设工具仍会提供，但 Hub 专属辅助功能
+  （discovery 辅助工具、`toolcall_reason` 注入、管理面板）不会应用到该进程。
+  这种情况下启动器会在 stderr 打印一条警告。
 - `toolregistry-hub <command> --help` 显示翻译后命令的服务器选项；
   `toolregistry-hub --help` 列出 Hub 命令与标志。
 
@@ -132,7 +137,13 @@ toolregistry-hub local-hub [run|ensure|stop|status] [OPTIONS]
 | `--keys-db PATH` | — | 入站密钥库；以此方式启动的 hub 必须提供 |
 
 启动器在运行服务器前设置 `TOOLREGISTRY_LOCAL_HUB_COMMAND=toolregistry-hub`，
-使分离的 hub 以 Hub 命令行重新启动自身并使用解析后的预设。
+读取该变量的服务器会通过 Hub 启动器以解析后的预设启动分离的 hub。
+toolregistry-server 0.9.0 忽略该变量：此时分离的 hub 是
+`toolregistry-server local-hub run --config <预设>`，它会提供预设工具（服务器
+加载 Python 源码），但不应用 Hub 专属辅助功能（discovery 辅助工具、
+`toolcall_reason` 注入、管理面板）。当启动器预期启动分离的 hub 而当前安装的
+服务器不读取该变量时，它会在 stderr 打印警告。`run` 动作不受影响：它在启动器
+进程内使用 Hub app 提供服务。
 
 ### `hub-shim`
 
