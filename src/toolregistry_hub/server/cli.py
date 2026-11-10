@@ -1,193 +1,252 @@
-"""Command-line interface for ToolRegistry Hub Server.
+"""Launcher for the ToolRegistry Hub command line.
 
-Subclasses :class:`toolregistry_server.cli.CLI` with the Hub banner (version
-check), Hub-specific arguments, and dispatch.  All serving goes through the
-server: ``openapi`` and the HTTP MCP transports use the gateway, while ``mcp
---transport stdio`` uses the direct MCP server because the gateway has no
-stdio frontend.
+The Hub no longer implements its own parser or dispatch.  This module turns
+the Hub command line into the equivalent ``toolregistry-server`` command
+line, resolves the tool preset, extracts the Hub-only flags, and runs
+:class:`toolregistry_server.cli.CLI` with a :class:`HubApp`.
+
+Command mapping:
+
+- ``openapi`` -> ``gateway --openapi``
+- ``mcp --transport streamable-http|http`` -> ``gateway --mcp``
+- ``mcp --transport sse`` -> ``gateway --sse``
+- ``mcp`` (stdio or no transport) -> ``mcp --transport stdio``
+- ``gateway``, ``local-hub``, ``hub-shim``, ``keys`` -> unchanged
 
 Usage:
     toolregistry-hub openapi [OPTIONS]
     toolregistry-hub mcp [OPTIONS]
+    toolregistry-hub gateway [OPTIONS]
+    toolregistry-hub local-hub [OPTIONS]
+    toolregistry-hub hub-shim [OPTIONS]
+    toolregistry-hub keys [OPTIONS]
 """
 
 from __future__ import annotations
 
-import argparse
-from typing import Any, NoReturn
+import os
+import sys
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import NoReturn
 
 from toolregistry_server.cli import CLI
 
 from .. import __version__
-from .._vendor.structlog import get_logger
 from .app import HubApp
+from .registry import _discover_config_path, default_preset_path
 
-logger = get_logger()
+#: Environment variable naming the launcher that started a resident hub.
+COMMAND_ENV = "TOOLREGISTRY_LOCAL_HUB_COMMAND"
 
+#: Value this launcher reports through :data:`COMMAND_ENV`.
+COMMAND_ENV_VALUE = "toolregistry-hub"
 
-class HubCLI(CLI):
-    """Hub CLI — extends server CLI with Hub-specific features."""
+#: Commands the launcher knows how to translate or pass through.
+COMMANDS = ("openapi", "mcp", "gateway", "local-hub", "hub-shim", "keys")
 
-    def __init__(self) -> None:
-        super().__init__(app=HubApp())
-
-    def configure_subparsers(
-        self, subparsers: dict[str, argparse.ArgumentParser]
-    ) -> None:
-        """Add Hub-specific arguments to each subparser."""
-        for name, sub_parser in subparsers.items():
-            _add_hub_arguments(sub_parser)
-            # The server keeps ``--backend`` on the gateway command only; the
-            # Hub serves openapi and the HTTP MCP transports through the
-            # gateway, so the flag stays available on those commands too.
-            if name in ("openapi", "mcp"):
-                sub_parser.add_argument(
-                    "--backend",
-                    choices=("fastapi", "httpserver"),
-                    default="fastapi",
-                    help="HTTP backend for the gateway (default: fastapi)",
-                )
-        subparsers[
-            "openapi"
-        ].description = "Start the OpenAPI frontend through the server gateway."
-        subparsers["mcp"].description = (
-            "Start the MCP server. stdio is served directly; "
-            "streamable-http and sse use the server gateway."
-        )
-
-    def get_version_string(self) -> str:
-        """Hub version with update check."""
-        return _get_version_string()
-
-    def print_banner(self) -> None:
-        """Print Hub banner with PyPI update check.
-
-        Overrides the base implementation because Hub needs to
-        check for updates and display extra lines — logic that
-        the base ``ServerIdentity``-driven banner doesn't support.
-        """
-        _print_hub_banner()
-
-    def dispatch(self, parsed: argparse.Namespace) -> None:
-        """Route to HubApp with Hub-specific kwargs.
-
-        ``openapi`` and the HTTP MCP transports are served through the
-        gateway so both frontends share one code path.  ``mcp --transport
-        stdio`` stays on the direct MCP server: the gateway has no stdio
-        frontend.
-        """
-        common: dict[str, Any] = {
-            "tools_config_path": getattr(parsed, "config", None),
-            "enable_discovery": getattr(parsed, "tool_discovery", True),
-            "enable_think": getattr(parsed, "think_augment", True),
-            "profile": getattr(parsed, "profile", None),
-            "admin_port": getattr(parsed, "admin_port", None),
-            # The server's watcher starts from App.create_gateway/serve; the
-            # Hub keeps no watcher of its own.
-            "config_reload": getattr(parsed, "config_reload", False),
-            "write_config": getattr(parsed, "config_write", True),
-        }
-        transport = getattr(parsed, "transport", None)
-        # The gateway takes the union of the frontend options: host/port,
-        # credentials, backend, the OAuth origin and the tools/list cache
-        # hints.
-        gateway_options = {
-            "host": parsed.host,
-            "port": parsed.port,
-            "tokens_path": getattr(parsed, "tokens", None),
-            "reload": getattr(parsed, "reload", False),
-            "backend": getattr(parsed, "backend", "fastapi"),
-            "server_url": getattr(parsed, "server_url", None),
-            "tools_list_ttl_ms": getattr(parsed, "tools_list_ttl_ms", None),
-            "tools_list_cache_scope": getattr(parsed, "tools_list_cache_scope", None),
-            "strict_spec_regex": getattr(parsed, "strict_spec_regex", False),
-        }
-
-        if parsed.command == "openapi":
-            self.app.serve_gateway(
-                openapi_enabled=True,
-                mcp_enabled=False,
-                sse_enabled=False,
-                **gateway_options,
-                **common,
-            )
-        elif parsed.command == "mcp":
-            if transport == "stdio":
-                self.app.serve_mcp(
-                    transport=transport,
-                    host=parsed.host,
-                    port=parsed.port,
-                    # Public origin for OAuth protected-resource metadata.  The
-                    # Hub builds serve_mcp kwargs explicitly, so the flag the
-                    # server subparser adds has to be forwarded here or it is
-                    # silently dropped (#78).
-                    server_url=getattr(parsed, "server_url", None),
-                    # tools/list cache hints, same reasoning: built explicitly
-                    # here, so an added server flag is dropped unless
-                    # forwarded (#83).
-                    tools_list_ttl_ms=getattr(parsed, "tools_list_ttl_ms", None),
-                    tools_list_cache_scope=getattr(
-                        parsed, "tools_list_cache_scope", None
-                    ),
-                    **common,
-                )
-            else:
-                self.app.serve_gateway(
-                    openapi_enabled=False,
-                    mcp_enabled=transport in ("streamable-http", "http"),
-                    sse_enabled=transport == "sse",
-                    **gateway_options,
-                    **common,
-                )
-        elif parsed.command == "gateway":
-            extras = {
-                key: value
-                for key in (
-                    "openapi_path",
-                    "mcp_path",
-                    "sse_path",
-                    "max_body_size",
-                    "regex_timeout",
-                    "regex_budget",
-                )
-                if (value := getattr(parsed, key, None)) is not None
-            }
-            self.app.serve_gateway(
-                openapi_enabled=getattr(parsed, "openapi", None),
-                mcp_enabled=getattr(parsed, "mcp", None),
-                sse_enabled=getattr(parsed, "sse", None),
-                **extras,
-                **gateway_options,
-                **common,
-            )
+#: Commands whose sub-parser accepts ``--config``.
+_CONFIG_COMMANDS = ("openapi", "mcp", "gateway", "local-hub", "hub-shim")
 
 
-# ---------------------------------------------------------------------------
-# Hub-specific helpers
-# ---------------------------------------------------------------------------
+@dataclass
+class HubOptions:
+    """Hub-only flags, removed from the argv forwarded to the server."""
+
+    admin_port: int | None = None
+    """Port for the core admin panel, or ``None`` to disable it."""
+
+    enable_discovery: bool = True
+    """Whether to register the tool-discovery helpers."""
+
+    enable_think: bool = True
+    """Whether to inject ``toolcall_reason`` into tool schemas."""
+
+    no_banner: bool = False
+    """Whether the user asked to suppress the Hub banner."""
 
 
-def _add_hub_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add Hub-specific arguments on top of server defaults."""
-    parser.add_argument(
-        "--admin-port",
-        type=int,
-        default=None,
-        metavar="PORT",
-        help="Enable the admin panel on the specified port (e.g. 8081)",
-    )
-    parser.add_argument(
-        "--tool-discovery",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Enable/disable tool discovery (default: enabled)",
-    )
-    parser.add_argument(
-        "--think-augment",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Enable/disable think-augmented function calling (default: enabled)",
-    )
+def _fail(message: str) -> NoReturn:
+    """Print *message* to stderr and exit like argparse does."""
+    print(f"toolregistry-hub: error: {message}", file=sys.stderr)
+    sys.exit(2)
+
+
+def _parse_port(value: str) -> int:
+    """Parse the ``--admin-port`` value."""
+    try:
+        return int(value)
+    except ValueError:
+        _fail(f"argument --admin-port: invalid int value: {value!r}")
+
+
+def _strip_hub_flags(argv: Sequence[str], options: HubOptions) -> list[str]:
+    """Remove the Hub-only flags from *argv* and record their values."""
+    kept: list[str] = []
+    index = 0
+    while index < len(argv):
+        token = argv[index]
+        if token == "--admin-port":
+            if index + 1 >= len(argv) or argv[index + 1].startswith("-"):
+                _fail("argument --admin-port: expected one argument")
+            options.admin_port = _parse_port(argv[index + 1])
+            index += 2
+        elif token.startswith("--admin-port="):
+            options.admin_port = _parse_port(token.split("=", 1)[1])
+            index += 1
+        elif token == "--tool-discovery":
+            options.enable_discovery = True
+            index += 1
+        elif token == "--no-tool-discovery":
+            options.enable_discovery = False
+            index += 1
+        elif token == "--think-augment":
+            options.enable_think = True
+            index += 1
+        elif token == "--no-think-augment":
+            options.enable_think = False
+            index += 1
+        elif token == "--no-banner":
+            options.no_banner = True
+            index += 1
+        else:
+            kept.append(token)
+            index += 1
+    return kept
+
+
+def _find_command(argv: Sequence[str]) -> str | None:
+    """Return the first positional token, which names the command."""
+    for token in argv:
+        if not token.startswith("-"):
+            return token
+    return None
+
+
+def _version_requested(argv: Sequence[str]) -> bool:
+    """Return whether ``--version`` appears before the command."""
+    for token in argv:
+        if token in ("-V", "--version"):
+            return True
+        if not token.startswith("-"):
+            return False
+    return False
+
+
+def _help_requested(argv: Sequence[str]) -> bool:
+    """Return whether the user asked for help anywhere in the argv."""
+    return any(token in ("-h", "--help") for token in argv)
+
+
+def _help_before_command(argv: Sequence[str]) -> bool:
+    """Return whether help was requested before the command token."""
+    for token in argv:
+        if token in ("-h", "--help"):
+            return True
+        if not token.startswith("-"):
+            return False
+    return False
+
+
+def _take_option(argv: Sequence[str], name: str) -> tuple[str | None, list[str]]:
+    """Remove ``name VALUE`` / ``name=VALUE`` from *argv*.
+
+    Returns the last value given and the remaining tokens.  A ``name`` with
+    no value is left in place so the server parser reports the error.
+    """
+    value: str | None = None
+    rest: list[str] = []
+    index = 0
+    while index < len(argv):
+        token = argv[index]
+        if token == name:
+            if index + 1 < len(argv):
+                value = argv[index + 1]
+                index += 2
+                continue
+            rest.append(token)
+            index += 1
+        elif token.startswith(name + "="):
+            value = token.split("=", 1)[1]
+            index += 1
+        else:
+            rest.append(token)
+            index += 1
+    return value, rest
+
+
+def _translate(command: str, rest: Sequence[str]) -> list[str]:
+    """Translate one Hub command and its options into a server command."""
+    if command == "openapi":
+        return ["gateway", "--openapi", *rest]
+    if command == "mcp":
+        transport, rest = _take_option(rest, "--transport")
+        if transport in (None, "stdio"):
+            # The gateway has no stdio frontend, and ``--backend`` selects an
+            # HTTP backend, so it means nothing on the direct MCP server.
+            _backend, rest = _take_option(rest, "--backend")
+            return ["mcp", "--transport", "stdio", *rest]
+        if transport in ("streamable-http", "http"):
+            return ["gateway", "--mcp", *rest]
+        if transport == "sse":
+            return ["gateway", "--sse", *rest]
+        return ["mcp", "--transport", transport, *rest]
+    return [command, *rest]
+
+
+def _has_option(argv: Sequence[str], name: str) -> bool:
+    """Return whether *argv* contains ``name`` or ``name=VALUE``."""
+    return any(token == name or token.startswith(name + "=") for token in argv)
+
+
+def resolve_config_path() -> str:
+    """Resolve the tool preset the Hub serves.
+
+    An explicit ``--config`` is handled by the caller; otherwise the same
+    discovery order the registry uses applies (``TOOLS_CONFIG``, then a
+    ``tools.jsonc``/``tools.yaml``/``tools.yml`` in the working directory),
+    falling back to the packaged ``data/tools.yaml`` preset.
+    """
+    return _discover_config_path() or str(default_preset_path())
+
+
+def _inject_config(argv: list[str]) -> list[str]:
+    """Add ``--config <preset>`` when the command needs one and none was given."""
+    if not argv or argv[0] not in _CONFIG_COMMANDS:
+        return argv
+    if _has_option(argv, "--config"):
+        return argv
+    return [*argv, "--config", resolve_config_path()]
+
+
+def _hub_help() -> str:
+    """Return the top-level Hub usage text."""
+    return """\
+usage: toolregistry-hub <command> [options]
+
+Pre-configured tool server.  The launcher resolves the tool preset and
+forwards the command to toolregistry-server.
+
+commands:
+  openapi     Start the OpenAPI frontend (served through the gateway)
+  mcp         Start the MCP server (stdio directly; HTTP transports via
+              the gateway)
+  gateway     Serve OpenAPI and MCP from one process
+  local-hub   Run a resident gateway shared by local clients (POSIX only)
+  hub-shim    Expose one local hub to a stdio MCP client (POSIX only)
+  keys        Manage inbound API keys
+
+hub options (accepted before or after the command):
+  --admin-port PORT            Enable the core admin panel on PORT
+  --tool-discovery             Enable tool discovery (default)
+  --no-tool-discovery          Disable tool discovery
+  --think-augment              Enable think-augmented calling (default)
+  --no-think-augment           Disable think-augmented calling
+  --no-banner                  Do not print the Hub banner
+  --version, -V                Show the Hub version
+
+Run 'toolregistry-hub <command> --help' for the options of a command.
+"""
 
 
 def _run_update_check() -> dict | None:
@@ -255,14 +314,49 @@ def _print_hub_banner() -> None:
     print_banner(version=version, banner_art=BANNER_ART, extra_lines=extra_lines)
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
-
 def main(args: list[str] | None = None) -> NoReturn | None:
-    """Main entry point for the Hub CLI."""
-    return HubCLI().main(args)
+    """Run the Hub launcher.
+
+    Args:
+        args: Command-line arguments, excluding the program name.  Defaults
+            to ``sys.argv[1:]``.
+
+    Returns:
+        ``None`` on success, or whatever the server CLI returns.
+    """
+    argv = list(sys.argv[1:] if args is None else args)
+    options = HubOptions()
+    argv = _strip_hub_flags(argv, options)
+
+    if _version_requested(argv):
+        print(_get_version_string())
+        return None
+
+    if _help_before_command(argv):
+        print(_hub_help())
+        return None
+
+    command = _find_command(argv)
+    if command is None:
+        print(_hub_help())
+        return None
+
+    rest = argv[argv.index(command) + 1 :]
+    translated = _inject_config(_translate(command, rest))
+    # The Hub prints its own banner; the server must not print a second one.
+    translated.insert(0, "--no-banner")
+
+    os.environ[COMMAND_ENV] = COMMAND_ENV_VALUE
+
+    if not options.no_banner and not _help_requested(argv):
+        _print_hub_banner()
+
+    app = HubApp(
+        enable_discovery=options.enable_discovery,
+        enable_think=options.enable_think,
+        admin_port=options.admin_port,
+    )
+    return CLI(app=app).main(translated)
 
 
 if __name__ == "__main__":

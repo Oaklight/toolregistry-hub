@@ -115,6 +115,11 @@ def _resolve_config(
     (``TOOLS_CONFIG`` env var / ``tools.jsonc`` / ``tools.yaml``) > the
     packaged ``data/tools.yaml`` preset.
 
+    A path that names the packaged preset is treated as the built-in default:
+    the launcher injects it as ``--config`` so the server dispatch always has
+    one, and a runtime source change must stay in memory rather than rewrite
+    a file inside the installed package.
+
     Args:
         tools_config_path: Explicit config file path, or ``None``.
 
@@ -125,6 +130,8 @@ def _resolve_config(
 
     path = tools_config_path or _discover_config_path()
     if path is not None:
+        if Path(path).resolve() == default_preset_path().resolve():
+            return load_default_preset()
         config = load_config(path)
         if config.tools:
             return config
