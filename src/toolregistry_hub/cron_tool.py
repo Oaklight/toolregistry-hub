@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import TypedDict
 
 from toolregistry import ToolTag
 
@@ -43,6 +44,22 @@ class _JobRecord:
     recurring: bool
     durable: bool
     created_at: str  # ISO 8601
+
+
+class CronJob(TypedDict, total=False):
+    """Result of ``CronTool.create`` and ``CronTool.delete``.
+
+    ``create`` fills the schedule keys; ``delete`` fills ``prompt`` and
+    ``deleted``.  Only ``job_id`` and ``cron`` appear in both.
+    """
+
+    job_id: str
+    cron: str
+    recurring: bool
+    durable: bool
+    next_fire_time: str | None
+    prompt: str
+    deleted: bool
 
 
 class CronTool:
@@ -88,7 +105,7 @@ class CronTool:
         prompt: str,
         recurring: bool = True,
         durable: bool = False,
-    ) -> dict:
+    ) -> CronJob:
         """Schedule a prompt to fire on a cron schedule.
 
         Args:
@@ -152,13 +169,13 @@ class CronTool:
         job = self._scheduler.get_job(job_id)
         next_fire = job.next_run_time.isoformat() if job and job.next_run_time else None
 
-        return {
-            "job_id": job_id,
-            "cron": cron,
-            "recurring": recurring,
-            "durable": durable,
-            "next_fire_time": next_fire,
-        }
+        return CronJob(
+            job_id=job_id,
+            cron=cron,
+            recurring=recurring,
+            durable=durable,
+            next_fire_time=next_fire,
+        )
 
     @tool_metadata(
         defer=True,
@@ -169,7 +186,7 @@ class CronTool:
         open_world_hint=False,
         title="Delete Scheduled Job",
     )
-    def delete(self, job_id: str) -> dict:
+    def delete(self, job_id: str) -> CronJob:
         """Cancel a scheduled job.
 
         Args:
@@ -193,12 +210,12 @@ class CronTool:
         if record.durable:
             self._save_durable()
 
-        return {
-            "job_id": job_id,
-            "cron": record.cron_expr,
-            "prompt": record.prompt[:80],
-            "deleted": True,
-        }
+        return CronJob(
+            job_id=job_id,
+            cron=record.cron_expr,
+            prompt=record.prompt[:80],
+            deleted=True,
+        )
 
     @tool_metadata(
         defer=True,
