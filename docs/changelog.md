@@ -12,6 +12,17 @@ author: Oaklight
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，并在需要时保留项目自身的分类方式。
 
+## [Unreleased]
+
+### 新增
+
+- **看板工具**（`board` 命名空间）：按项目持久化的任务追踪，数据保存在一个本地 SQLite 文件。包含 `board-create_project`、`board-list_projects`、`board-archive_project`、`board-create_entry`、`board-get_entry`、`board-update_entry`、`board-update_status`、`board-delete_entry`、`board-list_entries` 与 `board-view`。条目带状态、优先级、截止日、标签、负责人与链接；id 为 `<PROJECT_KEY>-<n>`，序号永不复用。所有时间戳（`created_at`、`updated_at`、`closed_at`、`deleted_at`）由服务端按 UTC 生成，且不接受为参数。数据库路径依次从显式 `db` 参数或 `--db`、`TOOLREGISTRY_HUB_BOARD_DB`、XDG 状态目录解析。
+- **独立 admin 命令**：`toolregistry-hub admin` 在独立进程中提供核心 admin 面板并挂载 Kanban 扩展（`/ext/board`，资源位于 `assets/ext/board/`）。参数：`--host`、`--port`、`--token`/`--token-file`、`--config`、`--db`、`--no-banner`。非 loopback 监听且无 token 时拒绝启动。MCP 守护进程与面板共享同一个 SQLite 文件。
+
+### 移除
+
+- **`todolist-update`** 与 `TodoList` 工具类：由 `board` 命名空间取代。旧工具不保存任何状态，每次调用都会覆盖整张列表。依赖 `todolist-update` 的提示词与客户端属于破坏性变更；状态词汇仍作为输入别名保留（`planned` → `todo`、`pending` → `in_progress`、`completed` → `done`、`canceled` → `cancelled`）。
+
 ## [0.13.0] - 2026-11-10
 
 ### 变更

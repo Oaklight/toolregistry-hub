@@ -240,5 +240,5 @@ ThinkTool.think(
 ## 相关工具
 
 - [计算器](calculator.md) - 用于实际数学计算
-- [待办事项列表](todo_list.md) - 用于任务跟踪和规划
+- [看板](board.md) - 用于项目任务跟踪
 - [文件操作](file_ops.md) - 用于读写文件

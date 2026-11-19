@@ -173,6 +173,26 @@ toolregistry-hub hub-shim [OPTIONS]
 toolregistry-hub keys <subcommand> [OPTIONS]
 ```
 
+### `admin`
+
+以独立进程提供 admin 面板及其 Kanban 标签页。该命令由 Hub 自身处理，不会传给服务器 CLI。
+
+```bash
+toolregistry-hub admin [OPTIONS]
+```
+
+| 选项 | 默认值 | 说明 |
+|------|--------|------|
+| `--host HOST` | `127.0.0.1` | 监听地址 |
+| `--port PORT` | `8081` | 监听端口；端口被占用时会另选端口并打印实际 URL |
+| `--token TOKEN` | — | 面板 Bearer token |
+| `--token-file PATH` | — | 从第一个非空行读取 token |
+| `--config PATH` | 自动发现 | 面板工具页加载的配置 |
+| `--db PATH` | 共享默认路径 | 看板数据库，与 `board-*` 工具共用 |
+| `--no-banner` | 关闭 | 不打印 Hub banner |
+
+`--token` 与 `--token-file` 互斥；非 loopback 地址且无 token 时拒绝启动。详见 [Admin 面板指南](../guides/admin_panel.md)。
+
 ### 配置热重载
 
 使用 `--config-reload` 时，服务器启动后台 watcher，轮询配置文件

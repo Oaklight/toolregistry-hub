@@ -150,7 +150,7 @@ CronTool.delete(job_id="abc123")
 ### 认知工具
 
 ```python
-from toolregistry_hub import ThinkTool, TodoList
+from toolregistry_hub import BoardTools, ThinkTool
 
 # 结构化思考（作为 LLM 工具非常有用）
 ThinkTool.think(
@@ -160,10 +160,10 @@ ThinkTool.think(
 )
 
 # 任务管理
-TodoList.update([
-    "[db-migrate] 规划 schema 变更 (planned)",
-    "[db-migrate] 编写迁移脚本 (in-progress)",
-])
+board = BoardTools()
+board.create_project("迁移", key="MIG")
+board.create_entry("MIG", "规划 schema 变更")
+board.update_status("MIG-1", "pending")
 ```
 
 ## 在 AI Agent 中使用

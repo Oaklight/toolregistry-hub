@@ -82,6 +82,7 @@ plugins:
           - guides/library.md
           - guides/server.md
           - guides/docker.md
+          - guides/admin_panel.md
           - tools/index.md
         示例:
           - examples/index.md
@@ -112,7 +113,7 @@ plugins:
           - tools/bash_tool.md
           - tools/cron_tool.md
           - tools/think_tool.md
-          - tools/todo_list.md
+          - tools/board.md
           - tools/websearch/base_search.md
           - tools/websearch/search_result.md
           - tools/websearch/bing.md
@@ -180,6 +181,7 @@ nav:
       - 库使用方式: guides/library.md
       - 服务器配置: guides/server.md
       - Docker 部署: guides/docker.md
+      - Admin 面板: guides/admin_panel.md
       - 工具概览: tools/index.md
   - 示例:
       - examples/index.md
@@ -220,7 +222,7 @@ nav:
               - 定时任务工具: tools/cron_tool.md
           - 其他工具:
               - 思考工具: tools/think_tool.md
-              - 待办事项工具: tools/todo_list.md
+              - 看板: tools/board.md
           - 网络搜索基类: tools/websearch/base_search.md
           - 搜索结果类型: tools/websearch/search_result.md
       - 已弃用:

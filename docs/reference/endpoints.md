@@ -120,4 +120,13 @@ author: Oaklight
 
 | 方法 | 路径 | 描述 |
 |------|------|------|
-| POST | `/tools/todolist/update` | 更新或创建待办事项列表 |
+| POST | `/tools/board/create_project` | 新建项目 |
+| GET | `/tools/board/list_projects` | 列出项目及计数 |
+| POST | `/tools/board/archive_project` | 归档或删除项目 |
+| POST | `/tools/board/create_entry` | 新建条目 |
+| GET | `/tools/board/get_entry` | 读取单个条目 |
+| POST | `/tools/board/update_entry` | 更新条目字段 |
+| POST | `/tools/board/update_status` | 在列之间移动条目 |
+| POST | `/tools/board/delete_entry` | 软删除条目 |
+| GET | `/tools/board/list_entries` | 列出条目 |
+| GET | `/tools/board/view` | 以看板形式渲染项目 |
