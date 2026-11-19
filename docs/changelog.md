@@ -18,6 +18,7 @@ author: Oaklight
 
 - **看板工具**（`board` 命名空间）：按项目持久化的任务追踪，数据保存在一个本地 SQLite 文件。包含 `board-create_project`、`board-list_projects`、`board-archive_project`、`board-create_entry`、`board-get_entry`、`board-update_entry`、`board-update_status`、`board-delete_entry`、`board-list_entries` 与 `board-view`。条目带状态、优先级、截止日、标签、负责人与链接；id 为 `<PROJECT_KEY>-<n>`，序号永不复用。所有时间戳（`created_at`、`updated_at`、`closed_at`、`deleted_at`）由服务端按 UTC 生成，且不接受为参数。数据库路径依次从显式 `db` 参数或 `--db`、`TOOLREGISTRY_HUB_BOARD_DB`、XDG 状态目录解析。
 - **独立 admin 命令**：`toolregistry-hub admin` 在独立进程中提供核心 admin 面板并挂载 Kanban 扩展（`/ext/board`，资源位于 `assets/ext/board/`）。参数：`--host`、`--port`、`--token`/`--token-file`、`--config`、`--db`、`--no-banner`。非 loopback 监听且无 token 时拒绝启动。MCP 守护进程与面板共享同一个 SQLite 文件。
+- **评审加固**：`PATCH /ext/board/entries/<ref>` 与其他字段一起校验 `status`，被拒绝的请求不写入任何字段；`POST` 与 `PATCH` 一样拒绝未知字段；存储层失败返回 503。两个进程同时冷启动时，WAL 切换会重试而不是让其中一次调用失败。`force` 删除的项目 key 会保留序号，重建后继续累加；归档项目拒绝新的写入。
 
 ### 移除
 

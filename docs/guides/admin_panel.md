@@ -113,7 +113,9 @@ journalctl --user -u toolregistry-hub-admin -n 30 --no-pager
 | DELETE | `/entries/<ref>` | 软删除 |
 | GET | `/meta` | schema 版本；loopback 时附数据库路径 |
 
-`PATCH` 拒绝时间戳字段：`created_at`、`updated_at`、`closed_at`、`deleted_at` 由服务端拥有。
+两个写入路由都会拒绝未知字段，因此 `created_at`、`updated_at`、`closed_at`、`deleted_at` 会报错而不是被静默丢弃。
+
+`PATCH` 的字段语义统一：省略该键或传 `null` 表示不修改，传空字符串或空数组表示清空，`title` 不允许清空。`status` 与其他字段一起校验，因此带非法状态的请求不会写入任何字段。存储层失败时返回 503，并使用面板的 JSON 错误结构。
 
 ## 另见
 
