@@ -214,8 +214,10 @@ class TestHandlers:
         assert status == 400
 
     def test_meta_reports_the_database(self, extension: BoardAdminExtension):
+        from toolregistry_hub.board.store import SCHEMA_VERSION
+
         payload = extension.meta(_Request())
-        assert payload["schema_version"] == 1
+        assert payload["schema_version"] == SCHEMA_VERSION
         assert payload["db_path"].endswith("board.sqlite3")
 
     def test_meta_can_hide_the_path(self, tmp_path: Path):
