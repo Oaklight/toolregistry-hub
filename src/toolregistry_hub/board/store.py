@@ -13,8 +13,12 @@ Design notes:
 - Every timestamp is generated here with ``datetime.now(timezone.utc)``.
   No public method accepts a timestamp argument.
 - Entry ids are ``<PROJECT_KEY>-<seq>``.  ``seq`` is allocated per project
-  and never reused, so a deleted ``KAN-7`` cannot come back as a different
-  row.
+  under ``BEGIN IMMEDIATE`` and is never reused: soft deletes, and projects
+  force-deleted and recreated with the same key, both continue from the
+  retired sequence recorded in ``retired_projects``.
+- ``closed_at`` records when an entry entered its current closed state.  It
+  moves only on the transition into ``done``/``cancelled`` and is cleared on
+  the transition out; edits that keep the status leave it alone.
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ import os
 import re
 import sqlite3
 import threading
+import time
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from datetime import date, datetime, timezone
@@ -72,7 +77,13 @@ MAX_TITLE = 200
 #: Longest accepted project key.
 MAX_KEY = 10
 
-_SCHEMA_VERSION = 1
+#: Attempts made to switch a cold database to WAL before giving up.
+_WAL_ATTEMPTS = 8
+
+#: Upper bound on derived-key collision retries, so a bug cannot hang.
+_KEY_ATTEMPTS = 1000
+
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS projects (
@@ -83,6 +94,12 @@ CREATE TABLE IF NOT EXISTS projects (
     archived_at TEXT,
     created_at  TEXT    NOT NULL,
     updated_at  TEXT    NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS retired_projects (
+    key         TEXT    PRIMARY KEY,
+    next_seq    INTEGER NOT NULL,
+    retired_at  TEXT    NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS entries (
@@ -138,13 +155,20 @@ class BoardNotFound(KeyError):
         return str(self.args[0]) if self.args else "not found"
 
 
+class BoardStorageError(RuntimeError):
+    """The database could not be opened or written."""
+
+
 def utc_now() -> str:
     """Return the current UTC time as an ISO-8601 string.
 
     Returns:
-        The timestamp with second precision, e.g. ``2026-11-19T02:00:00+00:00``.
+        The timestamp with microsecond precision, e.g.
+        ``2026-11-19T02:00:00.123456+00:00``.  The finer precision keeps
+        ``created_at`` and ``updated_at`` distinct for edits made inside the
+        same second.
     """
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
 
 
 def normalize_status(value: str) -> str:
@@ -349,24 +373,68 @@ class BoardStore:
     # ---- connection management ------------------------------------------
 
     def _ensure_ready(self) -> None:
-        """Create the directory, the schema, and harden permissions once."""
+        """Create the directory, the schema, and harden permissions once.
+
+        Two processes can cold-start on the same file, which is exactly what
+        the MCP daemon and the admin panel do after an install.  Switching to
+        WAL needs an exclusive lock and does not honour the connect timeout,
+        so it is retried here and skipped when WAL is already active.
+
+        Raises:
+            BoardStorageError: If the directory cannot be created or the
+                database stays locked through every attempt.
+        """
         if self._ready:
             return
         with self._lock:
             if self._ready:
                 return
             parent = self._path.parent
-            created = not parent.exists()
-            parent.mkdir(parents=True, exist_ok=True)
-            if created:
-                os.chmod(parent, 0o700)
-            with sqlite3.connect(self._path, timeout=5.0) as conn:
-                conn.execute("PRAGMA journal_mode=WAL")
-                conn.execute("PRAGMA foreign_keys=ON")
-                conn.executescript(_SCHEMA)
-                conn.execute(f"PRAGMA user_version={_SCHEMA_VERSION}")
+            try:
+                created = not parent.exists()
+                parent.mkdir(parents=True, exist_ok=True)
+                if created:
+                    os.chmod(parent, 0o700)
+            except OSError as exc:
+                raise BoardStorageError(
+                    f"cannot create the board directory {parent}: {exc}"
+                ) from exc
+            try:
+                with sqlite3.connect(self._path, timeout=10.0) as conn:
+                    self._enable_wal(conn)
+                    conn.execute("PRAGMA foreign_keys=ON")
+                    conn.executescript(_SCHEMA)
+                    conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+            except sqlite3.Error as exc:
+                raise BoardStorageError(
+                    f"cannot open the board database {self._path}: {exc}"
+                ) from exc
             self._harden()
             self._ready = True
+
+    @staticmethod
+    def _enable_wal(conn: sqlite3.Connection) -> None:
+        """Switch *conn* to WAL, tolerating a concurrent first open.
+
+        Args:
+            conn: An open connection.
+
+        Raises:
+            BoardStorageError: If WAL cannot be enabled after every attempt.
+        """
+        mode = str(conn.execute("PRAGMA journal_mode").fetchone()[0]).lower()
+        if mode == "wal":
+            return
+        for attempt in range(_WAL_ATTEMPTS):
+            try:
+                conn.execute("PRAGMA journal_mode=WAL")
+                return
+            except sqlite3.OperationalError:
+                conn.rollback()
+                time.sleep(0.05 * (attempt + 1))
+        raise BoardStorageError(
+            "could not enable WAL on the board database; another process holds the lock"
+        )
 
     def _harden(self) -> None:
         """Restrict the database and its WAL sidecars to the owner."""
@@ -379,33 +447,45 @@ class BoardStore:
     def _connect(self) -> Iterator[sqlite3.Connection]:
         """Open one connection with the pragmas every operation needs."""
         self._ensure_ready()
-        conn = sqlite3.connect(self._path, timeout=5.0)
+        try:
+            conn = sqlite3.connect(self._path, timeout=5.0)
+        except sqlite3.Error as exc:
+            raise BoardStorageError(f"cannot open {self._path}: {exc}") from exc
         conn.row_factory = sqlite3.Row
         try:
             conn.execute("PRAGMA busy_timeout=5000")
             conn.execute("PRAGMA foreign_keys=ON")
             yield conn
             conn.commit()
-        except Exception:
+        except sqlite3.OperationalError as exc:
             conn.rollback()
-            raise
+            raise BoardStorageError(f"board database error: {exc}") from exc
         finally:
             conn.close()
 
     # ---- project helpers ------------------------------------------------
 
-    def _find_project(self, conn: sqlite3.Connection, identifier: str) -> sqlite3.Row:
+    def _find_project(
+        self,
+        conn: sqlite3.Connection,
+        identifier: str,
+        *,
+        writable: bool = False,
+    ) -> sqlite3.Row:
         """Resolve a project by key (case-insensitive) or exact name.
 
         Args:
             conn: The open connection.
             identifier: A project key or name.
+            writable: Refuse an archived project, for callers that add or
+                change entries.
 
         Returns:
             The project row.
 
         Raises:
             BoardNotFound: If no project matches.
+            BoardValidation: If *writable* is set and the project is archived.
         """
         text = str(identifier or "").strip()
         if not text:
@@ -419,6 +499,11 @@ class BoardStore:
             ).fetchone()
         if row is None:
             raise BoardNotFound(f"unknown project {identifier!r}")
+        if writable and row["archived_at"]:
+            raise BoardValidation(
+                f"project {row['key']!r} is archived; create a new project "
+                "instead of adding work to it"
+            )
         return row
 
     @staticmethod
@@ -465,10 +550,42 @@ class BoardStore:
             raise BoardNotFound(f"unknown entry {ref!r}")
         return row
 
+    @staticmethod
+    def _closed_at_after(
+        target: str,
+        current_status: str,
+        current_closed_at: str | None,
+        now: str,
+    ) -> str | None:
+        """Return the ``closed_at`` value for a status change.
+
+        The field records the start of the entry's current closed state: it
+        is stamped when the entry crosses from an open status into a closed
+        one, kept when the entry stays closed, and cleared when it reopens.
+
+        Args:
+            target: The canonical destination status.
+            current_status: The canonical status before the change.
+            current_closed_at: The stored value before the change.
+            now: The server timestamp for this write.
+
+        Returns:
+            The value to store, or ``None`` for an open status.
+        """
+        if target not in CLOSED_STATUSES:
+            return None
+        if current_status in CLOSED_STATUSES and current_closed_at:
+            return current_closed_at
+        return now
+
     # ---- projects --------------------------------------------------------
 
     def create_project(self, name: str, key: str = "") -> dict[str, Any]:
         """Create a project.
+
+        A key retired by ``archive_project(force=True)`` is reusable, and the
+        new project continues from the retired sequence so an id never points
+        at a different entry.
 
         Args:
             name: The project name.
@@ -479,7 +596,7 @@ class BoardStore:
 
         Raises:
             BoardValidation: If the name is empty or the key is malformed.
-            BoardConflict: If the key is taken.
+            BoardConflict: If the key is taken or no free derived key exists.
         """
         text = str(name or "").strip()
         if not text:
@@ -495,21 +612,30 @@ class BoardStore:
             else:
                 base = derive_key(text)
                 candidate = base
-                suffix = 2
-                while conn.execute(
-                    "SELECT 1 FROM projects WHERE key = ?", (candidate,)
-                ).fetchone():
+                for suffix in range(2, _KEY_ATTEMPTS + 2):
+                    taken = conn.execute(
+                        "SELECT 1 FROM projects WHERE key = ?", (candidate,)
+                    ).fetchone()
+                    if not taken:
+                        break
                     candidate = f"{base[: MAX_KEY - len(str(suffix))]}{suffix}"
-                    suffix += 1
+                else:
+                    raise BoardConflict(f"no free project key derived from {text!r}")
             if conn.execute(
                 "SELECT 1 FROM projects WHERE key = ?", (candidate,)
             ).fetchone():
                 raise BoardConflict(f"project key {candidate!r} already exists")
+            retired = conn.execute(
+                "SELECT next_seq FROM retired_projects WHERE key = ?",
+                (candidate,),
+            ).fetchone()
+            next_seq = int(retired["next_seq"]) if retired else 1
+            conn.execute("DELETE FROM retired_projects WHERE key = ?", (candidate,))
             now = utc_now()
             conn.execute(
                 "INSERT INTO projects (key, name, next_seq, created_at, updated_at) "
-                "VALUES (?, ?, 1, ?, ?)",
-                (candidate, text, now, now),
+                "VALUES (?, ?, ?, ?, ?)",
+                (candidate, text, next_seq, now, now),
             )
             return {"key": candidate, "name": text, "created_at": now}
 
@@ -601,6 +727,11 @@ class BoardStore:
     def archive_project(self, key: str, force: bool = False) -> dict[str, Any]:
         """Archive a project, or delete it and its entries with *force*.
 
+        Archiving stops new work: entry creation and updates refuse an
+        archived project.  Reads keep working.  A force-deleted key is
+        recorded in ``retired_projects`` so a later project with the same key
+        continues its sequence instead of restarting at 1.
+
         Args:
             key: The project key or name.
             force: Delete the project and every entry instead of archiving.
@@ -618,6 +749,14 @@ class BoardStore:
                     "SELECT COUNT(*) FROM entries WHERE project_id = ?",
                     (row["id"],),
                 ).fetchone()[0]
+                now = utc_now()
+                conn.execute(
+                    "INSERT INTO retired_projects (key, next_seq, retired_at) "
+                    "VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET "
+                    "next_seq = MAX(next_seq, excluded.next_seq), "
+                    "retired_at = excluded.retired_at",
+                    (row["key"], int(row["next_seq"]), now),
+                )
                 conn.execute("DELETE FROM projects WHERE id = ?", (row["id"],))
                 return {
                     "key": row["key"],
@@ -663,7 +802,7 @@ class BoardStore:
 
         Raises:
             BoardNotFound: If the project does not exist.
-            BoardValidation: If a field is invalid.
+            BoardValidation: If a field is invalid or the project is archived.
         """
         title_text = normalize_title(title)
         status_value = normalize_status(status)
@@ -672,7 +811,7 @@ class BoardStore:
         label_values = normalize_list(labels, field="labels")
         link_values = normalize_links(links)
         with self._connect() as conn:
-            row = self._find_project(conn, project)
+            row = self._find_project(conn, project, writable=True)
             now = utc_now()
             conn.execute("BEGIN IMMEDIATE")
             seq = conn.execute(
@@ -731,21 +870,24 @@ class BoardStore:
         *,
         title: str | None = None,
         content: str | None = None,
+        status: str | None = None,
         priority: str | None = None,
         due: str | None = None,
         labels: Iterable[str] | str | None = None,
         assignee: str | None = None,
         links: Iterable[str] | str | None = None,
     ) -> dict[str, Any]:
-        """Update entry fields.  ``None`` leaves a field unchanged.
+        """Update entry fields in one transaction.
 
-        Passing an empty string clears a text field; passing an empty list
-        clears a list field.
+        Every value is normalised before the connection opens, so an invalid
+        argument leaves the entry untouched.  ``None`` means "leave this
+        field unchanged"; an empty string or empty list clears a field.
 
         Args:
             ref: The entry reference.
             title: A new title.
             content: New content.
+            status: A new status or alias; validated with the rest.
             priority: A new priority or alias.
             due: A new planned date, or empty to clear it.
             labels: New labels.
@@ -756,8 +898,8 @@ class BoardStore:
             The updated entry.
 
         Raises:
-            BoardNotFound: If the entry does not exist.
-            BoardValidation: If a field is invalid.
+            BoardNotFound: If the entry does not exist or is deleted.
+            BoardValidation: If a field is invalid or the project is archived.
         """
         changes: dict[str, Any] = {}
         if title is not None:
@@ -774,10 +916,17 @@ class BoardStore:
             changes["assignee"] = str(assignee).strip()
         if links is not None:
             changes["links"] = json.dumps(normalize_links(links))
+        status_value = normalize_status(status) if status is not None else None
         with self._connect() as conn:
             row = self._find_entry(conn, ref)
             if row["deleted_at"]:
                 raise BoardNotFound(f"entry {ref!r} is deleted")
+            project = self._find_project(conn, row["key"], writable=True)
+            if status_value is not None:
+                changes["status"] = status_value
+                changes["closed_at"] = self._closed_at_after(
+                    status_value, row["status"], row["closed_at"], utc_now()
+                )
             if not changes:
                 return _row_to_entry(row)
             changes["updated_at"] = utc_now()
@@ -786,10 +935,18 @@ class BoardStore:
                 f"UPDATE entries SET {assignments} WHERE id = ?",  # noqa: S608 - fixed columns
                 (*changes.values(), row["id"]),
             )
+            conn.execute(
+                "UPDATE projects SET updated_at = ? WHERE id = ?",
+                (changes["updated_at"], project["id"]),
+            )
             return _row_to_entry(self._find_entry(conn, ref))
 
     def update_status(self, ref: str, status: str) -> dict[str, Any]:
         """Move an entry to another column.
+
+        ``closed_at`` moves only on a transition: entering a closed status
+        stamps it, staying closed keeps the original value, and reopening
+        clears it.
 
         Args:
             ref: The entry reference.
@@ -799,16 +956,18 @@ class BoardStore:
             The updated entry.
 
         Raises:
-            BoardNotFound: If the entry does not exist.
-            BoardValidation: If the status is invalid.
+            BoardNotFound: If the entry does not exist or is deleted.
+            BoardValidation: If the status is invalid or the project is
+                archived.
         """
         value = normalize_status(status)
         with self._connect() as conn:
             row = self._find_entry(conn, ref)
             if row["deleted_at"]:
                 raise BoardNotFound(f"entry {ref!r} is deleted")
+            self._find_project(conn, row["key"], writable=True)
             now = utc_now()
-            closed = now if value in CLOSED_STATUSES else None
+            closed = self._closed_at_after(value, row["status"], row["closed_at"], now)
             conn.execute(
                 "UPDATE entries SET status = ?, updated_at = ?, closed_at = ? "
                 "WHERE id = ?",
@@ -818,6 +977,10 @@ class BoardStore:
 
     def delete_entry(self, ref: str) -> dict[str, Any]:
         """Soft-delete an entry.
+
+        A deleted entry keeps its id and its history; the sequence number is
+        never reused.  Deleting twice is an error rather than a silent no-op,
+        so a mistyped reference is visible.
 
         Args:
             ref: The entry reference.

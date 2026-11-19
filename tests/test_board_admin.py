@@ -256,3 +256,64 @@ class TestMountedServer:
             with urllib.request.urlopen(f"{server.url}{path}", timeout=5) as response:
                 assert response.status == 200
                 assert response.headers["Content-Type"].startswith(content_type)
+
+
+class TestReviewRegressions:
+    """Cases raised in the PR #274 review."""
+
+    def test_patch_with_bad_status_writes_nothing(self, extension: BoardAdminExtension):
+        extension.create_project(_Request({"name": "Kanban", "key": "KAN"}))
+        extension.create_entry(_Request({"project": "KAN", "title": "one"}))
+
+        body, status = extension.update_entry(
+            _Request({"title": "MUTATED", "status": "bogus"}), "KAN-1"
+        )
+
+        assert status == 400
+        entry = extension.get_entry(_Request(), "KAN-1")["entry"]
+        assert entry["title"] == "one"
+        assert entry["status"] == "todo"
+
+    def test_post_rejects_unknown_fields(self, extension: BoardAdminExtension):
+        extension.create_project(_Request({"name": "Kanban", "key": "KAN"}))
+        body, status = extension.create_entry(
+            _Request(
+                {
+                    "project": "KAN",
+                    "title": "one",
+                    "created_at": "2000-01-01T00:00:00+00:00",
+                }
+            )
+        )
+        assert status == 400
+        assert "created_at" in body["message"]
+        assert extension.list_entries(_Request())["entries"] == []
+
+    def test_null_leaves_a_field_unchanged(self, extension: BoardAdminExtension):
+        extension.create_project(_Request({"name": "Kanban", "key": "KAN"}))
+        extension.create_entry(
+            _Request({"project": "KAN", "title": "one", "content": "keep"})
+        )
+        extension.update_entry(_Request({"title": None, "content": None}), "KAN-1")
+        entry = extension.get_entry(_Request(), "KAN-1")["entry"]
+        assert entry["content"] == "keep"
+        assert entry["title"] == "one"
+
+    def test_empty_string_clears_a_field(self, extension: BoardAdminExtension):
+        extension.create_project(_Request({"name": "Kanban", "key": "KAN"}))
+        extension.create_entry(
+            _Request({"project": "KAN", "title": "one", "content": "keep"})
+        )
+        extension.update_entry(_Request({"content": ""}), "KAN-1")
+        assert extension.get_entry(_Request(), "KAN-1")["entry"]["content"] == ""
+
+    def test_storage_failure_is_503(self, extension: BoardAdminExtension, monkeypatch):
+        import sqlite3
+
+        def boom(*args, **kwargs):
+            raise sqlite3.OperationalError("database is locked")
+
+        monkeypatch.setattr(extension.store, "list_projects", boom)
+        body, status = extension.list_projects(_Request())
+        assert status == 503
+        assert body["error"] == "Service Unavailable"
