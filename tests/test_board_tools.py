@@ -36,10 +36,12 @@ class TestReturnShapes:
 
     def test_listings_are_strings(self, board: BoardTools):
         assert "No projects" in board.list_projects()
+        assert board.list_entries() == "No entries."
         board.create_project("Kanban", key="KAN")
         assert "KAN" in board.list_projects()
-        assert "KAN" in board.list_entries()
-        assert "KAN-1" not in board.list_entries()
+        assert board.list_entries() == "No entries."
+        board.create_entry("KAN", "one")
+        assert "KAN-1" in board.list_entries()
 
     def test_view_uses_the_only_project(self, board: BoardTools):
         board.create_project("Kanban", key="KAN")
