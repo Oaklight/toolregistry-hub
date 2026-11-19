@@ -166,12 +166,18 @@ class TestHandlers:
         extension.create_project(_Request({"name": "Kanban", "key": "KAN"}))
         extension.create_entry(_Request({"project": "KAN", "title": "a"}))
         extension.create_entry(
-            _Request({"project": "KAN", "title": "b", "status": "done"})
+            _Request({"project": "KAN", "title": "b", "status": "in_progress"})
         )
-        pending = extension.list_entries(_Request(query={"status": ["pending"]}))[
+        extension.create_entry(
+            _Request({"project": "KAN", "title": "c", "status": "done"})
+        )
+        # ``pending`` normalises to ``in_progress``, not to ``todo``.
+        filtered = extension.list_entries(_Request(query={"status": ["pending"]}))[
             "entries"
         ]
-        assert [entry["id"] for entry in pending] == ["KAN-1"]
+        assert [entry["id"] for entry in filtered] == ["KAN-2"]
+        todo = extension.list_entries(_Request(query={"status": ["todo"]}))["entries"]
+        assert [entry["id"] for entry in todo] == ["KAN-1"]
 
     def test_unknown_entry_is_404(self, extension: BoardAdminExtension):
         body, status = extension.get_entry(_Request(), "KAN-9")
