@@ -10,7 +10,7 @@ ToolRegistry Hub Server supports **MCP (Model Context Protocol)** and **OpenAPI*
 
 ## Key Features
 
-- Calculator, Datetime, Web Search (Brave/SearXNG/Tavily/Google), File Ops, Think, Todo, Web Fetch, etc.
+- Calculator, Datetime, Web Search (Brave/SearXNG/Tavily/Google), File Ops, Think, Kanban Board, Web Fetch, etc.
 - Full list: [docs](https://toolregistry-hub.readthedocs.io/en/latest/).
 
 ## Quick Docker Commands

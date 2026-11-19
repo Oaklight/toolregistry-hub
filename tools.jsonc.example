@@ -23,7 +23,7 @@
     {"class": "toolregistry_hub.fetch.Fetch", "namespace": "web"},
     {"class": "toolregistry_hub.file_ops.FileOps", "namespace": "file_ops"},
     {"class": "toolregistry_hub.think_tool.ThinkTool", "namespace": "think"},
-    {"class": "toolregistry_hub.todo_list.TodoList", "namespace": "todolist"},
+    {"class": "toolregistry_hub.board.tools.BoardTools", "namespace": "board"},
     {"class": "toolregistry_hub.unit_converter.UnitConverter", "namespace": "unit_converter"},
     {"class": "toolregistry_hub.websearch.websearch_brave.BraveSearch", "namespace": "brave"},
     {"class": "toolregistry_hub.websearch.websearch_tavily.TavilySearch", "namespace": "tavily"},
@@ -43,7 +43,7 @@
   // List namespaces to disable at startup.
   // Available namespaces:
   //   calculator, datetime, web/fetch, file_ops,
-  //   think, todolist, unit_converter,
+  //   think, board, unit_converter,
   //   web/brave_search, web/tavily_search, web/searxng_search,
   //   web/brightdata_search, web/scrapeless_search, web/serper_search
   "disabled": [

@@ -69,3 +69,33 @@ def test_server_openapi_extra_installs_the_gateway_backend() -> None:
         requirement.startswith("toolregistry-server[gateway]")
         for requirement in requirements
     ), requirements
+
+
+def _package_data(package: str) -> list[str]:
+    """Return the ``[tool.setuptools.package-data]`` patterns for *package*."""
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    if tomllib is not None:
+        data = tomllib.loads(pyproject)
+        return list(data["tool"]["setuptools"]["package-data"].get(package, []))
+    pattern = rf'^"{re.escape(package)}" = \[(.*?)\]'
+    match = re.search(pattern, pyproject, re.MULTILINE)
+    assert match is not None, f"pyproject.toml has no package-data for {package}"
+    return re.findall(r'"([^"]+)"', match.group(1))
+
+
+def test_board_assets_ship_with_the_wheel() -> None:
+    """The admin extension's JS and CSS must be in the wheel.
+
+    Without the patterns the source tree still has the files, so unit tests
+    pass and only ``enable_admin`` fails at startup, on a user's machine.
+    """
+    patterns = _package_data("toolregistry_hub.board")
+    assert "assets/*.js" in patterns, patterns
+    assert "assets/*.css" in patterns, patterns
+
+
+def test_board_entry_module_exists() -> None:
+    """The declared manifest entry must resolve inside the package."""
+    entry = ROOT / "src" / "toolregistry_hub" / "board" / "assets" / "main.js"
+    assert entry.is_file()
+    assert "export async function register" in entry.read_text(encoding="utf-8")

@@ -133,7 +133,7 @@ command:
 - **Enhanced Calculator**: More mathematical functions
 - **File Operations**: Enhanced file read/write and management
 - **Think Tool**: Reasoning log recording
-- **Todo List**: Task management functionality
+- **Kanban Board**: Project-scoped task tracking
 - **Web Fetch**: Content extraction tools
 
 ## 📚 Complete Documentation

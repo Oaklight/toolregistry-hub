@@ -232,7 +232,7 @@ class TestToolMetadataAndDiscovery(unittest.TestCase):
             "fs",
             "bash",
             "cron",
-            "todolist",
+            "board",
             "unit_converter",
             "weather",
         }

@@ -70,9 +70,9 @@ tools:
     tags: [read_only]
 
   - type: python
-    class: toolregistry_hub.todo_list.TodoList
-    namespace: todolist
-    tags: [read_only]
+    class: toolregistry_hub.board.tools.BoardTools
+    namespace: board
+    tags: [file_system]
 
   - type: python
     class: toolregistry_hub.unit_converter.UnitConverter
