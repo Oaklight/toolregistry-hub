@@ -150,7 +150,7 @@ CronTool.delete(job_id="abc123")
 ### Cognitive Tools
 
 ```python
-from toolregistry_hub import ThinkTool, TodoList
+from toolregistry_hub import BoardTools, ThinkTool
 
 # Structured thinking (useful as an LLM tool)
 ThinkTool.think(
@@ -160,10 +160,10 @@ ThinkTool.think(
 )
 
 # Task management
-TodoList.update([
-    "[db-migrate] Plan schema changes (planned)",
-    "[db-migrate] Write migration script (in-progress)",
-])
+board = BoardTools()
+board.create_project("Migration", key="MIG")
+board.create_entry("MIG", "Plan schema changes")
+board.update_status("MIG-1", "pending")
 ```
 
 ## Use in AI Agents

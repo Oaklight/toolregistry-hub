@@ -391,7 +391,7 @@ registry = get_registry()
 | `Fetch` | `fetch` | Static methods |
 | `FileOps` | `file_ops` | Static methods |
 | `ThinkTool` | `think` | Static methods |
-| `TodoList` | `todolist` | Static methods |
+| `BoardTools` | `board` | Instance methods |
 | `UnitConverter` | `unit_converter` | Static methods |
 | `BraveSearch` | `brave_search` | Instance methods |
 | `TavilySearch` | `tavily_search` | Instance methods |

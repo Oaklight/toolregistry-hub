@@ -36,6 +36,7 @@ Hub-only options are accepted before or after the command.
 | `mcp --transport sse` | `gateway --sse` |
 | `mcp` (stdio or no transport) | `mcp --transport stdio` |
 | `gateway`, `local-hub`, `hub-shim`, `keys` | unchanged |
+| `admin` | not translated; served by the Hub process |
 
 - `--backend` is forwarded to the gateway for `openapi` and the HTTP MCP
   transports, and dropped for stdio, where it has no meaning.
@@ -180,6 +181,28 @@ Manage inbound API keys (`create`, `list`, `get`, `revoke`,
 ```bash
 toolregistry-hub keys <subcommand> [OPTIONS]
 ```
+
+### `admin`
+
+Serve the admin panel and its Kanban tab from a standalone process. The
+command is handled by the Hub itself and never reaches the server CLI.
+
+```bash
+toolregistry-hub admin [OPTIONS]
+```
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `--host HOST` | `127.0.0.1` | Bind address |
+| `--port PORT` | `8081` | Bind port; a busy port makes the panel pick another and log the URL |
+| `--token TOKEN` | — | Panel bearer token |
+| `--token-file PATH` | — | Read the token from the first non-empty line |
+| `--config PATH` | discovered preset | Tool config to load for the panel's tool pages |
+| `--db PATH` | shared default | Board database, shared with the `board-*` tools |
+| `--no-banner` | off | Skip the Hub banner |
+
+`--token` and `--token-file` are mutually exclusive, and a non-loopback host
+without a token is refused. See the [Admin Panel guide](../guides/admin_panel.md).
 
 ### Config hot reload
 

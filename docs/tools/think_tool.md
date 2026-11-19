@@ -240,5 +240,5 @@ This tool is a **recorder of thinking processes**, not an executor. Its value li
 ## Related Tools
 
 - [Calculator](calculator.md) - For actual mathematical computations
-- [Todo List](todo_list.md) - For task tracking and planning
+- [Kanban Board](board.md) - For project task tracking
 - [File Operations](file_ops.md) - For reading/writing files

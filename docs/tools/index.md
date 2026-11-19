@@ -37,4 +37,4 @@
 ## Other Tools
 
 - **[Think Tool](think_tool.md)** - Simple reasoning and brainstorming assistance
-- **[Todo List Tool](todo_list.md)** - Task management and organization utilities
+- **[Kanban Board](board.md)** - Project-scoped task tracking with persistence

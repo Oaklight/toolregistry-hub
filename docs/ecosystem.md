@@ -54,7 +54,7 @@ A curated set of utility tools, deployable via `toolregistry-server`. Provides:
 - Calculator, unit converter, date/time tools
 - File operations and file system tools
 - Multi-engine web search (Brave, Tavily, SearXNG, etc.)
-- Web content fetching, think tool, todo list
+- Web content fetching, think tool, kanban board
 - Docker image for one-command deployment
 
 ---

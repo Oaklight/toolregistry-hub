@@ -82,6 +82,7 @@ plugins:
           - guides/library.md
           - guides/server.md
           - guides/docker.md
+          - guides/admin_panel.md
           - tools/index.md
         Examples:
           - examples/index.md
@@ -112,7 +113,7 @@ plugins:
           - tools/bash_tool.md
           - tools/cron_tool.md
           - tools/think_tool.md
-          - tools/todo_list.md
+          - tools/board.md
           - tools/websearch/base_search.md
           - tools/websearch/search_result.md
           - tools/websearch/bing.md
@@ -180,6 +181,7 @@ nav:
       - Library Usage: guides/library.md
       - Server Configuration: guides/server.md
       - Docker Deployment: guides/docker.md
+      - Admin Panel: guides/admin_panel.md
       - Tools Overview: tools/index.md
   - Examples:
       - examples/index.md
@@ -220,7 +222,7 @@ nav:
               - Cron Tool: tools/cron_tool.md
           - Other Tools:
               - Think Tool: tools/think_tool.md
-              - Todo List Tool: tools/todo_list.md
+              - Kanban Board: tools/board.md
           - Web Search Base Class: tools/websearch/base_search.md
           - Search Result Types: tools/websearch/search_result.md
       - Deprecated:

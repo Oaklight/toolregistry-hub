@@ -116,8 +116,17 @@ When running in OpenAPI mode, the server exposes the following endpoints. Intera
 |--------|------|-------------|
 | POST | `/tools/think/think` | Structured reasoning / brainstorming |
 
-## Todo List
+## Kanban Board
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/tools/todolist/update` | Update or create todo list |
+| POST | `/tools/board/create_project` | Create a project |
+| GET | `/tools/board/list_projects` | List projects with counts |
+| POST | `/tools/board/archive_project` | Archive or delete a project |
+| POST | `/tools/board/create_entry` | Create an entry |
+| GET | `/tools/board/get_entry` | Read one entry |
+| POST | `/tools/board/update_entry` | Update entry fields |
+| POST | `/tools/board/update_status` | Move an entry between columns |
+| POST | `/tools/board/delete_entry` | Soft-delete an entry |
+| GET | `/tools/board/list_entries` | List entries |
+| GET | `/tools/board/view` | Render a project as a kanban |
