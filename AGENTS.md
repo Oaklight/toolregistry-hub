@@ -53,7 +53,7 @@ Registered tools and namespaces (from `src/toolregistry_hub/data/tools.yaml`):
 | `fs` | `PathInfo` | FILE_SYSTEM, READ_ONLY | deferred |
 | `bash` | `BashTool` | DESTRUCTIVE, PRIVILEGED | deferred |
 | `cron` | `CronTool` | PRIVILEGED | deferred |
-| `todolist` | `TodoList` | READ_ONLY | deferred |
+| `board` | `BoardTools` | FILE_SYSTEM | deferred |
 | `unit_converter` | `UnitConverter` | READ_ONLY | deferred |
 
 "Deferred" tools are hidden from initial schema and discoverable via `discover_tools`.

@@ -1,0 +1,267 @@
+/* Kanban admin extension styles.
+ *
+ * Loaded through the extension manifest, so the selectors stay under the
+ * extension's own container.  Colours come from the shell's CSS variables
+ * when they exist, with fallbacks so the page still reads on a theme that
+ * omits them.
+ */
+
+.board-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+    margin-bottom: 1rem;
+}
+
+.board-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    color: var(--muted, #6b7280);
+}
+
+.board-field input,
+.board-field select,
+.board-field textarea {
+    font: inherit;
+    color: var(--text, #111827);
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--border, #d1d5db);
+    border-radius: 6px;
+    padding: 0.35rem 0.5rem;
+    min-width: 10rem;
+}
+
+.board-field textarea {
+    resize: vertical;
+    min-width: 16rem;
+}
+
+.board-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.75rem;
+    align-items: start;
+}
+
+.board-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: var(--surface-alt, #f9fafb);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 10px;
+    padding: 0.6rem;
+    min-height: 8rem;
+}
+
+.board-column-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.board-column-head h3 {
+    font-size: 0.85rem;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted, #6b7280);
+}
+
+.board-count {
+    font-size: 0.75rem;
+    color: var(--muted, #6b7280);
+}
+
+.board-column-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-height: 3rem;
+}
+
+.board-card {
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-left: 3px solid var(--accent, #6366f1);
+    border-radius: 8px;
+    padding: 0.5rem 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.board-column-done .board-card,
+.board-column-cancelled .board-card {
+    opacity: 0.75;
+}
+
+.board-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.board-ref {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72rem;
+    color: var(--muted, #6b7280);
+}
+
+.board-card-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.board-card-title {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.25;
+}
+
+.board-card-content {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--muted, #4b5563);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 7rem;
+    overflow: auto;
+}
+
+.board-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.board-chip {
+    font-size: 0.7rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    background: var(--surface-alt, #eef2ff);
+    color: var(--text, #3730a3);
+}
+
+.board-priority-urgent {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.board-priority-high {
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.board-priority-medium {
+    background: #e0f2fe;
+    color: #075985;
+}
+
+.board-priority-low {
+    background: #ecfdf5;
+    color: #065f46;
+}
+
+.board-label {
+    background: var(--surface-alt, #f3f4f6);
+    color: var(--muted, #374151);
+}
+
+.board-card-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.board-card-links a {
+    font-size: 0.72rem;
+    word-break: break-all;
+}
+
+.board-move {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.7rem;
+    color: var(--muted, #6b7280);
+}
+
+.board-move select {
+    font-size: 0.72rem;
+    padding: 0.1rem 0.25rem;
+}
+
+.board-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    background: var(--surface, #ffffff);
+    border: 1px dashed var(--border, #c7d2fe);
+    border-radius: 8px;
+    padding: 0.6rem;
+}
+
+.board-form-actions {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    padding: 0.1rem 0.2rem;
+    color: var(--accent, #4f46e5);
+    cursor: pointer;
+    font-size: 0.72rem;
+}
+
+.board-danger {
+    color: #b91c1c;
+}
+
+.board-add {
+    width: 100%;
+    font-size: 0.75rem;
+}
+
+.board-empty {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--muted, #9ca3af);
+    font-style: italic;
+}
+
+.board-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 2rem 0;
+}
+
+.board-error {
+    color: #b91c1c;
+    font-size: 0.8rem;
+}
+
+@media (max-width: 1100px) {
+    .board-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .board-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .board-field textarea {
+        min-width: 100%;
+    }
+}

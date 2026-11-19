@@ -32,6 +32,13 @@ EXPECTED = {
     ("fs", "info"),
     ("web", "fetch_content"),
     ("bash", "execute"),
+    ("board", "create_project"),
+    ("board", "archive_project"),
+    ("board", "create_entry"),
+    ("board", "get_entry"),
+    ("board", "update_entry"),
+    ("board", "update_status"),
+    ("board", "delete_entry"),
 }
 
 

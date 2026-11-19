@@ -12,6 +12,7 @@ Command mapping:
 - ``mcp --transport sse`` -> ``gateway --sse``
 - ``mcp`` (stdio or no transport) -> ``mcp --transport stdio``
 - ``gateway``, ``local-hub``, ``hub-shim``, ``keys`` -> unchanged
+- ``admin`` -> served by the Hub itself, not translated
 
 Usage:
     toolregistry-hub openapi [OPTIONS]
@@ -20,6 +21,7 @@ Usage:
     toolregistry-hub local-hub [OPTIONS]
     toolregistry-hub hub-shim [OPTIONS]
     toolregistry-hub keys [OPTIONS]
+    toolregistry-hub admin [OPTIONS]
 """
 
 from __future__ import annotations
@@ -79,7 +81,18 @@ _LOCAL_HUB_VALUE_OPTIONS = frozenset(
 _LOCAL_HUB_ACTIONS = ("run", "ensure", "stop", "status")
 
 #: Commands the launcher knows how to translate or pass through.
-COMMANDS = ("openapi", "mcp", "gateway", "local-hub", "hub-shim", "keys")
+COMMANDS = (
+    "openapi",
+    "mcp",
+    "gateway",
+    "local-hub",
+    "hub-shim",
+    "keys",
+    "admin",
+)
+
+#: Commands served by the Hub itself rather than forwarded to the server.
+LOCAL_COMMANDS = ("admin",)
 
 #: Commands whose sub-parser accepts ``--config``.
 _CONFIG_COMMANDS = ("openapi", "mcp", "gateway", "local-hub", "hub-shim")
@@ -333,6 +346,7 @@ commands:
   local-hub   Run a resident gateway shared by local clients (POSIX only)
   hub-shim    Expose one local hub to a stdio MCP client (POSIX only)
   keys        Manage inbound API keys
+  admin       Serve the admin panel and the kanban tab in its own process
 
 hub options (accepted before or after the command):
   --admin-port PORT            Enable the core admin panel on PORT
@@ -412,7 +426,7 @@ def _print_hub_banner() -> None:
     print_banner(version=version, banner_art=BANNER_ART, extra_lines=extra_lines)
 
 
-def main(args: list[str] | None = None) -> NoReturn | None:
+def main(args: list[str] | None = None) -> NoReturn | int | None:
     """Run the Hub launcher.
 
     Args:
@@ -440,6 +454,15 @@ def main(args: list[str] | None = None) -> NoReturn | None:
         return None
 
     rest = argv[argv.index(command) + 1 :]
+    if command in LOCAL_COMMANDS:
+        # ``admin`` is served by the Hub process itself: there is no server
+        # subcommand to translate it into.
+        from .admin_cli import run_admin
+
+        if not options.no_banner and not _help_requested(argv):
+            _print_hub_banner()
+        return run_admin(rest)
+
     translated = _inject_config(_translate(command, rest))
     # The Hub prints its own banner; the server must not print a second one.
     translated.insert(0, "--no-banner")
