@@ -35,6 +35,8 @@ ToolRegistry Hub is a Python library that provides various utility tools designe
 - File System Tools - Provides file system operation functions
 - Web Search Tools - Provides web search functionality
 - Unit Converter Tools - Provides conversions between various units
+- Kanban Board Tools - Project-scoped task tracking with an admin panel
+- Kanban Board Tools - Project-scoped task tracking with an admin panel
 - Other Tools - Other utility tools
 - Server Mode - REST API and MCP server
 - Docker Deployment - Docker containerization deployment

@@ -265,3 +265,116 @@ def test_utc_now_is_timezone_aware():
     stamp = utc_now()
     assert stamp.endswith("+00:00")
     assert os.path.sep not in stamp
+
+
+class TestReviewRegressions:
+    """Cases raised in the PR #274 review."""
+
+    def test_update_on_deleted_entry_is_refused(self, store: BoardStore):
+        store.create_project("Kanban", key="KAN")
+        store.create_entry("KAN", "one")
+        store.delete_entry("KAN-1")
+        with pytest.raises(BoardNotFound):
+            store.update_entry("KAN-1", title="changed")
+        with pytest.raises(BoardNotFound):
+            store.update_status("KAN-1", "done")
+
+    def test_closed_at_moves_only_on_a_transition(self, store: BoardStore):
+        store.create_project("Kanban", key="KAN")
+        store.create_entry("KAN", "one")
+        done = store.update_status("KAN-1", "done")
+        stamp = done["closed_at"]
+        assert stamp is not None
+
+        # A title edit keeps the original close time.
+        edited = store.update_entry("KAN-1", title="renamed")
+        assert edited["closed_at"] == stamp
+
+        # Re-saving the same status keeps it too, including through the
+        # combined update path the admin panel uses.
+        again = store.update_entry("KAN-1", title="again", status="done")
+        assert again["closed_at"] == stamp
+
+        # Reopening clears it; closing again stamps a fresh value.
+        reopened = store.update_status("KAN-1", "todo")
+        assert reopened["closed_at"] is None
+        reclosed = store.update_status("KAN-1", "done")
+        assert reclosed["closed_at"] is not None
+
+    def test_force_deleted_key_keeps_its_sequence(self, store: BoardStore):
+        store.create_project("Sequence", key="SEQ")
+        store.create_entry("SEQ", "one")
+        store.create_entry("SEQ", "two")
+        store.create_entry("SEQ", "three")
+        store.archive_project("SEQ", force=True)
+
+        recreated = store.create_project("Sequence again", key="SEQ")
+        assert recreated["key"] == "SEQ"
+        assert store.create_entry("SEQ", "four")["id"] == "SEQ-4"
+
+    def test_derived_key_collisions_terminate(self, store: BoardStore):
+        keys = [store.create_project("Kanban")["key"] for _ in range(5)]
+        assert keys == ["K", "K2", "K3", "K4", "K5"]
+
+    def test_archived_project_refuses_writes(self, store: BoardStore):
+        store.create_project("Kanban", key="KAN")
+        store.create_entry("KAN", "one")
+        store.archive_project("KAN")
+        with pytest.raises(BoardValidation):
+            store.create_entry("KAN", "two")
+        with pytest.raises(BoardValidation):
+            store.update_status("KAN-1", "done")
+        with pytest.raises(BoardValidation):
+            store.update_entry("KAN-1", title="changed")
+        # Reads and deletion of existing work still work.
+        assert [e["id"] for e in store.list_entries(project="KAN")] == ["KAN-1"]
+        assert store.delete_entry("KAN-1")["deleted"] is True
+
+    def test_created_and_updated_differ_within_a_second(self, store: BoardStore):
+        store.create_project("Kanban", key="KAN")
+        created = store.create_entry("KAN", "one")
+        updated = store.update_entry("KAN-1", content="x")
+        assert updated["updated_at"] != created["created_at"]
+
+    def test_concurrent_creates_allocate_unique_sequences(self, store: BoardStore):
+        import threading
+
+        store.create_project("Kanban", key="KAN")
+        ids: list[str] = []
+        lock = threading.Lock()
+
+        def worker() -> None:
+            for _ in range(10):
+                entry = store.create_entry("KAN", "task")
+                with lock:
+                    ids.append(entry["id"])
+
+        threads = [threading.Thread(target=worker) for _ in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert len(ids) == 80
+        assert len(set(ids)) == 80
+        assert sorted(int(item.split("-")[1]) for item in ids) == list(range(1, 81))
+
+    def test_cold_start_from_several_processes_succeeds(self, tmp_path: Path):
+        import threading
+
+        path = tmp_path / "cold" / "board.sqlite3"
+        errors: list[BaseException] = []
+
+        def worker() -> None:
+            try:
+                BoardStore(path).list_projects()
+            except BaseException as exc:  # noqa: BLE001 - surfaced by the assert
+                errors.append(exc)
+
+        threads = [threading.Thread(target=worker) for _ in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert errors == []

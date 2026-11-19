@@ -10,7 +10,7 @@ ToolRegistry Hub 服务器支持 **MCP (Model Context Protocol)** 和 **OpenAPI*
 
 ## 主要特性
 
-- 计算器、日期时间、网络搜索 (Brave/SearXNG/Tavily/Google)、文件操作、思考工具、待办列表、网页抓取等。
+- 计算器、日期时间、网络搜索 (Brave/SearXNG/Tavily/Google)、文件操作、思考工具、看板、网页抓取等。
 - 完整列表：[文档](https://toolregistry-hub.readthedocs.io/zh-cn/latest/)。
 
 ## Docker 快速命令

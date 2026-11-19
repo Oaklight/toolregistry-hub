@@ -20,15 +20,34 @@ from __future__ import annotations
 
 import functools
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
 from .store import (
+    SCHEMA_VERSION,
     STATUSES,
     BoardConflict,
     BoardNotFound,
+    BoardStorageError,
     BoardStore,
     BoardValidation,
+)
+
+#: Fields an entry write may carry.  Timestamps are server-owned, so they are
+#: rejected here rather than silently ignored.
+WRITABLE_FIELDS = frozenset(
+    {
+        "project",
+        "title",
+        "content",
+        "status",
+        "priority",
+        "due",
+        "labels",
+        "assignee",
+        "links",
+    }
 )
 
 #: Extension name: URL segment and asset directory key.
@@ -67,6 +86,8 @@ def _guard(handler: Any) -> Any:
             return _error(404, "Not Found", str(exc))
         except BoardValidation as exc:
             return _error(400, "Bad Request", str(exc))
+        except (BoardStorageError, sqlite3.Error) as exc:
+            return _error(503, "Service Unavailable", str(exc))
         except ValueError as exc:
             return _error(400, "Bad Request", str(exc))
 
@@ -84,6 +105,37 @@ def _json_body(request: Any) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise BoardValidation("Body must be a JSON object")
     return data
+
+
+def _reject_unknown(body: dict[str, Any], allowed: frozenset[str]) -> None:
+    """Reject request keys outside *allowed*.
+
+    Timestamps live in the same namespace as writable fields, so a silent
+    drop would hide an attempt to set one.  Both write handlers apply this
+    rule, which keeps ``POST`` and ``PATCH`` symmetric.
+
+    Args:
+        body: The decoded JSON object.
+        allowed: Field names the handler accepts.
+
+    Raises:
+        BoardValidation: If the body carries an unknown key.
+    """
+    unknown = set(body) - allowed
+    if unknown:
+        raise BoardValidation(
+            f"unsupported fields: {', '.join(sorted(map(str, unknown)))}"
+        )
+
+
+def _text(value: Any) -> str:
+    """Return a string field, treating ``null`` as empty."""
+    return "" if value is None else str(value)
+
+
+def _optional_text(value: Any) -> str | None:
+    """Return an optional string field, treating ``null`` as absent."""
+    return None if value is None else str(value)
 
 
 def _flag(request: Any, name: str) -> bool:
@@ -163,7 +215,7 @@ class BoardAdminExtension:
     def meta(self, request: Any) -> dict[str, Any]:
         """Return the panel's schema and, on loopback, the database path."""
         payload: dict[str, Any] = {
-            "schema_version": 1,
+            "schema_version": SCHEMA_VERSION,
             "columns": list(COLUMNS),
         }
         if self._expose_path:
@@ -230,17 +282,22 @@ class BoardAdminExtension:
 
     @_guard
     def create_entry(self, request: Any) -> tuple[dict[str, Any], int]:
-        """Create an entry from a JSON object."""
+        """Create an entry from a JSON object.
+
+        Unknown fields are rejected, matching ``PATCH``: a timestamp in the
+        body is an error rather than something silently dropped.
+        """
         body = _json_body(request)
+        _reject_unknown(body, WRITABLE_FIELDS)
         entry = self._store.create_entry(
             project=str(body.get("project", "")),
-            title=str(body.get("title", "")),
-            content=str(body.get("content", "") or ""),
-            status=str(body.get("status", "todo") or "todo"),
-            priority=str(body.get("priority", "medium") or "medium"),
-            due=None if body.get("due") in (None, "") else str(body["due"]),
+            title=str(body.get("title", "") or ""),
+            content=_text(body.get("content")),
+            status=str(body.get("status") or "todo"),
+            priority=str(body.get("priority") or "medium"),
+            due=_optional_text(body.get("due")),
             labels=body.get("labels"),
-            assignee=str(body.get("assignee", "") or ""),
+            assignee=_text(body.get("assignee")),
             links=body.get("links"),
         )
         return {"entry": entry}, 201
@@ -252,38 +309,32 @@ class BoardAdminExtension:
 
     @_guard
     def update_entry(self, request: Any, ref: str) -> dict[str, Any]:
-        """Update any editable field; timestamps are never accepted."""
+        """Update any editable field in one transaction.
+
+        Semantics, uniform across fields: an omitted key or ``null`` leaves
+        the field unchanged, an empty string or empty list clears it, and
+        ``title`` cannot be cleared.  Timestamps are rejected: they belong to
+        the server.  ``status`` is validated together with the other fields,
+        so a bad status leaves the entry untouched.
+        """
         body = _json_body(request)
-        allowed = {
-            "title",
-            "content",
-            "status",
-            "priority",
-            "due",
-            "labels",
-            "assignee",
-            "links",
-        }
-        unknown = set(body) - allowed
-        if unknown:
-            raise BoardValidation(
-                f"unsupported fields: {', '.join(sorted(map(str, unknown)))}"
-            )
+        allowed = WRITABLE_FIELDS - {"project"}
+        _reject_unknown(body, allowed)
         if not body:
             raise BoardValidation("at least one field is required")
-        fields: dict[str, Any] = {}
-        for key in ("title", "content", "priority", "assignee"):
-            if key in body:
-                fields[key] = None if body[key] is None else str(body[key])
-        if "due" in body:
-            fields["due"] = None if body["due"] is None else str(body["due"])
-        for key in ("labels", "links"):
-            if key in body:
-                fields[key] = body[key]
-        status = body.get("status")
-        entry = self._store.update_entry(ref, **fields)
-        if status is not None:
-            entry = self._store.update_status(ref, str(status))
+        if body.get("title", "x") is None:
+            raise BoardValidation("title cannot be null; omit it to leave it unchanged")
+        entry = self._store.update_entry(
+            ref,
+            title=None if body.get("title") is None else str(body["title"]),
+            content=None if body.get("content") is None else str(body["content"]),
+            status=None if body.get("status") is None else str(body["status"]),
+            priority=None if body.get("priority") is None else str(body["priority"]),
+            due=None if body.get("due") is None else str(body["due"]),
+            labels=body.get("labels"),
+            assignee=(None if body.get("assignee") is None else str(body["assignee"])),
+            links=body.get("links"),
+        )
         return {"entry": entry}
 
     @_guard

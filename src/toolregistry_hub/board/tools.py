@@ -444,8 +444,9 @@ class BoardTools:
             status: The destination status or a documented alias.
 
         Returns:
-            The updated entry.  Moving to ``done`` or ``cancelled`` sets
-            ``closed_at``; moving back out of them clears it.
+            The updated entry.  ``closed_at`` changes only on a transition:
+            entering ``done`` or ``cancelled`` stamps it, staying in that
+            state keeps the original value, and reopening clears it.
         """
         return cast(EntryResult, self._store.update_status(ref, status))
 
@@ -473,9 +474,11 @@ class BoardTools:
     def delete_entry(self, ref: str) -> EntryDeleted:
         """Soft-delete an entry.
 
-        A deleted entry keeps its id and its history; the sequence number is
-        never reused.  Deleting twice is an error rather than a silent no-op,
-        so a mistyped reference is visible.
+        A deleted entry keeps its id and its history.  The sequence number is
+        never reused: a project force-deleted and recreated with the same key
+        continues from the retired sequence, so an old ref cannot resolve to
+        a different entry.  Deleting twice is an error rather than a silent
+        no-op, so a mistyped reference is visible.
 
         Args:
             ref: Entry id such as ``KAN-12``.
