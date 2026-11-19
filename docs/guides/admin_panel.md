@@ -121,8 +121,14 @@ The tab talks to these routes under `/ext/board`:
 | DELETE | `/entries/<ref>` | Soft delete |
 | GET | `/meta` | Schema version and, on loopback, the database path |
 
-`PATCH` rejects timestamp fields: `created_at`, `updated_at`, `closed_at` and
-`deleted_at` are server-owned.
+Both write routes reject unknown fields, so `created_at`, `updated_at`,
+`closed_at` and `deleted_at` are refused rather than silently dropped.
+
+`PATCH` field semantics are uniform: an omitted key or `null` leaves the field
+unchanged, an empty string or empty list clears it, and `title` cannot be
+cleared. `status` is validated together with the other fields, so a request
+carrying a bad status writes nothing. A storage failure answers 503 with the
+panel's JSON error shape.
 
 ## See also
 
