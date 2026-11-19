@@ -61,6 +61,38 @@ Using AI tools (e.g. Claude, Cursor, Copilot) to assist with development is welc
 - Comments and docstrings in English
 - Type hints are encouraged
 
+## Checking that a PR is a pure move
+
+A PR that only moves code (splitting a module, relocating methods) should
+change no definition. A reviewer cannot see a dropped `@classmethod` in a large
+move, so compare the two sides by AST:
+
+```bash
+python scripts/dev/check_move.py origin/master          # head defaults to HEAD
+python scripts/dev/check_move.py origin/master --markdown   # paste into the PR body
+```
+
+The tool compares every function, method, class and class-level assignment of
+the changed files by qualified name (and by bare name when a method changes
+class), including decorators, arguments, annotations, body and docstring.
+Comments and formatting are ignored. Files under `_vendor/` are skipped. It
+exits nonzero on a def that is `missing` or `moved-with-diff`. It also fails on
+a changed census of `@staticmethod`, `@classmethod` and `@property` decorators
+over the changed files, and on `undefined-global`: a moved function that reads
+a module-level name (a lost `logger` or constant) its new module does not
+define. Added `if TYPE_CHECKING:` stubs, a module-level import of a name that
+used to be imported inside the function, and `getLogger(__name__)` becoming
+`getLogger("<old module name>")` are reported but do not fail.
+
+Record an intended difference with a reason in a file of `qualified.name  reason`
+lines and pass it with `--allow FILE` (use `undefined-global:<name>` or
+`decorator-census:<decorator>` for those two checks).
+
+CI runs the same check, as the `Pure move` workflow, on pull requests that
+carry the `pure-move` label, and reads `.github/pure-move-allow.txt` when it
+exists. Apply the label only to a PR you claim is a pure move. A `refactor:`
+PR that changes behaviour on purpose does not get the label.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).

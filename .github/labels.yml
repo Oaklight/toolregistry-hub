@@ -41,6 +41,9 @@
 - name: "research"
   color: "0F766E"
   description: "Investigation, specification research"
+- name: "pure-move"
+  color: "57606A"
+  description: "PR only moves code; runs the pure-move CI check"
 
 # === Priority labels — at most one per issue ===
 - name: "priority:critical"
