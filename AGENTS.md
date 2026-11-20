@@ -75,8 +75,8 @@ src/toolregistry_hub/
 ├── server/
 │   ├── cli.py               # Launcher: Hub argv -> toolregistry-server CLI
 │   ├── registry.py          # build_registry() — registration + auto-disable
-│   ├── tool_config.py       # JSONC config loading (tools.jsonc)
-│   ├── auth.py              # Token auth helpers
+│   ├── app.py               # HubApp — toolregistry_server.App subclass
+│   ├── admin_cli.py         # `toolregistry-hub admin` panel and its bearer token
 │   └── banner.py            # Startup banner art
 ├── utils/
 │   ├── configurable.py      # Configurable protocol (structural subtyping)
