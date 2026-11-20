@@ -86,3 +86,14 @@
 - name: "area:websearch"
   color: "2F6B4F"
   description: "Web search engines (brave, tavily, searxng, etc.)"
+
+# === Repo-specific labels — on GitHub already, not part of the shared taxonomy ===
+- name: "P1"
+  color: "ededed"
+  description: ""
+- name: "upstream-compat"
+  color: "ededed"
+  description: ""
+- name: "zerodep"
+  color: "ededed"
+  description: ""
