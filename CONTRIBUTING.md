@@ -52,40 +52,55 @@ highest.
 For a pure move, state the mechanical proof in the template: the summary of
 `python scripts/dev/check_move.py origin/master --markdown` (when
 `scripts/dev/check_move.py` exists) and a passing `ty` hook from
-`pre-commit run --all-files`.
+`pre-commit run --all-files`. Give the equivalent evidence by hand only where a
+tool cannot run.
 
 ### Who reviews what
 
 Reviewer assignment follows the path, not the author's choice. The repository
 has no `CODEOWNERS` file, so ask the maintainer (`@Oaklight`) to assign the
-reviewer for the area. The areas follow
-the repository's `area:*` labels (`.github/labels.yml`):
+reviewer for the area. The areas follow the repository's `area:*` labels
+(`.github/labels.yml`). Every path below exists in the tree
+(`git ls-files`); the security-relevant rows name the module that holds the
+behaviour.
 
 | Paths under `src/toolregistry_hub/` | Area |
 | --- | --- |
-| `bash_tool.py`, `bashtool/` | `area:bash`: bash tool. Tags `DESTRUCTIVE`, `PRIVILEGED`: security-relevant tier. |
-| `fetch.py` | `area:fetch`: web content fetching and extraction |
-| `file_ops.py`, `file_search.py`, `file_reader.py`, `path_info.py`, `gitignore.py` | `area:file-ops`. `file_ops.py` is tagged `DESTRUCTIVE`: security-relevant tier. |
-| `server/` | `area:server`: launcher, registry, routing. `server/auth.py` (token auth helpers) is security-relevant. |
-| `calculator.py`, `datetime_utils.py`, `weather.py`, `unit_converter.py`, `think_tool.py`, `cron_tool.py` | `area:utilities`. `cron_tool.py` is tagged `PRIVILEGED`: security-relevant tier. |
-| `websearch/` | `area:websearch`: web search engines |
+| `url_policy.py`, `fetch.py` | **Security-relevant**, outbound network access. `url_policy.py` decides which URLs `fetch` may reach (scheme check; the address decision is in `toolregistry.netpolicy`); `fetch.py` applies it. Label `area:fetch`. |
+| `server/admin_cli.py` | **Security-relevant**, authentication. Resolves the admin panel's bearer token and refuses a non-loopback host without one. Label `area:server`. |
+| `bash_tool.py`, `bashtool/` | **Security-relevant**, `area:bash`. `BashTool` is tagged `DESTRUCTIVE` and `PRIVILEGED` in `bash_tool.py`. `bashtool/` is a git submodule (`Oaklight/bashtool`): a PR here changes the pinned commit. |
+| `file_ops.py` | **Security-relevant**, `area:file-ops`. Tagged `DESTRUCTIVE` in the module. |
+| `cron_tool.py` | **Security-relevant**, `area:utilities`. Tagged `PRIVILEGED` in the module. |
+| `file_search.py`, `file_reader.py`, `path_info.py`, `gitignore.py` | `area:file-ops` |
+| `server/` (other files: `cli.py`, `registry.py`, `app.py`, `banner.py`) | `area:server`: launcher, registry, app |
+| `websearch/`, `utils/api_key_parser.py` | `area:websearch`: search engines and the API key rotation they use |
+| `calculator.py`, `datetime_utils.py`, `weather.py`, `unit_converter.py`, `think_tool.py` | `area:utilities` |
+| `_vendor/` | Never edit by hand. These modules are vendored from zerodep with hashes in `_vendor/zerodep.lock.json`: re-vendor from upstream and review the re-vendor diff. |
 | `.github/`, `docker/`, `scripts/`, `Makefile`, `pyproject.toml`, `.pre-commit-config.yaml` | `area:infra`: CI, build, packaging, Docker |
 
-Any other path (`board/`, `academics/`, `data/`): ask the maintainer.
+Any other path (`board/`, `academics/`, `data/`, `version_check.py`,
+`_metadata.py`, `utils/` other than `api_key_parser.py`) has no `area:*`
+label: ask the maintainer. `board/tools.py` carries `DESTRUCTIVE` tags, so
+treat a change there as at least runtime-behaviour.
 
 ### Series and overlap
 
 Before you open a PR, run the overlap check:
 
 ```bash
-python scripts/dev/pr_overlap.py            # current branch against origin/master
+python scripts/dev/pr_overlap.py            # current branch against the remote default branch
 python scripts/dev/pr_overlap.py --local    # also other local branches
-python scripts/dev/pr_overlap.py --fail-on-overlap   # exit 1 on overlap
+python scripts/dev/pr_overlap.py --fail-on-overlap   # gate: 1 overlap, 2 unverified
 ```
 
-It lists every open PR that touches the same files. It needs the `gh` CLI and
-always exits 0 unless you pass `--fail-on-overlap`. When `gh` or git fails, it
-says the overlap is unverified and still exits 0.
+It lists every open PR that touches the same files, and leaves out the PR of
+the branch itself (matched by branch name, by head commit, or by
+`$GITHUB_HEAD_REF`), so `--head HEAD` or a SHA works in a detached checkout. The
+base defaults to `origin/HEAD`, then `origin/main`, then `origin/master`. The
+tool needs the `gh` CLI and exits 0 unless you pass `--fail-on-overlap`. That
+gate exits 1 on overlap and 2 when the check could not complete (`gh` missing or
+failing, bad output, no base branch found, or 200 open PRs so the list may be
+truncated); a gate does not pass on a check that did not finish.
 
 If a PR overlaps, merge a series one PR at a time and rebase the rest after
 each merge.
