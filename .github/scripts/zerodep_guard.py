@@ -118,6 +118,17 @@ def parse_status(directory, payload):
             f"zerodep status --json in {directory} has no 'modules' list; "
             "the CLI output changed"
         )
+    if not modules:
+        raise SystemExit(
+            f"zerodep status --json in {directory} found no modules; "
+            "check the vendor-dir path"
+        )
+    if status.get("lock") is not True:
+        print(
+            f"::warning::zerodep status in {directory} found no lock file; "
+            "modules are unverified and will not be updated",
+            file=sys.stderr,
+        )
     for index, row in enumerate(modules):
         if not isinstance(row, dict):
             raise SystemExit(
