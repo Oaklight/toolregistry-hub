@@ -36,6 +36,7 @@ MANUAL_STATES = {
     "unverified",
     "upstream-removed",
 }
+REQUIRED_ROW_KEYS = {"name", "state", "installed_version", "latest_version"}
 
 
 def version_key(value):
@@ -98,6 +99,40 @@ def require_vendor_config(directory):
         raise SystemExit(f"no [tool.zerodep] vendor-dir in {pyproject}")
 
 
+def parse_status(directory, payload):
+    """Validate the ``zerodep status --json`` schema and return its rows.
+
+    A renamed key would otherwise turn every comparison into ``unknown`` and
+    leave the run green while updating nothing, so an unexpected shape is a
+    hard failure.
+    """
+    try:
+        status = json.loads(payload)
+    except json.JSONDecodeError as error:
+        raise SystemExit(
+            f"zerodep status --json failed in {directory}: {error}"
+        ) from error
+    modules = status.get("modules") if isinstance(status, dict) else None
+    if not isinstance(modules, list):
+        raise SystemExit(
+            f"zerodep status --json in {directory} has no 'modules' list; "
+            "the CLI output changed"
+        )
+    for index, row in enumerate(modules):
+        if not isinstance(row, dict):
+            raise SystemExit(
+                f"zerodep status --json in {directory}: module {index} is not an object"
+            )
+        missing = REQUIRED_ROW_KEYS - row.keys()
+        if missing:
+            names = ", ".join(sorted(missing))
+            raise SystemExit(
+                f"zerodep status --json in {directory}: module {index} lacks "
+                f"{names}; the CLI output changed"
+            )
+    return modules
+
+
 def run_status(directory):
     """Return the module rows from ``zerodep status --json`` in *directory*."""
     require_vendor_config(directory)
@@ -113,7 +148,7 @@ def run_status(directory):
         raise SystemExit(
             f"zerodep status failed in {directory} (rc={result.returncode})"
         )
-    return json.loads(result.stdout)["modules"]
+    return parse_status(directory, result.stdout)
 
 
 def classify(rows):
