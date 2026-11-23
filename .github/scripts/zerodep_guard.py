@@ -73,8 +73,34 @@ def compare_versions(left, right):
     return (left_key > right_key) - (left_key < right_key)
 
 
+def require_vendor_config(directory):
+    """Fail when *directory* has no ``[tool.zerodep] vendor-dir``.
+
+    Without it the CLI scans the current directory, which can be a different
+    tree than intended, or reports nothing and leaves the job green.  The
+    check reads the text instead of parsing TOML so the script runs on the
+    older Python interpreters used by tests.
+    """
+    pyproject = Path(directory) / "pyproject.toml"
+    if not pyproject.is_file():
+        raise SystemExit(f"no pyproject.toml in {directory}")
+    in_section = False
+    has_vendor_dir = False
+    for line in pyproject.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            in_section = stripped == "[tool.zerodep]"
+            continue
+        if in_section and stripped.startswith("vendor-dir"):
+            has_vendor_dir = True
+            break
+    if not has_vendor_dir:
+        raise SystemExit(f"no [tool.zerodep] vendor-dir in {pyproject}")
+
+
 def run_status(directory):
     """Return the module rows from ``zerodep status --json`` in *directory*."""
+    require_vendor_config(directory)
     result = subprocess.run(
         ["zerodep", "status", "--json"],
         cwd=directory,
@@ -102,6 +128,9 @@ def classify(rows):
     }
     for row in rows:
         state = row.get("state")
+        if row.get("missing_deps"):
+            groups["manual"].append(row)
+            continue
         if state == "up-to-date":
             continue
         if state == "missing":
@@ -186,14 +215,16 @@ def append_sections(lines, groups):
         lines.append("")
     if groups["manual"]:
         lines.append("**Needs a human decision**")
-        lines.extend(
-            f"- {row['name']}: `{row.get('state')}`" for row in groups["manual"]
-        )
+        for row in groups["manual"]:
+            detail = f"`{row.get('state')}`"
+            if row.get("missing_deps"):
+                detail += " missing deps: " + ", ".join(row["missing_deps"])
+            lines.append(f"- {row['name']}: {detail}")
         lines.append("")
 
 
-def emit_warnings(newer, unknown):
-    """Write one GitHub annotation per protected module."""
+def emit_warnings(newer, unknown, manual):
+    """Write one GitHub annotation per module that needs attention."""
     for row in newer:
         locked = row.get("installed_version") or "\u2014"
         latest = row.get("latest_version") or "\u2014"
@@ -208,6 +239,14 @@ def emit_warnings(newer, unknown):
         print(
             f"::warning::{row['name']}: cannot compare locked {locked} with "
             f"upstream {latest}; skipped",
+            file=sys.stderr,
+        )
+    for row in manual:
+        detail = row.get("state")
+        if row.get("missing_deps"):
+            detail = f"{detail}, missing deps: {', '.join(row['missing_deps'])}"
+        print(
+            f"::warning::{row['name']}: {detail}; needs a human decision",
             file=sys.stderr,
         )
 
@@ -253,7 +292,7 @@ def inspect(plan_path, summary_path, directories):
     }
     if not found_any:
         lines.extend(("All installed modules are up to date.", ""))
-    emit_warnings(newer, unknown)
+    emit_warnings(newer, unknown, manual)
 
     Path(plan_path).write_text(json.dumps(plan), encoding="utf-8")
     with open(summary_path, "a", encoding="utf-8") as summary:
@@ -286,6 +325,7 @@ def verify(plan_path, summary_path):
     """Fail when a target stayed outdated or a locked version decreased."""
     plan = json.loads(Path(plan_path).read_text(encoding="utf-8"))
     problems = []
+    restored_notes = []
     checked = 0
     for directory, entry in plan["dirs"].items():
         if not entry["updatable"]:
@@ -302,9 +342,22 @@ def verify(plan_path, summary_path):
                 acceptable.add("locally-modified")
             if state not in acceptable:
                 problems.append(f"{directory}: {name} is {state}")
+            elif row and row.get("missing_deps"):
+                problems.append(
+                    f"{directory}: {name} is missing {', '.join(row['missing_deps'])}"
+                )
             checked += 1
         for row in entry["before"]:
             if row["name"] in restored:
+                new = after.get(row["name"])
+                old_key = version_key(row.get("installed_version"))
+                new_key = version_key(new.get("installed_version")) if new else None
+                if old_key is not None and new_key is not None and new_key != old_key:
+                    restored_notes.append(
+                        f"{directory}: {row['name']} reinstalled at "
+                        f"{new.get('installed_version')} (lock had "
+                        f"{row.get('installed_version')})"
+                    )
                 continue
             new = after.get(row["name"])
             if new is None:
@@ -321,9 +374,11 @@ def verify(plan_path, summary_path):
         raise SystemExit("zerodep guard failed:\n  " + "\n  ".join(problems))
     with open(summary_path, "a", encoding="utf-8") as summary:
         summary.write(
-            f"\nUpdate verified: {checked} module(s) up to date; no locked "
-            "version decreased.\n"
+            f"\nUpdate verified: {checked} module(s) up to date; no unexpected "
+            "locked version decreased.\n"
         )
+        for note in restored_notes:
+            summary.write(f"- {note}\n")
 
 
 def main(argv):
