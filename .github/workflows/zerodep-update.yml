@@ -26,76 +26,28 @@ jobs:
           python-version: "3.12"
 
       - name: Install zerodep CLI
-        # The lock file needs a CLI that understands it (2026.10.23.1+).
+        # The lock file needs 2026.10.23.1+. The guard script checks versions
+        # itself, so an older CLI still cannot downgrade a module.
         run: pip install 'zerodep>=2026.10.23.1'
 
       - name: Inspect vendored modules
         id: state
         run: |
-          zerodep status --json > "$RUNNER_TEMP/zerodep-before.json"
-          python3 - "$RUNNER_TEMP/zerodep-before.json" <<'PY' >> "$GITHUB_OUTPUT"
-          import json
-          import sys
+          python3 .github/scripts/zerodep_guard.py inspect \
+            "$RUNNER_TEMP/zerodep-plan.json" "$GITHUB_STEP_SUMMARY" \
+            . >> "$GITHUB_OUTPUT"
 
-          rows = json.load(open(sys.argv[1]))["modules"]
-          updatable = [r for r in rows if r["state"] in ("outdated", "missing")]
-          manual = [
-              r
-              for r in rows
-              if r["state"]
-              in ("locally-modified", "conflict", "unverified", "upstream-removed")
-          ]
-          print(f"has_updates={'true' if updatable else 'false'}")
-          lines = [
-              f"- {r['name']}: {r['installed_version']} -> "
-              f"{r['latest_version']} (`{r['state']}`)"
-              for r in updatable
-          ]
-          lines += [
-              f"- {r['name']}: `{r['state']}` — needs a human decision"
-              for r in manual
-          ]
-          print("modules<<EOF")
-          print("\n".join(lines))
-          print("EOF")
-          PY
-
-      - name: Report modules that need a human
-        if: steps.state.outputs.has_updates == 'false'
-        run: |
-          echo "::warning::No automatic update possible; see the state table below."
-          zerodep status
-
-      - name: Update modules
-        if: steps.state.outputs.has_updates == 'true'
-        # Exits 1 when it skipped a module it will not touch without --force;
-        # that is expected here, so the verification step below decides
-        # whether the update actually failed.
-        run: zerodep update --all || true
-
-      - name: Verify the update landed
+      - name: Update safe modules
         if: steps.state.outputs.has_updates == 'true'
         run: |
-          zerodep status --json > "$RUNNER_TEMP/zerodep-after.json"
-          python3 - "$RUNNER_TEMP/zerodep-before.json" \
-            "$RUNNER_TEMP/zerodep-after.json" <<'PY'
-          import json
-          import sys
+          python3 .github/scripts/zerodep_guard.py update \
+            "$RUNNER_TEMP/zerodep-plan.json"
 
-          def states(path):
-              rows = json.load(open(path))["modules"]
-              return {r["name"]: r["state"] for r in rows}
-
-          before, after = states(sys.argv[1]), states(sys.argv[2])
-          stuck = [
-              name
-              for name, state in before.items()
-              if state in ("outdated", "missing")
-              and after.get(name) != "up-to-date"
-          ]
-          if stuck:
-              raise SystemExit(f"update did not bring these modules up to date: {stuck}")
-          PY
+      - name: Verify nothing was downgraded
+        if: steps.state.outputs.has_updates == 'true'
+        run: |
+          python3 .github/scripts/zerodep_guard.py verify \
+            "$RUNNER_TEMP/zerodep-plan.json" "$GITHUB_STEP_SUMMARY"
 
       - name: Create or update Pull Request
         if: steps.state.outputs.has_updates == 'true'
@@ -107,9 +59,9 @@ jobs:
           body: |
             Automated update of vendored zerodep modules.
 
-            The committed `zerodep.lock.json` records what is installed and
-            lets the next run tell an upstream change from a local edit, so a
-            patched file is never overwritten automatically.
+            The workflow updates only modules whose locked version is not
+            newer than upstream. Modules it skipped, and modules whose content
+            changed without a version change, are listed below.
 
             ${{ steps.state.outputs.modules }}
           labels: dependencies,zerodep
